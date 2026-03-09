@@ -10,9 +10,10 @@
     "type-check": "tsc --noEmit",
     "db:link": "supabase link",
     "db:push": "supabase db push",
-    "build:cf": "opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+    "build:cf": "NEXT_PUBLIC_SUPABASE_URL=https://qmaszkkyukgiludcakjg.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_jgm9epohpvCavP6zr4pcig_t3E5mvup opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+    "build:worker": "NEXT_PUBLIC_SUPABASE_URL=https://qmaszkkyukgiludcakjg.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_jgm9epohpvCavP6zr4pcig_t3E5mvup opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
     "preview:cf": "opennextjs-cloudflare preview",
-    "deploy": "dotenv -e .env.local -- opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion && dotenv -e .env.local -- opennextjs-cloudflare deploy"
+    "deploy": "dotenv -e .env.local -- npm run build:worker && dotenv -e .env.local -- wrangler deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -9,7 +9,10 @@ export function useRealtimeCount() {
   const [live, setLive] = useState(false);
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return;
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('Supabase env vars missing');
+      return;
+    }
     const supabase = createClient();
 
     const fetchCount = async () => {

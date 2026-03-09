@@ -32,6 +32,9 @@ next-env.d.ts
 # Supabase CLI (linked project local state)
 supabase/.temp/
 
+# Wrangler deploy artifacts
+.wrangler/
+
 # IDE
 .idea
 .vscode
