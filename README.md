@@ -2,6 +2,8 @@
 
 OSINT conflict intelligence dashboard — NAI world map, analytics, timeline, country reports, scenario tracker, disinformation tracker, and live feed.
 
+**Default repository (do not change):** `origin` → https://github.com/rzjy54n5sh-rgb/OSINT.git — default branch `main`.
+
 ## Architecture
 
 ```
