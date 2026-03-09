@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
+import { SourceBadge } from '@/components/SourceBadge';
+import { SentimentBar } from '@/components/SentimentBar';
 import { useArticles } from '@/hooks/useArticles';
 import { useNaiScores } from '@/hooks/useNaiScores';
 
@@ -56,7 +59,7 @@ export default function TimelinePage() {
           </div>
         </div>
       </OsintCard>
-      <OsintCard className="scanlines">
+      <OsintCard className="scanlines mb-6">
         <h2 className="font-display text-lg mb-4">DAY {selectedDay} — SUMMARY</h2>
         {articles.length === 0 && scores.length === 0 ? (
           <p className="redacted">NO INTEL AVAILABLE</p>
@@ -68,6 +71,49 @@ export default function TimelinePage() {
           </ul>
         )}
       </OsintCard>
+
+      {articles.length > 0 && (
+        <>
+          <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
+            ARTICLES — DAY {selectedDay}
+          </h2>
+          <ul className="space-y-4">
+            {articles.map((a, i) => (
+              <motion.li
+                key={a.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: i * 0.05 }}
+              >
+                <OsintCard>
+                  <SourceBadge
+                    name={a.source_name}
+                    logoUrl={a.source_logo_url}
+                    sourceType={a.source_type}
+                  />
+                  <span className="ml-2 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {a.region ?? '—'} | DAY {a.conflict_day ?? '—'}
+                  </span>
+                  <h3 className="font-body text-base mt-2" style={{ color: 'var(--text-primary)' }}>
+                    {a.title}
+                  </h3>
+                  {a.summary && (
+                    <p className="font-body text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      {a.summary}
+                    </p>
+                  )}
+                  <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                    CONFLICT DAY {a.conflict_day ?? '—'} — {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC
+                  </p>
+                  {a.confidence_score != null && (
+                    <SentimentBar value={a.confidence_score} className="mt-2" />
+                  )}
+                </OsintCard>
+              </motion.li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

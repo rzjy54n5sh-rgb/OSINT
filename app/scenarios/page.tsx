@@ -13,11 +13,23 @@ import {
   Legend,
 } from 'recharts';
 
-const SCENARIO_LABELS: Record<string, string> = {
-  A: 'Scenario A',
-  B: 'Scenario B',
-  C: 'Scenario C',
-  D: 'Scenario D',
+const SCENARIO_META: Record<string, { name: string; description: string }> = {
+  A: {
+    name: 'Negotiated Ceasefire',
+    description: 'Oman-mediated framework produces a 30-day renewable halt. Iranian nuclear program placed under enhanced IAEA monitoring. Hormuz reopens under UN maritime guarantee. Probability declining as Iranian preconditions harden.',
+  },
+  B: {
+    name: 'Controlled Escalation',
+    description: 'Conflict expands to Lebanon ground phase and Houthi front but remains below nuclear threshold. Oil sustained above $130. G7 begins secondary sanctions on Iran. Probability rising as proxy fronts multiply.',
+  },
+  C: {
+    name: 'Humanitarian/Economic Crisis',
+    description: 'Red Sea closure and Suez disruption trigger global supply chain shock. Egypt enters IMF emergency program. Regional refugee displacement exceeds 2M. Western public pressure forces premature ceasefire without verification.',
+  },
+  D: {
+    name: 'Regional War',
+    description: 'Iranian ballistic missile kills >50 US personnel triggering full AUMF. Saudi Arabia and UAE drawn in militarily. Strait of Hormuz closed indefinitely. Global recession scenario with oil above $200.',
+  },
 };
 
 export default function ScenariosPage() {
@@ -54,8 +66,11 @@ export default function ScenariosPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {(['A', 'B', 'C', 'D'] as const).map((key) => (
               <OsintCard key={key}>
-                <p className="font-mono text-xs uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
-                  {SCENARIO_LABELS[key]}
+                <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
+                  SCENARIO {key}
+                </p>
+                <p className="font-mono text-sm mb-2" style={{ color: 'var(--accent-gold)' }}>
+                  &quot;{SCENARIO_META[key].name}&quot;
                 </p>
                 <p className="font-display text-2xl" style={{ color: 'var(--accent-gold)' }}>
                   {latest[`scenario_${key.toLowerCase()}` as keyof typeof latest]}%
@@ -64,6 +79,9 @@ export default function ScenariosPage() {
                   value={(latest[`scenario_${key.toLowerCase()}` as keyof typeof latest] as number) / 100}
                   className="mt-2"
                 />
+                <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {SCENARIO_META[key].description}
+                </p>
               </OsintCard>
             ))}
           </div>

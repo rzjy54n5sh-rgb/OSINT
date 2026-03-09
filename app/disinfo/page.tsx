@@ -3,8 +3,16 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { createClient } from '@/lib/supabase/client';
 import type { DisinfoClaim } from '@/types/supabase';
+
+const VERDICT_DEFS: Record<string, string> = {
+  FALSE: 'Claim has been definitively debunked by primary sources or direct contradiction',
+  UNVERIFIED: 'Claim cannot be confirmed or denied with available open-source evidence',
+  TRUE: 'Claim corroborated by multiple independent primary sources',
+  MISLEADING: 'Claim contains factual elements but is presented in a deceptive context',
+};
 
 export default function DisinfoPage() {
   const [claims, setClaims] = useState<DisinfoClaim[]>([]);
@@ -26,8 +34,9 @@ export default function DisinfoPage() {
 
   const verdictClass = (v: string | null) => {
     const vv = (v ?? '').toUpperCase();
-    if (vv === 'CONFIRMED') return 'sentiment-badge positive';
-    if (vv === 'DEBUNKED') return 'sentiment-badge negative';
+    if (vv === 'TRUE' || vv === 'CONFIRMED') return 'sentiment-badge positive';
+    if (vv === 'FALSE' || vv === 'DEBUNKED') return 'sentiment-badge negative';
+    if (vv === 'MISLEADING') return 'sentiment-badge neutral';
     return 'sentiment-badge neutral';
   };
 
@@ -66,10 +75,18 @@ export default function DisinfoPage() {
                   {c.claim_text ?? '—'}
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className={verdictClass(c.verdict)}>{c.verdict ?? 'UNVERIFIED'}</span>
+                  <GlossaryTooltip
+                    term={c.verdict ?? 'UNVERIFIED'}
+                    definition={VERDICT_DEFS[(c.verdict ?? 'UNVERIFIED').toUpperCase()] ?? VERDICT_DEFS.UNVERIFIED}
+                  >
+                    <span className={`cursor-help ${verdictClass(c.verdict)}`}>{c.verdict ?? 'UNVERIFIED'}</span>
+                  </GlossaryTooltip>
                   {c.spread_estimate != null && (
-                    <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                      SPREAD: {c.spread_estimate}
+                    <span
+                      className="font-mono text-xs px-2 py-0.5 border rounded-sm"
+                      style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                    >
+                      📡 {typeof c.spread_estimate === 'string' ? c.spread_estimate : String(c.spread_estimate)}
                     </span>
                   )}
                 </div>

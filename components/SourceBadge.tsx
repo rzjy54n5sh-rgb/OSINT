@@ -1,5 +1,13 @@
 'use client';
 
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+
+const SOURCE_TYPE_DEFS: Record<string, string> = {
+  OFFICIAL: 'Primary source: government statement, military release, or official communiqué',
+  NEWS: 'Verified news outlet with editorial standards',
+  OSINT: 'Open-source intelligence: satellite imagery, flight tracking, intercepts, or social media',
+};
+
 type SourceBadgeProps = {
   name: string | null;
   logoUrl: string | null;
@@ -8,6 +16,8 @@ type SourceBadgeProps = {
 };
 
 export function SourceBadge({ name, logoUrl, sourceType, className = '' }: SourceBadgeProps) {
+  const typeKey = (sourceType ?? '').toUpperCase();
+  const typeDef = typeKey ? SOURCE_TYPE_DEFS[typeKey] : null;
   return (
     <span
       className={`font-mono text-xs border px-2 py-0.5 inline-flex items-center gap-1.5 ${className}`}
@@ -24,9 +34,17 @@ export function SourceBadge({ name, logoUrl, sourceType, className = '' }: Sourc
       )}
       <span>{name || '—'}</span>
       {sourceType && (
-        <span style={{ color: 'var(--text-muted)' }} className="uppercase">
-          [{sourceType}]
-        </span>
+        typeDef ? (
+          <GlossaryTooltip term={typeKey} definition={typeDef}>
+            <span style={{ color: 'var(--text-muted)' }} className="uppercase cursor-help">
+              [{sourceType}]
+            </span>
+          </GlossaryTooltip>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }} className="uppercase">
+            [{sourceType}]
+          </span>
+        )
       )}
     </span>
   );

@@ -6,9 +6,33 @@ import { OsintCard } from '@/components/OsintCard';
 import { useArticles } from '@/hooks/useArticles';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 
 type SentimentFilter = string | null;
 type RegionFilter = string | null;
+
+const SENTIMENT_DEFS: Record<string, string> = {
+  NEUTRAL: 'Factual/analytical framing — no clear narrative alignment',
+  ANTI_WAR: 'Content framing that emphasizes civilian harm, de-escalation, or opposition to military action',
+  PRO_WAR: 'Content framing that emphasizes military necessity, threat posture, or justification for strikes',
+  POSITIVE: 'Factual/analytical framing — no clear narrative alignment',
+  NEGATIVE: 'Content framing that emphasizes civilian harm, de-escalation, or opposition to military action',
+};
+
+function SentimentBadgeWithTooltip({ sentiment }: { sentiment: string | null }) {
+  const v = (sentiment ?? 'neutral').toLowerCase();
+  const def = sentiment ? SENTIMENT_DEFS[(sentiment ?? '').toUpperCase()] ?? SENTIMENT_DEFS.NEUTRAL : SENTIMENT_DEFS.NEUTRAL;
+  const badge = (
+    <span className={`sentiment-badge ${v}`}>
+      {sentiment ?? '—'}
+    </span>
+  );
+  return (
+    <GlossaryTooltip term={sentiment ?? 'Sentiment'} definition={def}>
+      {badge}
+    </GlossaryTooltip>
+  );
+}
 
 export default function FeedPage() {
   const [region, setRegion] = useState<RegionFilter>(null);
@@ -107,11 +131,7 @@ export default function FeedPage() {
                   </p>
                 )}
                 <div className="flex items-center gap-2 mt-2">
-                  <span
-                    className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`}
-                  >
-                    {a.sentiment ?? '—'}
-                  </span>
+                  <SentimentBadgeWithTooltip sentiment={a.sentiment} />
                   <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
                     CONFLICT DAY {a.conflict_day ?? '—'} — {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC
                   </span>

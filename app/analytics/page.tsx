@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { OsintCard } from '@/components/OsintCard';
-import { useNaiScores } from '@/hooks/useNaiScores';
+import { useNaiScoresAll } from '@/hooks/useNaiScoresAll';
 import { useScenarios } from '@/hooks/useScenarios';
 import {
   ScatterChart,
@@ -35,7 +35,7 @@ export default function AnalyticsPage() {
   const [xAxis, setXAxis] = useState<AxisOption>('conflict_day');
   const [yAxis, setYAxis] = useState<AxisOption>('expressed_score');
   const [chartType, setChartType] = useState<'scatter' | 'line'>('scatter');
-  const { scores } = useNaiScores(10);
+  const { scores } = useNaiScoresAll();
   const { scenarios } = useScenarios();
 
   const dataSource = xAxis.startsWith('scenario') || yAxis.startsWith('scenario') ? 'scenarios' : 'nai';
@@ -43,6 +43,8 @@ export default function AnalyticsPage() {
     dataSource === 'nai'
       ? scores.map((s) => ({ x: s[xAxis as keyof typeof scores[0]], y: s[yAxis as keyof typeof scores[0]], name: s.country_code }))
       : scenarios.map((s) => ({ x: s[xAxis as keyof typeof scenarios[0]], y: s[yAxis as keyof typeof scenarios[0]], day: s.conflict_day }));
+
+  const isConflictDayX = xAxis === 'conflict_day';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -107,7 +109,13 @@ export default function AnalyticsPage() {
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <ScatterChart>
-                <XAxis dataKey="x" name={xAxis} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                <XAxis
+                  dataKey="x"
+                  name={xAxis}
+                  type={isConflictDayX ? 'number' : undefined}
+                  domain={isConflictDayX ? [1, 10] : undefined}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                />
                 <YAxis dataKey="y" name={yAxis} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{
@@ -124,7 +132,12 @@ export default function AnalyticsPage() {
           <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={scatterData}>
-                <XAxis dataKey="x" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                <XAxis
+                  dataKey="x"
+                  type={isConflictDayX ? 'number' : undefined}
+                  domain={isConflictDayX ? [1, 10] : undefined}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                />
                 <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
                 <Tooltip
                   contentStyle={{

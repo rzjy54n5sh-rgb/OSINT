@@ -54,39 +54,47 @@ export default function MarketsPage() {
       )}
       {!loading && !error && Object.keys(byIndicator).length > 0 && (
         <div className="grid md:grid-cols-2 gap-6">
-          {Object.entries(byIndicator).map(([indicator, rows]) => (
-            <OsintCard key={indicator}>
-              <h2 className="font-display text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
-                {indicator}
-              </h2>
-              <div className="flex gap-4 font-mono text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
-                <span>VALUE: {rows[rows.length - 1]?.value ?? '—'}</span>
-                {rows[rows.length - 1]?.change_pct != null && (
-                  <span style={{ color: (rows[rows.length - 1].change_pct as number) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                    {rows[rows.length - 1].change_pct}%
-                  </span>
+          {Object.entries(byIndicator).map(([indicator, rows]) => {
+            const unit = rows[0]?.unit ?? '';
+            const chartRows = rows.map((r) => ({ day: r.conflict_day, value: r.value }));
+            const chartData = chartRows.length === 1
+              ? [chartRows[0], { day: (chartRows[0].day ?? 1) + 1, value: chartRows[0].value }]
+              : chartRows;
+            return (
+              <OsintCard key={indicator}>
+                <h2 className="font-display text-lg mb-1" style={{ color: 'var(--text-primary)' }}>
+                  {indicator}{unit ? ` — ${unit}` : ''}
+                </h2>
+                {unit && (
+                  <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>{unit}</p>
                 )}
-              </div>
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={rows.map((r) => ({ day: r.conflict_day, value: r.value }))}
-                  >
-                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 2,
-                      }}
-                    />
-                    <Line type="monotone" dataKey="value" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </OsintCard>
-          ))}
+                <div className="flex gap-4 font-mono text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
+                  <span>VALUE: {rows[rows.length - 1]?.value ?? '—'}</span>
+                  {rows[rows.length - 1]?.change_pct != null && (
+                    <span style={{ color: (rows[rows.length - 1].change_pct as number) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
+                      {rows[rows.length - 1].change_pct}%
+                    </span>
+                  )}
+                </div>
+                <div className="h-32">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData}>
+                      <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} domain={['auto', 'auto']} />
+                      <Tooltip
+                        contentStyle={{
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 2,
+                        }}
+                      />
+                      <Line type="monotone" dataKey="value" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </OsintCard>
+            );
+          })}
         </div>
       )}
     </div>

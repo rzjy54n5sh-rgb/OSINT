@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { createClient } from '@/lib/supabase/client';
+import { formatEngagement } from '@/lib/utils';
 import type { SocialTrend } from '@/types/supabase';
 
 export default function SocialPage() {
@@ -75,7 +76,7 @@ export default function SocialPage() {
                   <span className={sentimentClass(t.sentiment)}>{t.sentiment ?? '—'}</span>
                   {t.engagement_estimate != null && (
                     <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      ENG: {t.engagement_estimate}
+                      ENG: {formatEngagement(t.engagement_estimate)}
                     </span>
                   )}
                 </div>

@@ -6,6 +6,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { OsintCard } from '@/components/OsintCard';
 import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { useNaiScores } from '@/hooks/useNaiScores';
 import { createClient } from '@/lib/supabase/client';
 import type { CountryReport } from '@/types/supabase';
@@ -38,8 +39,26 @@ export default function NaiMapPage() {
         className="w-80 border-l overflow-y-auto p-4 flex flex-col gap-4"
         style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
       >
-        <h2 className="font-display text-lg" style={{ color: 'var(--text-primary)' }}>
+        <h2 className="font-display text-lg inline-flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
           NAI RANKING
+          <GlossaryTooltip
+            term="NAI"
+            definition={
+              <>
+                <strong style={{ color: 'var(--text-primary)' }}>Narrative Alignment Index (NAI)</strong> measures how closely a state&apos;s public diplomatic narrative aligns with US-led coalition objectives. Scores run 0–100.
+                <br />• <strong>EXPRESSED (0–100)</strong>: Official government/diplomatic narrative alignment
+                <br />• <strong>LATENT (0–100)</strong>: Underlying public sentiment and structural alignment
+                <br />• <strong>GAP</strong>: Difference between expressed and latent — large gaps signal instability
+                <br />• <strong>ALIGNED (65–100)</strong>: Active coalition partner
+                <br />• <strong>STABLE (50–64)</strong>: Aligned but cautious
+                <br />• <strong>TENSION (35–49)</strong>: Mixed signals, hedging
+                <br />• <strong>FRACTURE (20–34)</strong>: Significant internal or external pressure
+                <br />• <strong>INVERSION (&lt;20)</strong>: Expressed and latent diverging sharply
+              </>
+            }
+          >
+            <span className="font-mono text-sm cursor-help" style={{ color: 'var(--accent-gold)' }} aria-label="NAI definition">ⓘ</span>
+          </GlossaryTooltip>
         </h2>
         <TimelineScrubber min={1} max={10} value={conflictDay} onChange={setConflictDay} />
         {loading && (

@@ -19,15 +19,15 @@ import {
 } from 'recharts';
 
 const QUICK_LINKS = [
-  { href: '/feed', label: 'FEED' },
-  { href: '/nai', label: 'NAI MAP' },
-  { href: '/countries', label: 'COUNTRIES' },
-  { href: '/scenarios', label: 'SCENARIOS' },
-  { href: '/disinfo', label: 'DISINFO' },
-  { href: '/markets', label: 'MARKETS' },
-  { href: '/social', label: 'SOCIAL' },
-  { href: '/timeline', label: 'TIMELINE' },
-  { href: '/analytics', label: 'ANALYTICS' },
+  { href: '/feed', label: 'FEED', description: 'Live OSINT articles filtered by region, sentiment & source' },
+  { href: '/nai', label: 'NAI MAP', description: 'Narrative Alignment Index — 20 countries mapped & ranked' },
+  { href: '/countries', label: 'COUNTRIES', description: 'Per-country intelligence reports with elite network analysis' },
+  { href: '/scenarios', label: 'SCENARIOS', description: 'Conflict scenario probability tracker across 10 days' },
+  { href: '/disinfo', label: 'DISINFO', description: 'Active disinformation claims — verdict & spread estimate' },
+  { href: '/markets', label: 'MARKETS', description: 'Conflict-sensitive market indicators with trend lines' },
+  { href: '/social', label: 'SOCIAL', description: 'Regional social media trend monitoring by platform' },
+  { href: '/timeline', label: 'TIMELINE', description: 'Day-by-day conflict chronology from Day 1 to present' },
+  { href: '/analytics', label: 'ANALYTICS', description: 'Mix-and-match chart builder across all data dimensions' },
 ];
 
 export default function CommandDashboard() {
@@ -72,6 +72,9 @@ export default function CommandDashboard() {
                 <span className="font-mono text-xs uppercase" style={{ color: 'var(--accent-gold)' }}>
                   {link.label}
                 </span>
+                <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
+                  {link.description}
+                </p>
               </OsintCard>
             </Link>
           ))}
