@@ -1,45 +1,59 @@
-import { createClient } from '@/lib/supabase/server';
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { OsintCard } from '@/components/OsintCard';
+import { CountryFlag } from '@/components/CountryFlag';
+import { NaiScoreBadge } from '@/components/NaiScoreBadge';
+import { useNaiScores } from '@/hooks/useNaiScores';
 
-export const revalidate = 300;
+const CONFLICT_DAY = 10;
 
-export default async function CountriesPage() {
-  let countries: { country_code: string; country_name: string; nai_category: string | null }[] = [];
-  try {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from('country_reports')
-      .select('country_code, country_name, nai_category')
-      .order('country_name');
-    countries = (data ?? []) as typeof countries;
-  } catch {
-    // No Supabase or table missing
-  }
+export default function CountriesPage() {
+  const { scores, loading, error } = useNaiScores(CONFLICT_DAY);
 
   return (
-    <div className="mx-auto max-w-[1800px] px-4 py-8">
-      <h1 className="font-heading text-2xl font-semibold text-text-primary">Country Reports</h1>
-      {countries.length === 0 ? (
-        <div className="mt-8 rounded-lg border border-[var(--border)] bg-bg-card p-12 text-center">
-          <p className="font-mono text-sm uppercase tracking-wider text-text-muted">
-            Awaiting data feed...
-          </p>
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
+        COUNTRY INTELLIGENCE
+      </h1>
+      <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
+        CONFLICT DAY {CONFLICT_DAY} — NAI BY COUNTRY
+      </p>
+      {loading && (
+        <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
+          LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
+        </p>
+      )}
+      {error && (
+        <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
+          [DATA UNAVAILABLE]
         </div>
-      ) : (
-        <div className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {countries.map((c) => (
-            <Link
-              key={c.country_code}
-              href={`/countries/${c.country_code.toLowerCase()}`}
-              className="osint-card block rounded-lg bg-bg-card p-4 transition hover:shadow-[inset_0_0_30px_rgba(232,197,71,0.06)]"
+      )}
+      {!loading && !error && scores.length === 0 && (
+        <p className="redacted py-12">NO INTEL AVAILABLE</p>
+      )}
+      {!loading && !error && scores.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {scores.map((s, i) => (
+            <motion.div
+              key={s.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
             >
-              <span className="font-heading font-semibold text-text-primary">{c.country_name}</span>
-              {c.nai_category && (
-                <span className="ml-2 font-mono text-[10px] uppercase text-text-muted">
-                  {c.nai_category}
-                </span>
-              )}
-            </Link>
+              <Link href={`/countries/${s.country_code.toLowerCase()}`}>
+                <OsintCard className="block hover:border-border-bright">
+                  <CountryFlag code={s.country_code} />
+                  <div className="mt-2">
+                    <NaiScoreBadge category={s.category} score={s.expressed_score} />
+                  </div>
+                  <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                    EXPRESSED {s.expressed_score} | LATENT {s.latent_score}
+                  </p>
+                </OsintCard>
+              </Link>
+            </motion.div>
           ))}
         </div>
       )}

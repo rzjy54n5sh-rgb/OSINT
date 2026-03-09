@@ -1,12 +1,95 @@
-import { DisinfoClient } from './DisinfoClient';
+'use client';
 
-export const revalidate = 60;
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { OsintCard } from '@/components/OsintCard';
+import { createClient } from '@/lib/supabase/client';
+import type { DisinfoClaim } from '@/types/supabase';
 
 export default function DisinfoPage() {
+  const [claims, setClaims] = useState<DisinfoClaim[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('disinfo_claims')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .then(({ data, error: e }) => {
+        setLoading(false);
+        if (e) setError(e);
+        else setClaims((data as DisinfoClaim[]) ?? []);
+      });
+  }, []);
+
+  const verdictClass = (v: string | null) => {
+    const vv = (v ?? '').toUpperCase();
+    if (vv === 'CONFIRMED') return 'sentiment-badge positive';
+    if (vv === 'DEBUNKED') return 'sentiment-badge negative';
+    return 'sentiment-badge neutral';
+  };
+
   return (
-    <div className="mx-auto max-w-[1800px] px-4 py-8">
-      <h1 className="font-heading text-2xl font-semibold text-text-primary">Disinformation Tracker</h1>
-      <DisinfoClient />
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
+        DISINFORMATION TRACKER
+      </h1>
+      <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
+        CLAIMS — VERDICT — SPREAD ESTIMATE
+      </p>
+      {loading && (
+        <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
+          LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
+        </p>
+      )}
+      {error && (
+        <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
+          [DATA UNAVAILABLE]
+        </div>
+      )}
+      {!loading && !error && claims.length === 0 && (
+        <p className="redacted py-12">NO INTEL AVAILABLE</p>
+      )}
+      {!loading && !error && claims.length > 0 && (
+        <div className="space-y-4">
+          {claims.map((c, i) => (
+            <motion.div
+              key={c.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: i * 0.05 }}
+            >
+              <OsintCard>
+                <p className="font-body text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {c.claim_text ?? '—'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className={verdictClass(c.verdict)}>{c.verdict ?? 'UNVERIFIED'}</span>
+                  {c.spread_estimate != null && (
+                    <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                      SPREAD: {c.spread_estimate}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                  {c.source_url && (
+                    <a href={c.source_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)' }}>
+                      SOURCE
+                    </a>
+                  )}
+                  {c.debunk_url && (
+                    <a href={c.debunk_url} target="_blank" rel="noopener noreferrer" className="ml-3" style={{ color: 'var(--accent-green)' }}>
+                      DEBUNK
+                    </a>
+                  )}
+                </div>
+              </OsintCard>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

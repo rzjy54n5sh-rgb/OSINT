@@ -2,59 +2,273 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   MENA INTEL DESK — DESIGN SYSTEM
+   Do not modify these variables without updating all components
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+
 :root {
-  --bg-primary: #070a0f;
-  --bg-secondary: #0d1117;
-  --bg-card: #111827;
-  --bg-elevated: #1a2235;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-accent: rgba(232, 197, 71, 0.3);
-  --text-primary: #e8edf5;
-  --text-secondary: #8b9ab5;
-  --text-muted: #4a5568;
-  --accent-gold: #e8c547;
-  --accent-red: #e05252;
-  --accent-orange: #e87d2b;
-  --accent-green: #4ec98a;
-  --accent-blue: #4a8fe8;
-  --accent-teal: #36b8c8;
-  --nai-aligned: #4ec98a;
-  --nai-stable: #7ac86e;
-  --nai-tension: #e8c547;
-  --nai-fracture: #e87d2b;
-  --nai-inversion: #e05252;
+  /* Background layers */
+  --bg-primary:    #070A0F;
+  --bg-secondary:  #0C1018;
+  --bg-card:       #101520;
+  --bg-elevated:   #141A28;
+
+  /* Borders */
+  --border:        #1A2235;
+  --border-bright: #243050;
+  --border-gold:   rgba(232, 197, 71, 0.4);
+
+  /* Text */
+  --text-primary:  #E8EDF5;
+  --text-secondary:#8A9BB5;
+  --text-muted:    #4A5870;
+
+  /* Accent colors */
+  --accent-gold:   #E8C547;
+  --accent-red:    #E05252;
+  --accent-green:  #4EC98A;
+  --accent-blue:   #4A8FE8;
+  --accent-orange: #E87D2B;
+  --accent-teal:   #36B8C8;
+
+  /* NAI category colors */
+  --nai-safe:      #4EC98A;
+  --nai-stable:    #7AC86E;
+  --nai-tension:   #E8C547;
+  --nai-fracture:  #E87D2B;
+  --nai-inversion: #E05252;
 }
 
-@layer base {
-  body {
-    @apply bg-bg-primary text-text-primary font-sans antialiased;
-    font-weight: 300;
-  }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
-    font-weight: 600;
-  }
+/* ── BASE ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Card: 1px border, hover glow, top-left accent */
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.35;
+}
+
+/* All page content must sit above grain */
+body > * { position: relative; z-index: 1; }
+
+/* ── TYPOGRAPHY ── */
+.font-display { font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.02em; }
+.font-mono    { font-family: 'IBM Plex Mono', monospace; }
+.font-body    { font-family: 'DM Sans', sans-serif; }
+
+/* ── SCANLINES ── */
+.scanlines {
+  position: relative;
+}
+.scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.07) 2px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+  z-index: 2;
+}
+
+/* ── OSINT CARD ── */
 .osint-card {
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  transition: box-shadow 0.2s ease;
+  border-radius: 2px;
+  position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .osint-card:hover {
-  box-shadow: inset 0 0 30px rgba(232, 197, 71, 0.03);
+  border-color: var(--border-bright);
+  box-shadow: inset 0 0 40px rgba(232, 197, 71, 0.04);
+}
+/* Top-left gold bracket */
+.osint-card::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: -1px;
+  width: 14px; height: 14px;
+  border-top: 2px solid var(--accent-gold);
+  border-left: 2px solid var(--accent-gold);
+  pointer-events: none;
+  transition: width 0.2s, height 0.2s;
+}
+/* Bottom-right gold bracket */
+.osint-card::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; right: -1px;
+  width: 14px; height: 14px;
+  border-bottom: 2px solid var(--accent-gold);
+  border-right: 2px solid var(--accent-gold);
+  pointer-events: none;
+  transition: width 0.2s, height 0.2s;
+}
+.osint-card:hover::before,
+.osint-card:hover::after {
+  width: 20px; height: 20px;
 }
 
-/* Labels/tags: IBM Plex Mono, 10–11px, letter-spacing, uppercase */
-.osint-label {
-  font-family: var(--font-plex-mono), monospace;
+/* ── GHOST TEXT (hero backgrounds) ── */
+.ghost-text {
+  position: absolute;
+  pointer-events: none;
+  user-select: none;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(140px, 22vw, 380px);
+  line-height: 1;
+  color: rgba(232, 197, 71, 0.035);
+  white-space: nowrap;
+  z-index: 0;
+}
+
+/* ── NAI SCORE BARS ── */
+.nai-bar-track {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+.nai-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.nai-bar-fill.safe      { background: var(--nai-safe);      box-shadow: 0 0 8px rgba(78,201,138,0.5); }
+.nai-bar-fill.stable    { background: var(--nai-stable);    box-shadow: 0 0 8px rgba(122,200,110,0.5); }
+.nai-bar-fill.tension   { background: var(--nai-tension);   box-shadow: 0 0 8px rgba(232,197,71,0.5); }
+.nai-bar-fill.fracture  { background: var(--nai-fracture);  box-shadow: 0 0 8px rgba(232,125,43,0.5); }
+.nai-bar-fill.inversion { background: var(--nai-inversion); box-shadow: 0 0 8px rgba(224,82,82,0.5); }
+
+/* ── NAI BADGES ── */
+.nai-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 1px;
+  font-weight: 500;
+}
+.nai-badge.safe      { color: var(--nai-safe);      background: rgba(78,201,138,0.1);  border: 1px solid rgba(78,201,138,0.3); }
+.nai-badge.stable    { color: var(--nai-stable);    background: rgba(122,200,110,0.1); border: 1px solid rgba(122,200,110,0.3); }
+.nai-badge.tension   { color: var(--nai-tension);   background: rgba(232,197,71,0.1);  border: 1px solid rgba(232,197,71,0.3); }
+.nai-badge.fracture  { color: var(--nai-fracture);  background: rgba(232,125,43,0.1);  border: 1px solid rgba(232,125,43,0.3); }
+.nai-badge.inversion { color: var(--nai-inversion); background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3); }
+
+/* ── SENTIMENT BADGES ── */
+.sentiment-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 1px;
+}
+.sentiment-badge.positive { color: var(--accent-green);  background: rgba(78,201,138,0.08);  border: 1px solid rgba(78,201,138,0.2); }
+.sentiment-badge.negative { color: var(--accent-red);    background: rgba(224,82,82,0.08);   border: 1px solid rgba(224,82,82,0.2); }
+.sentiment-badge.neutral  { color: var(--text-muted);    background: rgba(74,88,112,0.2);    border: 1px solid rgba(74,88,112,0.3); }
+
+/* ── HEADER NAV LINKS ── */
+.header-link {
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 2px;
   text-transform: uppercase;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s ease, transform 0.15s ease;
+  position: relative;
+}
+.header-link:hover {
+  color: var(--accent-gold);
+  transform: translateX(1px);
+}
+.header-link::after {
+  content: '';
+  position: absolute;
+  bottom: -2px; left: 0;
+  width: 0; height: 1px;
+  background: var(--accent-gold);
+  transition: width 0.2s ease;
+}
+.header-link:hover::after { width: 100%; }
+
+/* ── LOADING CURSOR ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.blink-cursor { animation: blink 1s step-end infinite; }
+
+/* ── PULSE DOT ── */
+@keyframes ping {
+  0%    { transform: scale(1); opacity: 0.75; }
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+.pulse-ring { animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* ── STAGGER ENTRANCE ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.4s ease forwards; }
+.fade-up-1 { animation-delay: 0.05s; opacity: 0; }
+.fade-up-2 { animation-delay: 0.10s; opacity: 0; }
+.fade-up-3 { animation-delay: 0.15s; opacity: 0; }
+.fade-up-4 { animation-delay: 0.20s; opacity: 0; }
+.fade-up-5 { animation-delay: 0.25s; opacity: 0; }
+.fade-up-6 { animation-delay: 0.30s; opacity: 0; }
+
+/* ── REDACTED / EMPTY STATES ── */
+.redacted {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.redacted::before { content: '// '; color: rgba(224,82,82,0.35); }
+
+/* ── DATA DIVIDERS ── */
+.data-rule {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
 }
 
-/* Data numbers: IBM Plex Mono, uppercase */
-.osint-data {
-  font-family: var(--font-plex-mono), monospace;
-  text-transform: uppercase;
-}
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }

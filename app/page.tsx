@@ -1,45 +1,145 @@
+'use client';
+
 import Link from 'next/link';
+import { AsciiHero } from '@/components/AsciiHero';
+import { OsintCard } from '@/components/OsintCard';
+import { useRealtimeCount } from '@/hooks/useRealtimeCount';
+import { useArticles } from '@/hooks/useArticles';
+import { useScenarios } from '@/hooks/useScenarios';
+import { SourceBadge } from '@/components/SourceBadge';
+import { SentimentBar } from '@/components/SentimentBar';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from 'recharts';
 
-export default function HomePage() {
+const QUICK_LINKS = [
+  { href: '/feed', label: 'FEED' },
+  { href: '/nai', label: 'NAI MAP' },
+  { href: '/countries', label: 'COUNTRIES' },
+  { href: '/scenarios', label: 'SCENARIOS' },
+  { href: '/disinfo', label: 'DISINFO' },
+  { href: '/markets', label: 'MARKETS' },
+  { href: '/social', label: 'SOCIAL' },
+  { href: '/timeline', label: 'TIMELINE' },
+  { href: '/analytics', label: 'ANALYTICS' },
+];
+
+export default function CommandDashboard() {
+  const { articleCount, lastUpdate, live } = useRealtimeCount();
+  const { articles } = useArticles({}, 3);
+  const { scenarios } = useScenarios();
+
+  const scenarioChartData =
+    scenarios.length > 0
+      ? scenarios.slice(-10).map((s) => ({
+          day: s.conflict_day,
+          A: s.scenario_a,
+          B: s.scenario_b,
+          C: s.scenario_c,
+          D: s.scenario_d,
+        }))
+      : [];
+
   return (
-    <div className="mx-auto max-w-[1800px] px-4 py-12">
-      <section className="mb-16 text-center">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-text-primary md:text-5xl">
-          MENA INTEL DESK
-        </h1>
-        <p className="mt-4 font-sans text-lg font-light text-text-secondary">
-          OSINT conflict intelligence dashboard
-        </p>
+    <div className="relative">
+      <AsciiHero
+        articleCount={articleCount}
+        conflictDay={10}
+        countriesTracked={20}
+      />
+
+      <section className="max-w-6xl mx-auto px-4 pb-12">
+        <div
+          className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-6 mb-10"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <span>CONFLICT DAY <span style={{ color: 'var(--accent-gold)' }}>10</span></span>
+          <span>ARTICLES <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span></span>
+          <span>LAST UPDATE <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span></span>
+          <span>{live ? '● LIVE' : '○ OFFLINE'}</span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
+          {QUICK_LINKS.map((link, i) => (
+            <Link key={link.href} href={link.href}>
+              <OsintCard className={`fade-up fade-up-${(i % 6) + 1} block hover:border-accent-gold/30`}>
+                <span className="font-mono text-xs uppercase" style={{ color: 'var(--accent-gold)' }}>
+                  {link.label}
+                </span>
+              </OsintCard>
+            </Link>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <OsintCard className="scanlines">
+            <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
+              LATEST INTELLIGENCE
+            </h2>
+            {articles.length === 0 ? (
+              <p className="redacted">NO INTEL AVAILABLE</p>
+            ) : (
+              <ul className="space-y-4">
+                {articles.map((a) => (
+                  <li key={a.id} className="border-t border-border pt-3 first:border-0 first:pt-0">
+                    <SourceBadge
+                      name={a.source_name}
+                      logoUrl={a.source_logo_url}
+                      sourceType={a.source_type}
+                    />
+                    <p className="font-body text-sm mt-1" style={{ color: 'var(--text-primary)' }}>
+                      {a.title}
+                    </p>
+                    <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                      CONFLICT DAY {a.conflict_day ?? '—'} — {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC
+                    </p>
+                    {a.confidence_score != null && (
+                      <SentimentBar value={a.confidence_score} className="mt-2" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </OsintCard>
+
+          <OsintCard className="scanlines">
+            <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
+              SCENARIO PROBABILITY
+            </h2>
+            {scenarioChartData.length === 0 ? (
+              <p className="redacted">NO INTEL AVAILABLE</p>
+            ) : (
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={scenarioChartData}>
+                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 2,
+                      }}
+                      labelStyle={{ color: 'var(--text-secondary)' }}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={1.5} dot={false} name="A" />
+                    <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
+                    <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
+                    <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </OsintCard>
+        </div>
       </section>
-      <nav className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <DashboardLink href="/feed" title="Live Feed" desc="Real-time article stream with filters" />
-        <DashboardLink href="/nai" title="NAI World Map" desc="Choropleth by NAI category + time scrubber" />
-        <DashboardLink href="/analytics" title="Analytics" desc="Mix & match variables, charts, export" />
-        <DashboardLink href="/timeline" title="Timeline" desc="Conflict day timeline with overlays" />
-        <DashboardLink href="/countries" title="Country Reports" desc="Per-country NAI and modules" />
-        <DashboardLink href="/scenarios" title="Scenario Tracker" desc="Scenario probabilities and indicators" />
-        <DashboardLink href="/disinfo" title="Disinformation Tracker" desc="Claims and verdicts" />
-      </nav>
     </div>
-  );
-}
-
-function DashboardLink({
-  href,
-  title,
-  desc,
-}: {
-  href: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="osint-card block rounded-lg bg-bg-card p-6 transition hover:shadow-[inset_0_0_30px_rgba(232,197,71,0.06)]"
-    >
-      <h2 className="font-heading text-lg font-semibold text-text-primary">{title}</h2>
-      <p className="mt-1 font-sans text-sm text-text-secondary">{desc}</p>
-    </Link>
   );
 }

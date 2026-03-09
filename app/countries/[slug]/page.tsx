@@ -1,83 +1,87 @@
-import { createClient } from '@/lib/supabase/server';
-import { notFound } from 'next/navigation';
+'use client';
 
-export const revalidate = 300;
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { OsintCard } from '@/components/OsintCard';
+import { CountryFlag } from '@/components/CountryFlag';
+import { NaiScoreBadge } from '@/components/NaiScoreBadge';
+import { createClient } from '@/lib/supabase/client';
+import type { CountryReport } from '@/types/supabase';
 
-interface CountryReportRow {
-  country_name: string;
-  nai_score: number | null;
-  nai_category: string | null;
-  updated_at: string;
-  content_json: Record<string, unknown> | null;
-}
+export default function CountryReportPage() {
+  const params = useParams();
+  const slug = typeof params.slug === 'string' ? params.slug.toUpperCase() : '';
+  const [report, setReport] = useState<CountryReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-export default async function CountryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const code = slug.toUpperCase();
-  let report: CountryReportRow | null = null;
-  try {
+  useEffect(() => {
+    if (!slug) return;
     const supabase = createClient();
-    const { data } = await supabase
+    supabase
       .from('country_reports')
       .select('*')
-      .eq('country_code', code)
-      .single();
-    report = data as CountryReportRow | null;
-  } catch {
-    // env or table missing
-  }
-  if (!report) notFound();
-
-  const content = (report.content_json ?? {}) as Record<string, unknown>;
+      .eq('country_code', slug)
+      .order('conflict_day', { ascending: false })
+      .limit(1)
+      .single()
+      .then(({ data, error: e }) => {
+        setLoading(false);
+        if (e) setError(e);
+        else setReport(data as CountryReport);
+      });
+  }, [slug]);
 
   return (
-    <div className="mx-auto max-w-[1800px] px-4 py-8">
-      <header className="mb-8 flex flex-wrap items-center gap-4 border-b border-[var(--border)] pb-4">
-        <h1 className="font-heading text-3xl font-semibold text-text-primary">
-          {report.country_name}
-        </h1>
-        {report.nai_score != null && (
-          <span className="rounded bg-bg-elevated px-2 py-1 font-mono text-sm text-accent-gold">
-            NAI {Number(report.nai_score).toFixed(1)}
-          </span>
-        )}
-        {report.nai_category && (
-          <span className="osint-label text-text-muted">{report.nai_category}</span>
-        )}
-        <span className="osint-label text-text-muted">
-          Updated {new Date(report.updated_at).toISOString().slice(0, 10)}
-        </span>
-      </header>
-
-      <div className="space-y-6">
-        {content.social_media_trends !== undefined && content.social_media_trends !== null && (
-          <section className="osint-card rounded-lg bg-bg-card p-4">
-            <h2 className="font-heading text-lg font-semibold text-text-primary">
-              Social Media Trends
-            </h2>
-            <pre className="mt-2 overflow-auto font-mono text-xs text-text-secondary">
-              {JSON.stringify(content.social_media_trends, null, 2)}
-            </pre>
-          </section>
-        )}
-        {content.official_media_stance !== undefined && content.official_media_stance !== null && (
-          <section className="osint-card rounded-lg bg-bg-card p-4">
-            <h2 className="font-heading text-lg font-semibold text-text-primary">
-              Official Media Stance
-            </h2>
-            <pre className="mt-2 overflow-auto font-mono text-xs text-text-secondary">
-              {JSON.stringify(content.official_media_stance, null, 2)}
-            </pre>
-          </section>
-        )}
-        {!content.social_media_trends && !content.official_media_stance && (
-          <div className="rounded-lg border border-[var(--border)] bg-bg-card p-8 text-center">
-            <p className="font-mono text-sm uppercase tracking-wider text-text-muted">
-              Modules will render from content_json when available
-            </p>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <Link
+        href="/countries"
+        className="font-mono text-xs mb-6 inline-block"
+        style={{ color: 'var(--accent-gold)' }}
+      >
+        ← COUNTRIES
+      </Link>
+      {loading && (
+        <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
+          LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
+        </p>
+      )}
+      {error && (
+        <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
+          [DATA UNAVAILABLE]
+        </div>
+      )}
+      {!loading && !error && report && (
+        <>
+          <div className="flex items-center gap-4 mb-6">
+            <CountryFlag code={report.country_code} name={report.country_name} />
+            <NaiScoreBadge
+              category={report.nai_category ?? '—'}
+              score={report.nai_score ?? undefined}
+            />
+            <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+              CONFLICT DAY {report.conflict_day ?? '—'}
+            </span>
           </div>
-        )}
-      </div>
+          <OsintCard className="scanlines mb-6">
+            <h2 className="font-display text-lg mb-4">REPORT CONTENT</h2>
+            {report.content_json ? (
+              <pre
+                className="font-mono text-xs whitespace-pre-wrap"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {JSON.stringify(report.content_json, null, 2)}
+              </pre>
+            ) : (
+              <p className="redacted">NO INTEL AVAILABLE</p>
+            )}
+          </OsintCard>
+        </>
+      )}
+      {!loading && !error && !report && (
+        <p className="redacted py-12">NO INTEL AVAILABLE</p>
+      )}
     </div>
   );
 }
