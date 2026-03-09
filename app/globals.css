@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-primary: #070a0f;
+  --bg-secondary: #0d1117;
+  --bg-card: #111827;
+  --bg-elevated: #1a2235;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-accent: rgba(232, 197, 71, 0.3);
+  --text-primary: #e8edf5;
+  --text-secondary: #8b9ab5;
+  --text-muted: #4a5568;
+  --accent-gold: #e8c547;
+  --accent-red: #e05252;
+  --accent-orange: #e87d2b;
+  --accent-green: #4ec98a;
+  --accent-blue: #4a8fe8;
+  --accent-teal: #36b8c8;
+  --nai-aligned: #4ec98a;
+  --nai-stable: #7ac86e;
+  --nai-tension: #e8c547;
+  --nai-fracture: #e87d2b;
+  --nai-inversion: #e05252;
+}
+
+@layer base {
+  body {
+    @apply bg-bg-primary text-text-primary font-sans antialiased;
+    font-weight: 300;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+    font-weight: 600;
+  }
+}
+
+/* Card: 1px border, hover glow, top-left accent */
+.osint-card {
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s ease;
+}
+.osint-card:hover {
+  box-shadow: inset 0 0 30px rgba(232, 197, 71, 0.03);
+}
+
+/* Labels/tags: IBM Plex Mono, 10–11px, letter-spacing, uppercase */
+.osint-label {
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Data numbers: IBM Plex Mono, uppercase */
+.osint-data {
+  font-family: var(--font-plex-mono), monospace;
+  text-transform: uppercase;
+}

@@ -1,0 +1,14 @@
+---
+description: Operate in YOLO mode—apply edits and run safe commands without asking for confirmation.
+globs: 
+alwaysApply: true
+---
+
+# YOLO mode
+
+In this project, operate in **YOLO mode**:
+
+- **Apply edits directly** — Implement requested code changes and write/update files without asking "should I apply this?" or listing diffs for approval first. Make the edits.
+- **Run safe commands** — Execute terminal commands that are clearly safe (e.g. installs, tests, lint, build, read-only git, file ops like mkdir/cp/mv) without asking for confirmation each time.
+- **Still avoid destructive actions** — Do not auto-run: `rm -rf`, `git push`/`git reset --hard`, production DB writes, `npm publish`, or other irreversible/destructive commands without explicit user approval.
+- **Prefer doing over proposing** — When the user asks for something doable, do it (edit + run as needed) rather than only describing steps or asking for permission to proceed.
