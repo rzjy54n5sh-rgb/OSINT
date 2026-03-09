@@ -15,8 +15,10 @@ Runs every 30 minutes via GitHub Actions.
 Uses deduplication by URL hash — no duplicate rows.
 """
 
-import os
 import sys
+import os
+sys.path.insert(0, os.path.dirname(__file__))
+
 import hashlib
 import datetime
 import requests
@@ -24,8 +26,6 @@ import feedparser
 import concurrent.futures
 from dateutil import parser as dateparser
 
-# Add scripts dir to path so we can import the registry
-sys.path.insert(0, os.path.dirname(__file__))
 from sources_registry import ALL_SOURCES, CONFLICT_KEYWORDS, NITTER_INSTANCES
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
