@@ -17,7 +17,7 @@ OSINT conflict intelligence dashboard — NAI world map, analytics, timeline, co
 │  /countries/[slug]         Country report (content_json modules)  │
 ├─────────────────────────────────────────────────────────────────┤
 │  Supabase (Realtime for feed + header count; RLS enabled)         │
-│  Vercel (deploy; env vars only — no .env committed)              │
+│  Cloudflare (deploy; env vars in dashboard — no .env committed)   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -28,11 +28,11 @@ OSINT conflict intelligence dashboard — NAI world map, analytics, timeline, co
    npm install
    ```
 
-2. Copy env and set variables (use Vercel env in production):
+2. Copy env and set variables (use Cloudflare env in production):
    ```bash
    cp .env.example .env.local
-   # Edit .env.local with NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
-   # and optionally NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN for the NAI map.
+   # Edit .env.local with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.
+   # NAI map uses MapLibre (no API key).
    ```
 
 3. Run dev:
@@ -57,6 +57,19 @@ OSINT conflict intelligence dashboard — NAI world map, analytics, timeline, co
 - Supabase anon key is read-only; all writes server-side only
 - No secrets in client bundle; use server components for DB access where possible
 
-## Deploy (Vercel)
+## Deploy (Cloudflare Workers)
 
-Connect the repo to Vercel and set environment variables in the dashboard. Do not commit `.env` or real keys.
+The app uses **OpenNext** to build for Cloudflare Workers. Build completed successfully; to deploy from your machine:
+
+1. **Authenticate** (one-time): run `npx wrangler login` and complete the browser flow, **or** create an [API token](https://dash.cloudflare.com/profile/api-tokens) and set:
+   ```bash
+   export CLOUDFLARE_API_TOKEN=your_token
+   export CLOUDFLARE_ACCOUNT_ID=your_32_char_account_id   # Workers & Pages → right sidebar "Account ID" (not your email)
+   ```
+2. **Deploy:**
+   ```bash
+   npm run deploy
+   ```
+   This runs `opennextjs-cloudflare build` then `wrangler deploy`. Your Worker will be at `https://mena-intel-desk.<your-subdomain>.workers.dev` (or your custom domain).
+
+**Env for build:** `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are read from `.env.local` during `npm run deploy`. In CI, set them as build env vars. Do not commit `.env` or real keys.
