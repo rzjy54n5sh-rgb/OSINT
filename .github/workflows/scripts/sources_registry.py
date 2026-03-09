@@ -243,6 +243,12 @@ ALL_SOURCES = (
     + RUSSIA + CHINA + PAKISTAN + INDIA + CONFLICT_MONITORS
 )
 
+# Nitter RSS instances for Twitter/X feed fallover (collect_feeds.py)
+NITTER_INSTANCES = [
+    "nitter.net",
+    "nitter.privacydev.net",
+]
+
 # Conflict relevance filter keywords — applied to non-social/non-official sources
 CONFLICT_KEYWORDS = [
     "iran", "irgc", "khamenei", "tehran", "hormuz", "persian gulf",
