@@ -6,9 +6,15 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
-# Serve assets via OpenNext worker so path resolution matches Next.js (/_next/static/...)
 run_worker_first = true
 
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://qmaszkkyukgiludcakjg.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_jgm9epohpvCavP6zr4pcig_t3E5mvup"
+
+# KV namespace for caching Supabase responses at the edge
+# After running: wrangler kv namespace create "OSINT_CACHE"
+# Replace the id below with the one Wrangler outputs
+[[kv_namespaces]]
+binding = "OSINT_CACHE"
+id = "5ff576b8a0c44c7fa45618584829df04"

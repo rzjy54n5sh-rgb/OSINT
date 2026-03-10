@@ -112,45 +112,54 @@ def classify_sentiment_from_keywords(keywords):
         return "anti_war"
     return "neutral"
 
-def fetch_trends_for_group(group, pytrends):
-    """Fetch interest over time for a keyword group."""
-    try:
-        pytrends.build_payload(
-            group["keywords"][:5],
-            timeframe="now 1-d",
-            geo=group["geo"],
-        )
-        interest = pytrends.interest_over_time()
-        if interest.empty:
-            return None
+def fetch_trends_for_group(group, pytrends, max_retries=3):
+    """Fetch interest over time for a keyword group. Retries on 429 with backoff."""
+    for attempt in range(max_retries):
+        try:
+            pytrends.build_payload(
+                group["keywords"][:5],
+                timeframe="now 1-d",
+                geo=group["geo"],
+            )
+            interest = pytrends.interest_over_time()
+            if interest.empty:
+                return None
 
-        # Get average interest across all keywords (0–100 scale)
-        keyword_cols = [c for c in interest.columns if c != "isPartial"]
-        avg_interest = interest[keyword_cols].mean().mean()
+            # Get average interest across all keywords (0–100 scale)
+            keyword_cols = [c for c in interest.columns if c != "isPartial"]
+            avg_interest = interest[keyword_cols].mean().mean()
 
-        # Top trending keyword
-        col_means = interest[keyword_cols].mean()
-        top_keyword = col_means.idxmax() if not col_means.empty else group["keywords"][0]
+            # Top trending keyword
+            col_means = interest[keyword_cols].mean()
+            top_keyword = col_means.idxmax() if not col_means.empty else group["keywords"][0]
 
-        engagement = (
-            "HIGH" if avg_interest > 60
-            else "MEDIUM" if avg_interest > 30
-            else "LOW"
-        )
+            engagement = (
+                "HIGH" if avg_interest > 60
+                else "MEDIUM" if avg_interest > 30
+                else "LOW"
+            )
 
-        return {
-            "region": group["region"],
-            "country": group["country"],
-            "platform": "Google Trends",
-            "trend": top_keyword,
-            "sentiment": classify_sentiment_from_keywords(group["keywords"]),
-            "engagement_estimate": f"{engagement} ({avg_interest:.0f}/100)",
-            "conflict_day": conflict_day(),
-            "created_at": datetime.datetime.utcnow().isoformat(),
-        }
-    except Exception as e:
-        print(f"  Trends error for {group['country']}: {e}")
-        return None
+            return {
+                "region": group["region"],
+                "country": group["country"],
+                "platform": "Google Trends",
+                "trend": top_keyword,
+                "sentiment": classify_sentiment_from_keywords(group["keywords"]),
+                "engagement_estimate": f"{engagement} ({avg_interest:.0f}/100)",
+                "conflict_day": conflict_day(),
+                "created_at": datetime.datetime.utcnow().isoformat(),
+            }
+        except Exception as e:
+            err_str = str(e).lower()
+            is_rate_limit = "429" in err_str or "too many" in err_str or "rate" in err_str
+            if is_rate_limit and attempt < max_retries - 1:
+                backoff = 30 * (attempt + 1)  # 30s, 60s, 90s
+                print(f"  Trends rate limit for {group['country']}, retry in {backoff}s (attempt {attempt + 1}/{max_retries})")
+                time.sleep(backoff)
+            else:
+                print(f"  Trends error for {group['country']}: {e}")
+                return None
+    return None
 
 def insert_trends(records):
     if not records:
@@ -171,19 +180,24 @@ def main():
     print(f"[collect_social] Day {day} — {datetime.datetime.utcnow().isoformat()}Z")
 
     try:
-        pytrends = TrendReq(hl="en-US", tz=0, timeout=(10, 25), retries=2, backoff_factor=0.5)
+        pytrends = TrendReq(hl="en-US", tz=0, timeout=(10, 25), retries=2, backoff_factor=1.0)
     except Exception as e:
         print(f"  pytrends init error: {e}")
         return
 
+    # Initial delay to avoid burst 429 from Google Trends (CI IPs are often rate-limited)
+    time.sleep(5)
+
     records = []
-    for group in TREND_GROUPS:
+    for i, group in enumerate(TREND_GROUPS):
         print(f"  Fetching trends: {group['country']}...")
         result = fetch_trends_for_group(group, pytrends)
         if result:
             records.append(result)
             print(f"    → {result['trend']} | {result['sentiment']} | {result['engagement_estimate']}")
-        time.sleep(2)  # be polite to Google
+        # 15s between countries to stay under Google Trends rate limit (avoid 429)
+        if i < len(TREND_GROUPS) - 1:
+            time.sleep(15)
 
     inserted = insert_trends(records)
     print(f"[collect_social] Done — {inserted} social trend records written")

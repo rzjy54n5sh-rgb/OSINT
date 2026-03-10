@@ -17,6 +17,7 @@ function createMockClient(): SupabaseClient {
     order: () => chain,
     limit: () => chain,
     eq: () => chain,
+    range: () => chain,
     single: () => chain,
     maybeSingle: () => chain,
     then: (onFulfilled?: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>

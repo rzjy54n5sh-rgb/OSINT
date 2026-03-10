@@ -1,0 +1,28 @@
+name: Daily Claude Analysis
+
+on:
+  schedule:
+    - cron: '0 6 * * *'   # Every day at 06:00 UTC (8am Cairo)
+  workflow_dispatch:        # Manual trigger any time
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dateutil
+
+      - name: Run daily Claude analysis
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python .github/workflows/scripts/daily_analysis.py
