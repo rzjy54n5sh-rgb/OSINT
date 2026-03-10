@@ -39,6 +39,8 @@ INTERNATIONAL = [
     {"url": "https://news.un.org/feed/subscribe/en/news/region/middle-east/feed/rss.xml",             "source_name": "UN News — MENA",        "source_type": "official",   "region": "Global",  "country": None, "lat": None, "lng": None},
     {"url": "https://www.ft.com/rss/home",                                                            "source_name": "Financial Times",       "source_type": "financial",  "region": "Global",  "country": None, "lat": None, "lng": None},
     {"url": "https://www.defensenews.com/rss/",                                                       "source_name": "Defense News",          "source_type": "military",   "region": "Global",  "country": None, "lat": None, "lng": None},
+    {"url": "https://www.al-monitor.com/rss",                                                         "source_name": "Al-Monitor",            "source_type": "think_tank", "region": "MENA",    "country": "International", "lat": None, "lng": None},
+    {"url": "https://www.middleeastmonitor.com/feed/",                                                "source_name": "Middle East Monitor",  "source_type": "regional",   "region": "MENA",    "country": "International", "lat": None, "lng": None},
 ]
 
 # ─────────────────────────────────────────────
@@ -57,6 +59,7 @@ USA = [
 # IRAN — State Media + Telegram (primary comms)
 # ─────────────────────────────────────────────
 IRAN = [
+    {"url": "https://ifpnews.com/feed",                                                               "source_name": "IFP News",              "source_type": "official",   "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
     {"url": "https://www.presstv.ir/rss",                                                             "source_name": "PressTV",               "source_type": "broadcast",  "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
     {"url": "https://en.mehrnews.com/rss",                                                            "source_name": "Mehr News",             "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
     {"url": "https://www.tasnimnews.com/en/rss",                                                      "source_name": "Tasnim News",           "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
@@ -84,6 +87,7 @@ ISRAEL = [
 # SAUDI ARABIA
 # ─────────────────────────────────────────────
 SAUDI = [
+    {"url": "https://news.google.com/rss/search?q=site:english.aawsat.com&hl=en-US&gl=US&ceid=US:en","source_name": "Asharq Al-Awsat",       "source_type": "elite",      "region": "GCC", "country": "Saudi Arabia", "lat": 24.688, "lng": 46.722},
     {"url": "https://www.arabnews.com/rss.xml",                                                       "source_name": "Arab News (Saudi)",     "source_type": "regional",   "region": "Gulf", "country": "Saudi Arabia", "lat": 24.688, "lng": 46.722},
     {"url": "https://saudigazette.com.sa/feed/",                                                      "source_name": "Saudi Gazette",         "source_type": "regional",   "region": "Gulf", "country": "Saudi Arabia", "lat": 24.688, "lng": 46.722},
     {"url": telegram_rss("spagov"),                                                                   "source_name": "Saudi Press Agency (Telegram)", "source_type": "wire", "region": "Gulf", "country": "Saudi Arabia", "lat": 24.688, "lng": 46.722},
@@ -162,10 +166,10 @@ EGYPT = [
 ]
 
 # ─────────────────────────────────────────────
-# JORDAN
+# JORDAN (Jordan Times direct RSS returns 403 — use Google News aggregate)
 # ─────────────────────────────────────────────
 JORDAN = [
-    {"url": "https://www.jordantimes.com/rss.xml",                                                    "source_name": "Jordan Times",          "source_type": "regional",   "region": "Jordan", "country": "Jordan", "lat": 31.963, "lng": 35.930},
+    {"url": "https://news.google.com/rss/search?q=site:jordantimes.com&hl=en-US&gl=US&ceid=US:en",    "source_name": "Jordan Times",          "source_type": "regional",   "region": "Levant", "country": "Jordan", "lat": 31.963, "lng": 35.930},
     {"url": telegram_rss("KingAbdullahII"),                                                           "source_name": "King Abdullah II (Telegram)", "source_type": "elite", "region": "Jordan", "country": "Jordan", "lat": 31.963, "lng": 35.930},
     {"url": telegram_rss("JordanMFA"),                                                                "source_name": "Jordan MFA (Telegram)", "source_type": "official",   "region": "Jordan", "country": "Jordan", "lat": 31.963, "lng": 35.930},
 ]
