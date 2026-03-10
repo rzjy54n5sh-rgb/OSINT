@@ -122,7 +122,7 @@ export default function WarRoomPage() {
         supabase.from('scenario_probabilities').select('*').eq('conflict_day', CONFLICT_DAY).limit(1).maybeSingle(),
         supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
         supabase.from('nai_scores').select('country_code, conflict_day, expressed_score, latent_score, gap_size, category').order('conflict_day', { ascending: false }).limit(60),
-        supabase.from('scenario_probs').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
+        supabase.from('scenario_probabilities').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
         supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
       ]);
 
@@ -152,13 +152,6 @@ export default function WarRoomPage() {
       setNaiHistory(naiArr);
 
       let scenarioArr = (scenarioHistoryRows as ScenarioRow[]) ?? [];
-      if (scenarioArr.length === 0 && scenarioHistoryErr) {
-        const { data: fallback } = await supabase
-          .from('scenario_probabilities')
-          .select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d')
-          .order('conflict_day', { ascending: true });
-        scenarioArr = (fallback as ScenarioRow[]) ?? [];
-      }
       if (scenarioArr.length === 0 && scenarioRows) {
         scenarioArr = [scenarioRows as unknown as ScenarioRow];
       }
@@ -297,7 +290,7 @@ export default function WarRoomPage() {
           }}
           role="alert"
         >
-          War room data error: {fetchError}. Check Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) and tables (e.g. scenario_probs vs scenario_probabilities).
+          War room data error: {fetchError}. Check Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) and table access.
         </div>
       )}
       {breakingAlerts.length > 0 && (

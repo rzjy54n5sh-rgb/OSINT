@@ -14,6 +14,12 @@ jobs:
         run: npm install
       - name: Build
         run: npm run build:cf
+        env:
+          # Inlined at build time into client bundle; required for Supabase in browser (War Room, Feed, NAI, etc.)
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Optional: Live TV in Media Room uses YouTube Data API when set
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       - name: Deploy
         run: npx wrangler deploy
         env:
