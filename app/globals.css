@@ -443,8 +443,40 @@ body > * { position: relative; z-index: 1; }
   .warroom-right-panel { display: none; }
 }
 @media (max-width: 768px) {
-  .warroom-grid { grid-template-columns: 1fr; height: auto; overflow: auto; }
-  .warroom-panel { height: 60vh; }
+  /* WAR ROOM — panel stacking + mobile tabs */
+  .warroom-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+  .warroom-left-panel {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 50vh;
+    overflow-y: auto;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+  }
+  .warroom-right-panel {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border);
+  }
+  .warroom-panel {
+    height: auto !important;
+    min-height: 0;
+  }
+  /* Status bar: wrap on mobile */
+  .warroom-status-bar {
+    height: auto !important;
+    flex-wrap: wrap;
+    padding: 6px 12px !important;
+    gap: 6px 12px !important;
+    justify-content: flex-start !important;
+    font-size: 8px !important;
+  }
 }
 
 /* ── MEDIA ROOM ── */
@@ -695,4 +727,38 @@ body > * { position: relative; z-index: 1; }
   border: 1px solid rgba(224,82,82,0.4);
   padding: 1px 4px;
   animation: blink 2s step-end infinite;
+}
+
+/* ── MEDIA ROOM MOBILE ─────────────────────────────────── */
+@media (max-width: 768px) {
+  /* TV grid: 4-col → 2-col */
+  .channel-tile-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  /* Coverage comparison: 3-col → 1-col */
+  .coverage-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Narrative matrix: 2-col → 1-col */
+  .narrative-grid {
+    grid-template-columns: 1fr !important;
+  }
+  /* Photo/clips: side-by-side → stacked */
+  .media-two-col {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── WAR ROOM — bottom intel grid mobile ───────────────── */
+@media (max-width: 768px) {
+  .warroom-intel-bottom {
+    grid-template-columns: 1fr 1fr !important;
+    overflow-y: auto;
+    max-height: 80vh;
+  }
+}
+@media (max-width: 480px) {
+  .warroom-intel-bottom {
+    grid-template-columns: 1fr !important;
+  }
 }

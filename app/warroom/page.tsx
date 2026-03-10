@@ -428,7 +428,7 @@ export default function WarRoomPage() {
 
       <div className="warroom-grid">
         {/* LEFT PANEL */}
-        <aside className="warroom-panel warroom-left-panel" style={{ width: 280 }}>
+        <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }}>
           <div className="warroom-panel-header">
             <span>◆ THEATRE COUNTRIES</span>
             <span style={{ color: 'var(--text-muted)', fontSize: 8 }}>
@@ -798,7 +798,7 @@ export default function WarRoomPage() {
             </div>
 
             {/* Bottom row - 3 or 4 columns: Elite, Risks/Stabilizers, Social, optional Economic Stress */}
-            <div style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: contentJson?.economic_exposure ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
+            <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: contentJson?.economic_exposure ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ ELITE NETWORK</div>
                 <hr className="data-rule" />

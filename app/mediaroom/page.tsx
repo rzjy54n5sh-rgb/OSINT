@@ -565,7 +565,7 @@ export default function MediaRoomPage() {
               ◉ LIVE TELEVISION — 8 CHANNELS ACTIVE
             </div>
             <div
-              className="grid gap-2 p-2"
+              className="channel-tile-grid grid gap-2 p-2"
               style={{
                 gridTemplateColumns: activeChannel
                   ? `minmax(0, 3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)`
@@ -644,7 +644,7 @@ export default function MediaRoomPage() {
               <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
                 ANALYST-CURATED EDITORIAL POSITIONS — Updated manually
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              <div className="narrative-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                 {CHANNEL_NARRATIVES.map((n) => {
                   const latest = getLatestArticleForNarrative(articles, n.channel);
                   return (
@@ -690,7 +690,7 @@ export default function MediaRoomPage() {
         )}
 
         {/* Two-column row: Photos (55%) + Clips (45%) */}
-        <div className="grid gap-4 mb-4" style={{ gridTemplateColumns: showSection('photos') && showSection('clips') ? '55fr 45fr' : '1fr' }}>
+        <div className="media-two-col grid gap-4 mb-4" style={{ gridTemplateColumns: showSection('photos') && showSection('clips') ? '55fr 45fr' : '1fr' }}>
           {/* Section 2 — PHOTO INTELLIGENCE */}
           {showSection('photos') && (
             <section>
@@ -790,7 +790,7 @@ export default function MediaRoomPage() {
             <p className="font-mono text-[9px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
               Same story covered by 3 different source types (e.g. wire, broadcast, official). Algorithm: recent 24h articles → cluster by shared tags → pick top 3 with distinct source_type.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12 }}>
+            <div className="coverage-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12 }}>
               {coverageCluster.map((a) => (
                 <a
                   key={a.id}

@@ -33,11 +33,11 @@ export default function NaiMapPage() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-44px)]">
-      <div className="w-full flex-1 relative" ref={mapContainer} />
+    <div className="flex flex-col sm:flex-row" style={{ minHeight: 'calc(100vh - 44px)' }}>
+      <div className="w-full flex-1 relative" style={{ minHeight: '40vh' }} ref={mapContainer} />
       <aside
-        className="w-80 border-l overflow-y-auto p-4 flex flex-col gap-4"
-        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
+        className="w-full sm:w-80 border-t sm:border-t-0 sm:border-l overflow-y-auto p-4 flex flex-col gap-4"
+        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', maxHeight: '50vh' }}
       >
         <h2 className="font-display text-lg inline-flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
           NAI RANKING
