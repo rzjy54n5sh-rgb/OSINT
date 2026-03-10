@@ -31,7 +31,7 @@ const QUICK_LINKS = [
 ];
 
 export default function CommandDashboard() {
-  const { articleCount, lastUpdate, live } = useRealtimeCount();
+  const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
   const { articles } = useArticles({}, 3);
   const { scenarios } = useScenarios();
 
@@ -50,7 +50,7 @@ export default function CommandDashboard() {
     <div className="relative">
       <AsciiHero
         articleCount={articleCount}
-        conflictDay={10}
+        conflictDay={conflictDay ?? 10}
         countriesTracked={20}
       />
 
@@ -59,7 +59,7 @@ export default function CommandDashboard() {
           className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-6 mb-10"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <span>CONFLICT DAY <span style={{ color: 'var(--accent-gold)' }}>10</span></span>
+          <span>CONFLICT DAY <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span></span>
           <span>ARTICLES <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span></span>
           <span>LAST UPDATE <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span></span>
           <span>{live ? '● LIVE' : '○ OFFLINE'}</span>

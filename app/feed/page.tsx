@@ -7,6 +7,7 @@ import { useArticles } from '@/hooks/useArticles';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { useConflictDay } from '@/hooks/useConflictDay';
 
 type SentimentFilter = string | null;
 type RegionFilter = string | null;
@@ -49,7 +50,7 @@ export default function FeedPage() {
         LIVE INTELLIGENCE FEED
       </h1>
       <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY 10 — FILTER BY REGION, SENTIMENT, SOURCE
+        CONFLICT DAY {conflictDay} — FILTER BY REGION, SENTIMENT, SOURCE
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6 font-mono text-xs">

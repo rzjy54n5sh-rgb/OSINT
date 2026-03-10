@@ -20,7 +20,7 @@ const NAV_LINKS = [
 
 export function CommandHeader() {
   const pathname = usePathname();
-  const { articleCount, lastUpdate, live } = useRealtimeCount();
+  const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -88,7 +88,7 @@ export function CommandHeader() {
         >
           <span>
             DAY:{' '}
-            <span style={{ color: 'var(--accent-red)' }}>10</span>
+            <span style={{ color: 'var(--accent-red)' }}>{conflictDay ?? '—'}</span>
           </span>
           <span style={{ color: 'var(--border-bright)' }}>|</span>
           <span>

@@ -24,13 +24,16 @@ export function SourceBadge({ name, logoUrl, sourceType, className = '' }: Sourc
       style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
     >
       {logoUrl && (
-        <img
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- dynamic source logo URL */}
+          <img
           src={logoUrl}
           alt=""
           width={16}
           height={16}
           className="rounded-sm object-cover"
         />
+        </>
       )}
       <span>{name || '—'}</span>
       {sourceType && (

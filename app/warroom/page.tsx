@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useConflictDay } from '@/hooks/useConflictDay';
 import type {
   Article,
   CountryReport,
@@ -78,9 +79,9 @@ function formatTime(iso: string | null): string {
   return d.toISOString().slice(11, 16);
 }
 
-const CONFLICT_DAY = 10;
-
 export default function WarRoomPage() {
+  const conflictDayFromDb = useConflictDay();
+  const CONFLICT_DAY = conflictDayFromDb ?? 10;
   const [activeCountry, setActiveCountry] = useState<string>('IR');
   const [lastRefresh, setLastRefresh] = useState<string>('--:--');
   const [countryReports, setCountryReports] = useState<CountryReport[]>([]);
@@ -95,74 +96,94 @@ export default function WarRoomPage() {
   const [naiHistory, setNaiHistory] = useState<NaiRow[]>([]);
   const [scenarioHistory, setScenarioHistory] = useState<ScenarioRow[]>([]);
   const [tickerArticles, setTickerArticles] = useState<Article[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchAll = async () => {
     const supabase = createClient();
+    setFetchError(null);
+    try {
+      const [
+        { data: reports, error: reportsErr },
+        { data: articlesData, error: articlesErr },
+        { count: totalCount },
+        { data: marketRows, error: marketErr },
+        { data: socialRows, error: socialErr },
+        { data: scenarioRows, error: scenarioErr },
+        { data: disinfoRows, error: disinfoErr },
+        { data: naiRows, error: naiErr },
+        { data: scenarioHistoryRows, error: scenarioHistoryErr },
+        { data: tickerRows },
+      ] = await Promise.all([
+        supabase.from('country_reports').select('*').order('conflict_day', { ascending: false }),
+        supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
+        supabase.from('articles').select('*', { count: 'exact', head: true }),
+        supabase.from('market_data').select('*').order('created_at', { ascending: false }),
+        supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }),
+        supabase.from('scenario_probabilities').select('*').eq('conflict_day', CONFLICT_DAY).limit(1).maybeSingle(),
+        supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
+        supabase.from('nai_scores').select('country_code, conflict_day, expressed_score, latent_score, gap_size, category').order('conflict_day', { ascending: false }).limit(60),
+        supabase.from('scenario_probs').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
+        supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
+      ]);
 
-    const [
-      { data: reports },
-      { data: articlesData },
-      { count: totalCount },
-      { data: marketRows },
-      { data: socialRows },
-      { data: scenarioRows },
-      { data: disinfoRows },
-      { data: naiRows },
-      { data: scenarioHistoryRows },
-      { data: tickerRows },
-    ] = await Promise.all([
-      supabase.from('country_reports').select('*').order('conflict_day', { ascending: false }),
-      supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
-      supabase.from('articles').select('*', { count: 'exact', head: true }),
-      supabase.from('market_data').select('*').order('created_at', { ascending: false }),
-      supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }),
-      supabase.from('scenario_probabilities').select('*').eq('conflict_day', CONFLICT_DAY).limit(1).single(),
-      supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
-      supabase.from('nai_scores').select('country_code, conflict_day, expressed_score, latent_score, gap_size, category').order('conflict_day', { ascending: false }).limit(60),
-      supabase.from('scenario_probs').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
-      supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
-    ]);
+      const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? scenarioErr?.message ?? disinfoErr?.message ?? naiErr?.message ?? scenarioHistoryErr?.message;
+      if (errMsg) setFetchError(errMsg);
 
-    setCountryReports((reports as CountryReport[]) ?? []);
-    setTotalArticleCount(totalCount ?? 0);
+      setCountryReports((reports as CountryReport[]) ?? []);
+      setTotalArticleCount(totalCount ?? 0);
 
-    const arts = (articlesData as Article[]) ?? [];
-    setArticles(arts);
+      const arts = (articlesData as Article[]) ?? [];
+      setArticles(arts);
 
-    const byCountry: Record<string, number> = {};
-    arts.forEach((a) => {
-      const c = (a.country ?? '').toUpperCase().trim() || 'OTHER';
-      byCountry[c] = (byCountry[c] ?? 0) + 1;
-    });
-    setArticleCountByCountry(byCountry);
+      const byCountry: Record<string, number> = {};
+      arts.forEach((a) => {
+        const c = (a.country ?? '').toUpperCase().trim() || 'OTHER';
+        byCountry[c] = (byCountry[c] ?? 0) + 1;
+      });
+      setArticleCountByCountry(byCountry);
 
-    setMarketData((marketRows as MarketData[]) ?? []);
-    setSocialTrends((socialRows as SocialTrend[]) ?? []);
-    setScenarios(scenarioRows as ScenarioProbability | null);
-    setDisinfoClaims((disinfoRows as DisinfoClaim[]) ?? []);
-    setTickerArticles((tickerRows as Article[]) ?? []);
+      setMarketData((marketRows as MarketData[]) ?? []);
+      setSocialTrends((socialRows as SocialTrend[]) ?? []);
+      setScenarios(scenarioRows as ScenarioProbability | null);
+      setDisinfoClaims((disinfoRows as DisinfoClaim[]) ?? []);
+      setTickerArticles((tickerRows as Article[]) ?? []);
 
-    const naiArr = (naiRows as NaiRow[]) ?? [];
-    setNaiHistory(naiArr);
+      const naiArr = (naiRows as NaiRow[]) ?? [];
+      setNaiHistory(naiArr);
 
-    const scenarioArr = (scenarioHistoryRows as ScenarioRow[]) ?? [];
-    setScenarioHistory(scenarioArr.length > 0 ? scenarioArr : (scenarioRows ? [scenarioRows as unknown as ScenarioRow] : []));
+      let scenarioArr = (scenarioHistoryRows as ScenarioRow[]) ?? [];
+      if (scenarioArr.length === 0 && scenarioHistoryErr) {
+        const { data: fallback } = await supabase
+          .from('scenario_probabilities')
+          .select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d')
+          .order('conflict_day', { ascending: true });
+        scenarioArr = (fallback as ScenarioRow[]) ?? [];
+      }
+      if (scenarioArr.length === 0 && scenarioRows) {
+        scenarioArr = [scenarioRows as unknown as ScenarioRow];
+      }
+      setScenarioHistory(scenarioArr);
 
-    const nowIso = new Date().toISOString();
-    setPipelineTimestamps({
-      articles: (arts[0]?.fetched_at ?? arts[0]?.published_at) ?? nowIso,
-      markets: (marketRows as MarketData[])?.[0] ? nowIso : '—',
-      social: (socialRows as SocialTrend[])?.[0] ? nowIso : '—',
-      disinfo: (disinfoRows as DisinfoClaim[])?.[0]?.published_at ?? nowIso,
-    });
-    setLastRefresh(nowIso.slice(11, 16) + ' UTC');
+      const nowIso = new Date().toISOString();
+      setPipelineTimestamps({
+        articles: (arts[0]?.fetched_at ?? arts[0]?.published_at) ?? nowIso,
+        markets: (marketRows as MarketData[])?.[0] ? nowIso : '—',
+        social: (socialRows as SocialTrend[])?.[0] ? nowIso : '—',
+        disinfo: (disinfoRows as DisinfoClaim[])?.[0]?.published_at ?? nowIso,
+      });
+      setLastRefresh(nowIso.slice(11, 16) + ' UTC');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Failed to load war room data';
+      setFetchError(msg);
+    }
   };
 
   useEffect(() => {
     fetchAll();
     const interval = setInterval(fetchAll, 60_000);
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAll uses CONFLICT_DAY from closure
+  }, [CONFLICT_DAY]);
 
   const filteredArticles = activeCountry
     ? articles.filter((a) => (a.country ?? '').toUpperCase().trim() === activeCountry).slice(0, 30)
@@ -264,6 +285,21 @@ export default function WarRoomPage() {
 
   return (
     <div className="warroom-page">
+      {fetchError && (
+        <div
+          style={{
+            padding: '10px 16px',
+            background: 'rgba(224,82,82,0.1)',
+            borderBottom: '1px solid var(--accent-red)',
+            fontFamily: 'IBM Plex Mono',
+            fontSize: 11,
+            color: 'var(--accent-red)',
+          }}
+          role="alert"
+        >
+          War room data error: {fetchError}. Check Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) and tables (e.g. scenario_probs vs scenario_probabilities).
+        </div>
+      )}
       {breakingAlerts.length > 0 && (
         <div
           style={{

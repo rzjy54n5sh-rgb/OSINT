@@ -1,7 +1,12 @@
 import type { Metadata } from 'next';
+import { Bebas_Neue, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { BackgroundCanvas } from '@/components/BackgroundCanvas';
 import { CommandHeader } from '@/components/CommandHeader';
+
+const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
+const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
+const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
 
 export const metadata: Metadata = {
   title: 'MENA Intel Desk',
@@ -10,16 +15,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;600&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="min-h-screen overflow-x-hidden">
+    <html lang="en" className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable}`}>
+      <body className={`min-h-screen overflow-x-hidden ${dmSans.className}`}>
         <BackgroundCanvas />
         <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
           <CommandHeader />

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 
 // Full-width ASCII logo — scales via font-size
 const ASCII_LOGO = `
@@ -10,14 +10,14 @@ const ASCII_LOGO = `
 ██║ ╚═╝ ██║███████╗██║ ╚████║██║  ██║    ██║██║ ╚████║   ██║   ███████╗███████╗    ██████╔╝███████╗███████║██║  ██╗
 ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝   ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝`.trim();
 
-const BOOT_LINES = [
+const getBootLines = (conflictDay: number, articleCount: number, countriesTracked: number) => [
   '> INITIALIZING OSINT COLLECTION SYSTEMS........... OK',
   '> ESTABLISHING SECURE CHANNEL TO DATABASE......... OK',
   '> LOADING NARRATIVE ALIGNMENT INDEX MATRICES...... OK',
   '> CONFLICT INTELLIGENCE FEED: ACTIVE',
   '> NAI SCORING ENGINE: OPERATIONAL',
-  '> ARTICLES INDEXED: 10 | COUNTRIES TRACKED: 20',
-  '> CONFLICT DAY 10 — ALL SYSTEMS NOMINAL ████████ 100%',
+  `> ARTICLES INDEXED: ${articleCount} | COUNTRIES TRACKED: ${countriesTracked}`,
+  `> CONFLICT DAY ${conflictDay} — ALL SYSTEMS NOMINAL ████████ 100%`,
 ];
 
 type Phase = 'logo' | 'boot' | 'done';
@@ -33,6 +33,10 @@ export function AsciiHero({
   conflictDay  = 10,
   countriesTracked = 20,
 }: AsciiHeroProps) {
+  const bootLines = useMemo(
+    () => getBootLines(conflictDay, articleCount, countriesTracked),
+    [conflictDay, articleCount, countriesTracked]
+  );
   const [displayedLogo, setDisplayedLogo] = useState('');
   const [completedLines, setCompletedLines] = useState<string[]>([]);
   const [currentLine, setCurrentLine]     = useState('');
@@ -57,11 +61,11 @@ export function AsciiHero({
 
   // Phase 2 — type each boot line
   const typeNextLine = useCallback(() => {
-    if (lineIndex >= BOOT_LINES.length) {
+    if (lineIndex >= bootLines.length) {
       setPhase('done');
       return;
     }
-    const line = BOOT_LINES[lineIndex];
+    const line = bootLines[lineIndex];
     let i = 0;
     const id = setInterval(() => {
       i++;
@@ -76,7 +80,7 @@ export function AsciiHero({
       }
     }, 18);
     return () => clearInterval(id);
-  }, [lineIndex]);
+  }, [lineIndex, bootLines]);
 
   useEffect(() => {
     if (phase !== 'boot') return;

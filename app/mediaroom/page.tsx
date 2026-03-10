@@ -81,8 +81,6 @@ const CLIP_CHANNEL_IDS = [
   'UCzMJf7Q6c0l_jy4bB7n2xTw',
 ];
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-
 /** [STATIC CONFIG — editorial assessment, update manually as needed] */
 const ACCENT_GOLD = 'var(--accent-gold)';
 const ACCENT_BLUE = 'var(--accent-blue)';
@@ -171,10 +169,11 @@ function formatRelativeTime(dateStr: string | null): string {
 }
 
 async function fetchFlickrPhotos(tags: string): Promise<Photo[]> {
-  const url = `https://api.flickr.com/services/feeds/photos_public.gne?tags=${encodeURIComponent(tags)}&format=json&nojsoncallback=1`;
+  const url = `/api/flickr?tags=${encodeURIComponent(tags)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Flickr fetch failed');
   const data = await res.json();
+  if (Array.isArray(data)) return data as Photo[];
   const items = data?.items ?? [];
   return items.map((item: { title: string; media?: { m: string }; link: string; author?: string }) => ({
     title: item.title || 'Untitled',
@@ -197,8 +196,7 @@ async function fetchYouTubeClips(): Promise<Clip[]> {
   };
   for (const channelId of CLIP_CHANNEL_IDS) {
     try {
-      const rssUrl = 'https://www.youtube.com/feeds/videos.xml?channel_id=' + channelId;
-      const res = await fetch(CORS_PROXY + encodeURIComponent(rssUrl));
+      const res = await fetch(`/api/youtube-rss?channelId=${encodeURIComponent(channelId)}`);
       if (!res.ok) continue;
       const xml = await res.text();
       const parser = new DOMParser();
@@ -251,6 +249,9 @@ export default function MediaRoomPage() {
   const [clipError, setClipError] = useState(false);
   const clipsFetched = useRef(false);
 
+  /** channelId -> current live video ID (from YouTube Data API when key is set) */
+  const [liveVideoIds, setLiveVideoIds] = useState<Record<string, string | null>>({});
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [articleError, setArticleError] = useState(false);
 
@@ -280,6 +281,19 @@ export default function MediaRoomPage() {
     fetchYouTubeClips()
       .then(setClips)
       .catch(() => setClipError(true));
+  }, []);
+
+  // Live TV: resolve current live video IDs via API when YOUTUBE_API_KEY is set
+  useEffect(() => {
+    const ids = LIVE_CHANNELS.map((c) => c.id).join(',');
+    fetch(`/api/youtube-live?ids=${encodeURIComponent(ids)}`)
+      .then((r) => r.json())
+      .then((arr: { channelId: string; videoId: string | null }[]) => {
+        const map: Record<string, string | null> = {};
+        arr.forEach((x) => { map[x.channelId] = x.videoId ?? null; });
+        setLiveVideoIds(map);
+      })
+      .catch(() => {});
   }, []);
 
   // Supabase articles: fetch when country changes
@@ -470,13 +484,28 @@ export default function MediaRoomPage() {
                       <span>LIVE</span>
                     </div>
                     {isLoaded ? (
-                      <iframe
-                        src={`https://www.youtube.com/embed/live_stream?channel=${ch.id}&autoplay=0&mute=1`}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
-                        allowFullScreen
-                        className="channel-iframe"
-                        title={ch.name}
-                      />
+                      (() => {
+                        const videoId = liveVideoIds[ch.id];
+                        const embedUrl = videoId
+                          ? `https://www.youtube.com/embed/${videoId}?autoplay=0`
+                          : `https://www.youtube.com/embed/live_stream?channel=${ch.id}&autoplay=0&mute=1`;
+                        return (
+                          <div className="channel-embed-wrap">
+                            <iframe
+                              src={embedUrl}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope"
+                              allowFullScreen
+                              className="channel-iframe"
+                              title={ch.name}
+                            />
+                            {!videoId && (
+                              <span className="live-fallback-label" title="Channel may be off air; stream URL is generic">
+                                Off air?
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()
                     ) : (
                       <div
                         className="channel-poster"
@@ -552,6 +581,7 @@ export default function MediaRoomPage() {
                       className="photo-card"
                       onClick={() => setLightboxPhoto(photo)}
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- dynamic Flickr CDN URLs */}
                       <img
                         src={photo.thumb}
                         alt={photo.title}
@@ -601,6 +631,7 @@ export default function MediaRoomPage() {
                       className="clip-card"
                     >
                       <div className="clip-thumbnail-wrap">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic YouTube thumbnails */}
                         <img
                           src={clip.thumbnail}
                           alt={clip.title}
@@ -679,6 +710,7 @@ export default function MediaRoomPage() {
                       className="wire-card"
                     >
                       <div className="wire-source-img">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic favicon URLs */}
                         <img
                           src={`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(article.url || '')}&size=128`}
                           alt={article.source_name || ''}
@@ -712,6 +744,7 @@ export default function MediaRoomPage() {
           onKeyDown={(e) => e.key === 'Escape' && setLightboxPhoto(null)}
         >
           <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- lightbox full-size external URL */}
             <img src={lightboxPhoto.full} alt={lightboxPhoto.title} />
             <div className="lightbox-caption">
               <span>{lightboxPhoto.title}</span>

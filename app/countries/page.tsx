@@ -6,10 +6,11 @@ import { OsintCard } from '@/components/OsintCard';
 import { CountryFlag } from '@/components/CountryFlag';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
 import { useNaiScores } from '@/hooks/useNaiScores';
-
-const CONFLICT_DAY = 10;
+import { useConflictDay } from '@/hooks/useConflictDay';
 
 export default function CountriesPage() {
+  const conflictDay = useConflictDay();
+  const CONFLICT_DAY = conflictDay ?? 10;
   const { scores, loading, error } = useNaiScores(CONFLICT_DAY);
 
   return (
