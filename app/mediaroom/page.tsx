@@ -303,6 +303,7 @@ export default function MediaRoomPage() {
         setArticleError(false);
       })
     ).catch(() => setArticleError(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase client is stable
   }, [activeCountry]);
 
   const loadChannel = useCallback((channelId: string) => {
@@ -540,9 +541,9 @@ export default function MediaRoomPage() {
                 ◈ PHOTO INTELLIGENCE — {countryLabel} — FLICKR LIVE FEED
               </div>
               {photoError ? (
-                <p className="redacted p-4">// PHOTO FEED UNAVAILABLE</p>
+                <p className="redacted p-4">{'// PHOTO FEED UNAVAILABLE'}</p>
               ) : photos.length === 0 ? (
-                <p className="redacted p-4">// LOADING IMAGES...</p>
+                <p className="redacted p-4">{'// LOADING IMAGES...'}</p>
               ) : (
                 <div className="photo-masonry">
                   {photos.map((photo, i) => (
@@ -586,7 +587,7 @@ export default function MediaRoomPage() {
                 ▶ VIDEO CLIPS — LATEST FROM FIELD
               </div>
               {clipError ? (
-                <p className="redacted p-4">// FEED UNAVAILABLE</p>
+                <p className="redacted p-4">{'// FEED UNAVAILABLE'}</p>
               ) : filteredClips.length === 0 ? (
                 <p className="redacted p-4">{clips.length === 0 ? '// LOADING CLIPS...' : '// NO CLIPS FOR THIS COUNTRY'}</p>
               ) : (
@@ -663,9 +664,9 @@ export default function MediaRoomPage() {
               ◈ PRESS PHOTO WIRE — ARTICLES WITH MEDIA
             </div>
             {articleError ? (
-              <p className="redacted p-4">// FEED UNAVAILABLE</p>
+              <p className="redacted p-4">{'// FEED UNAVAILABLE'}</p>
             ) : wireList.length === 0 ? (
-              <p className="redacted p-4">// LOADING ARTICLES...</p>
+              <p className="redacted p-4">{'// LOADING ARTICLES...'}</p>
             ) : (
               <div className="wire-strip">
                 <div className="wire-strip-inner">

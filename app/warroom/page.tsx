@@ -691,7 +691,7 @@ export default function WarRoomPage() {
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filteredArticles.length === 0 ? (
-                  <p className="redacted" style={{ padding: 14 }}>// NO DATA AVAILABLE</p>
+                  <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   filteredArticles.map((a) => (
                     <div key={a.id} className="warroom-item">
@@ -732,7 +732,7 @@ export default function WarRoomPage() {
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ ELITE NETWORK</div>
                 <hr className="data-rule" />
                 {eliteNetwork.length === 0 ? (
-                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>// NO DATA AVAILABLE</p>
+                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   eliteNetwork.map((p, i) => (
                     <div key={i} style={{ marginTop: 10, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
@@ -747,16 +747,16 @@ export default function WarRoomPage() {
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ KEY RISKS</div>
                 <hr className="data-rule" />
-                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>// NONE</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--accent-red)', fontSize: 10, marginTop: 6 }}>▸ {r}</div>)}
+                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--accent-red)', fontSize: 10, marginTop: 6 }}>▸ {r}</div>)}
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
-                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>// NONE</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--accent-green)', fontSize: 10, marginTop: 6 }}>▸ {s}</div>)}
+                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--accent-green)', fontSize: 10, marginTop: 6 }}>▸ {s}</div>)}
               </div>
               <div style={{ borderRight: contentJson?.economic_exposure ? '1px solid var(--border)' : 'none', overflowY: 'auto', padding: 12 }}>
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
                 <hr className="data-rule" />
                 {!socialForCountry ? (
-                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>// NO DATA AVAILABLE</p>
+                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   <>
                     <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
@@ -814,7 +814,7 @@ export default function WarRoomPage() {
             <span>▸ MARKET WATCH — LIVE</span>
           </div>
           {Object.entries(latestByIndicator).length === 0 ? (
-            <p className="redacted" style={{ padding: 14 }}>// NO DATA AVAILABLE</p>
+            <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
           ) : (
             Object.entries(latestByIndicator).map(([name, row]) => {
               const isOil = /brent|wti|crude|oil/i.test(name);
@@ -861,7 +861,7 @@ export default function WarRoomPage() {
             <span>▸ ACTIVE DISINFO CLAIMS</span>
           </div>
           {disinfoClaims.length === 0 ? (
-            <p className="redacted" style={{ padding: 14 }}>// NO DATA AVAILABLE</p>
+            <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
           ) : (
             disinfoClaims.map((c) => (
               <div key={c.id} className="disinfo-row" style={{ padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
