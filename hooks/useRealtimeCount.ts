@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 
 export function useRealtimeCount() {
   const [articleCount, setArticleCount] = useState<number>(0);
@@ -9,10 +9,7 @@ export function useRealtimeCount() {
   const [conflictDay, setConflictDay] = useState<number | null>(null);
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
 
     supabase
       .from('articles')

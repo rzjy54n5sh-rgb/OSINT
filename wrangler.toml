@@ -6,6 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+# Serve assets via OpenNext worker so path resolution matches Next.js (/_next/static/...)
+run_worker_first = true
 
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://qmaszkkyukgiludcakjg.supabase.co"
