@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 
 const NAV_LINKS = [
+  { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
+  { href: '/mediaroom', label: 'MEDIA ROOM' },
   { href: '/feed',      label: 'FEED' },
   { href: '/nai',       label: 'NAI MAP' },
   { href: '/countries', label: 'COUNTRIES' },
@@ -141,15 +143,23 @@ export function CommandHeader() {
           }}
           className="hidden-mobile"
         >
-          {NAV_LINKS.map(({ href, label }) => (
+          {NAV_LINKS.map(({ href, label, isWarRoom }) => (
             <Link
               key={href}
               href={href}
               className="header-link"
               style={{
-                color: pathname === href ? 'var(--accent-gold)' : undefined,
+                color: isWarRoom ? 'var(--accent-red)' : pathname === href ? 'var(--accent-gold)' : undefined,
+                opacity: isWarRoom ? 1 : undefined,
+                filter: isWarRoom ? 'none' : undefined,
               }}
             >
+              {isWarRoom && (
+                <span style={{ position: 'relative', display: 'inline-flex', marginRight: '4px' }}>
+                  <span className="pulse-ring" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent-red)', opacity: 0.5 }} />
+                  <span style={{ position: 'relative', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-red)', display: 'inline-block' }} />
+                </span>
+              )}
               {label}
             </Link>
           ))}
@@ -193,7 +203,7 @@ export function CommandHeader() {
             background: 'rgba(7,10,15,0.96)',
           }}
         >
-          {NAV_LINKS.map(({ href, label }) => (
+          {NAV_LINKS.map(({ href, label, isWarRoom }) => (
             <Link
               key={href}
               href={href}
@@ -201,7 +211,7 @@ export function CommandHeader() {
               onClick={() => setMenuOpen(false)}
               style={{
                 fontSize: '11px',
-                color: pathname === href ? 'var(--accent-gold)' : undefined,
+                color: isWarRoom ? 'var(--accent-red)' : pathname === href ? 'var(--accent-gold)' : undefined,
               }}
             >
               {label}
