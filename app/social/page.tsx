@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { createClient } from '@/lib/supabase/client';
-import { formatEngagement } from '@/lib/utils';
+import { formatEngagement, parseEngagementEstimate } from '@/lib/utils';
 import type { SocialTrend } from '@/types/supabase';
 
 export default function SocialPage() {
@@ -21,12 +21,21 @@ export default function SocialPage() {
       .then(({ data, error: e }) => {
         setLoading(false);
         if (e) setError(e);
-        else setTrends((data as SocialTrend[]) ?? []);
+        else {
+          const rows = ((data as SocialTrend[]) ?? []).sort(
+            (a, b) =>
+              (parseEngagementEstimate(b.engagement_estimate) ?? -1) -
+              (parseEngagementEstimate(a.engagement_estimate) ?? -1)
+          );
+          setTrends(rows);
+        }
       });
   }, []);
 
   const sentimentClass = (s: string | null) => {
     const v = (s ?? '').toLowerCase();
+    if (v === 'anti_war') return 'sentiment-badge positive';
+    if (v === 'pro_war' || v === 'fearful') return 'sentiment-badge negative';
     if (v === 'positive') return 'sentiment-badge positive';
     if (v === 'negative') return 'sentiment-badge negative';
     return 'sentiment-badge neutral';

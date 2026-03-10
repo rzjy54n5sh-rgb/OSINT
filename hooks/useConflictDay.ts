@@ -11,16 +11,26 @@ export function useConflictDay(): number | null {
   const [conflictDay, setConflictDay] = useState<number | null>(null);
 
   useEffect(() => {
+    let isActive = true;
     const supabase = createClient();
-    supabase
-      .from('nai_scores')
-      .select('conflict_day')
-      .order('conflict_day', { ascending: false })
-      .limit(1)
-      .single()
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('nai_scores')
+          .select('conflict_day')
+          .order('conflict_day', { ascending: false })
+          .limit(1)
+          .single();
+        if (!isActive) return;
         if (data?.conflict_day != null) setConflictDay(data.conflict_day);
-      });
+      } catch {
+        if (!isActive) return;
+        setConflictDay(null);
+      }
+    })();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   return conflictDay;
