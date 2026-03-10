@@ -12,13 +12,30 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install
+      - name: Check Supabase secrets (required for live data)
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing GitHub secrets. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in repo Settings → Secrets and variables → Actions (see SETUP.md). Then re-run this workflow."
+            exit 1
+          fi
+          echo "Supabase env vars present; writing .env.production for Next.js build."
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # Next.js inlines NEXT_PUBLIC_* from env at build time. Write .env.production so the
+      # OpenNext/Next build (possibly in a subprocess) definitely sees them.
+      - name: Create .env.production for build
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL" >> .env.production
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY" >> .env.production
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Build
         run: npm run build:cf
         env:
-          # Inlined at build time into client bundle; required for Supabase in browser (War Room, Feed, NAI, etc.)
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          # Optional: Live TV in Media Room uses YouTube Data API when set
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       - name: Deploy
         run: npx wrangler deploy
