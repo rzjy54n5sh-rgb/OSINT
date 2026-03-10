@@ -31,6 +31,21 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      # Write literal URL/key into a module so the client bundle gets them even when Next env inlining is not applied (OpenNext/CF)
+      - name: Write Supabase env into client module
+        run: |
+          node -e "
+          const fs = require('fs');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+          fs.writeFileSync('lib/supabase/env.client.generated.ts',
+            '/** Generated at build time from GitHub secrets — do not commit real values **/\n' +
+            'export const NEXT_PUBLIC_SUPABASE_URL = ' + JSON.stringify(url) + ';\n' +
+            'export const NEXT_PUBLIC_SUPABASE_ANON_KEY = ' + JSON.stringify(key) + ';\n');
+          "
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Build
         run: |
           export NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL"

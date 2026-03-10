@@ -1,5 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  NEXT_PUBLIC_SUPABASE_URL as GEN_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_ANON_KEY,
+} from './env.client.generated';
 
 const SUPABASE_NOT_CONFIGURED = 'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your deployment environment.';
 
@@ -31,8 +35,8 @@ function createMockClient(): SupabaseClient {
 }
 
 export function createClient(): SupabaseClient {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = (typeof GEN_URL === 'string' && GEN_URL) || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = (typeof GEN_ANON_KEY === 'string' && GEN_ANON_KEY) || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) {
     if (typeof window !== 'undefined') {
       console.warn('@supabase/ssr:', SUPABASE_NOT_CONFIGURED);
