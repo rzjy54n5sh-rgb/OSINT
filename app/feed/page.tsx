@@ -36,6 +36,7 @@ function SentimentBadgeWithTooltip({ sentiment }: { sentiment: string | null }) 
 }
 
 export default function FeedPage() {
+  const maxConflictDay = useConflictDay();
   const [region, setRegion] = useState<RegionFilter>(null);
   const [sentiment, setSentiment] = useState<SentimentFilter>(null);
   const [conflictDay, setConflictDay] = useState<number | null>(null);
@@ -50,7 +51,7 @@ export default function FeedPage() {
         LIVE INTELLIGENCE FEED
       </h1>
       <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY {conflictDay} — FILTER BY REGION, SENTIMENT, SOURCE
+        CONFLICT DAY {conflictDay ?? '—'} — FILTER BY REGION, SENTIMENT, SOURCE
       </p>
 
       <div className="flex flex-wrap gap-3 mb-6 font-mono text-xs">
@@ -83,7 +84,7 @@ export default function FeedPage() {
           style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
         >
           <option value="">ALL DAYS</option>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((d) => (
+          {Array.from({ length: maxConflictDay ?? 11 }, (_, i) => i + 1).map((d) => (
             <option key={d} value={d}>DAY {d}</option>
           ))}
         </select>

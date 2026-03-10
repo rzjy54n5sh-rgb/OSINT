@@ -7,12 +7,13 @@ import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
 import { useArticles } from '@/hooks/useArticles';
 import { useNaiScores } from '@/hooks/useNaiScores';
-
-const DAYS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+import { useConflictDay } from '@/hooks/useConflictDay';
 
 export default function TimelinePage() {
-  const [selectedDay, setSelectedDay] = useState(10);
-  const { articles } = useArticles({ conflict_day: selectedDay }, 100);
+  const maxDay = useConflictDay() ?? 11;
+  const days = Array.from({ length: maxDay }, (_, i) => i + 1);
+  const [selectedDay, setSelectedDay] = useState(days[days.length - 1] ?? 10);
+  const { articles } = useArticles({ conflict_day: selectedDay }, 500);
   const { scores } = useNaiScores(selectedDay);
   const avgNai = scores.length > 0
     ? scores.reduce((a, s) => a + s.expressed_score, 0) / scores.length
@@ -24,10 +25,10 @@ export default function TimelinePage() {
         CONFLICT TIMELINE
       </h1>
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
-        DAY 1 → 10 — ARTICLES | NAI AVERAGE | EVENTS
+        DAY 1 → {maxDay} — ARTICLES | NAI AVERAGE | EVENTS
       </p>
       <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
-        {DAYS.map((d) => (
+        {days.map((d) => (
           <button
             key={d}
             type="button"
@@ -48,6 +49,7 @@ export default function TimelinePage() {
           <div>
             <span style={{ color: 'var(--text-muted)' }}>ARTICLES </span>
             <span style={{ color: 'var(--accent-gold)' }}>{articles.length}</span>
+            {articles.length >= 500 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}> (showing first 500)</span>}
           </div>
           <div>
             <span style={{ color: 'var(--text-muted)' }}>NAI AVG </span>

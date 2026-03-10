@@ -47,6 +47,20 @@ const NAI_CATEGORY_COLOR: Record<string, string> = {
   INVERSION: 'var(--nai-inversion)',
 };
 
+/** Slug (URL) -> ISO2 country_code. Supports both name slugs (iran, israel) and code slugs (ir, il). */
+const SLUG_TO_CODE: Record<string, string> = {
+  iran: 'IR', israel: 'IL', iraq: 'IQ', yemen: 'YE', 'saudi-arabia': 'SA', saudi: 'SA',
+  uae: 'AE', egypt: 'EG', turkey: 'TR', russia: 'RU', syria: 'SY',
+  lebanon: 'LB', jordan: 'JO', qatar: 'QA', kuwait: 'KW', bahrain: 'BH',
+  oman: 'OM', palestine: 'PS', libya: 'LY', sudan: 'SD', algeria: 'DZ',
+  morocco: 'MA', tunisia: 'TN', china: 'CN', usa: 'US', uk: 'GB',
+  france: 'FR', germany: 'DE', india: 'IN', pakistan: 'PK',
+  ir: 'IR', il: 'IL', iq: 'IQ', ye: 'YE', sa: 'SA', ae: 'AE', eg: 'EG',
+  tr: 'TR', ru: 'RU', sy: 'SY', lb: 'LB', jo: 'JO', qa: 'QA', kw: 'KW',
+  bh: 'BH', om: 'OM', ps: 'PS', ly: 'LY', sd: 'SD', dz: 'DZ', ma: 'MA',
+  tn: 'TN', cn: 'CN', us: 'US', gb: 'GB', fr: 'FR', de: 'DE', in: 'IN', pk: 'PK',
+};
+
 function parseContent(content: Record<string, unknown> | null): ParsedContent | null {
   if (!content || typeof content !== 'object') return null;
   return content as unknown as ParsedContent;
@@ -54,18 +68,19 @@ function parseContent(content: Record<string, unknown> | null): ParsedContent | 
 
 export default function CountryReportPage() {
   const params = useParams();
-  const slug = typeof params.slug === 'string' ? params.slug.toUpperCase() : '';
+  const rawSlug = typeof params.slug === 'string' ? params.slug : '';
+  const countryCode = rawSlug ? (SLUG_TO_CODE[rawSlug.toLowerCase()] ?? rawSlug.toUpperCase()) : '';
   const [report, setReport] = useState<CountryReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!slug) return;
+    if (!countryCode) return;
     const supabase = createClient();
     supabase
       .from('country_reports')
       .select('*')
-      .eq('country_code', slug)
+      .eq('country_code', countryCode)
       .order('conflict_day', { ascending: false })
       .limit(1)
       .single()
@@ -74,7 +89,7 @@ export default function CountryReportPage() {
         if (e) setError(e);
         else setReport(data as CountryReport);
       });
-  }, [slug]);
+  }, [countryCode]);
 
   const parsed = report?.content_json ? parseContent(report.content_json) : null;
   const hasStructuredContent = parsed && (parsed.nai ?? parsed.scenarios ?? parsed.elite_network ?? parsed.key_risks ?? parsed.stabilizers ?? parsed.assessment);

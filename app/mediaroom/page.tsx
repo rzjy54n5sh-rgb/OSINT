@@ -1,6 +1,5 @@
 'use client';
 
-import { CommandHeader } from '@/components/CommandHeader';
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -62,8 +61,8 @@ const COUNTRY_PHOTO_TAGS: Record<string, string> = {
 };
 
 const LIVE_CHANNELS = [
-  { id: 'UC88nx0Rq6V3bAHfMd4vNogg', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
-  { id: 'UCCCPCZNChQdGa9Ek9UIDydg', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
+  { id: 'UCNye-wNBqNL5ZzHSJdse1OA', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
+  { id: 'UCQfwfsi5VrQ8yKZ-UWmAoBw', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
   { id: 'UC16niRr50-MSBwiO3YDb3RA', name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
   { id: 'UCupvZG-5ko_eiXAupbDfxWw', name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
   { id: 'UCoMdktPbSTixAyNGwb-XYAg', name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
@@ -73,8 +72,8 @@ const LIVE_CHANNELS = [
 ];
 
 const CLIP_CHANNEL_IDS = [
-  'UC88nx0Rq6V3bAHfMd4vNogg',
-  'UCCCPCZNChQdGa9Ek9UIDydg',
+  'UCNye-wNBqNL5ZzHSJdse1OA',
+  'UCQfwfsi5VrQ8yKZ-UWmAoBw',
   'UC16niRr50-MSBwiO3YDb3RA',
   'UCupvZG-5ko_eiXAupbDfxWw',
   'UC7fWeaHhqgM4Ry-RMpM2YYw',
@@ -187,8 +186,8 @@ async function fetchFlickrPhotos(tags: string): Promise<Photo[]> {
 async function fetchYouTubeClips(): Promise<Clip[]> {
   const all: Clip[] = [];
   const channelNames: Record<string, string> = {
-    'UC88nx0Rq6V3bAHfMd4vNogg': 'Al Jazeera English',
-    'UCCCPCZNChQdGa9Ek9UIDydg': 'France 24',
+    'UCNye-wNBqNL5ZzHSJdse1OA': 'Al Jazeera English',
+    'UCQfwfsi5VrQ8yKZ-UWmAoBw': 'France 24',
     'UC16niRr50-MSBwiO3YDb3RA': 'BBC News',
     'UCupvZG-5ko_eiXAupbDfxWw': 'CNN',
     'UC7fWeaHhqgM4Ry-RMpM2YYw': 'TRT World',
@@ -353,7 +352,6 @@ export default function MediaRoomPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <CommandHeader />
       {breakingAlerts.length > 0 && (
         <div
           style={{

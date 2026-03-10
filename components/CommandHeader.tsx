@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
+import { useConflictDay } from '@/hooks/useConflictDay';
 
 const NAV_LINKS = [
   { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
@@ -20,7 +21,8 @@ const NAV_LINKS = [
 
 export function CommandHeader() {
   const pathname = usePathname();
-  const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
+  const { articleCount, lastUpdate, live } = useRealtimeCount();
+  const conflictDay = useConflictDay();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (

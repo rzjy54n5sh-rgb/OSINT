@@ -26,6 +26,10 @@ def telegram_rss(channel: str) -> str:
 # INTERNATIONAL WIRES & BROADCASTERS (verified ✓)
 # ─────────────────────────────────────────────
 INTERNATIONAL = [
+    {"url": "https://www.reuters.com/world/rss",                                                      "source_name": "Reuters World",         "source_type": "wire",       "region": "Global",  "country": None, "lat": None, "lng": None},
+    {"url": "https://www.reuters.com/world/middle-east/rss",                                          "source_name": "Reuters Middle East",   "source_type": "wire",       "region": "MENA",    "country": None, "lat": None, "lng": None},
+    {"url": "https://api.axios.com/feed/",                                                            "source_name": "Axios",                 "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
+    {"url": "http://rss.cnn.com/rss/cnn_topstories.rss",                                              "source_name": "CNN Top Stories",       "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
     {"url": "https://www.aljazeera.com/xml/rss/all.xml",                                              "source_name": "Al Jazeera",            "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
     {"url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                            "source_name": "BBC World",             "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
     {"url": "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",                                "source_name": "BBC Middle East",       "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None},
@@ -107,6 +111,15 @@ UAE = [
 ]
 
 # ─────────────────────────────────────────────
+# KUWAIT / OMAN / BAHRAIN (GCC)
+# ─────────────────────────────────────────────
+KUWAIT_OMAN_BAHRAIN = [
+    {"url": "https://www.kuna.net.kw/ArticleRss.aspx",                                                "source_name": "KUNA (Kuwait)",        "source_type": "wire",       "region": "Gulf", "country": "Kuwait", "lat": 29.375, "lng": 47.977},
+    {"url": "https://www.omanobserver.com/feed/",                                                     "source_name": "Oman Observer",        "source_type": "regional",   "region": "Gulf", "country": "Oman", "lat": 23.588, "lng": 58.382},
+    {"url": "https://www.bna.bh/en/rss/",                                                             "source_name": "BNA (Bahrain)",        "source_type": "wire",       "region": "Gulf", "country": "Bahrain", "lat": 26.066, "lng": 50.557},
+]
+
+# ─────────────────────────────────────────────
 # QATAR
 # ─────────────────────────────────────────────
 QATAR = [
@@ -141,6 +154,7 @@ YEMEN = [
 LEBANON = [
     {"url": "https://www.naharnet.com/stories/en/rss",                                                "source_name": "Naharnet (Lebanon)",    "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
     {"url": "https://english.now-news.com/feed/",                                                     "source_name": "NOW Lebanon",           "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
+    {"url": "https://today.lorientlejour.com/feed/",                                                   "source_name": "L'Orient Today",        "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
     {"url": telegram_rss("almanarnews"),                                                              "source_name": "Al-Manar / Hezbollah (Telegram)", "source_type": "military", "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
     {"url": telegram_rss("NabihBerri"),                                                               "source_name": "Nabih Berri (Telegram)","source_type": "elite",      "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
 ]
@@ -228,6 +242,9 @@ INDIA = [
 CONFLICT_MONITORS = [
     {"url": "https://understandingwar.org/rss.xml",                                                   "source_name": "ISW (Understandingwar)", "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
     {"url": "https://acleddata.com/feed/",                                                            "source_name": "ACLED",                 "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
+    {"url": "https://www.crisisgroup.org/feed",                                                       "source_name": "ICG (Crisis Group)",   "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
+    {"url": "https://www.cfr.org/rss",                                                                "source_name": "CFR (Council on Foreign Relations)", "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
+    {"url": "https://www.csis.org/feed",                                                              "source_name": "CSIS",                  "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
     # Telegram OSINT channels
     {"url": telegram_rss("IntelSlava"),                                                               "source_name": "Intel Slava (OSINT)",   "source_type": "think_tank", "region": "Global", "country": None, "lat": None, "lng": None},
     {"url": telegram_rss("MiddleEastSpectator"),                                                      "source_name": "ME Spectator (OSINT)",  "source_type": "think_tank", "region": "MENA",   "country": None, "lat": None, "lng": None},
@@ -242,7 +259,7 @@ CONFLICT_MONITORS = [
 # MASTER LIST
 # ─────────────────────────────────────────────
 ALL_SOURCES = (
-    INTERNATIONAL + USA + IRAN + ISRAEL + SAUDI + UAE + QATAR
+    INTERNATIONAL + USA + IRAN + ISRAEL + SAUDI + UAE + KUWAIT_OMAN_BAHRAIN + QATAR
     + IRAQ + YEMEN + LEBANON + TURKEY + EGYPT + JORDAN + SYRIA
     + RUSSIA + CHINA + PAKISTAN + INDIA + CONFLICT_MONITORS
 )

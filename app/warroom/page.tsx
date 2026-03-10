@@ -129,7 +129,12 @@ export default function WarRoomPage() {
       const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? scenarioErr?.message ?? disinfoErr?.message ?? naiErr?.message ?? scenarioHistoryErr?.message;
       if (errMsg) setFetchError(errMsg);
 
-      setCountryReports((reports as CountryReport[]) ?? []);
+      const reportsList = (reports as CountryReport[]) ?? [];
+      const latestByCountry = new Map<string, CountryReport>();
+      reportsList.forEach((r) => {
+        if (!latestByCountry.has(r.country_code)) latestByCountry.set(r.country_code, r);
+      });
+      setCountryReports(Array.from(latestByCountry.values()));
       setTotalArticleCount(totalCount ?? 0);
 
       const arts = (articlesData as Article[]) ?? [];

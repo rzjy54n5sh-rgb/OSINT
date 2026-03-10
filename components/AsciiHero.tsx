@@ -16,7 +16,7 @@ const getBootLines = (conflictDay: number, articleCount: number, countriesTracke
   '> LOADING NARRATIVE ALIGNMENT INDEX MATRICES...... OK',
   '> CONFLICT INTELLIGENCE FEED: ACTIVE',
   '> NAI SCORING ENGINE: OPERATIONAL',
-  `> ARTICLES INDEXED: ${articleCount} | COUNTRIES TRACKED: ${countriesTracked}`,
+  `> ARTICLES INDEXED: ${articleCount > 0 ? articleCount : 'LOADING...'} | COUNTRIES TRACKED: ${countriesTracked}`,
   `> CONFLICT DAY ${conflictDay} — ALL SYSTEMS NOMINAL ████████ 100%`,
 ];
 
@@ -29,7 +29,7 @@ interface AsciiHeroProps {
 }
 
 export function AsciiHero({
-  articleCount = 10,
+  articleCount = 0,
   conflictDay  = 10,
   countriesTracked = 20,
 }: AsciiHeroProps) {
