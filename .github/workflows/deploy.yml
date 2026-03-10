@@ -15,7 +15,7 @@ jobs:
       - name: Check Supabase secrets (required for live data)
         run: |
           if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
-            echo "::error::Missing GitHub secrets. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in repo Settings → Secrets and variables → Actions (see SETUP.md). Then re-run this workflow."
+            echo "::error::Missing GitHub secrets. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in repo Settings → Secrets and variables → Actions (see PROJECT.md §11). Then re-run this workflow."
             exit 1
           fi
           echo "Supabase env vars present; writing .env.production for Next.js build."
@@ -37,6 +37,13 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      - name: Verify Supabase URL in client bundle
+        run: |
+          for dir in .next/static .open-next; do
+            [ -d "$dir" ] && grep -rq 'supabase\.co' "$dir" 2>/dev/null && { echo "Supabase URL found in $dir"; exit 0; }
+          done
+          echo "::error::Supabase URL not in client bundle. NEXT_PUBLIC_* inlining failed. Check next.config.js env and .env.production."
+          exit 1
       - name: Deploy
         run: npx wrangler deploy
         env:
