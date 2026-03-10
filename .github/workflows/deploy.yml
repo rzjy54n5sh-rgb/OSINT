@@ -32,17 +32,31 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Build
-        run: npm run build:cf
+        run: |
+          export NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY"
+          npm run build:cf
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       - name: Verify Supabase URL in client bundle
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
+          # Extract project ID (e.g. qmaszkkyukgiludcakjg) so we verify the real URL was inlined, not just "supabase.co"
+          PROJECT_ID=$(echo "$NEXT_PUBLIC_SUPABASE_URL" | sed -n 's|https://\([^.]*\)\.supabase\.co.*|\1|p')
+          if [ -z "$PROJECT_ID" ]; then
+            echo "::error::Could not parse project ID from NEXT_PUBLIC_SUPABASE_URL"
+            exit 1
+          fi
           for dir in .next/static .open-next; do
-            [ -d "$dir" ] && grep -rq 'supabase\.co' "$dir" 2>/dev/null && { echo "Supabase URL found in $dir"; exit 0; }
+            if [ -d "$dir" ] && grep -rqF "$PROJECT_ID" "$dir" 2>/dev/null; then
+              echo "Supabase project ID found in $dir — client bundle has URL."
+              exit 0
+            fi
           done
-          echo "::error::Supabase URL not in client bundle. NEXT_PUBLIC_* inlining failed. Check next.config.js env and .env.production."
+          echo "::error::Project ID $PROJECT_ID not in client bundle. NEXT_PUBLIC_* inlining failed. Check .env.production and next.config.js env."
           exit 1
       - name: Deploy
         run: npx wrangler deploy
