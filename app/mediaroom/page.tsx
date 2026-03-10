@@ -64,7 +64,7 @@ const LIVE_CHANNELS = [
   { id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
   { id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
   { id: 'UC16niRr50-MSBwiO3YDb3RA', name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
-  { id: 'UCupvZG-5ko_eiXAupbDfxWw', name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
+  { id: 'UCgzRCbi9cEmWeeuquHqtpCw', name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
   { id: 'UCoMdktPbSTixAyNGwb-UYkQ', name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
   { id: 'UCknLrEdhRCp1aegoMqRaCZg', name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
   { id: 'UC7fWeaHhqgM4Ry-RMpM2YYw', name: 'TRT World', flag: '🇹🇷', bias: 'Turkish', color: '#E05252' },
@@ -254,8 +254,6 @@ export default function MediaRoomPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [articleError, setArticleError] = useState(false);
 
-  const supabase = createClient();
-
   // Flickr: fetch when country changes, cache by tags
   useEffect(() => {
     const tags = COUNTRY_PHOTO_TAGS[activeCountry] ?? COUNTRY_PHOTO_TAGS.ALL;
@@ -295,8 +293,10 @@ export default function MediaRoomPage() {
       .catch(() => {});
   }, []);
 
-  // Supabase articles: fetch when country changes
+  // Supabase articles: fetch when country changes (client-only)
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const supabase = createClient();
     let query = supabase
       .from('articles')
       .select('id, title, url, source_name, source_type, country, published_at, tags, sentiment')
@@ -316,7 +316,6 @@ export default function MediaRoomPage() {
         setArticleError(false);
       })
     ).catch(() => setArticleError(true));
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- supabase client is stable
   }, [activeCountry]);
 
   const loadChannel = useCallback((channelId: string) => {
@@ -521,7 +520,7 @@ export default function MediaRoomPage() {
                       <span className="channel-flag">{ch.flag}</span>
                       <span className="channel-name" style={{ color: ch.color }}>{ch.name}</span>
                       <a
-                        href={`https://youtube.com/channel/${ch.id}`}
+                        href={`https://www.youtube.com/channel/${ch.id}/live`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="channel-open"
