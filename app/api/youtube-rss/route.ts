@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Server-side proxy for YouTube channel RSS (avoids CORS and unreliable third-party proxies).
- * GET /api/youtube-rss?channelId=UC88nx0Rq6V3bAHfMd4vNogg
+ * GET /api/youtube-rss?channelId=UCNye-wNBqNL5ZzHSJj3l8Bg
  */
 export async function GET(request: NextRequest) {
   const channelId = request.nextUrl.searchParams.get('channelId');

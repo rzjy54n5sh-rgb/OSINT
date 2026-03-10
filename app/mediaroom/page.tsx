@@ -61,19 +61,19 @@ const COUNTRY_PHOTO_TAGS: Record<string, string> = {
 };
 
 const LIVE_CHANNELS = [
-  { id: 'UCNye-wNBqNL5ZzHSJdse1OA', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
-  { id: 'UCQfwfsi5VrQ8yKZ-UWmAoBw', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
+  { id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
+  { id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
   { id: 'UC16niRr50-MSBwiO3YDb3RA', name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
   { id: 'UCupvZG-5ko_eiXAupbDfxWw', name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
-  { id: 'UCoMdktPbSTixAyNGwb-XYAg', name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
-  { id: 'UCknLrOv4TJ9uro5hqAjnAEw', name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
+  { id: 'UCoMdktPbSTixAyNGwb-UYkQ', name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
+  { id: 'UCknLrEdhRCp1aegoMqRaCZg', name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
   { id: 'UC7fWeaHhqgM4Ry-RMpM2YYw', name: 'TRT World', flag: '🇹🇷', bias: 'Turkish', color: '#E05252' },
   { id: 'UCzMJf7Q6c0l_jy4bB7n2xTw', name: 'i24 News', flag: '🇮🇱', bias: 'Israeli', color: '#4EC98A' },
 ];
 
 const CLIP_CHANNEL_IDS = [
-  'UCNye-wNBqNL5ZzHSJdse1OA',
-  'UCQfwfsi5VrQ8yKZ-UWmAoBw',
+  'UCNye-wNBqNL5ZzHSJj3l8Bg',
+  'UCQfwfsi5VrQ8yKZ-UWmAEFg',
   'UC16niRr50-MSBwiO3YDb3RA',
   'UCupvZG-5ko_eiXAupbDfxWw',
   'UC7fWeaHhqgM4Ry-RMpM2YYw',
@@ -186,8 +186,8 @@ async function fetchFlickrPhotos(tags: string): Promise<Photo[]> {
 async function fetchYouTubeClips(): Promise<Clip[]> {
   const all: Clip[] = [];
   const channelNames: Record<string, string> = {
-    'UCNye-wNBqNL5ZzHSJdse1OA': 'Al Jazeera English',
-    'UCQfwfsi5VrQ8yKZ-UWmAoBw': 'France 24',
+    'UCNye-wNBqNL5ZzHSJj3l8Bg': 'Al Jazeera English',
+    'UCQfwfsi5VrQ8yKZ-UWmAEFg': 'France 24',
     'UC16niRr50-MSBwiO3YDb3RA': 'BBC News',
     'UCupvZG-5ko_eiXAupbDfxWw': 'CNN',
     'UC7fWeaHhqgM4Ry-RMpM2YYw': 'TRT World',
