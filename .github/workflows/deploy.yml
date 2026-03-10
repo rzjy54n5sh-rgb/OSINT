@@ -31,17 +31,28 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      # Write literal URL/key into a module so the client bundle gets them even when Next env inlining is not applied (OpenNext/CF)
+      # Write literal URL/key into a module so the client bundle ALWAYS gets them (bypasses Next env inlining which was flaky under OpenNext/CF)
       - name: Write Supabase env into client module
         run: |
           node -e "
           const fs = require('fs');
           const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
           const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-          fs.writeFileSync('lib/supabase/env.client.generated.ts',
-            '/** Generated at build time from GitHub secrets — do not commit real values **/\n' +
+          if (!url || !key) {
+            console.error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+            process.exit(1);
+          }
+          const out = 'lib/supabase/env.client.generated.ts';
+          fs.writeFileSync(out,
+            '/** Generated at build time from GitHub secrets **/\n' +
             'export const NEXT_PUBLIC_SUPABASE_URL = ' + JSON.stringify(url) + ';\n' +
             'export const NEXT_PUBLIC_SUPABASE_ANON_KEY = ' + JSON.stringify(key) + ';\n');
+          const written = fs.readFileSync(out, 'utf8');
+          if (!written.includes(url.slice(0, 30))) {
+            console.error('Generated file did not contain URL');
+            process.exit(1);
+          }
+          console.log('Written', out, '(URL length', url.length, ')');
           "
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -59,19 +70,18 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
-          # Extract project ID (e.g. qmaszkkyukgiludcakjg) so we verify the real URL was inlined, not just "supabase.co"
           PROJECT_ID=$(echo "$NEXT_PUBLIC_SUPABASE_URL" | sed -n 's|https://\([^.]*\)\.supabase\.co.*|\1|p')
           if [ -z "$PROJECT_ID" ]; then
             echo "::error::Could not parse project ID from NEXT_PUBLIC_SUPABASE_URL"
             exit 1
           fi
-          for dir in .next/static .open-next; do
+          for dir in .next/static .open-next .open-next/assets; do
             if [ -d "$dir" ] && grep -rqF "$PROJECT_ID" "$dir" 2>/dev/null; then
               echo "Supabase project ID found in $dir — client bundle has URL."
               exit 0
             fi
           done
-          echo "::error::Project ID $PROJECT_ID not in client bundle. NEXT_PUBLIC_* inlining failed. Check .env.production and next.config.js env."
+          echo "::error::Project ID $PROJECT_ID not in client bundle. Ensure 'Write Supabase env into client module' ran and built."
           exit 1
       - name: Deploy
         run: npx wrangler deploy
