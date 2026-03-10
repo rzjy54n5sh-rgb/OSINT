@@ -1,0 +1,45 @@
+{
+  "name": "MENA Intel Desk",
+  "short_name": "Intel Desk",
+  "description": "OSINT Intelligence Platform — MENA Region Conflict Tracker",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070A0F",
+  "theme_color": "#070A0F",
+  "orientation": "portrait-primary",
+  "categories": ["news", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "War Room",
+      "short_name": "War Room",
+      "url": "/warroom",
+      "description": "Unified intelligence overview"
+    },
+    {
+      "name": "Live Feed",
+      "short_name": "Feed",
+      "url": "/feed",
+      "description": "Live OSINT news feed"
+    },
+    {
+      "name": "NAI Map",
+      "short_name": "NAI Map",
+      "url": "/nai",
+      "description": "Narrative Alignment Index map"
+    }
+  ]
+}
