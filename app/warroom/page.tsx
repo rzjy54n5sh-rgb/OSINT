@@ -19,6 +19,44 @@ const COUNTRY_EMOJI: Record<string, string> = {
   TN: '🇹🇳', CN: '🇨🇳', US: '🇺🇸', GB: '🇬🇧', FR: '🇫🇷', DE: '🇩🇪', IN: '🇮🇳', PK: '🇵🇰',
 };
 
+/** DB stores country as full name (e.g. Iran, Israel). Map code → possible values for articles/social_trends. */
+const COUNTRY_CODE_TO_DB_VALUES: Record<string, string[]> = {
+  IR: ['Iran', 'IR', 'IRN'],
+  IL: ['Israel', 'IL', 'ISR'],
+  IQ: ['Iraq', 'IQ', 'IRQ'],
+  YE: ['Yemen', 'YE', 'YEM'],
+  SA: ['Saudi Arabia', 'SA', 'SAU'],
+  AE: ['UAE', 'United Arab Emirates', 'AE', 'ARE'],
+  LB: ['Lebanon', 'LB', 'LBN'],
+  EG: ['Egypt', 'EG', 'EGY'],
+  TR: ['Turkey', 'TR', 'TUR'],
+  RU: ['Russia', 'RU', 'RUS'],
+  SY: ['Syria', 'SY', 'SYR'],
+  JO: ['Jordan', 'JO', 'JOR'],
+  QA: ['Qatar', 'QA', 'QAT'],
+  KW: ['Kuwait', 'KW', 'KWT'],
+  US: ['USA', 'United States', 'US'],
+  GB: ['United Kingdom', 'UK', 'GB'],
+};
+function countryMatchesCode(dbValue: string | null, code: string): boolean {
+  if (!dbValue?.trim()) return false;
+  const normalized = dbValue.trim();
+  const upper = normalized.toUpperCase();
+  if (upper === code) return true;
+  const allowed = COUNTRY_CODE_TO_DB_VALUES[code];
+  if (allowed) return allowed.some((v) => v.toUpperCase() === upper || v === normalized);
+  return false;
+}
+function dbValueToCode(dbValue: string | null): string | null {
+  if (!dbValue?.trim()) return null;
+  const normalized = dbValue.trim();
+  const upper = normalized.toUpperCase();
+  for (const [code, vals] of Object.entries(COUNTRY_CODE_TO_DB_VALUES)) {
+    if (upper === code || vals.some((v) => v.toUpperCase() === upper || v === normalized)) return code;
+  }
+  return null;
+}
+
 interface ContentJson {
   elite_network?: Array<{ name?: string; role?: string; position?: string; red_line?: string }>;
   key_risks?: string[];
@@ -142,7 +180,8 @@ export default function WarRoomPage() {
 
       const byCountry: Record<string, number> = {};
       arts.forEach((a) => {
-        const c = (a.country ?? '').toUpperCase().trim() || 'OTHER';
+        const code = dbValueToCode(a.country);
+        const c = code ?? 'OTHER';
         byCountry[c] = (byCountry[c] ?? 0) + 1;
       });
       setArticleCountByCountry(byCountry);
@@ -184,7 +223,7 @@ export default function WarRoomPage() {
   }, [CONFLICT_DAY]);
 
   const filteredArticles = activeCountry
-    ? articles.filter((a) => (a.country ?? '').toUpperCase().trim() === activeCountry).slice(0, 30)
+    ? articles.filter((a) => countryMatchesCode(a.country, activeCountry)).slice(0, 30)
     : articles.slice(0, 30);
 
   const activeReport = countryReports.find(
@@ -196,9 +235,7 @@ export default function WarRoomPage() {
   const keyRisks = contentJson?.key_risks ?? [];
   const stabilizers = contentJson?.stabilizers ?? [];
 
-  const socialForCountry = socialTrends.filter(
-    (s) => (s.country ?? '').toUpperCase() === activeCountry
-  )[0];
+  const socialForCountry = socialTrends.find((s) => countryMatchesCode(s.country, activeCountry));
 
   const latestByIndicator = marketData.reduce<Record<string, MarketData>>((acc, row) => {
     const k = row.indicator ?? 'OTHER';

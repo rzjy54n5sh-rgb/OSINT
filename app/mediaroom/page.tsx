@@ -97,6 +97,30 @@ const CHANNEL_NARRATIVES = [
   { channel: 'CGTN', frame: 'Chinese Strategic', bias: 'Beijing / Non-interventionist', color: ACCENT_RED },
 ];
 
+/** Match narrative channel to article source_name (from RSS/sources_registry). Used for dynamic "Latest" in analyst cards. */
+const NARRATIVE_TO_SOURCE_KEYS: Record<string, string[]> = {
+  'AL JAZEERA EN': ['al jazeera'],
+  'AL JAZEERA AR': ['al jazeera'],
+  'FRANCE 24': ['france 24', 'france24'],
+  'DW NEWS': ['dw news', 'dw'],
+  'TRT WORLD': ['trt world', 'trt '],
+  'i24 NEWS': ['i24', 'israel hayom', 'times of israel', 'jerusalem post'],
+  'RT NEWS': ['rt ', 'russia today'],
+  'CGTN': ['cgtn', 'china global'],
+};
+
+function getLatestArticleForNarrative(articles: Article[], narrativeChannel: string): Article | null {
+  const keys = NARRATIVE_TO_SOURCE_KEYS[narrativeChannel];
+  if (!keys?.length) return null;
+  const normalized = (s: string | null) => (s ?? '').toLowerCase().trim();
+  for (const art of articles) {
+    const name = normalized(art.source_name);
+    if (!name) continue;
+    if (keys.some((k) => name.includes(k))) return art;
+  }
+  return null;
+}
+
 function findTopCluster(articles: Article[]): Article[] {
   const recent = articles.filter((a) => {
     if (!a.published_at) return false;
@@ -253,10 +277,44 @@ export default function MediaRoomPage() {
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [articleError, setArticleError] = useState(false);
+  const [socialTrendTerms, setSocialTrendTerms] = useState<string[]>([]);
 
-  // Flickr: fetch when country changes, cache by tags
+  // Social trends for active country — used to enrich Flickr search (photos match conflict/social story)
   useEffect(() => {
-    const tags = COUNTRY_PHOTO_TAGS[activeCountry] ?? COUNTRY_PHOTO_TAGS.ALL;
+    if (typeof window === 'undefined' || activeCountry === 'ALL') {
+      setSocialTrendTerms([]);
+      return;
+    }
+    const supabase = createClient();
+    const countryName = COUNTRY_NAME_MAP[activeCountry];
+    if (!countryName) {
+      setSocialTrendTerms([]);
+      return;
+    }
+    supabase
+      .from('social_trends')
+      .select('trend')
+      .eq('country', countryName)
+      .order('conflict_day', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        const terms: string[] = [];
+        (data ?? []).forEach((r: { trend: string | null }) => {
+          const t = (r.trend ?? '').trim();
+          if (!t) return;
+          const words = t.replace(/#/g, '').split(/\s+/).filter((w) => w.length > 2).slice(0, 3);
+          terms.push(...words);
+        });
+        setSocialTrendTerms([...new Set(terms)].slice(0, 5));
+      })
+      .catch(() => setSocialTrendTerms([]));
+  }, [activeCountry]);
+
+  // Flickr: fetch when country or social terms change; tags = country + conflict/social terms so photos match filtered country and stories
+  useEffect(() => {
+    const baseTags = COUNTRY_PHOTO_TAGS[activeCountry] ?? COUNTRY_PHOTO_TAGS.ALL;
+    const extra = socialTrendTerms.filter((w) => /^[a-z0-9]+$/i.test(w)).slice(0, 3);
+    const tags = extra.length ? `${baseTags},${extra.join(',')}` : baseTags;
     if (photoCache.current[tags]?.length) {
       setPhotos(photoCache.current[tags]);
       setPhotoError(false);
@@ -269,7 +327,7 @@ export default function MediaRoomPage() {
         setPhotos(data);
       })
       .catch(() => setPhotoError(true));
-  }, [activeCountry]);
+  }, [activeCountry, socialTrendTerms]);
 
   // YouTube clips: fetch once
   useEffect(() => {
@@ -452,6 +510,51 @@ export default function MediaRoomPage() {
           )}
         </div>
 
+        {/* PRESS PHOTO WIRE — at top per request */}
+        {showSection('wire') && (
+          <section className="mb-4">
+            <div className="media-section-header">
+              ◈ PRESS PHOTO WIRE — ARTICLES WITH MEDIA
+            </div>
+            {articleError ? (
+              <p className="redacted p-4">{'// FEED UNAVAILABLE'}</p>
+            ) : wireList.length === 0 ? (
+              <p className="redacted p-4">{'// LOADING ARTICLES...'}</p>
+            ) : (
+              <div className="wire-strip">
+                <div className="wire-strip-inner">
+                  {wireTriple.map((article, i) => (
+                    <a
+                      key={`${article.id}-${i}`}
+                      href={article.url ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="wire-card"
+                    >
+                      <div className="wire-source-img">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic favicon URLs */}
+                        <img
+                          src={`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(article.url || '')}&size=128`}
+                          alt={article.source_name || ''}
+                          loading="lazy"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                      <div className="wire-card-content">
+                        <div className="wire-source">{article.source_name ?? '—'}</div>
+                        <div className="wire-title">{article.title ?? '—'}</div>
+                        <div className="wire-time">
+                          {article.published_at ? formatRelativeTime(article.published_at) : '—'}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Section 1 — LIVE TV GRID */}
         {showSection('tv') && (
           <section className="mb-4">
@@ -539,20 +642,45 @@ export default function MediaRoomPage() {
                 ANALYST-CURATED EDITORIAL POSITIONS — Updated manually
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                {CHANNEL_NARRATIVES.map((n) => (
-                  <div
-                    key={n.channel}
-                    style={{
-                      padding: 10,
-                      border: '1px solid var(--border)',
-                      borderRadius: 2,
-                    }}
-                  >
-                    <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
-                    <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)' }}>{n.bias}</div>
-                  </div>
-                ))}
+                {CHANNEL_NARRATIVES.map((n) => {
+                  const latest = getLatestArticleForNarrative(articles, n.channel);
+                  return (
+                    <div
+                      key={n.channel}
+                      style={{
+                        padding: 10,
+                        border: '1px solid var(--border)',
+                        borderRadius: 2,
+                      }}
+                    >
+                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
+                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
+                      {latest ? (
+                        <a
+                          href={latest.url ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'block',
+                            fontSize: 9,
+                            color: 'var(--accent-teal)',
+                            textDecoration: 'none',
+                            lineHeight: 1.3,
+                            marginTop: 4,
+                            borderTop: '1px solid var(--border)',
+                            paddingTop: 6,
+                          }}
+                          title={latest.title ?? ''}
+                        >
+                          Latest: {(latest.title ?? '').slice(0, 52)}{(latest.title ?? '').length > 52 ? '…' : ''} ↗
+                        </a>
+                      ) : (
+                        <div style={{ fontSize: 8, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>No matching article in feed</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </section>
@@ -564,7 +692,7 @@ export default function MediaRoomPage() {
           {showSection('photos') && (
             <section>
               <div className="media-section-header">
-                ◈ PHOTO INTELLIGENCE — {countryLabel} — FLICKR LIVE FEED
+                ◈ PHOTO INTELLIGENCE — {countryLabel} — FLICKR (country + social/conflict terms)
               </div>
               {photoError ? (
                 <p className="redacted p-4">{'// PHOTO FEED UNAVAILABLE'}</p>
@@ -650,12 +778,15 @@ export default function MediaRoomPage() {
           )}
         </div>
 
-        {/* Coverage Comparison — same event, 3 source types */}
+        {/* Coverage Comparison — same event, 3 sources: findTopCluster picks 3 articles from last 24h that share 2+ tags, one per source_type (wire/broadcast/official etc.) */}
         {coverageCluster.length > 0 && (
           <section className="mb-4">
             <div className="media-section-header">
               ◈ COVERAGE COMPARISON — SAME EVENT, 3 SOURCES
             </div>
+            <p className="font-mono text-[9px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
+              Same story covered by 3 different source types (e.g. wire, broadcast, official). Algorithm: recent 24h articles → cluster by shared tags → pick top 3 with distinct source_type.
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12 }}>
               {coverageCluster.map((a) => (
                 <a
@@ -685,50 +816,6 @@ export default function MediaRoomPage() {
           </section>
         )}
 
-        {/* Section 4 — PRESS PHOTO WIRE */}
-        {showSection('wire') && (
-          <section>
-            <div className="media-section-header">
-              ◈ PRESS PHOTO WIRE — ARTICLES WITH MEDIA
-            </div>
-            {articleError ? (
-              <p className="redacted p-4">{'// FEED UNAVAILABLE'}</p>
-            ) : wireList.length === 0 ? (
-              <p className="redacted p-4">{'// LOADING ARTICLES...'}</p>
-            ) : (
-              <div className="wire-strip">
-                <div className="wire-strip-inner">
-                  {wireTriple.map((article, i) => (
-                    <a
-                      key={`${article.id}-${i}`}
-                      href={article.url ?? '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="wire-card"
-                    >
-                      <div className="wire-source-img">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- dynamic favicon URLs */}
-                        <img
-                          src={`https://t2.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(article.url || '')}&size=128`}
-                          alt={article.source_name || ''}
-                          loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      </div>
-                      <div className="wire-card-content">
-                        <div className="wire-source">{article.source_name ?? '—'}</div>
-                        <div className="wire-title">{article.title ?? '—'}</div>
-                        <div className="wire-time">
-                          {article.published_at ? formatRelativeTime(article.published_at) : '—'}
-                        </div>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        )}
       </main>
 
       {/* Lightbox */}
