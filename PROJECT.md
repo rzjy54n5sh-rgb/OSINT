@@ -8,7 +8,7 @@
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | Next.js 14 (App Router) |
+| **Framework** | Next.js 15 (App Router) |
 | **Language** | TypeScript |
 | **Styling** | Tailwind CSS + CSS variables in `app/globals.css` |
 | **Database / Backend** | Supabase (PostgreSQL + REST API; browser client only, no server-side Supabase) |
@@ -207,7 +207,7 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
    Photos and clips avoid CORS by calling Next.js API routes (`/api/flickr`, `/api/youtube-rss`); Live TV optionally uses `/api/youtube-live` when `YOUTUBE_API_KEY` is set.
 
 5. **War Room**  
-   Single `fetchAll()` on load and every 60s; reads all listed tables; uses `scenario_probs` for history and falls back to `scenario_probabilities`; shows a banner if any Supabase request fails (`fetchError`).
+   Single `fetchAll()` on load and every 60s; reads all listed tables; scenario history from `scenario_probabilities`; latest `country_reports` per country (deduped); shows a banner if any Supabase request fails (`fetchError`).
 
 ---
 
@@ -218,5 +218,28 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
 - **New API route:** Add `app/api/<name>/route.ts`; use server-only env (e.g. keys) here, not `NEXT_PUBLIC_*`.
 - **New pipeline:** Add a Python script under `.github/workflows/scripts/` and a workflow that runs it with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`.
 - **Market data:** If your `market_data` table has `created_at`, add it to the `MarketData` type and keep ordering by `created_at` where needed (e.g. War Room).
+
+---
+
+## 11. Post-Upgrade Test Checklist (Next 15)
+
+After deploying, verify these work on the live URL (e.g. `https://mena-intel-desk.*.workers.dev`):
+
+| Area | What to test |
+|------|----------------|
+| **Home** | Load `/` — hero animation, article count, conflict day, quick links to all sections. |
+| **Header** | Day, last update, article count; nav links (WAR ROOM, MEDIA ROOM, FEED, NAI MAP, etc.). |
+| **Feed** | `/feed` — filters (region, sentiment, day); articles load; links open. |
+| **NAI Map** | `/nai` — map loads; day scrubber; click country → report panel. |
+| **Countries** | `/countries` — grid of countries; click → `/countries/[slug]` (e.g. `ir`, `il`) shows report or [DATA UNAVAILABLE] if no data. |
+| **Scenarios** | `/scenarios` — scenario A/B/C/D chart and descriptions. |
+| **Disinfo** | `/disinfo` — claims list, verdicts, links. |
+| **Markets** | `/markets` — indicator charts. |
+| **Social** | `/social` — Google Trends–sourced rows. |
+| **Timeline** | `/timeline` — day selector; articles and NAI summary per day. |
+| **Analytics** | `/analytics` — axis selectors; scatter/line charts. |
+| **Media Room** | `/mediaroom` — Live TV (8 channels: load, embed, “Off air?”); Photos (Flickr by country); Clips (YouTube RSS); Wire (articles). |
+| **War Room** | `/warroom` — country selector; intel panels; scenario drift; live intelligence; articles; market/social/disinfo sections; no red error banner. |
+| **APIs** | `/api/flickr?tags=mena`, `/api/youtube-rss?channelId=...`, `/api/youtube-live?ids=...` (optional key) return expected shapes. |
 
 Use this document as the single source of truth for structure, stack, env, and connections when continuing development (e.g. with Claude).
