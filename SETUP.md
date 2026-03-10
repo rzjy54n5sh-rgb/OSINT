@@ -61,9 +61,16 @@ Open `wrangler.toml` and **replace** `REPLACE_WITH_KV_NAMESPACE_ID` with the KV 
 
 Go to: https://github.com/rzjy54n5sh-rgb/OSINT/settings/secrets/actions
 
-You should already have: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (and for deploy: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`).
+**Required for Deploy (build bakes these into the client — if missing, live site shows 0 articles):**
 
-**Add these 2 new secrets** (used by KV warming + daily analysis):
+| Secret Name | Value / Where to get it |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL, e.g. `https://qmaszkkyukgiludcakjg.supabase.co` (Supabase → Project Settings → API) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/public key (Project Settings → API → anon public). Safe to expose; RLS protects data. |
+
+You should also have: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+
+**Add these if you use KV + daily analysis:**
 
 | Secret Name | Value / Where to get it |
 |---|---|
@@ -139,3 +146,19 @@ You only need to manually trigger me for:
 - Deep-dive reports / DOCX exports
 - Something unusual that needs human judgment
 - Adding new countries or changing scoring methodology
+
+---
+
+## TROUBLESHOOTING — Live site shows zero data (articles: 0, conflict day: —)
+
+**Cause:** The deploy build needs `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` at **build time**. If these GitHub Actions secrets are missing, Next.js bakes `undefined` into the client bundle and the site never calls Supabase.
+
+1. **Add the two secrets** (repo → Settings → Secrets and variables → Actions):  
+   `NEXT_PUBLIC_SUPABASE_URL` = your project URL (e.g. `https://qmaszkkyukgiludcakjg.supabase.co`)  
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY` = your anon/public key from Supabase → Project Settings → API.
+
+2. **Confirm** `.github/workflows/deploy.yml` Build step has `env: NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}` and `NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}` (no hardcoded values).
+
+3. **Re-run the Deploy workflow:** Actions → Deploy → Run workflow → Run workflow. Wait ~3–5 min.
+
+4. **Verify:** Open the live site; CONFLICT DAY and article counts should show real data. If not, DevTools → Network: requests to `*.supabase.co` should appear; if not, search the built JS for your project ID to confirm the env was inlined.

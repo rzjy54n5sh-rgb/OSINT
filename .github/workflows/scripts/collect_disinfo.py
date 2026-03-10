@@ -9,16 +9,49 @@ SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 HEADERS = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Content-Type": "application/json"}
 
-KEYWORDS = ["iran","irgc","israel","houthi","hezbollah","hormuz","oil","middle east","war","nuclear","missile","drone","saudi","yemen","iraq","us military"]
+KEYWORDS = ["iran","irgc","israel","houthi","hezbollah","hormuz","oil","middle east","war","nuclear","missile","drone","saudi","yemen","iraq","us military",
+    "مصر","إيران","إسرائيل","حوثي","حزب الله","سوريا","لبنان","غزة","فلسطين","داعش","العراق"]
 HIGH_VIRALITY_KEYWORDS = ["nuclear","b-2","b2","stealth","khamenei","hormuz","fallout","radiation","shot down","destroyed","killed","dead","explosion","chemical","biological","ceasefire","world war","nato"]
-SOURCE_BASELINE = {"Reuters Fact Check":(800000,3000000),"AP Fact Check":(600000,2000000),"BBC Reality Check":(500000,2500000),"AFP Fact Check":(400000,1500000),"Snopes":(200000,800000)}
+SOURCE_BASELINE = {
+    "Reuters Fact Check": (800000, 3000000),
+    "AP Fact Check": (600000, 2000000),
+    "BBC Reality Check": (500000, 2500000),
+    "AFP Fact Check": (400000, 1500000),
+    "Snopes": (200000, 800000),
+    "PolitiFact": (500000, 2000000),
+    "FactCheck.org": (400000, 1500000),
+    "Washington Post Fact Checker": (600000, 2500000),
+    "Full Fact": (300000, 1200000),
+    "Lead Stories": (200000, 900000),
+    "USA Today Fact Check": (400000, 1800000),
+    "Poynter": (300000, 1000000),
+    "Science Feedback": (150000, 600000),
+    "Maldita": (100000, 500000),
+    "Correctiv": (200000, 800000),
+    "FactcheckAr": (80000, 350000),
+}
 DEFAULT_BASELINE = (100000, 400000)
 FACT_CHECK_FEEDS = [
-    {"url":"https://www.reuters.com/fact-check/rss","source":"Reuters Fact Check"},
-    {"url":"https://factcheck.afp.com/list/all/feed","source":"AFP Fact Check"},
-    {"url":"https://www.snopes.com/feed/","source":"Snopes"},
-    {"url":"https://www.bbc.co.uk/news/reality_check/rss.xml","source":"BBC Reality Check"},
-    {"url":"https://apnews.com/hub/ap-fact-check/feed","source":"AP Fact Check"},
+    # Major wire / agency
+    {"url": "https://www.reuters.com/fact-check/rss", "source": "Reuters Fact Check"},
+    {"url": "https://factcheck.afp.com/list/all/feed", "source": "AFP Fact Check"},
+    {"url": "https://apnews.com/hub/ap-fact-check/feed", "source": "AP Fact Check"},
+    # US fact-checkers
+    {"url": "https://www.snopes.com/feed/", "source": "Snopes"},
+    {"url": "https://www.politifact.com/rss/all/", "source": "PolitiFact"},
+    {"url": "https://www.factcheck.org/feed/", "source": "FactCheck.org"},
+    {"url": "http://voices.washingtonpost.com/fact-checker/atom.xml", "source": "Washington Post Fact Checker"},
+    {"url": "https://www.usatoday.com/news/factcheck/feed/", "source": "USA Today Fact Check"},
+    {"url": "https://leadstories.com/feed/", "source": "Lead Stories"},
+    # UK / international
+    {"url": "https://www.bbc.co.uk/news/reality_check/rss.xml", "source": "BBC Reality Check"},
+    {"url": "https://fullfact.org/feed/", "source": "Full Fact"},
+    {"url": "https://www.poynter.org/feed/", "source": "Poynter"},
+    {"url": "https://sciencefeedback.co/feed/", "source": "Science Feedback"},
+    {"url": "https://maldita.es/feed/", "source": "Maldita"},
+    {"url": "https://correctiv.org/feed/", "source": "Correctiv"},
+    # Arab / MENA fact-checkers
+    {"url": "https://factcheckar.com/feed/", "source": "FactcheckAr"},
 ]
 
 def url_to_id(url):
