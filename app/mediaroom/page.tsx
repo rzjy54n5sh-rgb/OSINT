@@ -291,13 +291,14 @@ export default function MediaRoomPage() {
       setSocialTrendTerms([]);
       return;
     }
-    supabase
-      .from('social_trends')
-      .select('trend')
-      .eq('country', countryName)
-      .order('conflict_day', { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('social_trends')
+          .select('trend')
+          .eq('country', countryName)
+          .order('conflict_day', { ascending: false })
+          .limit(5);
         const terms: string[] = [];
         (data ?? []).forEach((r: { trend: string | null }) => {
           const t = (r.trend ?? '').trim();
@@ -306,8 +307,10 @@ export default function MediaRoomPage() {
           terms.push(...words);
         });
         setSocialTrendTerms([...new Set(terms)].slice(0, 5));
-      })
-      .catch(() => setSocialTrendTerms([]));
+      } catch {
+        setSocialTrendTerms([]);
+      }
+    })();
   }, [activeCountry]);
 
   // Flickr: fetch when country or social terms change; tags = country + conflict/social terms so photos match filtered country and stories
