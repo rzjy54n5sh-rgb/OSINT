@@ -2,6 +2,11 @@
 
 **Purpose:** Single source of truth for this project. Share with Claude (or any developer) for further development. Describes the full stack, structure, data flow, setup steps, and how everything connects.
 
+### Git / branch policy
+
+- **Push only to `main`** unless explicitly instructed otherwise. Do not push to feature branches or other remotes unless the user asks for it.
+- Prefer merging other branches (e.g. `cursor/*`) into `main` and then pushing `main`; do not push those branches.
+
 ---
 
 ## 1. Stack & Tooling
