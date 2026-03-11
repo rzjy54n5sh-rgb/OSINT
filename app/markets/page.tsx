@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { OsintCard } from '@/components/OsintCard';
+import { PageBriefing } from '@/components/PageBriefing';
 import { createClient } from '@/lib/supabase/client';
 import type { MarketData } from '@/types/supabase';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -33,6 +34,11 @@ export default function MarketsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="ECONOMIC INTELLIGENCE"
+        description="Conflict-sensitive market indicators tracked daily. Brent crude, VIX, gold, and regional currency movements are the most direct economic signals of conflict escalation and de-escalation sentiment. Each indicator includes its trend across conflict days."
+        note="This is not financial advice. Market data is sourced from public feeds and updated every 30 minutes. It represents the aggregate market assessment of conflict trajectory, not a prediction of future prices."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         ECONOMIC INTELLIGENCE
       </h1>

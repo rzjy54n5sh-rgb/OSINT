@@ -41,10 +41,13 @@
 |----------|-------------|---------|
 | `NEXT_PUBLIC_SUPABASE_URL` | `lib/supabase/client.ts`, all pages/hooks that use Supabase | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same | Supabase anonymous (public) key for browser client |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | `app/layout.tsx` (head script) | Optional. Set to your Plausible-registered domain (e.g. `mena-intel-desk.com`) to enable privacy-first analytics. No cookie banner required. Register at plausible.io. |
 | `YOUTUBE_API_KEY` | `app/api/youtube-live/route.ts` only (server) | Optional; when set, Live TV uses YouTube Data API to resolve current live video IDs |
 | **Secrets (GitHub Actions only)** | Workflows | **Deploy (`.github/workflows/deploy.yml`):** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (passed to build so the client bundle has Supabase; otherwise War Room / all Supabase calls fail in production), `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. **Pipelines:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. Optional: `YOUTUBE_API_KEY` for Media Room Live TV. |
 
 **Note:** The app does **not** use a server-side Supabase client. `NEXT_PUBLIC_*` vars are inlined at **build time**. For the deployed app (Cloudflare), the deploy workflow must pass `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from GitHub Secrets into the Build step; local dev uses `.env.local`. All Supabase access is from the browser via `createClient()` from `@/lib/supabase/client.ts`, which uses the two `NEXT_PUBLIC_*` vars. If those env vars are **not** set at build time, the app still loads: `createClient()` returns a no-op client and pages show empty data (no crash). To get real data in production, set the Supabase env vars in your deployment (e.g. Cloudflare Pages / Wrangler secrets or GitHub Actions secrets passed into the build).
+
+**Pipeline failure alerts:** When any of the data pipeline workflows (collect-articles, collect-markets, collect-social, collect-disinfo, daily-analysis) fails, a GitHub Issue is created with label `pipeline-failure`. Create this label once in the repo: go to `github.com/<owner>/<repo>/labels` and create a label named `pipeline-failure` with color `#E84040`.
 
 ---
 
@@ -411,3 +414,35 @@ The following was verified after the Next.js 15 upgrade to avoid regressions (Su
 | **Build** | ✅ | `next build` and `opennextjs-cloudflare build` (build:cf) both succeed. |
 
 **This file (PROJECT.md) is the main project file.** Use it as the single source of truth for structure, stack, env, setup, and connections when continuing development (e.g. with Claude).
+
+---
+
+## 14. Platform Upgrade: Transparency & User Journey (March 2026)
+
+### What was added
+
+| Feature | File(s) | Notes |
+|---------|---------|-------|
+| Methodology page | `app/methodology/page.tsx` | Full Q&A with citations, accordion UI, 6 sections |
+| Translation banner | `components/TranslationBanner.tsx` | First-visit only, localStorage dismissal |
+| Globe/translation menu | `components/GlobeMenu.tsx` | Header icon, dropdown with browser instructions + Google Translate link |
+| Page briefing strip | `components/PageBriefing.tsx` | Injected at top of all 11 pages with pre-written explanatory text |
+| Reaction bar | `components/ReactionBar.tsx` | Source verification link, save, share (copy URL), dispute with source requirement |
+| HTML translate attributes | `app/layout.tsx` | `dir="ltr" translate="yes"` on `<html>` tag |
+| Navigation | `components/CommandHeader.tsx` | Added METHODOLOGY link and GlobeMenu |
+
+### Neutrality architecture
+
+The platform operates under a strict neutrality framework documented in `/methodology`:
+- Collects from all sides simultaneously (Iranian state media + IDF + Pentagon + Gulf press)
+- No editorial commentary on news items
+- All probabilities are estimates, not predictions
+- All limitations are explicitly stated in the "What We Cannot Know" section
+
+### Reaction system (no comments)
+
+Comments were deliberately excluded. Instead: structured reactions (verify source, save, share, dispute with source requirement). Rationale: free-form comments on a geopolitical conflict platform create moderation decisions that are inherently editorial decisions, which would compromise the platform's neutrality positioning.
+
+### Translation approach
+
+No built-in translations. Rationale: (1) mistranslation of technical terms (NAI, GAP score, INVERSION) on sensitive geopolitical content is a liability, (2) browser translation is mature and sufficient. Technical terms like `translate="no"` can be applied to NAI category labels, source type badges, and country codes to prevent mis-translation.

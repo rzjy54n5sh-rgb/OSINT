@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
+import { PageBriefing } from '@/components/PageBriefing';
 import { createClient } from '@/lib/supabase/client';
 import { formatEngagement, parseEngagementEstimate } from '@/lib/utils';
 import type { SocialTrend } from '@/types/supabase';
@@ -43,6 +44,11 @@ export default function SocialPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="SOCIAL MEDIA TREND MONITOR"
+        description="Regional social media trend data showing the dominant public narratives in each country. Trends are collected from public trend APIs and represent what large numbers of people are actively discussing — not what governments are saying officially."
+        note="Social data should be read alongside NAI scores, not in isolation. A country with a high NAI score but an anti-war trending topic has a measurable gap between official posture and public sentiment."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         SOCIAL TRENDS
       </h1>

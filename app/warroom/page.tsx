@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { countryCodeFromValue, countryMatches, formatEngagement, parseEngagementEstimate } from '@/lib/utils';
+import { PageBriefing } from '@/components/PageBriefing';
+import { ReactionBar } from '@/components/ReactionBar';
+import { PageShareButton, buildWarRoomShareText } from '@/components/PageShareButton';
+import { PageShareCard } from '@/components/PageShareCard';
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import type {
   Article,
   CountryReport,
@@ -387,7 +392,30 @@ export default function WarRoomPage() {
         <span>LAST REFRESH: {lastRefresh}</span>
         <span>|</span>
         <span>AUTO-REFRESH: 60s</span>
+        <span style={{ marginLeft: 'auto', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PageShareCard
+            label={`WAR ROOM · DAY ${CONFLICT_DAY}`}
+            summary={`Scenario A: ${scenarios?.scenario_a ?? '—'}% · B: ${scenarios?.scenario_b ?? '—'}% · C: ${scenarios?.scenario_c ?? '—'}% · D: ${scenarios?.scenario_d ?? '—'}%`}
+          />
+          <PageShareButton
+            label="SHARE"
+            getCopyText={() => {
+              const report = countryReports.find((r) => r.country_code.toUpperCase() === activeCountry);
+              const naiRow = naiLatestMap[activeCountry];
+              const name = report?.country_name ?? activeCountry;
+              const score = naiRow?.expressed_score ?? report?.nai_score ?? 0;
+              const category = naiRow?.category ?? report?.nai_category ?? '—';
+              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), CONFLICT_DAY);
+            }}
+          />
+        </span>
       </div>
+
+      <PageBriefing
+        title="WAR ROOM — UNIFIED INTELLIGENCE VIEW"
+        description="A single-screen operational overview combining live intelligence, NAI scores, market indicators, scenario probabilities, and disinformation claims. Select a country from the left panel to focus all panels on that country's data. All data updates automatically every 60 seconds."
+        note="This page aggregates data from all platform tables simultaneously. Each section links to its dedicated analysis page for deeper investigation."
+      />
 
       <div className="warroom-grid">
         {/* LEFT PANEL */}
@@ -418,6 +446,7 @@ export default function WarRoomPage() {
                   data-nai={naiCategory}
                 >
                   <span
+                    translate="no"
                     style={{
                       fontFamily: 'IBM Plex Mono',
                       fontSize: 11,
@@ -438,7 +467,7 @@ export default function WarRoomPage() {
                   >
                     {v <= -2 ? '↓↓' : v < 0 ? '↓' : v >= 2 ? '↑↑' : v > 0 ? '↑' : '→'}
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0 }} translate="no">
                     <div className="country-name" style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 500 }}>
                       {report?.country_name ?? code}
                     </div>
@@ -446,7 +475,9 @@ export default function WarRoomPage() {
                       NAI {(naiRow?.expressed_score ?? report?.nai_score ?? 0).toFixed(1)} · {naiRow?.category ?? report?.nai_category ?? '—'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px' }}>GAP</span>
+                      <GlossaryTooltip term="GAP" definition="Difference between expressed and latent scores. GAP &gt; 30 = critical divergence.">
+                        <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px' }} translate="no">GAP</span>
+                      </GlossaryTooltip>
                       <div
                         style={{
                           height: 2,
@@ -733,12 +764,12 @@ export default function WarRoomPage() {
                         <span className="timestamp">{formatTime(a.published_at)}</span>
                         <span className="source-name">{a.source_name ?? '—'}</span>
                         {a.source_type && (
-                          <span className={`source-type-badge ${(a.source_type ?? '').toLowerCase().replace(/\s+/g, '_')}`}>
+                          <span className={`source-type-badge ${(a.source_type ?? '').toLowerCase().replace(/\s+/g, '_')}`} translate="no">
                             {a.source_type}
                           </span>
                         )}
                         {a.sentiment && (
-                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 8 }}>
+                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 8 }} translate="no">
                             {a.sentiment}
                           </span>
                         )}
@@ -754,6 +785,7 @@ export default function WarRoomPage() {
                           ))}
                         </div>
                       )}
+                      <ReactionBar articleId={a.id} articleUrl={a.url} />
                     </div>
                   ))
                 )}

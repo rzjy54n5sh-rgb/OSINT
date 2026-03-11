@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { AsciiHero } from '@/components/AsciiHero';
 import { OsintCard } from '@/components/OsintCard';
+import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useArticles } from '@/hooks/useArticles';
 import { useScenarios } from '@/hooks/useScenarios';
@@ -28,6 +29,7 @@ const QUICK_LINKS = [
   { href: '/social', label: 'SOCIAL', description: 'Regional social media trend monitoring by platform' },
   { href: '/timeline', label: 'TIMELINE', description: 'Day-by-day conflict chronology from Day 1 to present' },
   { href: '/analytics', label: 'ANALYTICS', description: 'Mix-and-match chart builder across all data dimensions' },
+  { href: '/methodology', label: 'METHODOLOGY', description: 'How this platform works — NAI scoring, scenario framework, data sources, and neutrality principles' },
 ];
 
 export default function CommandDashboard() {
@@ -78,6 +80,12 @@ export default function CommandDashboard() {
               </OsintCard>
             </Link>
           ))}
+        </div>
+
+        <div style={{ maxWidth: 480, margin: '32px auto', padding: '0 16px' }}>
+          <div style={{ border: '1px solid var(--border)', padding: 20 }}>
+            <EmailCapture source="home" />
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">

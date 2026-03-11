@@ -7,31 +7,35 @@ import { useArticles } from '@/hooks/useArticles';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { GLOSSARY } from '@/lib/glossary';
+import { PageBriefing } from '@/components/PageBriefing';
+import { ReactionBar } from '@/components/ReactionBar';
 import { useConflictDay } from '@/hooks/useConflictDay';
 
 type SentimentFilter = string | null;
 type RegionFilter = string | null;
 
-const SENTIMENT_DEFS: Record<string, string> = {
-  NEUTRAL: 'Factual/analytical framing — no clear narrative alignment',
-  ANTI_WAR: 'Content framing that emphasizes civilian harm, de-escalation, or opposition to military action',
-  PRO_WAR: 'Content framing that emphasizes military necessity, threat posture, or justification for strikes',
-  POSITIVE: 'Factual/analytical framing — no clear narrative alignment',
-  NEGATIVE: 'Content framing that emphasizes civilian harm, de-escalation, or opposition to military action',
+const SENTIMENT_TO_GLOSSARY: Record<string, keyof typeof GLOSSARY> = {
+  positive: 'SENTIMENT_POSITIVE',
+  negative: 'SENTIMENT_NEGATIVE',
+  neutral: 'SENTIMENT_NEUTRAL',
 };
 
 function SentimentBadgeWithTooltip({ sentiment }: { sentiment: string | null }) {
   const v = (sentiment ?? 'neutral').toLowerCase();
-  const def = sentiment ? SENTIMENT_DEFS[(sentiment ?? '').toUpperCase()] ?? SENTIMENT_DEFS.NEUTRAL : SENTIMENT_DEFS.NEUTRAL;
+  const glossaryKey = SENTIMENT_TO_GLOSSARY[v];
+  const definition = glossaryKey ? GLOSSARY[glossaryKey] : null;
   const badge = (
-    <span className={`sentiment-badge ${v}`}>
+    <span className={`sentiment-badge ${v}`} translate="no">
       {sentiment ?? '—'}
     </span>
   );
-  return (
-    <GlossaryTooltip term={sentiment ?? 'Sentiment'} definition={def}>
+  return definition ? (
+    <GlossaryTooltip term={glossaryKey} definition={definition}>
       {badge}
     </GlossaryTooltip>
+  ) : (
+    badge
   );
 }
 
@@ -47,6 +51,11 @@ export default function FeedPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="LIVE INTELLIGENCE FEED"
+        description="Every article here was collected automatically from verified public RSS feeds across wire services, broadcasters, official government feeds, and military communications. Nothing is written or editorialized by this platform — each item links directly to its original source."
+        note="Use the filters below to narrow by region, sentiment framing, or conflict day. Sentiment labels describe the article's narrative framing, not our assessment of its accuracy."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         LIVE INTELLIGENCE FEED
       </h1>
@@ -141,6 +150,7 @@ export default function FeedPage() {
                 {a.confidence_score != null && (
                   <SentimentBar value={a.confidence_score} className="mt-2" />
                 )}
+                <ReactionBar articleId={a.id} articleUrl={a.url} />
               </OsintCard>
             </motion.li>
           ))}

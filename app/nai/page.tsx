@@ -10,6 +10,9 @@ import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { useNaiScores } from '@/hooks/useNaiScores';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { createClient } from '@/lib/supabase/client';
+import { PageBriefing } from '@/components/PageBriefing';
+import { PageShareButton, buildNaiMapShareText } from '@/components/PageShareButton';
+import { PageShareCard } from '@/components/PageShareCard';
 import type { CountryReport } from '@/types/supabase';
 
 const COUNTRY_COORDS: Record<string, [number, number]> = {
@@ -95,14 +98,26 @@ export default function NaiMapPage() {
   }, [scores]);
 
   return (
-    <div className="flex flex-col sm:flex-row" style={{ minHeight: 'calc(100vh - 44px)' }}>
+    <div>
+      <PageBriefing
+        title="NARRATIVE ALIGNMENT INDEX MAP"
+        description="Each country is scored 0–100 on how closely its observable public behavior aligns with US-led coalition objectives. The score is calculated daily from official statements, media framing, social signals, and elite communications. It is an estimate based on public data — not a classified intelligence assessment."
+        note="Click any country in the sidebar to view its full report. Use the day scrubber to compare alignment across conflict days. High scores mean public alignment — not necessarily private intent."
+      />
+      <div className="flex flex-col sm:flex-row" style={{ minHeight: 'calc(100vh - 44px)' }}>
       <div className="w-full flex-1 relative" style={{ minHeight: '40vh' }} ref={mapContainer} />
       <aside
         className="w-full sm:w-80 border-t sm:border-t-0 sm:border-l overflow-y-auto p-4 flex flex-col gap-4"
         style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)', maxHeight: '50vh' }}
       >
-        <h2 className="font-display text-lg inline-flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-          NAI RANKING
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <h2 className="font-display text-lg inline-flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            NAI RANKING
+          </h2>
+          <PageShareCard
+            label={`NAI MAP · DAY ${conflictDay ?? '—'}`}
+            summary="Track how 29 countries are aligning with or diverging from US-led coalition objectives in real time."
+          />
           <GlossaryTooltip
             term="NAI"
             definition={
@@ -121,7 +136,18 @@ export default function NaiMapPage() {
           >
             <span className="font-mono text-sm cursor-help" style={{ color: 'var(--accent-gold)' }} aria-label="NAI definition">ⓘ</span>
           </GlossaryTooltip>
-        </h2>
+          <PageShareButton
+            label="SHARE"
+            getCopyText={() =>
+              buildNaiMapShareText(
+                conflictDay,
+                selectedCountry?.country_code ?? undefined,
+                selectedCountry?.nai_score ?? undefined,
+                selectedCountry?.nai_category ?? undefined
+              )
+            }
+          />
+        </div>
         <TimelineScrubber min={1} max={latestDay ?? 10} value={conflictDay} onChange={setConflictDay} />
         {loading && (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -177,7 +203,7 @@ export default function NaiMapPage() {
                   className="w-full text-left font-mono text-xs py-1.5 px-2 border rounded-sm hover:border-border-bright transition-colors"
                   style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                 >
-                  <NaiScoreBadge category={s.category} score={s.expressed_score} /> {s.country_code}
+                  <NaiScoreBadge category={s.category} score={s.expressed_score} /> <span translate="no">{s.country_code}</span>
                 </button>
               </li>
             ))}
@@ -210,6 +236,7 @@ export default function NaiMapPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

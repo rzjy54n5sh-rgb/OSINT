@@ -26,7 +26,7 @@ export function CountryFlag({ code, name, className = '' }: CountryFlagProps) {
   const displayName = name ?? COUNTRY_NAMES[code?.toUpperCase()] ?? code ?? '—';
   const label = code ? `${code} — ${displayName}` : displayName;
   return (
-    <span className={`inline-flex items-center gap-1.5 font-mono text-sm ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 font-mono text-sm ${className}`} translate="no">
       <span aria-hidden>{emoji}</span>
       <span>{label}</span>
     </span>

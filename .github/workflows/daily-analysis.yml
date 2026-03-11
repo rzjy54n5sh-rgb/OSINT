@@ -26,3 +26,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python .github/workflows/scripts/daily_analysis.py
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowName = '${{ github.workflow }}';
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `⚠ Pipeline failure: ${workflowName}`,
+              body: `The **${workflowName}** workflow failed.\n\n**Run:** ${runUrl}\n**Triggered:** ${new Date().toISOString()}\n\nData on the platform may be stale. Check the logs and re-run if needed.`,
+              labels: ['pipeline-failure'],
+            });
+            core.notice(`Failure issue created: ${issue.data.html_url}`);
