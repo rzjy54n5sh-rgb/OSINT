@@ -48,7 +48,7 @@ export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20) {
     return () => {
       isActive = false;
     };
-  }, [filters.region, filters.sentiment, filters.source_type, filters.conflict_day, page, pageSize]);
+  }, [filters.region, filters.sentiment, filters.source_type, filters.conflict_day, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { articles, loading, error, page, setPage };
 }

@@ -67,7 +67,7 @@ export interface MarketData {
   unit: string | null;
   source: string | null;
   conflict_day: number | null;
-  created_at?: string | null;
+  created_at: string | null;
 }
 
 export interface SocialTrend {

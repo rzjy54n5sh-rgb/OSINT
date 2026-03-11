@@ -5,7 +5,7 @@ Flow:
   1. Read latest articles (last 24h), market data, social trends from Supabase
   2. Determine current conflict_day
   3. Build a structured prompt with all data
-  4. Call Claude claude-sonnet-4-20250514 to generate NAI scores + country reports
+  4. Call Claude claude-sonnet-4-6 to generate NAI scores + country reports
   5. Parse JSON response and UPSERT back to Supabase
   6. Update scenario_probabilities
 
@@ -18,9 +18,15 @@ import json
 import requests
 import datetime
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-ANTHROPIC_KEY = os.environ["ANTHROPIC_API_KEY"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+
+if not SUPABASE_URL or not SUPABASE_KEY or not ANTHROPIC_KEY:
+    missing = [k for k, v in {"SUPABASE_URL": SUPABASE_URL, "SUPABASE_SERVICE_KEY": SUPABASE_KEY, "ANTHROPIC_API_KEY": ANTHROPIC_KEY}.items() if not v]
+    print(f"[daily_analysis] SKIPPING — missing secrets: {missing}")
+    print("Add secrets in GitHub repo Settings → Secrets and variables → Actions")
+    exit(0)
 
 SB_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -254,7 +260,7 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
             "content-type": "application/json",
         },
         json={
-            "model": "claude-sonnet-4-20250514",
+            "model": "claude-sonnet-4-6",
             "max_tokens": 8000,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],

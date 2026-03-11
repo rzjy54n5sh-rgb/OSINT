@@ -16,7 +16,9 @@ source_type values:
   think_tank  — Analysis, OSINT, research
 """
 
-RSSHUB_BASE = "https://rsshub.app"
+import os
+
+RSSHUB_BASE = os.environ.get("RSSHUB_BASE", "https://rsshub.app")
 
 def telegram_rss(channel: str) -> str:
     """RSS for a public Telegram channel via RSSHub."""
