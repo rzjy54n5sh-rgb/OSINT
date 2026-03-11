@@ -10,17 +10,29 @@ export function useNaiScoresAll() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let isActive = true;
     const supabase = createClient();
-    supabase
-      .from('nai_scores')
-      .select('*')
-      .order('conflict_day', { ascending: true })
-      .order('expressed_score', { ascending: false })
-      .then(({ data, error: e }) => {
+    void (async () => {
+      try {
+        const { data, error: e } = await supabase
+          .from('nai_scores')
+          .select('*')
+          .order('conflict_day', { ascending: true })
+          .order('expressed_score', { ascending: false });
+        if (!isActive) return;
         setLoading(false);
         if (e) setError(e);
         else setScores((data as NaiScore[]) ?? []);
-      });
+      } catch (e) {
+        if (!isActive) return;
+        setLoading(false);
+        setError(e instanceof Error ? e : new Error('Failed to fetch NAI scores'));
+        setScores([]);
+      }
+    })();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   return { scores, loading, error };

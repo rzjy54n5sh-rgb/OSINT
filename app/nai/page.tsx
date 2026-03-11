@@ -8,15 +8,25 @@ import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { useNaiScores } from '@/hooks/useNaiScores';
+import { useConflictDay } from '@/hooks/useConflictDay';
 import { createClient } from '@/lib/supabase/client';
 import type { CountryReport } from '@/types/supabase';
 
 export default function NaiMapPage() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
+  const maxConflictDay = useConflictDay() ?? 10;
   const [conflictDay, setConflictDay] = useState(10);
   const [selectedCountry, setSelectedCountry] = useState<CountryReport | null>(null);
   const { scores, loading, error } = useNaiScores(conflictDay);
+
+  useEffect(() => {
+    setConflictDay((prev) => {
+      if (prev === 10) return maxConflictDay;
+      if (prev > maxConflictDay) return maxConflictDay;
+      return prev;
+    });
+  }, [maxConflictDay]);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -60,7 +70,7 @@ export default function NaiMapPage() {
             <span className="font-mono text-sm cursor-help" style={{ color: 'var(--accent-gold)' }} aria-label="NAI definition">ⓘ</span>
           </GlossaryTooltip>
         </h2>
-        <TimelineScrubber min={1} max={10} value={conflictDay} onChange={setConflictDay} />
+        <TimelineScrubber min={1} max={maxConflictDay} value={conflictDay} onChange={setConflictDay} />
         {loading && (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
             LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
@@ -79,13 +89,38 @@ export default function NaiMapPage() {
                   type="button"
                   onClick={async () => {
                     const supabase = createClient();
-                    const { data } = await supabase
+                    const exact = await supabase
                       .from('country_reports')
                       .select('*')
                       .eq('country_code', s.country_code)
                       .eq('conflict_day', conflictDay)
-                      .single();
-                    setSelectedCountry(data as CountryReport | null);
+                      .maybeSingle();
+                    if (exact.data) {
+                      setSelectedCountry(exact.data as CountryReport);
+                      return;
+                    }
+
+                    const upToDay = await supabase
+                      .from('country_reports')
+                      .select('*')
+                      .eq('country_code', s.country_code)
+                      .lte('conflict_day', conflictDay)
+                      .order('conflict_day', { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    if (upToDay.data) {
+                      setSelectedCountry(upToDay.data as CountryReport);
+                      return;
+                    }
+
+                    const latest = await supabase
+                      .from('country_reports')
+                      .select('*')
+                      .eq('country_code', s.country_code)
+                      .order('conflict_day', { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
+                    setSelectedCountry((latest.data as CountryReport | null) ?? null);
                   }}
                   className="w-full text-left font-mono text-xs py-1.5 px-2 border rounded-sm hover:border-border-bright transition-colors"
                   style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}

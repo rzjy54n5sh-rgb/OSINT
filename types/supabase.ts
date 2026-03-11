@@ -54,8 +54,9 @@ export interface DisinfoClaim {
   verdict: string | null;
   source_url: string | null;
   debunk_url: string | null;
-  spread_estimate: number | null;
+  spread_estimate: number | string | null;
   published_at: string | null;
+  created_at?: string | null;
 }
 
 export interface MarketData {
@@ -66,6 +67,7 @@ export interface MarketData {
   unit: string | null;
   source: string | null;
   conflict_day: number | null;
+  created_at?: string | null;
 }
 
 export interface SocialTrend {
@@ -75,6 +77,7 @@ export interface SocialTrend {
   platform: string | null;
   trend: string | null;
   sentiment: string | null;
-  engagement_estimate: number | null;
+  engagement_estimate: number | string | null;
   conflict_day: number | null;
+  created_at?: string | null;
 }

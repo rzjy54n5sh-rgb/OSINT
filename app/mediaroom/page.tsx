@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { countryQueryValues } from '@/lib/utils';
 
 // ── Constants ──
 
@@ -18,19 +19,6 @@ const COUNTRIES = [
   { code: 'TR', label: 'TUR', flag: '🇹🇷' },
   { code: 'RU', label: 'RUS', flag: '🇷🇺' },
 ];
-
-const COUNTRY_NAME_MAP: Record<string, string> = {
-  IR: 'Iran',
-  IL: 'Israel',
-  IQ: 'Iraq',
-  YE: 'Yemen',
-  SA: 'Saudi Arabia',
-  AE: 'UAE',
-  LB: 'Lebanon',
-  EG: 'Egypt',
-  TR: 'Turkey',
-  RU: 'Russia',
-};
 
 const COUNTRY_KEYWORDS: Record<string, string[]> = {
   ALL: [],
@@ -286,19 +274,22 @@ export default function MediaRoomPage() {
       return;
     }
     const supabase = createClient();
-    const countryName = COUNTRY_NAME_MAP[activeCountry];
-    if (!countryName) {
+    const countryValues = countryQueryValues(activeCountry);
+    if (countryValues.length === 0) {
       setSocialTrendTerms([]);
       return;
     }
     void (async () => {
       try {
-        const { data } = await supabase
+        let query = supabase
           .from('social_trends')
           .select('trend')
-          .eq('country', countryName)
           .order('conflict_day', { ascending: false })
           .limit(5);
+        query = countryValues.length === 1
+          ? query.eq('country', countryValues[0])
+          : query.in('country', countryValues);
+        const { data } = await query;
         const terms: string[] = [];
         (data ?? []).forEach((r: { trend: string | null }) => {
           const t = (r.trend ?? '').trim();
@@ -358,14 +349,16 @@ export default function MediaRoomPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const supabase = createClient();
+    const countryValues = activeCountry === 'ALL' ? [] : countryQueryValues(activeCountry);
     let query = supabase
       .from('articles')
       .select('id, title, url, source_name, source_type, country, published_at, tags, sentiment')
       .order('published_at', { ascending: false })
       .limit(40);
-    if (activeCountry !== 'ALL') {
-      const countryName = COUNTRY_NAME_MAP[activeCountry];
-      if (countryName) query = query.eq('country', countryName);
+    if (activeCountry !== 'ALL' && countryValues.length > 0) {
+      query = countryValues.length === 1
+        ? query.eq('country', countryValues[0])
+        : query.in('country', countryValues);
     }
     Promise.resolve(
       query.then(({ data, error }) => {

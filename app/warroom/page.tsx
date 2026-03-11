@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useConflictDay } from '@/hooks/useConflictDay';
+import { countryCodeFromValue, countryMatches, formatEngagement, parseEngagementEstimate } from '@/lib/utils';
 import type {
   Article,
   CountryReport,
@@ -18,44 +19,6 @@ const COUNTRY_EMOJI: Record<string, string> = {
   BH: '🇧🇭', OM: '🇴🇲', PS: '🇵🇸', LY: '🇱🇾', SD: '🇸🇩', DZ: '🇩🇿', MA: '🇲🇦',
   TN: '🇹🇳', CN: '🇨🇳', US: '🇺🇸', GB: '🇬🇧', FR: '🇫🇷', DE: '🇩🇪', IN: '🇮🇳', PK: '🇵🇰',
 };
-
-/** DB stores country as full name (e.g. Iran, Israel). Map code → possible values for articles/social_trends. */
-const COUNTRY_CODE_TO_DB_VALUES: Record<string, string[]> = {
-  IR: ['Iran', 'IR', 'IRN'],
-  IL: ['Israel', 'IL', 'ISR'],
-  IQ: ['Iraq', 'IQ', 'IRQ'],
-  YE: ['Yemen', 'YE', 'YEM'],
-  SA: ['Saudi Arabia', 'SA', 'SAU'],
-  AE: ['UAE', 'United Arab Emirates', 'AE', 'ARE'],
-  LB: ['Lebanon', 'LB', 'LBN'],
-  EG: ['Egypt', 'EG', 'EGY'],
-  TR: ['Turkey', 'TR', 'TUR'],
-  RU: ['Russia', 'RU', 'RUS'],
-  SY: ['Syria', 'SY', 'SYR'],
-  JO: ['Jordan', 'JO', 'JOR'],
-  QA: ['Qatar', 'QA', 'QAT'],
-  KW: ['Kuwait', 'KW', 'KWT'],
-  US: ['USA', 'United States', 'US'],
-  GB: ['United Kingdom', 'UK', 'GB'],
-};
-function countryMatchesCode(dbValue: string | null, code: string): boolean {
-  if (!dbValue?.trim()) return false;
-  const normalized = dbValue.trim();
-  const upper = normalized.toUpperCase();
-  if (upper === code) return true;
-  const allowed = COUNTRY_CODE_TO_DB_VALUES[code];
-  if (allowed) return allowed.some((v) => v.toUpperCase() === upper || v === normalized);
-  return false;
-}
-function dbValueToCode(dbValue: string | null): string | null {
-  if (!dbValue?.trim()) return null;
-  const normalized = dbValue.trim();
-  const upper = normalized.toUpperCase();
-  for (const [code, vals] of Object.entries(COUNTRY_CODE_TO_DB_VALUES)) {
-    if (upper === code || vals.some((v) => v.toUpperCase() === upper || v === normalized)) return code;
-  }
-  return null;
-}
 
 interface ContentJson {
   elite_network?: Array<{ name?: string; role?: string; position?: string; red_line?: string }>;
@@ -180,7 +143,7 @@ export default function WarRoomPage() {
 
       const byCountry: Record<string, number> = {};
       arts.forEach((a) => {
-        const code = dbValueToCode(a.country);
+        const code = countryCodeFromValue(a.country);
         const c = code ?? 'OTHER';
         byCountry[c] = (byCountry[c] ?? 0) + 1;
       });
@@ -223,7 +186,7 @@ export default function WarRoomPage() {
   }, [CONFLICT_DAY]);
 
   const filteredArticles = activeCountry
-    ? articles.filter((a) => countryMatchesCode(a.country, activeCountry)).slice(0, 30)
+    ? articles.filter((a) => countryMatches(a.country, activeCountry)).slice(0, 30)
     : articles.slice(0, 30);
 
   const activeReport = countryReports.find(
@@ -235,7 +198,8 @@ export default function WarRoomPage() {
   const keyRisks = contentJson?.key_risks ?? [];
   const stabilizers = contentJson?.stabilizers ?? [];
 
-  const socialForCountry = socialTrends.find((s) => countryMatchesCode(s.country, activeCountry));
+  const socialForCountry = socialTrends.find((s) => countryMatches(s.country, activeCountry));
+  const socialEngagement = parseEngagementEstimate(socialForCountry?.engagement_estimate ?? null);
 
   const latestByIndicator = marketData.reduce<Record<string, MarketData>>((acc, row) => {
     const k = row.indicator ?? 'OTHER';
@@ -253,7 +217,7 @@ export default function WarRoomPage() {
     : { scenario_a: 0, scenario_b: 0, scenario_c: 0, scenario_d: 0 };
 
   const sentimentByCountry = socialTrends.reduce<Record<string, string>>((acc, s) => {
-    const c = (s.country ?? '').toUpperCase().trim();
+    const c = countryCodeFromValue(s.country);
     if (c && !acc[c]) acc[c] = s.sentiment ?? 'NEU';
     return acc;
   }, {});
@@ -312,8 +276,7 @@ export default function WarRoomPage() {
   }).length;
   const countryRecentCount = (articles ?? []).filter((a) => {
     if (!a.published_at) return false;
-    const c = (a.country ?? '').toUpperCase().trim();
-    return c === activeCountry && Date.now() - new Date(a.published_at).getTime() < 86400000;
+    return countryMatches(a.country, activeCountry) && Date.now() - new Date(a.published_at).getTime() < 86400000;
   }).length;
   const confidence = countryRecentCount > 15 ? 'HIGH' : countryRecentCount > 5 ? 'MEDIUM' : 'LOW';
   const confColor = confidence === 'HIGH' ? 'var(--nai-safe)' : confidence === 'MEDIUM' ? 'var(--accent-gold)' : 'var(--accent-red)';
@@ -836,7 +799,12 @@ export default function WarRoomPage() {
                       <span style={{ fontSize: 8, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'IBM Plex Mono', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
                     </div>
                     {socialForCountry.engagement_estimate != null && (
-                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 4 }}>Engagement: {socialForCountry.engagement_estimate >= 1e6 ? `${(socialForCountry.engagement_estimate / 1e6).toFixed(1)}M` : `${(socialForCountry.engagement_estimate / 1e3).toFixed(0)}K`}</div>
+                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 4 }}>
+                        Engagement: {formatEngagement(socialForCountry.engagement_estimate)}
+                        {socialEngagement != null && socialEngagement > 0 && (
+                          <span style={{ color: 'var(--text-muted)' }}> ({Math.round(socialEngagement).toLocaleString()})</span>
+                        )}
+                      </div>
                     )}
                   </>
                 )}
