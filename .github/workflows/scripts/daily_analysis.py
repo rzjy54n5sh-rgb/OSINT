@@ -620,6 +620,185 @@ def write_to_supabase(conflict_day, analysis):
               f"E={scenario_row.get('scenario_e', 'N/A')}%")
 
 
+def generate_daily_briefings(conflict_day: int, data: dict, analysis: dict) -> None:
+    """
+    Generates web-reader briefings from the day's analysis data.
+    Uses Haiku 4.5 via batch API for cost efficiency (~$0.09/day).
+    Produces structured JSONB for the daily_briefings table.
+    """
+    now = datetime.datetime.utcnow().isoformat() + "+00:00"
+
+    # Check which report types already exist for this day
+    existing = sb_get(f"daily_briefings?conflict_day=eq.{conflict_day}&select=report_type")
+    existing_types = {r['report_type'] for r in existing}
+    print(f"  Existing briefings for Day {conflict_day}: {existing_types or 'none'}")
+
+    report_types = ['general', 'egypt', 'uae', 'eschatology', 'business']
+    to_generate = [t for t in report_types if t not in existing_types]
+    if not to_generate:
+        print(f"  ✓ All briefings already exist for Day {conflict_day}")
+        return
+
+    # Build country report lookup
+    country_data = {r['country_code']: r for r in analysis.get('country_reports', [])}
+
+    articles_text = "\n".join(
+        f"[{a.get('country','?')}][{a.get('sentiment','')}] {a.get('source_name','')}: {a.get('title','')}"
+        for a in data.get('articles', [])[:50]
+    )
+
+    sc = analysis.get('scenario_probabilities', {})
+    scenarios_text = (
+        f"A={sc.get('scenario_a',0)}% B={sc.get('scenario_b',0)}% "
+        f"C={sc.get('scenario_c',0)}% D={sc.get('scenario_d',0)}% "
+        f"E={sc.get('scenario_e','N/A')}%"
+    )
+
+    for report_type in to_generate:
+        print(f"  Generating {report_type} briefing for Day {conflict_day}...")
+        prompt = _build_briefing_prompt(
+            conflict_day, report_type, articles_text, scenarios_text,
+            country_data, data.get('markets', [])
+        )
+        try:
+            result_text = call_claude_batch(
+                f"briefing-{report_type}-day{conflict_day}",
+                "claude-haiku-4-5-20251001",
+                8000,
+                [{"role": "user", "content": prompt}],
+            )
+            result_text = result_text.strip()
+            if result_text.startswith("```"):
+                result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0]
+            briefing_data = json.loads(result_text)
+
+            row = {
+                "conflict_day": conflict_day,
+                "report_type": report_type,
+                "title": briefing_data.get("title", f"{report_type.title()} Brief — Day {conflict_day}"),
+                "lead": briefing_data.get("lead"),
+                "cover_stats": briefing_data.get("cover_stats"),
+                "sections": briefing_data.get("sections", []),
+                "source_ids": briefing_data.get("source_ids", []),
+                "source": "platform",
+                "quality": "auto",
+                "updated_at": now,
+            }
+            resp = requests.post(
+                f"{SUPABASE_URL}/rest/v1/daily_briefings?on_conflict=conflict_day,report_type",
+                headers={**SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"},
+                json=row,
+                timeout=15,
+            )
+            if resp.status_code in (200, 201, 204):
+                print(f"  ✅ {report_type} briefing written")
+            else:
+                print(f"  ⚠️  {report_type} briefing write failed: {resp.status_code}")
+        except Exception as e:
+            print(f"  ⚠️  {report_type} briefing generation failed: {e}")
+
+
+def _build_briefing_prompt(
+    conflict_day: int, report_type: str, articles_text: str,
+    scenarios_text: str, country_data: dict, markets: list
+) -> str:
+    """Build the Claude prompt for a specific report type briefing."""
+
+    market_text = " | ".join(
+        f"{m.get('indicator','')}:{m.get('value','')}{m.get('unit','')}({m.get('change_pct',0):+.1f}%)"
+        for m in (markets[:8] if markets else []) if m.get('indicator')
+    )
+
+    base = f"""You are a MENA conflict intelligence analyst applying STRUCTURAL NEUTRALITY.
+Generate a Day {conflict_day} briefing for the web reader platform.
+Output ONLY valid JSON — no preamble, no markdown.
+
+ARTICLES (last 24h): {articles_text[:2000]}
+SCENARIOS: {scenarios_text}
+MARKETS: {market_text}
+
+"""
+
+    prompts = {
+        'general': base + """Generate a GENERAL INTELLIGENCE BRIEF covering all parties.
+Output JSON:
+{{
+  "title": "General Intelligence Brief — Day {day}",
+  "lead": "2-3 sentence summary of the most critical development today",
+  "cover_stats": {{"conflict_day": {day}, "us_kia": N, "brent_oil": N, "iran_blackout_hours": N}},
+  "sections": [
+    {{
+      "id": "zone-1",
+      "heading": "ZONE 1 — DIRECT COMBATANTS",
+      "type": "zone",
+      "subsections": [
+        {{
+          "id": "usa",
+          "heading": "🇺🇸 UNITED STATES — Operation Epic Fury",
+          "nai_category": "FRACTURED",
+          "nai_expressed": 38,
+          "nai_latent": 51,
+          "paragraphs": [
+            {{"text": "...", "perspective": "us_israel"}},
+            {{"text": "...", "perspective": "neutral"}}
+          ]
+        }},
+        {{
+          "id": "iran",
+          "heading": "🇮🇷 IRAN — Operation True Promise IV",
+          "nai_category": "ALIGNED",
+          "nai_expressed": 72,
+          "nai_latent": 58,
+          "paragraphs": [
+            {{"text": "...", "perspective": "iran_irgc"}},
+            {{"text": "...", "perspective": "neutral"}}
+          ]
+        }}
+      ]
+    }},
+    {{
+      "id": "module-d",
+      "heading": "MODULE D — STRATEGIC FORECAST",
+      "type": "module",
+      "subsections": [
+        {{"id": "forecast", "heading": "72-Hour Assessment",
+          "paragraphs": [{{"text": "...", "perspective": "neutral"}}]}}
+      ]
+    }}
+  ],
+  "source_ids": []
+}}
+NEUTRALITY RULES: Present US/Israeli AND Iranian/IRGC perspectives.
+Label each paragraph perspective: us_israel | iran_irgc | gulf | resistance | neutral | both""".format(day=conflict_day),
+
+        'egypt': base + f"""Generate an EGYPT COUNTRY BRIEF.
+Include: official position, social media pulse (sentBar note: anti-US-intervention not pro-Iran),
+economic risk (Suez, gas gap, pound), strategic assessment.
+Output JSON with same section structure as general brief.
+Conflict day: {conflict_day}""",
+
+        'uae': base + f"""Generate a UAE COUNTRY BRIEF.
+Include: attack summary (221 ballistic/1305 drones tracked), official response,
+Iranian justification subsection (Al Dhafra/Camp de la Paix = Iran's stated targets),
+economic impact, scenario E (UAE direct strike 22%).
+Conflict day: {conflict_day}""",
+
+        'eschatology': base + f"""Generate an ESCHATOLOGY & GEOPOLITICS ANALYSIS.
+Cover: 200+ MRFF complaints, Christian dispensationalism, Jewish Amalek/Purim framing,
+Shia Mahdist framework with Mojtaba, Sunni Malhamah/Dajjal, geopolitical consequences.
+This is a Tier 1 operational variable. Conflict day: {conflict_day}""",
+
+        'business': base + f"""Generate a BUSINESS OPPORTUNITIES report for UAE and Egypt.
+CRITICAL: Include zero-sum dimensions section — gains exist partly at Iran's expense.
+Cover: Hormuz as both re-opening trigger (US/business) AND Iran's leverage tool (Iranian view).
+UAE sectors: energy trading, reconstruction, gold, defense, aviation, financial.
+Egypt sectors: Suez recovery, food trade, reconstruction gateway, currency arbitrage.
+Conflict day: {conflict_day}""",
+    }
+
+    return prompts.get(report_type, base + f"Generate a {report_type} briefing for Day {conflict_day}. Output JSON.")
+
+
 def main():
     print(f"🧠 Daily Analysis — {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
     
@@ -636,6 +815,10 @@ def main():
 
     print("💾 Writing to Supabase...")
     write_to_supabase(conflict_day, analysis)
+
+    # Generate daily briefings for web reader
+    print("📄 Generating daily briefings...")
+    generate_daily_briefings(conflict_day, data, analysis)
 
     # Smart scenario detection
     print("🔍 Running scenario detection...")
