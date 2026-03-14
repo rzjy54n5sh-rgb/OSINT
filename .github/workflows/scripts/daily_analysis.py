@@ -311,7 +311,7 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 8000,
+            "max_tokens": 32000,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
         },
