@@ -184,7 +184,7 @@ def fetch_source(source: dict) -> list[dict]:
 
         summary = truncate(raw_summary, SUMMARY_MAX_LEN)
 
-        articles.append({
+        row = {
             "id": url_to_id(entry_url),
             "title": truncate(title, 400),
             "summary": summary,
@@ -200,7 +200,10 @@ def fetch_source(source: dict) -> list[dict]:
             "lng": source.get("lng"),
             "sentiment": classify_sentiment(title, raw_summary),
             "tags": extract_tags(title, raw_summary),
-        })
+        }
+        if source.get("source_perspective") is not None:
+            row["source_perspective"] = source["source_perspective"]
+        articles.append(row)
 
     return articles
 

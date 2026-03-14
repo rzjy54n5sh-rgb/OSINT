@@ -17,6 +17,7 @@ import os
 import json
 import requests
 import datetime
+import time
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
@@ -83,17 +84,16 @@ def sb_patch(table, match_field, match_val, payload):
     )
     r.raise_for_status()
 
-def get_current_conflict_day():
-    """Derive conflict day from latest data in DB."""
-    try:
-        rows = sb_get("nai_scores?select=conflict_day&order=conflict_day.desc&limit=1")
-        if rows:
-            return rows[0]["conflict_day"] + 1
-    except Exception:
-        pass
-    # Fallback: count days since conflict start (approximate: Feb 28, 2026)
-    conflict_start = datetime.date(2026, 2, 28)
-    return (datetime.date.today() - conflict_start).days
+CONFLICT_START = datetime.date(2026, 2, 28)
+
+
+def get_current_conflict_day() -> int:
+    """
+    DAY LOCK — always derived from the real system clock.
+    Never derived from DB max or incremented from prior state.
+    Rule: DAY = (today - 2026-02-28).days + 1
+    """
+    return (datetime.date.today() - CONFLICT_START).days + 1
 
 def build_data_snapshot(conflict_day):
     """Pull last 24h of data from Supabase for the prompt."""
@@ -144,10 +144,29 @@ def build_data_snapshot(conflict_day):
 def call_claude(conflict_day, data):
     """Call Claude API with the data snapshot and get structured analysis back."""
 
-    system_prompt = """You are a geopolitical intelligence analyst for the MENA conflict tracker.
-You analyze raw data and produce structured JSON analysis.
+    system_prompt = """You are a geopolitical intelligence analyst for the MENA
+Conflict Intelligence Platform. You analyze raw data and produce structured
+JSON analysis applying STRUCTURAL NEUTRALITY — presenting all parties'
+perspectives equally without favoring US/Israel or Iran/resistance axis framing.
 
-Your output MUST be valid JSON only — no preamble, no markdown, no explanation.
+STRUCTURAL NEUTRALITY RULES (apply to every country report and scenario):
+1. Present ALL parties' official positions — US/Israel AND Iran/IRGC AND
+   Gulf states AND resistance axis (Hezbollah, Houthis, PMF)
+2. When describing Iranian military actions: include Iran's stated justification
+   alongside the impact description — never describe only through CENTCOM/IDF lens
+3. When describing US/Israel actions: include Iranian characterization alongside
+   US/official framing — never describe only through Pentagon/IDF lens
+4. Casualty figures: include ALL sides ordered by count (highest first)
+5. Iranian civilian harm from US-Israel strikes is as relevant as Israeli/Gulf
+   civilian harm from Iranian strikes — include both always
+6. Ceasefire path: includes Iran-Oman back-channel (Iran's stated condition:
+   US base closure) AND Xi-Trump framework — not only one side's channel
+7. Source hierarchy: distinguish party sources (CENTCOM, IRGC, IDF) from
+   independent verifiers (AFP, Reuters, NetBlocks, HRW) — party denials
+   are CONTESTED, not DEBUNKED, without independent corroboration
+
+OUTPUT: Valid JSON only — no preamble, no markdown, no explanation.
+
 Output structure:
 {
   "nai_scores": [
@@ -156,7 +175,7 @@ Output structure:
       "expressed_score": 0-100,
       "latent_score": 0-100,
       "gap_size": number,
-      "category": "ALIGNED|STABLE|TENSION|FRACTURE|INVERSION"
+      "category": "ALIGNED|FRACTURED|INVERTED|TENSE"
     }
   ],
   "country_reports": [
@@ -166,13 +185,18 @@ Output structure:
       "nai_score": number,
       "nai_category": "...",
       "content_json": {
-        "nai": {"expressed": n, "latent": n, "gap_size": n, "velocity": n, "category": "..."},
-        "scenarios": {"A": pct, "B": pct, "C": pct, "D": pct},
+        "nai": {"expressed": n, "latent": n, "gap_size": n, "category": "..."},
+        "scenarios": {"A": pct, "B": pct, "C": pct, "D": pct, "E": pct},
         "key_risks": ["...", "...", "...", "..."],
         "stabilizers": ["...", "...", "..."],
-        "elite_network": [{"name": "...", "role": "...", "position": "...", "red_line": "..."}],
-        "assessment": "3-5 sentence analytical paragraph",
-        "social_summary": "1-2 sentence social media signal"
+        "all_parties_positions": {
+          "us_israel_framing": "1 sentence",
+          "iran_irgc_framing": "1 sentence",
+          "local_govt_framing": "1 sentence",
+          "street_framing": "1 sentence"
+        },
+        "assessment": "3-5 sentence analytical paragraph — neutral, all perspectives",
+        "social_summary": "1-2 sentence summary of social media signals"
       }
     }
   ],
@@ -180,31 +204,40 @@ Output structure:
     "scenario_a": number,
     "scenario_b": number,
     "scenario_c": number,
-    "scenario_d": number
-  }
+    "scenario_d": number,
+    "scenario_e": number
+  },
+  "new_scenario_detected": true | false,
+  "new_scenario_description": "string or null"
 }
 
-NAI (National Alignment Index) scoring:
-- Expressed score (0-100): How openly a country supports/opposes the US-Iran conflict
-- Latent score (0-100): The underlying true alignment of the population/elites
-- Gap = expressed - latent (positive = overexpressing, negative = underexpressing)
-- ALIGNED: both scores >75, gap <10
-- STABLE: expressed >50, gap <15
-- TENSION: expressed 30-60, gap 10-25
-- FRACTURE: expressed 20-45, gap 5-15, downward velocity
-- INVERSION: expressed <30, latent diverging significantly
+NAI CATEGORY DEFINITIONS:
+- ALIGNED: expressed and latent within ~15 pts, same direction
+- FRACTURED: gap >15 pts, govt and public diverge significantly
+- INVERTED: government says X, public believes opposite
+- TENSE: unstable, direction unclear, external pressure building
 
-Scenario definitions:
-- A: De-escalation/Ceasefire (US-Iran negotiated pause)
-- B: Controlled Conflict (ongoing strikes, no regional expansion)
-- C: Humanitarian/Economic Crisis (Hormuz closure, supply chain collapse)
-- D: Regional War Expansion (multiple state actors drawn in)
-All four must sum to 100.
+SCENARIO DEFINITIONS (neutral framing — all parties' perspectives):
+- A: Managed Exit (ceasefire via Xi-Trump OR Iran-Oman — Iran's condition: US base closure)
+- B: Prolonged War (4+ weeks, no breakthrough)
+- C: Cascade (Hormuz + Red Sea dual closure; Egypt IMF emergency)
+- D: Escalation Spiral (Iran hits Gulf oil → Kharg oil terminals destroyed → $150/bbl)
+- E: UAE Direct Strike on Iranian missile sites (sub-branch, independent probability)
+A+B+C+D must sum to 100. E is independent (0-100 separately).
 
-Analyze ALL 20 countries listed in the user prompt."""
+Analyze ALL 20 countries. Include at minimum: IR, US, IL, EG, AE, SA, IQ, LB, YE,
+TR, RU, CN, GB, FR, DE, QA, KW, IN, PK, JO."""
 
+    # Mark Arabic/Iranian/resistance-axis sources explicitly for model context
+    ARABIC_IRANIAN_SOURCES = {
+        'Al Jazeera', 'PressTV', 'Tasnim News', 'Mehr News', 'IRNA', 'Fars News',
+        'Al-Manar', 'Al-Masirah TV', 'Ansarallah', 'Al-Monitor', 'Middle East Eye',
+        'Middle East Monitor', 'IFP News', 'IRIB World', 'Iran International',
+    }
     articles_text = "\n".join(
-        f"[{a.get('country','GLOBAL')}][{a.get('sentiment','')}] {a.get('source_name','')}: {a.get('title','')}"
+        f"[{a.get('country','GLOBAL')}][{a.get('sentiment','')}]"
+        f"[{'AR/IR-PERSPECTIVE' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN-WESTERN'}]"
+        f" {a.get('source_name','')}: {a.get('title','')}"
         for a in data["articles"]
     )
     
@@ -224,10 +257,12 @@ Analyze ALL 20 countries listed in the user prompt."""
     )
     
     prev_sc = data["prev_scenario"]
-    prev_sc_text = (
-        f"A={prev_sc['scenario_a']}% B={prev_sc['scenario_b']}% C={prev_sc['scenario_c']}% D={prev_sc['scenario_d']}%"
-        if prev_sc else "No previous data"
-    )
+    if prev_sc:
+        prev_sc_text = f"A={prev_sc['scenario_a']}% B={prev_sc['scenario_b']}% C={prev_sc['scenario_c']}% D={prev_sc['scenario_d']}%"
+        if prev_sc.get("scenario_e") is not None:
+            prev_sc_text += f" E={prev_sc['scenario_e']}%"
+    else:
+        prev_sc_text = "No previous data"
 
     user_prompt = f"""CONFLICT DAY {conflict_day} — Daily Intelligence Analysis
 
@@ -278,20 +313,236 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
     
     return json.loads(content)
 
+
+BATCH_HEADERS = {
+    "x-api-key": ANTHROPIC_KEY,
+    "anthropic-version": "2023-06-01",
+    "content-type": "application/json",
+    "anthropic-beta": "message-batches-2024-09-24",
+}
+
+
+def call_claude_batch(custom_id: str, model: str, max_tokens: int, messages: list) -> str:
+    """
+    Submit a single request via the batch API (50% discount), poll until complete,
+    return the response text. Used for non-urgent calls: detect_new_scenario, future briefings.
+    """
+    create_resp = requests.post(
+        "https://api.anthropic.com/v1/messages/batches",
+        headers=BATCH_HEADERS,
+        json={
+            "requests": [
+                {
+                    "custom_id": custom_id,
+                    "params": {
+                        "model": model,
+                        "max_tokens": max_tokens,
+                        "messages": messages,
+                    },
+                }
+            ],
+        },
+        timeout=30,
+    )
+    create_resp.raise_for_status()
+    batch = create_resp.json()
+    batch_id = batch["id"]
+
+    # Poll every 30 seconds until processing ends (max 20 polls = 10 min)
+    for _ in range(20):
+        status_resp = requests.get(
+            f"https://api.anthropic.com/v1/messages/batches/{batch_id}",
+            headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01"},
+            timeout=30,
+        )
+        status_resp.raise_for_status()
+        status = status_resp.json()
+        if status.get("processing_status") == "ended":
+            break
+        time.sleep(30)
+    else:
+        raise RuntimeError(f"Batch {batch_id} did not complete within 10 minutes")
+
+    results_url = status.get("results_url")
+    if not results_url:
+        raise RuntimeError(f"Batch {batch_id} ended but no results_url")
+
+    results_resp = requests.get(results_url, timeout=60)
+    results_resp.raise_for_status()
+    # Parse .jsonl: one JSON object per line
+    for line in results_resp.text.strip().split("\n"):
+        if not line:
+            continue
+        row = json.loads(line)
+        if row.get("custom_id") == custom_id:
+            res = row.get("result", {})
+            if "error" in res:
+                raise RuntimeError(f"Batch request failed: {res['error']}")
+            # Batch success: result.message.content[0].text (MessageBatchResult.message)
+            msg = res.get("message", {})
+            content = msg.get("content", [])
+            if content and content[0].get("type") == "text" and isinstance(content[0].get("text"), str):
+                return content[0]["text"].strip()
+            raise RuntimeError(f"Unexpected batch result shape: {row}")
+    raise RuntimeError(f"No result found for custom_id={custom_id}")
+
+
+def detect_new_scenario(conflict_day: int, data: dict, analysis: dict) -> dict | None:
+    """
+    Smart scenario detection — runs after main Claude analysis.
+    Searches for conflict developments that constitute a genuinely new
+    scenario branch not captured by A-E.
+
+    Returns a dict describing the new scenario, or None.
+    Only triggers if Claude identifies a new scenario AND it clears
+    a novelty threshold — prevents false positives.
+
+    New scenario must meet ALL of:
+    1. Named/described by at least 2 independent sources in today's articles
+    2. Not reducible to escalation of existing A-E scenarios
+    3. Represents a new ACTOR entering or a new INSTRUMENT being used
+    """
+    articles_text = "\n".join(
+        f"[{a.get('country','?')}] {a.get('source_name','')}: {a.get('title','')}"
+        for a in data.get("articles", [])[:60]
+    )
+
+    # Current scenarios for context
+    current = analysis.get("scenario_probabilities", {})
+
+    detection_prompt = f"""You are analyzing Day {conflict_day} of the US-Iran War 2026 for new conflict scenarios.
+
+EXISTING TRACKED SCENARIOS:
+A: Managed Exit / Ceasefire (Xi-Trump framework OR Iran-Oman channel)
+B: Prolonged War (4+ weeks, no breakthrough)
+C: Cascade / Dual Closure (Hormuz + Red Sea simultaneously)
+D: Escalation Spiral (Iran strikes Gulf oil → $150/bbl)
+E: UAE Direct Strike on Iranian missile sites
+
+TODAY'S ARTICLES:
+{articles_text}
+
+CURRENT PROBABILITIES: A={current.get('scenario_a',0)}% B={current.get('scenario_b',0)}% C={current.get('scenario_c',0)}% D={current.get('scenario_d',0)}% E={current.get('scenario_e','?')}%
+
+TASK: Determine if today's data reveals a NEW scenario not captured by A-E.
+A new scenario qualifies if ALL of these are true:
+1. At least 2 independent news sources today describe the same new development
+2. It involves a new state actor joining the conflict OR a new weapon/instrument category
+3. It is NOT just a higher-probability version of an existing scenario
+
+Examples of qualifying new scenarios:
+- Pakistan enters the conflict militarily
+- Saudi Arabia strikes Iranian territory
+- Iran detonates a nuclear device
+- Russia deploys forces to Iran
+- US ground troops enter Iran
+- Iran successfully blockades Hormuz with mines (sustained, verified)
+- Turkey invokes Article 5
+
+Output JSON only:
+{{
+  "new_scenario_detected": true | false,
+  "scenario_label": "F" | "G" | null,
+  "scenario_name": "Short name" | null,
+  "scenario_description": "1-2 sentence neutral description citing both party perspectives" | null,
+  "probability_estimate": 0-100 | null,
+  "trigger_sources": ["source1", "source2"] | null,
+  "confidence": "HIGH" | "MEDIUM" | "LOW" | null
+}}
+
+STRUCTURAL NEUTRALITY: If a new scenario is detected, describe it from
+all parties' perspectives — not only US/coalition framing."""
+
+    try:
+        content = call_claude_batch(
+            custom_id="scenario-detection",
+            model="claude-sonnet-4-6",
+            max_tokens=1000,
+            messages=[{"role": "user", "content": detection_prompt}],
+        )
+    except Exception as e:
+        print(f"  ⚠️  Scenario detection batch failed: {e}")
+        return None
+
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+
+    result = json.loads(content)
+    if result.get("new_scenario_detected") and result.get("confidence") in ("HIGH", "MEDIUM"):
+        return result
+    return None
+
+
+def write_new_scenario_to_db(conflict_day: int, scenario: dict) -> None:
+    """
+    Writes a newly detected scenario to the detected_scenarios table.
+    This table is created by the migration in PROMPT 4.
+    Also updates the homepage banner via the platform_alerts table.
+    """
+    now = datetime.datetime.utcnow().isoformat() + "+00:00"
+
+    # Write to detected_scenarios table
+    payload = {
+        "conflict_day": conflict_day,
+        "scenario_label": scenario.get("scenario_label"),
+        "scenario_name": scenario.get("scenario_name"),
+        "scenario_description": scenario.get("scenario_description"),
+        "probability_estimate": scenario.get("probability_estimate"),
+        "trigger_sources": json.dumps(scenario.get("trigger_sources", [])),
+        "confidence": scenario.get("confidence"),
+        "created_at": now,
+    }
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/detected_scenarios",
+        headers=SB_HEADERS,
+        json=payload,
+    )
+    if r.status_code in (200, 201):
+        print(f"  🔴 NEW SCENARIO DETECTED: {scenario['scenario_label']} — {scenario['scenario_name']}")
+        print(f"     {scenario['scenario_description']}")
+        print(f"     Probability: {scenario['probability_estimate']}% | Confidence: {scenario['confidence']}")
+    else:
+        print(f"  ⚠️  Failed to write new scenario: {r.status_code} {r.text}")
+
+    # Update homepage alert banner
+    alert_payload = {
+        "key": "new_scenario_alert",
+        "value": json.dumps({
+            "active": True,
+            "conflict_day": conflict_day,
+            "label": scenario.get("scenario_label"),
+            "name": scenario.get("scenario_name"),
+            "description": scenario.get("scenario_description"),
+            "probability": scenario.get("probability_estimate"),
+        }),
+        "updated_at": now,
+    }
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/platform_alerts",
+        headers={**SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"},
+        json=alert_payload,
+    )
+
+
 def write_to_supabase(conflict_day, analysis):
     """Write Claude's analysis back to Supabase."""
     now = datetime.datetime.utcnow().isoformat() + "+00:00"
     
     # 1. NAI scores — upsert by country_code + conflict_day
+    VALID_CATEGORIES = {"ALIGNED", "FRACTURED", "INVERTED", "TENSE"}
     nai_rows = []
     for n in analysis.get("nai_scores", []):
+        category = n.get("category", "FRACTURED")
+        if category not in VALID_CATEGORIES:
+            print(f"  ⚠️  Invalid category '{category}' for {n['country_code']} — defaulting to FRACTURED")
+            category = "FRACTURED"
         nai_rows.append({
             "country_code": n["country_code"],
             "conflict_day": conflict_day,
             "expressed_score": n["expressed_score"],
             "latent_score": n["latent_score"],
             "gap_size": abs(n["expressed_score"] - n["latent_score"]),
-            "category": n["category"],
+            "category": category,
             "updated_at": now,
         })
     if nai_rows:
@@ -307,31 +558,54 @@ def write_to_supabase(conflict_day, analysis):
         ).raise_for_status()
     print(f"  ✅ NAI scores: {len(nai_rows)} countries written")
 
-    # 2. Country reports — patch each by country_code
+    # 2. Country reports — upsert by (country_code, conflict_day)
+    # Using POST with merge-duplicates — inserts new rows AND updates existing
+    report_rows = []
     for r in analysis.get("country_reports", []):
-        payload = {
+        report_rows.append({
+            "country_code": r["country_code"],
+            "country_name": r["country_name"],   # REQUIRED NOT NULL
             "nai_score": r["nai_score"],
             "nai_category": r["nai_category"],
             "content_json": r["content_json"],
             "conflict_day": conflict_day,
             "updated_at": now,
-        }
-        requests.patch(
-            f"{SUPABASE_URL}/rest/v1/country_reports?country_code=eq.{r['country_code']}",
-            headers=SB_HEADERS,
-            json=payload,
+        })
+    if report_rows:
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/country_reports?on_conflict=country_code,conflict_day",
+            headers={**SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=report_rows,
+            timeout=15,
         )
-    print(f"  ✅ Country reports: {len(analysis.get('country_reports', []))} updated")
+        if resp.status_code not in (200, 201, 204):
+            print(f"  ⚠️  Country reports upsert warning: {resp.status_code} {resp.text[:200]}")
+        else:
+            print(f"  ✅ Country reports: {len(report_rows)} upserted for Day {conflict_day}")
 
     # 3. Scenario probabilities
     sc = analysis.get("scenario_probabilities")
     if sc:
-        # Normalize to 100
-        total = sc["scenario_a"] + sc["scenario_b"] + sc["scenario_c"] + sc["scenario_d"]
-        if total != 100:
-            sc = {k: round(v * 100 / total) for k, v in sc.items()}
-        
-        # Delete existing day row if any, insert fresh
+        # Normalize A+B+C+D to 100 (E is independent sub-branch)
+        main_keys = ["scenario_a", "scenario_b", "scenario_c", "scenario_d"]
+        total = sum(sc.get(k, 0) for k in main_keys)
+        if total > 0 and total != 100:
+            factor = 100 / total
+            for k in main_keys:
+                sc[k] = round(sc.get(k, 0) * factor)
+            # Fix rounding to ensure exact 100
+            diff = 100 - sum(sc.get(k, 0) for k in main_keys)
+            sc["scenario_d"] = sc.get("scenario_d", 0) + diff
+
+        scenario_row = {
+            "conflict_day": conflict_day,
+            "scenario_a": sc.get("scenario_a", 0),
+            "scenario_b": sc.get("scenario_b", 0),
+            "scenario_c": sc.get("scenario_c", 0),
+            "scenario_d": sc.get("scenario_d", 0),
+            "scenario_e": sc.get("scenario_e"),  # None is OK — nullable column
+            "updated_at": now,
+        }
         requests.delete(
             f"{SUPABASE_URL}/rest/v1/scenario_probabilities?conflict_day=eq.{conflict_day}",
             headers=SB_HEADERS,
@@ -339,9 +613,11 @@ def write_to_supabase(conflict_day, analysis):
         requests.post(
             f"{SUPABASE_URL}/rest/v1/scenario_probabilities",
             headers=SB_HEADERS,
-            json={**sc, "conflict_day": conflict_day, "updated_at": now},
+            json=scenario_row,
         ).raise_for_status()
-    print(f"  ✅ Scenarios: A={sc['scenario_a']}% B={sc['scenario_b']}% C={sc['scenario_c']}% D={sc['scenario_d']}%")
+        print(f"  ✅ Scenarios: A={scenario_row['scenario_a']}% B={scenario_row['scenario_b']}% "
+              f"C={scenario_row['scenario_c']}% D={scenario_row['scenario_d']}% "
+              f"E={scenario_row.get('scenario_e', 'N/A')}%")
 
 
 def main():
@@ -360,6 +636,14 @@ def main():
 
     print("💾 Writing to Supabase...")
     write_to_supabase(conflict_day, analysis)
+
+    # Smart scenario detection
+    print("🔍 Running scenario detection...")
+    new_scenario = detect_new_scenario(conflict_day, data, analysis)
+    if new_scenario:
+        write_new_scenario_to_db(conflict_day, new_scenario)
+    else:
+        print("  ✓ No new scenarios detected today.")
 
     print("✅ Daily analysis complete.")
 

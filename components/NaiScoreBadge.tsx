@@ -7,8 +7,11 @@ const NAI_CLASS: Record<string, string> = {
   SAFE: 'safe',
   STABLE: 'stable',
   TENSION: 'tension',
+  TENSE: 'tension',
   FRACTURE: 'fracture',
+  FRACTURED: 'fracture',
   INVERSION: 'inversion',
+  INVERTED: 'inversion',
 };
 
 type NaiScoreBadgeProps = {

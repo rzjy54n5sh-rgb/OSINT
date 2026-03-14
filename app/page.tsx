@@ -7,6 +7,7 @@ import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useArticles } from '@/hooks/useArticles';
 import { useScenarios } from '@/hooks/useScenarios';
+import { useNewScenarioAlert } from '@/hooks/usePlatformAlert';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
 import {
@@ -36,6 +37,7 @@ export default function CommandDashboard() {
   const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
   const { articles } = useArticles({}, 3);
   const { scenarios } = useScenarios();
+  const newScenarioAlert = useNewScenarioAlert();
 
   const scenarioChartData =
     scenarios.length > 0
@@ -45,6 +47,7 @@ export default function CommandDashboard() {
           B: s.scenario_b,
           C: s.scenario_c,
           D: s.scenario_d,
+          E: s.scenario_e ?? 0,
         }))
       : [];
 
@@ -66,6 +69,31 @@ export default function CommandDashboard() {
           <span>LAST UPDATE <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span></span>
           <span>{live ? '● LIVE' : '○ OFFLINE'}</span>
         </div>
+
+        {newScenarioAlert && (
+          <div
+            className="mb-6 border px-4 py-3 font-mono text-xs"
+            style={{ borderColor: '#a855f7', background: 'rgba(168,85,247,0.08)' }}
+          >
+            <span style={{ color: '#a855f7' }}>◆ NEW SCENARIO DETECTED — DAY {newScenarioAlert.conflict_day}</span>
+            <span className="ml-3" style={{ color: 'var(--accent-gold)' }}>
+              SCENARIO {newScenarioAlert.label}: {newScenarioAlert.name}
+            </span>
+            <span className="ml-3" style={{ color: 'var(--text-secondary)' }}>
+              {newScenarioAlert.probability}% probability
+            </span>
+            <p className="mt-2" style={{ color: 'var(--text-secondary)' }}>
+              {newScenarioAlert.description}
+            </p>
+            <a
+              href="/scenarios"
+              className="mt-2 inline-block underline"
+              style={{ color: '#a855f7' }}
+            >
+              VIEW FULL SCENARIO ANALYSIS →
+            </a>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
           {QUICK_LINKS.map((link, i) => (
@@ -144,6 +172,7 @@ export default function CommandDashboard() {
                     <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
                     <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
                     <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
+                    <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>

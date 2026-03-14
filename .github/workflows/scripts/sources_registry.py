@@ -14,6 +14,14 @@ source_type values:
   elite       — Individual political figures
   financial   — Oil, markets, energy
   think_tank  — Analysis, OSINT, research
+
+source_perspective values (for neutrality tracking):
+  western    — English-language Western media/think tanks
+  arabic     — Arabic-language regional media
+  iranian    — Iranian state/semi-state media (PressTV, Fars, IRNA, Tasnim, Mehr)
+  russian    — Russian state/semi-state media (RT, TASS)
+  resistance — Hezbollah, Houthi, PMF, IRGC-aligned channels
+  neutral    — UN, ICRC, academic, multilateral
 """
 
 import os
@@ -28,25 +36,29 @@ def telegram_rss(channel: str) -> str:
 # INTERNATIONAL WIRES & BROADCASTERS (verified ✓)
 # ─────────────────────────────────────────────
 INTERNATIONAL = [
-    {"url": "https://www.reuters.com/world/rss",                                                      "source_name": "Reuters World",         "source_type": "wire",       "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.reuters.com/world/middle-east/rss",                                          "source_name": "Reuters Middle East",   "source_type": "wire",       "region": "MENA",    "country": None, "lat": None, "lng": None},
-    {"url": "https://api.axios.com/feed/",                                                            "source_name": "Axios",                 "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "http://rss.cnn.com/rss/cnn_topstories.rss",                                              "source_name": "CNN Top Stories",       "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.aljazeera.com/xml/rss/all.xml",                                              "source_name": "Al Jazeera",            "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                            "source_name": "BBC World",             "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",                                "source_name": "BBC Middle East",       "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None},
-    {"url": "https://www.france24.com/en/rss",                                                        "source_name": "France24",              "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.middleeasteye.net/rss",                                                      "source_name": "Middle East Eye",       "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None},
-    {"url": "https://english.alarabiya.net/rss.xml",                                                  "source_name": "Al Arabiya",            "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None},
-    {"url": "https://oilprice.com/rss/main",                                                          "source_name": "OilPrice.com",          "source_type": "financial",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://warontherocks.com/feed/",                                                        "source_name": "War on the Rocks",      "source_type": "think_tank", "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://breakingdefense.com/feed/",                                                      "source_name": "Breaking Defense",      "source_type": "military",   "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://foreignpolicy.com/feed/",                                                        "source_name": "Foreign Policy",        "source_type": "think_tank", "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://news.un.org/feed/subscribe/en/news/region/middle-east/feed/rss.xml",             "source_name": "UN News — MENA",        "source_type": "official",   "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.ft.com/rss/home",                                                            "source_name": "Financial Times",       "source_type": "financial",  "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.defensenews.com/rss/",                                                       "source_name": "Defense News",          "source_type": "military",   "region": "Global",  "country": None, "lat": None, "lng": None},
-    {"url": "https://www.al-monitor.com/rss",                                                         "source_name": "Al-Monitor",            "source_type": "think_tank", "region": "MENA",    "country": "International", "lat": None, "lng": None},
-    {"url": "https://www.middleeastmonitor.com/feed/",                                                "source_name": "Middle East Monitor",  "source_type": "regional",   "region": "MENA",    "country": "International", "lat": None, "lng": None},
+    {"url": "https://www.reuters.com/world/rss",                                                      "source_name": "Reuters World",         "source_type": "wire",       "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.reuters.com/world/middle-east/rss",                                          "source_name": "Reuters Middle East",   "source_type": "wire",       "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://api.axios.com/feed/",                                                            "source_name": "Axios",                 "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "http://rss.cnn.com/rss/cnn_topstories.rss",                                              "source_name": "CNN Top Stories",       "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.aljazeera.com/xml/rss/all.xml",                                              "source_name": "Al Jazeera",            "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://feeds.bbci.co.uk/news/world/rss.xml",                                            "source_name": "BBC World",             "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml",                                "source_name": "BBC Middle East",       "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.france24.com/en/rss",                                                        "source_name": "France24",              "source_type": "broadcast",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.middleeasteye.net/rss",                                                      "source_name": "Middle East Eye",       "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://english.alarabiya.net/rss.xml",                                                  "source_name": "Al Arabiya",            "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://oilprice.com/rss/main",                                                          "source_name": "OilPrice.com",          "source_type": "financial",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://warontherocks.com/feed/",                                                        "source_name": "War on the Rocks",      "source_type": "think_tank", "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://breakingdefense.com/feed/",                                                      "source_name": "Breaking Defense",      "source_type": "military",   "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://foreignpolicy.com/feed/",                                                        "source_name": "Foreign Policy",        "source_type": "think_tank", "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://news.un.org/feed/subscribe/en/news/region/middle-east/feed/rss.xml",             "source_name": "UN News — MENA",        "source_type": "official",   "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "neutral"},
+    {"url": "https://www.ft.com/rss/home",                                                            "source_name": "Financial Times",       "source_type": "financial",  "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.defensenews.com/rss/",                                                       "source_name": "Defense News",          "source_type": "military",   "region": "Global",  "country": None, "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.al-monitor.com/rss",                                                         "source_name": "Al-Monitor",            "source_type": "think_tank", "region": "MENA",    "country": "International", "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://www.middleeastmonitor.com/feed/",                                                "source_name": "Middle East Monitor",  "source_type": "regional",   "region": "MENA",    "country": "International", "lat": None, "lng": None, "source_perspective": "western"},
+    {"url": "https://arabic.rt.com/rss/",                                                             "source_name": "RT Arabic",             "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "russian"},
+    {"url": "https://www.aljazeera.net/rss.xml",                                                      "source_name": "Al Jazeera Arabic",     "source_type": "broadcast",  "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "arabic"},
+    {"url": "https://orient-news.net/en/rss/",                                                        "source_name": "Orient XXI",            "source_type": "think_tank", "region": "MENA",    "country": None, "lat": None, "lng": None, "source_perspective": "arabic"},
+    {"url": "https://www.madamasr.com/ar/feed/",                                                      "source_name": "Mada Masr Arabic",     "source_type": "regional",   "region": "Egypt",   "country": "Egypt", "lat": 30.044, "lng": 31.235, "source_perspective": "arabic"},
 ]
 
 # ─────────────────────────────────────────────
@@ -65,15 +77,18 @@ USA = [
 # IRAN — State Media + Telegram (primary comms)
 # ─────────────────────────────────────────────
 IRAN = [
-    {"url": "https://ifpnews.com/feed",                                                               "source_name": "IFP News",              "source_type": "official",   "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": "https://www.presstv.ir/rss",                                                             "source_name": "PressTV",               "source_type": "broadcast",  "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": "https://en.mehrnews.com/rss",                                                            "source_name": "Mehr News",             "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": "https://www.tasnimnews.com/en/rss",                                                      "source_name": "Tasnim News",           "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
+    {"url": "https://ifpnews.com/feed",                                                               "source_name": "IFP News",              "source_type": "official",   "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": "https://www.presstv.ir/rss",                                                             "source_name": "PressTV",               "source_type": "broadcast",  "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": "https://en.mehrnews.com/rss",                                                            "source_name": "Mehr News",             "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": "https://www.tasnimnews.com/en/rss",                                                      "source_name": "Tasnim News",           "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": "https://www.farsnews.ir/rss",                                                            "source_name": "Fars News (IRGC-linked)", "source_type": "wire",     "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": "https://en.isna.ir/rss",                                                                 "source_name": "ISNA (Iran Students)",  "source_type": "wire",       "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": telegram_rss("IranPresidency"),                                                           "source_name": "Iran Presidency (Telegram)", "source_type": "official", "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
     # Elite Telegram
-    {"url": telegram_rss("khamenei_ir"),                                                              "source_name": "Khamenei (Telegram)",   "source_type": "elite",      "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": telegram_rss("IranMFA_English"),                                                          "source_name": "Iran MFA (Telegram)",   "source_type": "official",   "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": telegram_rss("IranIntlTv"),                                                               "source_name": "Iran International (Telegram)", "source_type": "broadcast", "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
-    {"url": telegram_rss("IRIBWorldService"),                                                         "source_name": "IRIB World (Telegram)", "source_type": "broadcast",  "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388},
+    {"url": telegram_rss("khamenei_ir"),                                                              "source_name": "Khamenei (Telegram)",   "source_type": "elite",      "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": telegram_rss("IranMFA_English"),                                                          "source_name": "Iran MFA (Telegram)",   "source_type": "official",   "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": telegram_rss("IranIntlTv"),                                                               "source_name": "Iran International (Telegram)", "source_type": "broadcast", "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
+    {"url": telegram_rss("IRIBWorldService"),                                                         "source_name": "IRIB World (Telegram)", "source_type": "broadcast",  "region": "Iran", "country": "Iran", "lat": 35.689, "lng": 51.388, "source_perspective": "iranian"},
 ]
 
 # ─────────────────────────────────────────────
@@ -134,31 +149,31 @@ QATAR = [
 # IRAQ
 # ─────────────────────────────────────────────
 IRAQ = [
-    {"url": "https://www.kurdistan24.net/en/rss.xml",                                                 "source_name": "Kurdistan 24",          "source_type": "regional",   "region": "Iraq", "country": "Iraq", "lat": 36.190, "lng": 44.009},
-    {"url": telegram_rss("IraqiPMO"),                                                                 "source_name": "Iraqi PMO (Telegram)",  "source_type": "official",   "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400},
-    {"url": telegram_rss("KataiebHezbollah"),                                                         "source_name": "Kata'ib Hezbollah (Telegram)", "source_type": "military", "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400},
-    {"url": telegram_rss("PMFofficial"),                                                              "source_name": "PMF Official (Telegram)","source_type": "military",   "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400},
+    {"url": "https://www.kurdistan24.net/en/rss.xml",                                                 "source_name": "Kurdistan 24",          "source_type": "regional",   "region": "Iraq", "country": "Iraq", "lat": 36.190, "lng": 44.009, "source_perspective": "western"},
+    {"url": telegram_rss("IraqiPMO"),                                                                 "source_name": "Iraqi PMO (Telegram)",  "source_type": "official",   "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400, "source_perspective": "western"},
+    {"url": telegram_rss("KataiebHezbollah"),                                                         "source_name": "Kata'ib Hezbollah (Telegram)", "source_type": "military", "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400, "source_perspective": "resistance"},
+    {"url": telegram_rss("PMFofficial"),                                                              "source_name": "PMF Official (Telegram)","source_type": "military",   "region": "Iraq", "country": "Iraq", "lat": 33.340, "lng": 44.400, "source_perspective": "resistance"},
 ]
 
 # ─────────────────────────────────────────────
 # YEMEN / HOUTHIS
 # ─────────────────────────────────────────────
 YEMEN = [
-    {"url": "https://www.yemenmonitor.com/feed/",                                                     "source_name": "Yemen Monitor",         "source_type": "regional",   "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207},
-    {"url": telegram_rss("ansarallah1"),                                                              "source_name": "Ansarallah (Houthi Telegram)", "source_type": "military", "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207},
-    {"url": telegram_rss("almasiranews"),                                                             "source_name": "Al-Masirah TV (Telegram)","source_type": "broadcast", "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207},
-    {"url": telegram_rss("MohammedAlHouthi"),                                                         "source_name": "M. Al-Houthi (Telegram)","source_type": "elite",     "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207},
+    {"url": "https://www.yemenmonitor.com/feed/",                                                     "source_name": "Yemen Monitor",         "source_type": "regional",   "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207, "source_perspective": "western"},
+    {"url": telegram_rss("ansarallah1"),                                                              "source_name": "Ansarallah (Houthi Telegram)", "source_type": "military", "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207, "source_perspective": "resistance"},
+    {"url": telegram_rss("almasiranews"),                                                             "source_name": "Al-Masirah TV (Telegram)","source_type": "broadcast", "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207, "source_perspective": "resistance"},
+    {"url": telegram_rss("MohammedAlHouthi"),                                                         "source_name": "M. Al-Houthi (Telegram)","source_type": "elite",     "region": "Yemen", "country": "Yemen", "lat": 15.355, "lng": 44.207, "source_perspective": "resistance"},
 ]
 
 # ─────────────────────────────────────────────
 # LEBANON / HEZBOLLAH
 # ─────────────────────────────────────────────
 LEBANON = [
-    {"url": "https://www.naharnet.com/stories/en/rss",                                                "source_name": "Naharnet (Lebanon)",    "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
-    {"url": "https://english.now-news.com/feed/",                                                     "source_name": "NOW Lebanon",           "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
-    {"url": "https://today.lorientlejour.com/feed/",                                                   "source_name": "L'Orient Today",        "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
-    {"url": telegram_rss("almanarnews"),                                                              "source_name": "Al-Manar / Hezbollah (Telegram)", "source_type": "military", "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
-    {"url": telegram_rss("NabihBerri"),                                                               "source_name": "Nabih Berri (Telegram)","source_type": "elite",      "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495},
+    {"url": "https://www.naharnet.com/stories/en/rss",                                                "source_name": "Naharnet (Lebanon)",    "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495, "source_perspective": "western"},
+    {"url": "https://english.now-news.com/feed/",                                                     "source_name": "NOW Lebanon",           "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495, "source_perspective": "western"},
+    {"url": "https://today.lorientlejour.com/feed/",                                                   "source_name": "L'Orient Today",        "source_type": "regional",   "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495, "source_perspective": "western"},
+    {"url": telegram_rss("almanarnews"),                                                              "source_name": "Al-Manar / Hezbollah (Telegram)", "source_type": "military", "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495, "source_perspective": "resistance"},
+    {"url": telegram_rss("NabihBerri"),                                                               "source_name": "Nabih Berri (Telegram)","source_type": "elite",      "region": "Lebanon", "country": "Lebanon", "lat": 33.888, "lng": 35.495, "source_perspective": "western"},
 ]
 
 # ─────────────────────────────────────────────

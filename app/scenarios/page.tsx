@@ -19,22 +19,36 @@ import {
   Legend,
 } from 'recharts';
 
-const SCENARIO_META: Record<string, { name: string; description: string }> = {
+const SCENARIO_META: Record<string, { name: string; description: string; color: string }> = {
   A: {
-    name: 'Negotiated Ceasefire',
-    description: 'Oman-mediated framework produces a 30-day renewable halt. Iranian nuclear program placed under enhanced IAEA monitoring. Hormuz reopens under UN maritime guarantee. Probability declining as Iranian preconditions harden.',
+    name: 'Managed Exit',
+    color: 'var(--accent-green)',
+    description:
+      'Ceasefire within 2 weeks via: (a) Xi-Trump framework, OR (b) Iran-Oman back-channel — Iran\'s stated condition: closure/drawdown of US regional bases, OR (c) Gulf SWF $100B+ investment pressure on Trump. Probability declining after Kharg Island strike hardened both sides.',
   },
   B: {
-    name: 'Controlled Escalation',
-    description: 'Conflict expands to Lebanon ground phase and Houthi front but remains below nuclear threshold. Oil sustained above $130. G7 begins secondary sanctions on Iran. Probability rising as proxy fronts multiply.',
+    name: 'Prolonged War',
+    color: 'var(--accent-gold)',
+    description:
+      'Conflict continues 4+ weeks without diplomatic breakthrough. No Xi-Trump summit outcome. Iran retaliates for Kharg within acceptable bounds. Most likely scenario. Egypt pound through 55/USD. US inflation rising toward 3%.',
   },
   C: {
-    name: 'Humanitarian/Economic Crisis',
-    description: 'Red Sea closure and Suez disruption trigger global supply chain shock. Egypt enters IMF emergency program. Regional refugee displacement exceeds 2M. Western public pressure forces premature ceasefire without verification.',
+    name: 'Cascade / Dual Closure',
+    color: 'var(--accent-blue)',
+    description:
+      'Hormuz closure combines with Houthi Red Sea resumption. Near-total halt of regional maritime trade. Egypt enters IMF emergency program. Morgan Stanley $2.4B energy deficit for Egypt. Global food security crisis activates.',
   },
   D: {
-    name: 'Regional War',
-    description: 'Iranian ballistic missile kills >50 US personnel triggering full AUMF. Saudi Arabia and UAE drawn in militarily. Strait of Hormuz closed indefinitely. Global recession scenario with oil above $200.',
+    name: 'Escalation Spiral',
+    color: 'var(--accent-red)',
+    description:
+      'Iran retaliates for Kharg by striking Gulf oil infrastructure (Aramco/ADNOC) → Trump executes threat to destroy Kharg oil terminals → JPMorgan $150/bbl scenario → US domestic inflation crisis → political pressure ends war faster than diplomacy.',
+  },
+  E: {
+    name: 'UAE Direct Strike',
+    color: '#a855f7',
+    description:
+      'UAE hits Iranian missile sites directly — unprecedented military escalation. Axios (2 sources, March 3): UAE "considering active defensive measures." Australia evacuation advisory and DIFC emptying signal rising pressure. Can overlap with Scenario D. Sub-branch probability, independent of A+B+C+D sum.',
   },
 };
 
@@ -48,14 +62,15 @@ export default function ScenariosPage() {
     B: s.scenario_b,
     C: s.scenario_c,
     D: s.scenario_d,
+    E: s.scenario_e ?? 0,
   }));
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
         title="CONFLICT SCENARIO PROBABILITY TRACKER"
-        description="Four escalation scenarios are tracked daily. Probabilities are calculated estimates based on observable trigger conditions — not predictions. They sum to 100% across all four scenarios. See the Methodology page for the full derivation of each scenario and its trigger conditions."
-        note="A rising probability for Scenario B does not mean Scenario A is impossible. These are probability distributions, not ordered rankings. Read the full scenario definitions before drawing conclusions."
+        description="Five conflict scenarios are tracked daily. Scenarios A through D sum to 100%. Scenario E (UAE Direct Strike) is an independent sub-branch probability that can overlap with others. Scenarios are updated daily based on observable trigger conditions — not predictions."
+        note="Probabilities reflect observable trigger conditions from all parties' actions — not editorial positions. Scenario A includes Iran's stated ceasefire condition (closure/drawdown of US regional military bases) as a required pathway, not only a US-China diplomatic resolution. All parties' official framings are presented alongside independent analysis."
       />
       <div className="flex flex-wrap items-center gap-4 mb-8">
         <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
@@ -99,10 +114,10 @@ export default function ScenariosPage() {
                     <span translate="no">Scenario {key}</span>
                   </p>
                 </GlossaryTooltip>
-                <p className="font-mono text-sm mb-2" style={{ color: 'var(--accent-gold)' }}>
+                <p className="font-mono text-sm mb-2" style={{ color: SCENARIO_META[key].color }}>
                   &quot;{SCENARIO_META[key].name}&quot;
                 </p>
-                <p className="font-display text-2xl" style={{ color: 'var(--accent-gold)' }} translate="no">
+                <p className="font-display text-2xl" style={{ color: SCENARIO_META[key].color }} translate="no">
                   {latest[`scenario_${key.toLowerCase()}` as keyof typeof latest]}%
                 </p>
                 <SentimentBar
@@ -114,6 +129,28 @@ export default function ScenariosPage() {
                 </p>
               </OsintCard>
             ))}
+            {latest.scenario_e != null && (
+              <OsintCard key="E" className="border-purple-800/40">
+                <GlossaryTooltip term="SCENARIO_E" definition={GLOSSARY.SCENARIO_E}>
+                  <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
+                    <span translate="no">Scenario E — NEW</span>
+                  </p>
+                </GlossaryTooltip>
+                <p className="font-mono text-sm mb-2" style={{ color: '#a855f7' }}>
+                  &quot;{SCENARIO_META.E.name}&quot;
+                </p>
+                <p className="font-display text-2xl" style={{ color: '#a855f7' }} translate="no">
+                  {latest.scenario_e}%
+                </p>
+                <SentimentBar value={latest.scenario_e / 100} className="mt-2" />
+                <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {SCENARIO_META.E.description}
+                </p>
+                <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  Sub-branch — independent of A+B+C+D sum
+                </p>
+              </OsintCard>
+            )}
           </div>
           <OsintCard className="scanlines">
             <h2 className="font-display text-lg mb-4">PROBABILITY OVER TIME</h2>
@@ -137,6 +174,7 @@ export default function ScenariosPage() {
                     <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={2} dot={false} name="B" />
                     <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={2} dot={false} name="C" />
                     <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={2} dot={false} name="D" />
+                    <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={2} dot={false} name="E" strokeDasharray="4 2" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
