@@ -11,6 +11,7 @@ import { GlobeMenu } from '@/components/GlobeMenu';
 
 const NAV_LINKS = [
   { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
+  { href: '/briefings', label: 'BRIEFINGS' },
   { href: '/mediaroom', label: 'MEDIA ROOM' },
   { href: '/feed',      label: 'FEED' },
   { href: '/nai',       label: 'NAI MAP' },

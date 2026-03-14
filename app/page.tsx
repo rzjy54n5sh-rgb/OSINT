@@ -95,6 +95,97 @@ export default function CommandDashboard() {
           </div>
         )}
 
+        {/* ── TOP FINDING STRIP ──────────────────────────────────── */}
+        <div className="mb-6 px-4 py-3"
+             style={{ background: 'rgba(232,197,71,0.04)',
+                      border: '1px solid rgba(232,197,71,0.15)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span style={{ color: 'var(--accent-gold)', fontSize: '10px',
+                           fontFamily: 'IBM Plex Mono', letterSpacing: '2px' }}>
+              ◆ DAY {conflictDay ?? '—'} TOP FINDING
+            </span>
+          </div>
+          <p className="font-body text-sm leading-relaxed"
+             style={{ color: 'var(--text-secondary)' }}>
+            US forces struck Kharg Island military facilities on March 13 —
+            handling 90% of Iranian crude exports. Mojtaba Khamenei issued
+            his first statement as Supreme Leader: war continues until US
+            bases close. Brent settled at $103.14, up 41.5% since Feb 28.
+          </p>
+          <Link href={`/briefings/${conflictDay ?? 15}/general`}
+                className="font-mono text-xs mt-2 inline-block"
+                style={{ color: 'var(--accent-gold)' }}>
+            READ FULL BRIEF →
+          </Link>
+        </div>
+
+        {/* ── KEY METRICS ROW ─────────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[
+            { label: 'BRENT', value: '$103.14', change: '+41.5%', up: true },
+            { label: 'EGP/USD', value: '52+', change: 'RECORD LOW', up: false },
+            { label: 'HORMUZ', value: 'CLOSED', change: 'Day 1', up: false },
+            { label: 'US KIA', value: '11', change: '7 combat', up: false },
+          ].map(({ label, value, change, up }) => (
+            <div key={label} className="px-3 py-2"
+                 style={{ border: '1px solid var(--border)',
+                          background: 'var(--bg-card)' }}>
+              <div className="font-mono" style={{ fontSize: '8px',
+                   letterSpacing: '1px', color: 'var(--text-muted)',
+                   marginBottom: '4px' }}>
+                {label}
+              </div>
+              <div className="font-display text-xl"
+                   style={{ color: up ? 'var(--accent-green)' : 'var(--accent-red)',
+                            lineHeight: 1.1 }}>
+                {value}
+              </div>
+              <div className="font-mono" style={{ fontSize: '8px',
+                   color: 'var(--text-muted)', marginTop: '2px' }}>
+                {change}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── TODAY'S BRIEFINGS STRIP ─────────────────────────────── */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-mono text-xs uppercase"
+                  style={{ color: 'var(--accent-gold)', letterSpacing: '2px' }}>
+              ◆ TODAY'S BRIEFINGS — DAY {conflictDay ?? '—'}
+            </span>
+            <Link href="/briefings" className="font-mono text-xs"
+                  style={{ color: 'var(--text-muted)' }}>
+              ALL DAYS →
+            </Link>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2"
+               style={{ scrollbarWidth: 'none' }}>
+            {[
+              { type: 'general', label: 'GENERAL', emoji: '◆' },
+              { type: 'egypt', label: 'EGYPT', emoji: '🇪🇬' },
+              { type: 'uae', label: 'UAE', emoji: '🇦🇪' },
+              { type: 'eschatology', label: 'ESCHA\u200BTOLOGY', emoji: '◎' },
+              { type: 'business', label: 'BUSINESS', emoji: '◈' },
+            ].map(({ type, label, emoji }) => (
+              <Link key={type}
+                    href={`/briefings/${conflictDay ?? 15}/${type}`}
+                    className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
+                    style={{ borderColor: 'var(--border)',
+                             background: 'var(--bg-card)',
+                             minWidth: 'max-content' }}>
+                <span>{emoji}</span>
+                <span className="font-mono"
+                      style={{ fontSize: '9px', letterSpacing: '1.5px',
+                               color: 'var(--text-secondary)' }}>
+                  {label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
           {QUICK_LINKS.map((link, i) => (
             <Link key={link.href} href={link.href}>
