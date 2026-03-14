@@ -4,9 +4,14 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useConflictDay } from '@/hooks/useConflictDay';
+import { useDataFreshness } from '@/hooks/useDataFreshness';
+import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { GLOSSARY } from '@/lib/glossary';
+import { GlobeMenu } from '@/components/GlobeMenu';
 
 const NAV_LINKS = [
   { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
+  { href: '/briefings', label: 'BRIEFINGS' },
   { href: '/mediaroom', label: 'MEDIA ROOM' },
   { href: '/feed',      label: 'FEED' },
   { href: '/nai',       label: 'NAI MAP' },
@@ -17,12 +22,15 @@ const NAV_LINKS = [
   { href: '/social',    label: 'SOCIAL' },
   { href: '/timeline',  label: 'TIMELINE' },
   { href: '/analytics', label: 'ANALYTICS' },
+  { href: '/methodology', label: 'METHODOLOGY' },
+  { href: '/contact',   label: 'CONTACT' },
 ];
 
 export function CommandHeader() {
   const pathname = usePathname();
   const { articleCount, lastUpdate, live } = useRealtimeCount();
   const conflictDay = useConflictDay();
+  const { lastNaiUpdate, stale } = useDataFreshness();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -88,10 +96,12 @@ export function CommandHeader() {
           }}
           className="hidden-mobile"
         >
-          <span>
-            DAY:{' '}
-            <span style={{ color: 'var(--accent-red)' }}>{conflictDay ?? '—'}</span>
-          </span>
+          <GlossaryTooltip term="CONFLICT_DAY" definition={GLOSSARY.CONFLICT_DAY}>
+            <span>
+              <span translate="no">DAY: </span>
+              <span style={{ color: 'var(--accent-red)' }}>{conflictDay ?? '—'}</span>
+            </span>
+          </GlossaryTooltip>
           <span style={{ color: 'var(--border-bright)' }}>|</span>
           <span>
             UPDATE:{' '}
@@ -133,6 +143,28 @@ export function CommandHeader() {
               {live ? 'LIVE' : 'STANDBY'}
             </span>
           </span>
+          {stale && (
+            <span
+              style={{
+                fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1px',
+                color: 'var(--accent-orange)',
+                border: '1px solid var(--accent-orange)',
+                padding: '2px 8px',
+                animation: 'pulse 2s infinite',
+              }}
+              title={lastNaiUpdate ? `NAI scores last updated: ${new Date(lastNaiUpdate).toLocaleString()}` : 'NAI scores last updated: unknown'}
+            >
+              ⚠ DATA STALE
+            </span>
+          )}
+          {!stale && lastNaiUpdate && (
+            <span
+              style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', letterSpacing: '1px' }}
+              title={`NAI scores last updated: ${new Date(lastNaiUpdate).toLocaleString()}`}
+            >
+              ◆ SYNCED
+            </span>
+          )}
         </div>
 
         {/* Desktop nav */}
@@ -165,6 +197,7 @@ export function CommandHeader() {
               {label}
             </Link>
           ))}
+          <GlobeMenu />
         </nav>
 
         {/* Mobile hamburger */}
@@ -219,6 +252,7 @@ export function CommandHeader() {
               {label}
             </Link>
           ))}
+          <GlobeMenu />
         </nav>
       )}
 

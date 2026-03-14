@@ -21,12 +21,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import hashlib
 import datetime
+import time
 import requests
 import feedparser
 import concurrent.futures
 from dateutil import parser as dateparser
+from bs4 import BeautifulSoup
 
-from sources_registry import ALL_SOURCES, CONFLICT_KEYWORDS, NITTER_INSTANCES
+from sources_registry import ALL_SOURCES, CONFLICT_KEYWORDS, NITTER_INSTANCES, TELEGRAM_CHANNELS
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -42,6 +44,14 @@ BATCH_SIZE = 50          # rows per Supabase upsert
 MAX_WORKERS = 10         # parallel feed fetches
 ARTICLE_LIMIT = 15       # max articles per feed per run
 SUMMARY_MAX_LEN = 300    # chars — keep Supabase lean
+
+TG_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9,ar;q=0.8,ru;q=0.7",
+}
 
 
 # ─────────────────────────────────────────────
@@ -184,7 +194,7 @@ def fetch_source(source: dict) -> list[dict]:
 
         summary = truncate(raw_summary, SUMMARY_MAX_LEN)
 
-        articles.append({
+        row = {
             "id": url_to_id(entry_url),
             "title": truncate(title, 400),
             "summary": summary,
@@ -200,9 +210,114 @@ def fetch_source(source: dict) -> list[dict]:
             "lng": source.get("lng"),
             "sentiment": classify_sentiment(title, raw_summary),
             "tags": extract_tags(title, raw_summary),
-        })
+        }
+        if source.get("source_perspective") is not None:
+            row["source_perspective"] = source["source_perspective"]
+        articles.append(row)
 
     return articles
+
+
+# ─────────────────────────────────────────────
+# TELEGRAM CHANNELS (t.me/s/{handle} scrape — no RSS)
+# ─────────────────────────────────────────────
+
+def scrape_telegram_channel(channel: dict, max_posts: int = 20) -> list[dict]:
+    """
+    Scrape recent posts from a public Telegram channel via t.me/s/{handle}.
+    Returns list of raw post dicts (url, title, summary, published_at, ...).
+    """
+    handle = channel.get("handle", "")
+    if handle == "PENDING_OMAR" or not channel.get("active", True):
+        return []
+
+    url = f"https://t.me/s/{handle}"
+    posts = []
+
+    try:
+        resp = requests.get(url, headers=TG_HEADERS, timeout=15)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        messages = soup.select(".tgme_widget_message")[-max_posts:]
+
+        for msg in messages:
+            text_el = msg.select_one(".tgme_widget_message_text")
+            if not text_el:
+                continue
+            text = text_el.get_text(separator=" ", strip=True)
+            if len(text) < 40:
+                continue
+
+            time_el = msg.select_one("time")
+            if time_el and time_el.get("datetime"):
+                try:
+                    pub_dt = datetime.datetime.fromisoformat(
+                        time_el["datetime"].replace("Z", "+00:00")
+                    )
+                    if pub_dt.tzinfo:
+                        pub_dt = pub_dt.replace(tzinfo=None)
+                except Exception:
+                    pub_dt = datetime.datetime.utcnow()
+            else:
+                pub_dt = datetime.datetime.utcnow()
+
+            msg_url_el = msg.select_one(".tgme_widget_message_date")
+            article_url = msg_url_el["href"] if msg_url_el and msg_url_el.get("href") else url
+
+            posts.append({
+                "url": article_url,
+                "title": text[:200],
+                "summary": text[:1000],
+                "published_at": pub_dt,
+                "source_name": channel["display_name"],
+                "source_type": channel.get("source_type", "aggregator"),
+                "source_perspective": channel.get("source_perspective"),
+                "region": channel.get("region"),
+                "country": channel.get("country"),
+            })
+    except requests.RequestException as e:
+        print(f"  ⚠ Telegram scrape failed for @{handle}: {e}")
+
+    return posts
+
+
+def collect_telegram_sources(max_posts_per_channel: int = 15) -> list[dict]:
+    """Collect from all active Telegram channels; return article rows for Supabase."""
+    all_rows = []
+    for ch in TELEGRAM_CHANNELS:
+        if not ch.get("active", True) or ch.get("handle") == "PENDING_OMAR":
+            continue
+        print(f"  Fetching @{ch['handle']}...")
+        posts = scrape_telegram_channel(ch, max_posts_per_channel)
+        for p in posts:
+            pub_dt = p["published_at"]
+            title = p["title"]
+            summary = p.get("summary") or ""
+            row = {
+                "id": url_to_id(p["url"]),
+                "title": truncate(title, 400),
+                "summary": truncate(summary, SUMMARY_MAX_LEN),
+                "url": p["url"],
+                "source_name": p["source_name"],
+                "source_type": p["source_type"],
+                "published_at": pub_dt.isoformat(),
+                "fetched_at": datetime.datetime.utcnow().isoformat(),
+                "conflict_day": conflict_day(pub_dt),
+                "region": p.get("region"),
+                "country": p.get("country"),
+                "lat": None,
+                "lng": None,
+                "sentiment": classify_sentiment(title, summary),
+                "tags": extract_tags(title, summary),
+            }
+            if p.get("source_perspective") is not None:
+                row["source_perspective"] = p["source_perspective"]
+            all_rows.append(row)
+        if posts:
+            print(f"    → {len(posts)} posts")
+        time.sleep(2)
+    print(f"  Telegram: {len(all_rows)} posts collected")
+    return all_rows
 
 
 # ─────────────────────────────────────────────
@@ -233,7 +348,7 @@ def main():
     print(f"[collect_feeds] Start — {now.isoformat()}Z")
     print(f"[collect_feeds] {len(ALL_SOURCES)} sources registered")
 
-    # Parallel fetch
+    # Parallel fetch (RSS + Nitter + Chinese RSS)
     all_articles = []
     source_stats = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
@@ -247,6 +362,14 @@ def main():
                     source_stats[src["source_name"]] = len(arts)
             except Exception as e:
                 print(f"  ✗ {src['source_name']}: {e}")
+
+    # Telegram channels (t.me/s scrape)
+    print("📱 Collecting Telegram sources...")
+    telegram_articles = collect_telegram_sources(max_posts_per_channel=15)
+    all_articles.extend(telegram_articles)
+    for a in telegram_articles:
+        source_stats[a["source_name"]] = source_stats.get(a["source_name"], 0) + 1
+    print(f"  Total with Telegram: {len(all_articles)} articles")
 
     # Deduplicate by ID (same article from multiple sources)
     seen = set()

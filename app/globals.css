@@ -98,6 +98,14 @@ body > * { position: relative; z-index: 1; }
   z-index: 2;
 }
 
+/* ── ASCII HERO MOBILE ── */
+.ascii-hero-full { display: block; }
+.ascii-hero-mobile { display: none; }
+@media (max-width: 639px) {
+  .ascii-hero-full { display: none !important; }
+  .ascii-hero-mobile { display: block !important; }
+}
+
 /* ── OSINT CARD ── */
 .osint-card {
   background: var(--bg-card);
@@ -236,6 +244,11 @@ body > * { position: relative; z-index: 1; }
   75%, 100% { transform: scale(2); opacity: 0; }
 }
 .pulse-ring { animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
 /* ── STAGGER ENTRANCE ── */
 @keyframes fadeUp {

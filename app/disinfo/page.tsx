@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { PageBriefing } from '@/components/PageBriefing';
 import { createClient } from '@/lib/supabase/client';
 import type { DisinfoClaim } from '@/types/supabase';
 
@@ -42,6 +43,11 @@ export default function DisinfoPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="DISINFORMATION TRACKER"
+        description="Claims flagged here were already circulating publicly before being logged. We do not originate disinformation claims. Verdicts are assigned based on cross-referencing with primary sources, fact-checking organizations, and satellite or documentary evidence where available."
+        note="UNVERIFIED does not mean FALSE — it means the available open-source evidence is insufficient to confirm or deny. Every claim links to its original source and, where available, a debunking source."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         DISINFORMATION TRACKER
       </h1>
@@ -79,7 +85,7 @@ export default function DisinfoPage() {
                     term={c.verdict ?? 'UNVERIFIED'}
                     definition={VERDICT_DEFS[(c.verdict ?? 'UNVERIFIED').toUpperCase()] ?? VERDICT_DEFS.UNVERIFIED}
                   >
-                    <span className={`cursor-help ${verdictClass(c.verdict)}`}>{c.verdict ?? 'UNVERIFIED'}</span>
+                    <span className={`cursor-help ${verdictClass(c.verdict)}`} translate="no">{c.verdict ?? 'UNVERIFIED'}</span>
                   </GlossaryTooltip>
                   {c.spread_estimate != null && (
                     <span

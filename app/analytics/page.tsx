@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { OsintCard } from '@/components/OsintCard';
+import { PageBriefing } from '@/components/PageBriefing';
 import { useNaiScoresAll } from '@/hooks/useNaiScoresAll';
 import { useScenarios } from '@/hooks/useScenarios';
 import {
@@ -48,6 +49,11 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="MIX AND MATCH ANALYTICS"
+        description="Build custom correlations across any combination of NAI dimensions and scenario probabilities. Designed for analysts who want to explore relationships in the data beyond the curated views on other pages."
+        note="Correlation is not causation. This tool surfaces patterns for investigation — not conclusions. If you find a relationship that appears significant, cross-reference it with the raw data before drawing an inference."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         MIX & MATCH ANALYTICS
       </h1>

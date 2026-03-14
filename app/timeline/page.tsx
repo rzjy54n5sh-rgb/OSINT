@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
+import { PageBriefing } from '@/components/PageBriefing';
+import { ReactionBar } from '@/components/ReactionBar';
 import { useArticles } from '@/hooks/useArticles';
 import { useNaiScores } from '@/hooks/useNaiScores';
 import { useConflictDay } from '@/hooks/useConflictDay';
@@ -21,6 +23,11 @@ export default function TimelinePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <PageBriefing
+        title="CONFLICT TIMELINE"
+        description="A day-by-day record of every article indexed and NAI score recorded since conflict began on February 28, 2026 (Day 1). Use the day selector to travel through the conflict's analytical history. Each day's data was collected and scored in real time."
+        note="Timeline data is immutable — past days are not retroactively updated. The NAI score you see for Day 3 is the score that was calculated on Day 3, not a retrospective re-assessment."
+      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         CONFLICT TIMELINE
       </h1>
@@ -110,6 +117,7 @@ export default function TimelinePage() {
                   {a.confidence_score != null && (
                     <SentimentBar value={a.confidence_score} className="mt-2" />
                   )}
+                  <ReactionBar articleId={a.id} articleUrl={a.url} />
                 </OsintCard>
               </motion.li>
             ))}

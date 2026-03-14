@@ -18,11 +18,15 @@ import json
 import requests
 import datetime
 
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-CF_ACCOUNT_ID = os.environ["CF_ACCOUNT_ID"]
-CF_KV_NAMESPACE_ID = os.environ["CF_KV_NAMESPACE_ID"]
-CF_API_TOKEN = os.environ["CF_API_TOKEN"]
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
+CF_ACCOUNT_ID = os.environ.get("CF_ACCOUNT_ID", "")
+CF_KV_NAMESPACE_ID = os.environ.get("CF_KV_NAMESPACE_ID", "")
+CF_API_TOKEN = os.environ.get("CF_API_TOKEN", "")
+
+if not all([CF_ACCOUNT_ID, CF_KV_NAMESPACE_ID, CF_API_TOKEN]):
+    print("[warm_kv_cache] Cloudflare KV secrets not set — skipping cache warm")
+    exit(0)
 
 SB_HEADERS = {
     "apikey": SUPABASE_KEY,
