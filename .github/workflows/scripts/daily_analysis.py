@@ -171,6 +171,20 @@ STRUCTURAL NEUTRALITY RULES (apply to every country report and scenario):
    independent verifiers (AFP, Reuters, NetBlocks, HRW) — party denials
    are CONTESTED, not DEBUNKED, without independent corroboration
 
+TELEGRAM PARTY SOURCE RULE:
+- Rybar (@rybar / @rybar_in_english): pro-Kremlin milblog, US DOJ flagged as
+  Russian disinfo org. All military claims require independent corroboration
+  (Reuters/AP/AFP/BBC) before CONFIRMED. Mark as CONTESTED pending verification.
+- Intel Slava (@intelslava): pro-Russian aggregator. Same rule applies.
+- Our Wars Today (@ourwarstoday): neutral aggregator. Standard triage.
+- الروائي: resistance-axis Arabic source. Party source rules apply.
+
+CHINESE SOURCE RULE:
+- Xinhua/Global Times/CGTN/People's Daily: CCP party sources. Diplomatic
+  signaling value is HIGH (official positions). Factual military claims
+  require independent corroboration. Label as [CN-STATE] in source attribution.
+- Guancha.cn: nationalist commentary, not state media. Label as [CN-NATIONALIST].
+
 OUTPUT: Valid JSON only — no preamble, no markdown, no explanation.
 
 Output structure:

@@ -253,6 +253,77 @@ INDIA = [
     {"url": telegram_rss("MEAIndia"),                                                                 "source_name": "India MEA (Telegram)",  "source_type": "official",   "region": "S.Asia", "country": "India", "lat": 28.614, "lng": 77.210},
 ]
 
+# ── TELEGRAM CHANNELS (scraped via t.me/s/{handle}, no RSS) ─────────
+# party_source=True = requires independent corroboration before CONFIRMED in disinformation_tracker.
+TELEGRAM_CHANNELS = [
+    {
+        "handle": "rybar",
+        "display_name": "Rybar (Russian)",
+        "url": "https://t.me/s/rybar",
+        "source_perspective": "russian",
+        "source_type": "milblog",
+        "country": "RU",
+        "region": "Russia",
+        "language": "ru",
+        "party_source": True,
+        "party_note": "Pro-Kremlin milblog. US DOJ Oct 2024 flagged as Russian disinfo org. Cited by BBC/NYT/ISW. All claims require independent corroboration.",
+        "active": True,
+    },
+    {
+        "handle": "rybar_in_english",
+        "display_name": "Rybar (English)",
+        "url": "https://t.me/s/rybar_in_english",
+        "source_perspective": "russian",
+        "source_type": "milblog",
+        "country": "RU",
+        "region": "Russia",
+        "language": "en",
+        "party_source": True,
+        "party_note": "English mirror of Rybar. Same caveats apply.",
+        "active": True,
+    },
+    {
+        "handle": "intelslava",
+        "display_name": "Intel Slava",
+        "url": "https://t.me/s/intelslava",
+        "source_perspective": "russian",
+        "source_type": "aggregator",
+        "country": "RU",
+        "region": "Russia",
+        "language": "en",
+        "party_source": True,
+        "party_note": "Pro-Russian news aggregator. Some databases allege state funding — unverified. Treat as party source.",
+        "active": True,
+    },
+    {
+        "handle": "ourwarstoday",
+        "display_name": "Our Wars Today",
+        "url": "https://t.me/s/ourwarstoday",
+        "source_perspective": "neutral",
+        "source_type": "aggregator",
+        "country": "INTL",
+        "region": "Global",
+        "language": "en",
+        "party_source": False,
+        "party_note": None,
+        "active": True,
+    },
+    # الروائي — PENDING OMAR CONFIRMATION OF EXACT HANDLE
+    # Uncomment and update handle once confirmed:
+    # {"handle": "REPLACE_WITH_REAL_HANDLE", "display_name": "الروائي", "url": "https://t.me/s/REPLACE_WITH_REAL_HANDLE",
+    #  "source_perspective": "resistance", "source_type": "milblog", "country": "AR", "region": "MENA", "language": "ar",
+    #  "party_source": True, "party_note": "Arabic military/geopolitical analysis. Resistance-axis perspective.", "active": True},
+]
+
+# ── CHINESE-PLATFORM RSS SOURCES ────────────────────────────────────
+# Weibo/WeChat require auth; use English/RSS versions. source_perspective = 'chinese'. Party sources = CCP-affiliated.
+CHINESE_RSS_SOURCES = [
+    {"url": "http://www.xinhuanet.com/english/rss/worldrss.xml", "source_name": "Xinhua News (English)", "source_type": "state_media", "region": "China", "country": "China", "lat": 39.904, "lng": 116.407, "source_perspective": "chinese"},
+    {"url": "https://newsrss.cgtn.com/news/3d3d514f32677a4d/rss.xml", "source_name": "CGTN (China Global Television)", "source_type": "state_media", "region": "China", "country": "China", "lat": 39.904, "lng": 116.407, "source_perspective": "chinese"},
+    {"url": "http://en.people.cn/rss/90002.xml", "source_name": "People's Daily (English)", "source_type": "state_media", "region": "China", "country": "China", "lat": 39.904, "lng": 116.407, "source_perspective": "chinese"},
+    {"url": "https://www.guancha.cn/rss.xml", "source_name": "Guancha.cn (Observer Net)", "source_type": "commentary", "region": "China", "country": "China", "lat": 39.904, "lng": 116.407, "source_perspective": "chinese"},
+]
+
 # ─────────────────────────────────────────────
 # CONFLICT MONITORS & OSINT
 # ─────────────────────────────────────────────
@@ -273,12 +344,13 @@ CONFLICT_MONITORS = [
 ]
 
 # ─────────────────────────────────────────────
-# MASTER LIST
+# MASTER LIST (RSS feeds; Telegram channels are scraped separately via TELEGRAM_CHANNELS)
 # ─────────────────────────────────────────────
 ALL_SOURCES = (
     INTERNATIONAL + USA + IRAN + ISRAEL + SAUDI + UAE + KUWAIT_OMAN_BAHRAIN + QATAR
     + IRAQ + YEMEN + LEBANON + TURKEY + EGYPT + JORDAN + SYRIA
     + RUSSIA + CHINA + PAKISTAN + INDIA + CONFLICT_MONITORS
+    + CHINESE_RSS_SOURCES
 )
 
 # Nitter RSS instances for Twitter/X feed fallover (collect_feeds.py)
