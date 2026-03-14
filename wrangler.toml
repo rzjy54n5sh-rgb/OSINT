@@ -11,6 +11,8 @@ run_worker_first = true
 [vars]
 NEXT_PUBLIC_SUPABASE_URL = "https://qmaszkkyukgiludcakjg.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_jgm9epohpvCavP6zr4pcig_t3E5mvup"
+# Set SUPABASE_SERVICE_ROLE_KEY in Cloudflare dashboard (Pages → Settings → Environment variables)
+SUPABASE_SERVICE_ROLE_KEY = ""
 
 # KV namespace for caching Supabase responses at the edge
 # After running: wrangler kv namespace create "OSINT_CACHE"

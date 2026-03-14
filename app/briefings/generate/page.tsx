@@ -1,48 +1,81 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
+import { PageBriefing } from '@/components/PageBriefing';
 import { useConflictDay } from '@/hooks/useConflictDay';
 
-const COUNTRIES = [
-  { code: 'AR', name: 'Argentina' }, { code: 'BR', name: 'Brazil' },
-  { code: 'TR', name: 'Turkey' }, { code: 'PK', name: 'Pakistan' },
-  { code: 'IN', name: 'India' }, { code: 'CN', name: 'China' },
-  { code: 'RU', name: 'Russia' }, { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' }, { code: 'GB', name: 'United Kingdom' },
-  { code: 'ZA', name: 'South Africa' }, { code: 'NG', name: 'Nigeria' },
-  { code: 'MA', name: 'Morocco' }, { code: 'TN', name: 'Tunisia' },
-  { code: 'DZ', name: 'Algeria' }, { code: 'LY', name: 'Libya' },
-  { code: 'SD', name: 'Sudan' }, { code: 'ET', name: 'Ethiopia' },
-  { code: 'AZ', name: 'Azerbaijan' }, { code: 'KZ', name: 'Kazakhstan' },
-  { code: 'AF', name: 'Afghanistan' }, { code: 'BD', name: 'Bangladesh' },
-  { code: 'ID', name: 'Indonesia' }, { code: 'MY', name: 'Malaysia' },
+const COUNTRY_LIST = [
+  { code: 'AR', name: 'Argentina' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'AZ', name: 'Azerbaijan' },
+  { code: 'BD', name: 'Bangladesh' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'DZ', name: 'Algeria' },
+  { code: 'ET', name: 'Ethiopia' },
+  { code: 'FR', name: 'France' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'GR', name: 'Greece' },
+  { code: 'ID', name: 'Indonesia' },
+  { code: 'IN', name: 'India' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'KZ', name: 'Kazakhstan' },
+  { code: 'LY', name: 'Libya' },
+  { code: 'MA', name: 'Morocco' },
+  { code: 'MY', name: 'Malaysia' },
+  { code: 'NG', name: 'Nigeria' },
+  { code: 'PK', name: 'Pakistan' },
+  { code: 'SD', name: 'Sudan' },
+  { code: 'TN', name: 'Tunisia' },
+  { code: 'TR', name: 'Turkey' },
+  { code: 'ZA', name: 'South Africa' },
+  { code: 'OTHER', name: 'Other (type below)' },
 ];
+
+type Status = 'idle' | 'generating' | 'done' | 'already_exists' | 'error';
 
 export default function GenerateBriefingPage() {
   const router = useRouter();
   const conflictDay = useConflictDay();
+
   const [apiKey, setApiKey] = useState('');
   const [countryCode, setCountryCode] = useState('');
-  const [customCountry, setCustomCountry] = useState('');
+  const [customName, setCustomName] = useState('');
+  const [status, setStatus] = useState<Status>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
-  const [error, setError] = useState('');
 
-  const selectedCountry = COUNTRIES.find(c => c.code === countryCode);
-  const countryName = countryCode === 'OTHER' ? customCountry.trim() : (selectedCountry?.name ?? '');
+  // Restore saved key from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('user_anthropic_key');
+      if (saved?.startsWith('sk-ant-')) setApiKey(saved);
+    } catch {}
+  }, []);
+
+  const selectedCountry = COUNTRY_LIST.find(c => c.code === countryCode);
+  const countryName =
+    countryCode === 'OTHER' ? customName : (selectedCountry?.name ?? '');
+
+  const canGenerate =
+    apiKey.startsWith('sk-ant-') &&
+    countryCode !== '' &&
+    countryName !== '' &&
+    conflictDay != null &&
+    !loading;
 
   async function handleGenerate() {
-    if (!apiKey || !countryCode || !countryName || !conflictDay) return;
+    if (!canGenerate) return;
 
-    // Store key in localStorage only — never send to analytics
-    localStorage.setItem('user_anthropic_key', apiKey);
+    // Save key in localStorage (browser only — never sent to our servers for storage)
+    try { localStorage.setItem('user_anthropic_key', apiKey); } catch {}
 
     setLoading(true);
     setStatus('generating');
-    setError('');
+    setErrorMsg('');
 
     try {
       const resp = await fetch('/api/generate-briefing', {
@@ -50,25 +83,31 @@ export default function GenerateBriefingPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           apiKey,
-          countryCode,
+          countryCode: countryCode === 'OTHER' ? customName.slice(0, 2).toUpperCase() : countryCode,
           countryName,
           conflictDay,
         }),
       });
 
-      const data = await resp.json();
+      const data = await resp.json() as {
+        error?: string;
+        existing?: boolean;
+        reportId?: string;
+        success?: boolean;
+        countryCode?: string;
+      };
 
       if (!resp.ok) {
         setStatus('error');
-        setError(data.error ?? 'Generation failed');
+        setErrorMsg(data.error ?? `Error ${resp.status}`);
         return;
       }
 
       if (data.existing) {
-        setStatus('done');
+        setStatus('already_exists');
         setTimeout(() => {
-          router.push(`/briefings/${conflictDay}/country-${countryCode.toLowerCase()}`);
-        }, 1000);
+          router.push(`/briefings/${conflictDay}/country`);
+        }, 1200);
         return;
       }
 
@@ -76,147 +115,185 @@ export default function GenerateBriefingPage() {
       setTimeout(() => {
         router.push(`/briefings/${conflictDay}/country`);
       }, 1500);
-    } catch {
+    } catch (e) {
       setStatus('error');
-      setError('Request failed — check your API key and try again');
+      setErrorMsg('Network error — check your connection and try again');
     } finally {
       setLoading(false);
     }
   }
 
-  // Restore saved key from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('user_anthropic_key');
-    if (saved) setApiKey(saved);
-  }, []);
+  const buttonLabel: Record<Status, string> = {
+    idle: 'GENERATE REPORT',
+    generating: 'GENERATING — PLEASE WAIT...',
+    done: '✓ REPORT SAVED — REDIRECTING',
+    already_exists: '✓ REPORT EXISTS — REDIRECTING',
+    error: 'RETRY',
+  };
+
+  const buttonColor: Record<Status, string> = {
+    idle: 'var(--accent-gold)',
+    generating: 'var(--border)',
+    done: 'var(--accent-green)',
+    already_exists: 'var(--accent-blue)',
+    error: 'var(--accent-red)',
+  };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <Link href="/briefings"
-            className="font-mono text-xs mb-6 inline-block"
-            style={{ color: 'var(--accent-gold)' }}>
+    <div className="max-w-xl mx-auto px-4 py-8">
+      <Link
+        href="/briefings"
+        className="font-mono text-xs mb-6 inline-block"
+        style={{ color: 'var(--accent-gold)' }}
+      >
         ← BRIEFINGS
       </Link>
 
-      <h1 className="font-display text-2xl mb-2"
-          style={{ color: 'var(--text-primary)' }}>
-        GENERATE COUNTRY REPORT
-      </h1>
-      <p className="font-mono text-xs mb-8"
-         style={{ color: 'var(--text-muted)' }}>
-        DAY {conflictDay ?? '—'} · POWERED BY YOUR ANTHROPIC API KEY
-      </p>
+      <PageBriefing
+        title="GENERATE COUNTRY REPORT"
+        description="Generate an intelligence brief for any country not covered by the platform's five standard reports. Uses your Anthropic API key directly — your key is never stored on our servers. Generated reports are saved to the platform and visible to all users, labelled COMMUNITY."
+        note="Cost: ~$0.04 per report using claude-haiku-4-5. Reports cover official position, public sentiment, economic impact, and strategic assessment through a structurally neutral lens."
+      />
 
       <OsintCard className="space-y-5">
 
-        {/* API Key */}
+        {/* API Key Input */}
         <div>
-          <label className="font-mono text-xs block mb-2"
-                 style={{ color: 'var(--text-muted)', letterSpacing: '1px' }}>
+          <label
+            htmlFor="api-key"
+            className="font-mono text-xs block mb-2"
+            style={{ color: 'var(--text-muted)', letterSpacing: '1.5px' }}
+          >
             YOUR ANTHROPIC API KEY
           </label>
           <input
+            id="api-key"
             type="password"
             value={apiKey}
             onChange={e => setApiKey(e.target.value)}
             placeholder="sk-ant-..."
-            className="w-full font-mono text-xs px-3 py-2 bg-transparent border"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)',
-                     outline: 'none' }}
+            autoComplete="off"
+            className="w-full font-mono text-xs px-3 py-2.5 bg-transparent border focus:outline-none"
+            style={{
+              borderColor: apiKey && !apiKey.startsWith('sk-ant-')
+                ? 'var(--accent-red)'
+                : 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
           />
-          <p className="font-mono mt-1" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-            ◆ Stored in your browser only. Never sent to our servers.
-            Used directly to call Anthropic API on your behalf.
+          {apiKey && !apiKey.startsWith('sk-ant-') && (
+            <p className="font-mono mt-1"
+               style={{ fontSize: '9px', color: 'var(--accent-red)' }}>
+              Key must start with sk-ant-
+            </p>
+          )}
+          <p className="font-mono mt-1.5"
+             style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+            ◆ Stored in your browser only. Sent directly to Anthropic — never to our servers.
           </p>
         </div>
 
-        {/* Country selector */}
+        {/* Country Selector */}
         <div>
-          <label className="font-mono text-xs block mb-2"
-                 style={{ color: 'var(--text-muted)', letterSpacing: '1px' }}>
-            SELECT COUNTRY
+          <label
+            htmlFor="country-select"
+            className="font-mono text-xs block mb-2"
+            style={{ color: 'var(--text-muted)', letterSpacing: '1.5px' }}
+          >
+            COUNTRY
           </label>
           <select
+            id="country-select"
             value={countryCode}
             onChange={e => setCountryCode(e.target.value)}
-            className="w-full font-mono text-xs px-3 py-2 bg-transparent border"
-            style={{ borderColor: 'var(--border)', color: 'var(--text-primary)',
-                     background: 'var(--bg-card)', outline: 'none' }}
+            className="w-full font-mono text-xs px-3 py-2.5 border focus:outline-none"
+            style={{
+              background: 'var(--bg-card)',
+              borderColor: 'var(--border)',
+              color: 'var(--text-primary)',
+            }}
           >
             <option value="">— Select country —</option>
-            {COUNTRIES.map(c => (
-              <option key={c.code} value={c.code}>{c.name}</option>
+            {COUNTRY_LIST.map(c => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
             ))}
-            <option value="OTHER">Other (type below)</option>
           </select>
         </div>
 
+        {/* Custom country name */}
         {countryCode === 'OTHER' && (
           <div>
-            <label className="font-mono text-xs block mb-2"
-                   style={{ color: 'var(--text-muted)', letterSpacing: '1px' }}>
+            <label
+              htmlFor="custom-name"
+              className="font-mono text-xs block mb-2"
+              style={{ color: 'var(--text-muted)', letterSpacing: '1.5px' }}
+            >
               COUNTRY NAME
             </label>
             <input
+              id="custom-name"
               type="text"
-              value={customCountry}
-              onChange={e => setCustomCountry(e.target.value)}
+              value={customName}
+              onChange={e => setCustomName(e.target.value)}
               placeholder="e.g. Ethiopia"
-              className="w-full font-mono text-xs px-3 py-2 bg-transparent border"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)',
-                       outline: 'none' }}
+              className="w-full font-mono text-xs px-3 py-2.5 bg-transparent border focus:outline-none"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
             />
           </div>
         )}
 
-        {/* Cost estimate */}
-        {countryCode && countryName && (
-          <div className="px-3 py-2"
-               style={{ background: 'rgba(232,197,71,0.04)',
-                        border: '1px solid rgba(232,197,71,0.15)' }}>
+        {/* Preview */}
+        {countryCode && countryName && conflictDay && (
+          <div
+            className="px-3 py-2.5"
+            style={{
+              background: 'rgba(232,197,71,0.04)',
+              border: '1px solid rgba(232,197,71,0.2)',
+            }}
+          >
             <p className="font-mono" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-              Generating: {countryName} · Day {conflictDay ?? '—'} ·
-              Estimated cost: ~$0.04 from your API key
+              GENERATING: {countryName} · Conflict Day {conflictDay} · ~$0.04
             </p>
             <p className="font-mono mt-1" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-              Report will be saved to the platform for all users.
-              Labelled COMMUNITY to distinguish from editorial reports.
+              Report saved as COMMUNITY — visible to all users after generation.
+              Platform editorial reports take precedence on the same day.
             </p>
           </div>
         )}
 
-        {/* Generate button */}
+        {/* Generate Button */}
         <button
           onClick={handleGenerate}
-          disabled={!apiKey || !countryCode || !countryName || loading}
-          className="w-full font-mono text-xs py-3 transition-opacity disabled:opacity-40"
+          disabled={!canGenerate}
+          className="w-full font-mono text-xs py-3 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
-            background: status === 'done' ? 'var(--accent-green)' :
-                        status === 'error' ? 'var(--accent-red)' :
-                        'var(--accent-gold)',
+            background: buttonColor[status],
             color: '#000',
             letterSpacing: '2px',
+            fontWeight: 500,
           }}
         >
-          {status === 'idle' && 'GENERATE REPORT'}
-          {status === 'generating' && 'GENERATING...'}
-          {status === 'done' && '✓ REPORT READY — REDIRECTING'}
-          {status === 'error' && 'RETRY'}
+          {buttonLabel[status]}
         </button>
 
-        {error && (
+        {/* Error message */}
+        {status === 'error' && errorMsg && (
           <p className="font-mono text-xs" style={{ color: 'var(--accent-red)' }}>
-            ERROR: {error}
+            ⚠ {errorMsg}
           </p>
         )}
 
       </OsintCard>
 
-      <p className="font-mono text-xs mt-6 text-center"
-         style={{ color: 'var(--text-muted)' }}>
-        Reports use claude-haiku-4-5 (~$0.04). Your key is never logged.
-        Generated reports are saved to the platform and visible to all users.
-        Future: verified reports unlock premium tier.
+      {/* Footer note */}
+      <p
+        className="font-mono text-xs mt-6 text-center leading-relaxed"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        Future: premium tier will offer verified, source-linked country
+        reports at higher quality. Community reports are free for all.
       </p>
     </div>
   );

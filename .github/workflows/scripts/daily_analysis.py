@@ -59,6 +59,12 @@ COUNTRIES = [
     {"code": "PK", "name": "Pakistan"},
 ]
 
+ARABIC_IRANIAN_SOURCES = {
+    'Al Jazeera', 'PressTV', 'Tasnim News', 'Mehr News', 'IRNA', 'Fars News',
+    'Al-Manar', 'Al-Masirah TV', 'Ansarallah', 'Al-Monitor', 'Middle East Eye',
+    'Middle East Monitor', 'IFP News', 'IRIB World', 'Iran International',
+}
+
 def sb_get(path):
     r = requests.get(f"{SUPABASE_URL}/rest/v1/{path}", headers=SB_HEADERS, timeout=15)
     r.raise_for_status()
@@ -229,11 +235,6 @@ Analyze ALL 20 countries. Include at minimum: IR, US, IL, EG, AE, SA, IQ, LB, YE
 TR, RU, CN, GB, FR, DE, QA, KW, IN, PK, JO."""
 
     # Mark Arabic/Iranian/resistance-axis sources explicitly for model context
-    ARABIC_IRANIAN_SOURCES = {
-        'Al Jazeera', 'PressTV', 'Tasnim News', 'Mehr News', 'IRNA', 'Fars News',
-        'Al-Manar', 'Al-Masirah TV', 'Ansarallah', 'Al-Monitor', 'Middle East Eye',
-        'Middle East Monitor', 'IFP News', 'IRIB World', 'Iran International',
-    }
     articles_text = "\n".join(
         f"[{a.get('country','GLOBAL')}][{a.get('sentiment','')}]"
         f"[{'AR/IR-PERSPECTIVE' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN-WESTERN'}]"
@@ -622,110 +623,85 @@ def write_to_supabase(conflict_day, analysis):
 
 def generate_daily_briefings(conflict_day: int, data: dict, analysis: dict) -> None:
     """
-    Generates web-reader briefings from the day's analysis data.
-    Uses Haiku 4.5 via batch API for cost efficiency (~$0.09/day).
-    Produces structured JSONB for the daily_briefings table.
+    Generates structured web-reader briefings for the daily_briefings table.
+    Uses Haiku 4.5 via Batch API (~$0.09/day total for all 5 reports).
+    Skips report types that already exist for this conflict_day.
     """
     now = datetime.datetime.utcnow().isoformat() + "+00:00"
 
-    # Check which report types already exist for this day
-    existing = sb_get(f"daily_briefings?conflict_day=eq.{conflict_day}&select=report_type")
-    existing_types = {r['report_type'] for r in existing}
-    print(f"  Existing briefings for Day {conflict_day}: {existing_types or 'none'}")
+    # Check which report types already exist for this day (idempotency)
+    try:
+        existing = sb_get(
+            f"daily_briefings?conflict_day=eq.{conflict_day}&select=report_type"
+        )
+        existing_types = {r["report_type"] for r in existing}
+    except Exception:
+        existing_types = set()
 
-    report_types = ['general', 'egypt', 'uae', 'eschatology', 'business']
+    report_types = ["general", "egypt", "uae", "eschatology", "business"]
     to_generate = [t for t in report_types if t not in existing_types]
+
     if not to_generate:
-        print(f"  ✓ All briefings already exist for Day {conflict_day}")
+        print(f"  ✓ All briefings already exist for Day {conflict_day} — skipping")
         return
 
-    # Build country report lookup
-    country_data = {r['country_code']: r for r in analysis.get('country_reports', [])}
+    print(f"  Generating {len(to_generate)} briefings: {to_generate}")
 
+    # Build shared context strings
+    country_data = {r["country_code"]: r for r in analysis.get("country_reports", [])}
     articles_text = "\n".join(
-        f"[{a.get('country','?')}][{a.get('sentiment','')}] {a.get('source_name','')}: {a.get('title','')}"
-        for a in data.get('articles', [])[:50]
+        f"[{a.get('country','?')}][{a.get('sentiment','')}]"
+        f"[{'AR/IR' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN'}]"
+        f" {a.get('source_name','')}: {a.get('title','')}"
+        for a in data.get("articles", [])[:50]
     )
-
-    sc = analysis.get('scenario_probabilities', {})
+    sc = analysis.get("scenario_probabilities", {})
     scenarios_text = (
         f"A={sc.get('scenario_a',0)}% B={sc.get('scenario_b',0)}% "
         f"C={sc.get('scenario_c',0)}% D={sc.get('scenario_d',0)}% "
         f"E={sc.get('scenario_e','N/A')}%"
     )
-
-    for report_type in to_generate:
-        print(f"  Generating {report_type} briefing for Day {conflict_day}...")
-        prompt = _build_briefing_prompt(
-            conflict_day, report_type, articles_text, scenarios_text,
-            country_data, data.get('markets', [])
-        )
-        try:
-            result_text = call_claude_batch(
-                f"briefing-{report_type}-day{conflict_day}",
-                "claude-haiku-4-5-20251001",
-                8000,
-                [{"role": "user", "content": prompt}],
-            )
-            result_text = result_text.strip()
-            if result_text.startswith("```"):
-                result_text = result_text.split("\n", 1)[1].rsplit("```", 1)[0]
-            briefing_data = json.loads(result_text)
-
-            row = {
-                "conflict_day": conflict_day,
-                "report_type": report_type,
-                "title": briefing_data.get("title", f"{report_type.title()} Brief — Day {conflict_day}"),
-                "lead": briefing_data.get("lead"),
-                "cover_stats": briefing_data.get("cover_stats"),
-                "sections": briefing_data.get("sections", []),
-                "source_ids": briefing_data.get("source_ids", []),
-                "source": "platform",
-                "quality": "auto",
-                "updated_at": now,
-            }
-            resp = requests.post(
-                f"{SUPABASE_URL}/rest/v1/daily_briefings?on_conflict=conflict_day,report_type",
-                headers={**SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"},
-                json=row,
-                timeout=15,
-            )
-            if resp.status_code in (200, 201, 204):
-                print(f"  ✅ {report_type} briefing written")
-            else:
-                print(f"  ⚠️  {report_type} briefing write failed: {resp.status_code}")
-        except Exception as e:
-            print(f"  ⚠️  {report_type} briefing generation failed: {e}")
-
-
-def _build_briefing_prompt(
-    conflict_day: int, report_type: str, articles_text: str,
-    scenarios_text: str, country_data: dict, markets: list
-) -> str:
-    """Build the Claude prompt for a specific report type briefing."""
-
-    market_text = " | ".join(
+    markets_text = " | ".join(
         f"{m.get('indicator','')}:{m.get('value','')}{m.get('unit','')}({m.get('change_pct',0):+.1f}%)"
-        for m in (markets[:8] if markets else []) if m.get('indicator')
+        for m in data.get("markets", [])[:8]
+        if m.get("indicator") and m.get("value") is not None
     )
 
-    base = f"""You are a MENA conflict intelligence analyst applying STRUCTURAL NEUTRALITY.
-Generate a Day {conflict_day} briefing for the web reader platform.
-Output ONLY valid JSON — no preamble, no markdown.
-
-ARTICLES (last 24h): {articles_text[:2000]}
+    base_context = f"""CONFLICT DAY {conflict_day} | STRUCTURAL NEUTRALITY — ALL PARTIES
 SCENARIOS: {scenarios_text}
-MARKETS: {market_text}
+MARKETS: {markets_text}
+ARTICLES (last 24h, {len(data.get('articles',[]))} total):
+{articles_text[:2500]}
 
-"""
+NEUTRALITY RULES:
+1. Present US/Israel AND Iran/IRGC perspectives on every major action
+2. For Iranian strikes: include Iran's stated justification AND the impact
+3. For US/Israel strikes: include Iranian characterization alongside US framing
+4. Casualties ordered by count (Iran highest → Israel → Gulf → US)
+5. Include Iranian civilian harm from US-Israel strikes
+6. Ceasefire path: Iran-Oman back-channel (Iran's condition: US base closure)
+   AND Xi-Trump — not only one side's channel
+7. CENTCOM/IRGC/IDF = party sources, require independent corroboration
 
-    prompts = {
-        'general': base + """Generate a GENERAL INTELLIGENCE BRIEF covering all parties.
+Output ONLY valid JSON — no preamble, no markdown fences."""
+
+    report_prompts = {
+        "general": base_context + f"""
+
+Generate a GENERAL INTELLIGENCE BRIEF for Day {conflict_day}.
 Output JSON:
 {{
-  "title": "General Intelligence Brief — Day {day}",
-  "lead": "2-3 sentence summary of the most critical development today",
-  "cover_stats": {{"conflict_day": {day}, "us_kia": N, "brent_oil": N, "iran_blackout_hours": N}},
+  "title": "General Intelligence Brief — Day {conflict_day}",
+  "lead": "2-3 sentence summary of most critical development today — neutral framing",
+  "cover_stats": {{
+    "conflict_day": {conflict_day},
+    "regional_dead": <number>,
+    "iran_civilian_dead": <number>,
+    "iran_blackout_hours": <number>,
+    "us_kia": <number>,
+    "brent_oil": <number>,
+    "oil_change_pct": <number>
+  }},
   "sections": [
     {{
       "id": "zone-1",
@@ -745,12 +721,23 @@ Output JSON:
         }},
         {{
           "id": "iran",
-          "heading": "🇮🇷 IRAN — Operation True Promise IV",
+          "heading": "🇮🇷 IRAN — Operation True Promise IV (وعد صادق ۴)",
           "nai_category": "ALIGNED",
           "nai_expressed": 72,
           "nai_latent": 58,
           "paragraphs": [
             {{"text": "...", "perspective": "iran_irgc"}},
+            {{"text": "...", "perspective": "neutral"}}
+          ]
+        }},
+        {{
+          "id": "israel",
+          "heading": "🇮🇱 ISRAEL — Operation Roaring Lion",
+          "nai_category": "ALIGNED",
+          "nai_expressed": 61,
+          "nai_latent": 65,
+          "paragraphs": [
+            {{"text": "...", "perspective": "us_israel"}},
             {{"text": "...", "perspective": "neutral"}}
           ]
         }}
@@ -761,42 +748,124 @@ Output JSON:
       "heading": "MODULE D — STRATEGIC FORECAST",
       "type": "module",
       "subsections": [
-        {{"id": "forecast", "heading": "72-Hour Assessment",
-          "paragraphs": [{{"text": "...", "perspective": "neutral"}}]}}
+        {{
+          "id": "forecast-72h",
+          "heading": "72-Hour Assessment",
+          "paragraphs": [{{"text": "...", "perspective": "neutral"}}]
+        }},
+        {{
+          "id": "forecast-scenarios",
+          "heading": "Scenario Probabilities",
+          "paragraphs": [{{"text": "A=...% B=...% C=...% D=...% E=...% — analysis of movement", "perspective": "neutral"}}]
+        }}
       ]
     }}
   ],
   "source_ids": []
-}}
-NEUTRALITY RULES: Present US/Israeli AND Iranian/IRGC perspectives.
-Label each paragraph perspective: us_israel | iran_irgc | gulf | resistance | neutral | both""".format(day=conflict_day),
+}}""",
 
-        'egypt': base + f"""Generate an EGYPT COUNTRY BRIEF.
-Include: official position, social media pulse (sentBar note: anti-US-intervention not pro-Iran),
-economic risk (Suez, gas gap, pound), strategic assessment.
-Output JSON with same section structure as general brief.
-Conflict day: {conflict_day}""",
+        "egypt": base_context + f"""
 
-        'uae': base + f"""Generate a UAE COUNTRY BRIEF.
-Include: attack summary (221 ballistic/1305 drones tracked), official response,
-Iranian justification subsection (Al Dhafra/Camp de la Paix = Iran's stated targets),
-economic impact, scenario E (UAE direct strike 22%).
-Conflict day: {conflict_day}""",
+Generate an EGYPT COUNTRY BRIEF for Day {conflict_day}.
+Key data: EGP/USD rate, Suez Canal status, gas supply gap,
+Morgan Stanley energy deficit projection, official position
+(mediator neutrality — declined to condemn US-Israel strikes),
+social media pulse (label as anti-US-intervention NOT pro-Iran).
+Output same JSON section structure as general brief.
+Include both Egypt's official framing AND street/opposition framing.""",
 
-        'eschatology': base + f"""Generate an ESCHATOLOGY & GEOPOLITICS ANALYSIS.
-Cover: 200+ MRFF complaints, Christian dispensationalism, Jewish Amalek/Purim framing,
-Shia Mahdist framework with Mojtaba, Sunni Malhamah/Dajjal, geopolitical consequences.
-This is a Tier 1 operational variable. Conflict day: {conflict_day}""",
+        "uae": base_context + f"""
 
-        'business': base + f"""Generate a BUSINESS OPPORTUNITIES report for UAE and Egypt.
-CRITICAL: Include zero-sum dimensions section — gains exist partly at Iran's expense.
-Cover: Hormuz as both re-opening trigger (US/business) AND Iran's leverage tool (Iranian view).
-UAE sectors: energy trading, reconstruction, gold, defense, aviation, financial.
-Egypt sectors: Suez recovery, food trade, reconstruction gateway, currency arbitrage.
-Conflict day: {conflict_day}""",
+Generate a UAE COUNTRY BRIEF for Day {conflict_day}.
+Key data: 221 ballistic/1305 drones tracked (93% intercept),
+6 civilian KIA, DIFC evacuations, Australian evacuation advisory.
+CRITICAL: Include Iranian perspective subsection in Module 2:
+Iran's IRGC designated Al Dhafra (US), Camp de la Paix (French),
+US Consulate as primary military targets — UAE rejects this.
+Scenario E (UAE direct strike on Iran) probability: 22%.
+Output same JSON section structure.""",
+
+        "eschatology": base_context + f"""
+
+Generate an ESCHATOLOGY & GEOPOLITICS ANALYSIS for Day {conflict_day}.
+Cover: 200+ MRFF complaints (40+ units, 30+ installations),
+Christian dispensationalism and Kharg Island strike framing,
+Jewish Amalek/Purim framework, Shia Mahdist context for
+Mojtaba's election and defiant first statement,
+Sunni Malhamah/Dajjal mobilization signals,
+geopolitical consequences (diplomatic exit constraints,
+casualty tolerance, Muslim world mobilization).
+This is a Tier 1 operational variable — frame it as such.
+Output same JSON section structure.""",
+
+        "business": base_context + f"""
+
+Generate a BUSINESS OPPORTUNITIES report (UAE + Egypt) for Day {conflict_day}.
+CRITICAL REQUIREMENT: Section 1 must include zero-sum dimensions —
+these gains exist partly at Iran's economic expense (Kharg 90% crude,
+Hormuz closure). Do not present as cost-free opportunities.
+Present Hormuz from BOTH angles:
+- US/Gulf/business: re-opening = recovery trigger
+- Iranian: closure = primary strategic leverage tool
+UAE sectors: energy trading/storage, reconstruction, gold/hard assets,
+defense/cybersecurity, aviation (contrarian buy-the-dip), financial flows.
+Egypt sectors: Suez recovery play, food security trade, reconstruction
+gateway positioning, currency/financial arbitrage.
+Include risk matrix and timing guidance.
+Output same JSON section structure.""",
     }
 
-    return prompts.get(report_type, base + f"Generate a {report_type} briefing for Day {conflict_day}. Output JSON.")
+    for report_type in to_generate:
+        prompt = report_prompts.get(report_type)
+        if not prompt:
+            continue
+
+        try:
+            result_text = call_claude_batch(
+                f"briefing-{report_type}-day{conflict_day}",
+                "claude-haiku-4-5-20251001",
+                4000,
+                [{"role": "user", "content": prompt}],
+            )
+            result_text = result_text.strip()
+            if result_text.startswith("```"):
+                result_text = result_text.split("\n", 1)[1]
+                result_text = result_text.rsplit("```", 1)[0]
+
+            briefing_data = json.loads(result_text)
+
+            row = {
+                "conflict_day": conflict_day,
+                "report_type": report_type,
+                "title": briefing_data.get(
+                    "title", f"{report_type.title()} Brief — Day {conflict_day}"
+                ),
+                "lead": briefing_data.get("lead"),
+                "cover_stats": briefing_data.get("cover_stats"),
+                "sections": briefing_data.get("sections", []),
+                "source_ids": briefing_data.get("source_ids", []),
+                "source": "platform",
+                "quality": "auto",
+                "updated_at": now,
+            }
+
+            resp = requests.post(
+                f"{SUPABASE_URL}/rest/v1/daily_briefings"
+                f"?on_conflict=conflict_day,report_type",
+                headers={**SB_HEADERS, "Prefer": "resolution=merge-duplicates,return=minimal"},
+                json=row,
+                timeout=15,
+            )
+            if resp.status_code in (200, 201, 204):
+                section_count = len(briefing_data.get("sections", []))
+                print(f"  ✅ {report_type} briefing written ({section_count} sections)")
+            else:
+                print(f"  ⚠️  {report_type} write failed: {resp.status_code} {resp.text[:150]}")
+
+        except json.JSONDecodeError as e:
+            print(f"  ⚠️  {report_type} JSON parse error: {e}")
+        except Exception as e:
+            print(f"  ⚠️  {report_type} generation failed: {e}")
 
 
 def main():
