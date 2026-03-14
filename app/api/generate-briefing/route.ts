@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
-
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
@@ -150,8 +148,8 @@ Output ONLY valid JSON:
     });
 
     if (!aiResp.ok) {
-      const err = await aiResp.json().catch(() => ({}));
-      const msg = (err as { error?: { message?: string } }).error?.message ?? `API error ${aiResp.status}`;
+      const errBody = await aiResp.json().catch(() => ({}));
+      const msg = (errBody as { error?: { message?: string } }).error?.message ?? `API error ${aiResp.status}`;
       return NextResponse.json({ error: msg }, { status: 400 });
     }
 
@@ -208,8 +206,8 @@ Output ONLY valid JSON:
       countryCode: code,
       conflictDay,
     });
-  } catch (e) {
-    console.error('Generate briefing error:', e);
+  } catch (routeErr) {
+    console.error('Generate briefing error:', routeErr instanceof Error ? routeErr.message : routeErr);
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 });
   }
 }
