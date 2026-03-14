@@ -303,6 +303,8 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
         },
         timeout=120,
     )
+    if not response.ok:
+        print(f"  Anthropic API error {response.status_code}: {response.text[:1500]}")
     response.raise_for_status()
     
     content = response.json()["content"][0]["text"]
