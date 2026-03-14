@@ -315,7 +315,7 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
         },
-        timeout=120,
+        timeout=300,  # large prompts (80+ articles + rules) need up to 5 min
     )
     if not response.ok:
         try:
