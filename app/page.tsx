@@ -153,7 +153,7 @@ export default function CommandDashboard() {
           <div className="flex items-center justify-between mb-3">
             <span className="font-mono text-xs uppercase"
                   style={{ color: 'var(--accent-gold)', letterSpacing: '2px' }}>
-              ◆ TODAY'S BRIEFINGS — DAY {conflictDay ?? '—'}
+              ◆ TODAY&apos;S BRIEFINGS — DAY {conflictDay ?? '—'}
             </span>
             <Link href="/briefings" className="font-mono text-xs"
                   style={{ color: 'var(--text-muted)' }}>
