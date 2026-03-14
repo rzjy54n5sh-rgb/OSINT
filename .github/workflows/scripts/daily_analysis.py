@@ -312,29 +312,53 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
         json={
             "model": "claude-sonnet-4-6",
             "max_tokens": 32000,
+            "stream": True,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
         },
-        timeout=300,  # large prompts (80+ articles + rules) need up to 5 min
+        stream=True,
+        timeout=(30, 300),  # connect=30s, per-chunk read=300s (resets each chunk)
     )
+
     if not response.ok:
         try:
             err_body = response.json()
             msg = err_body.get("error", {}).get("message", "") or response.text[:500]
             if "credit balance is too low" in msg.lower() or "purchase credits" in msg.lower():
-                print("  ⚠️  Anthropic API: insufficient credits. Add credits at https://console.anthropic.com → Plans & Billing")
+                print("  ⚠️ Anthropic API: insufficient credits. Add credits at https://console.anthropic.com → Plans & Billing")
             print(f"  Anthropic API error {response.status_code}: {msg}")
         except Exception:
             print(f"  Anthropic API error {response.status_code}: {response.text[:1500]}")
-    response.raise_for_status()
-    
-    content = response.json()["content"][0]["text"]
-    # Strip any accidental markdown fences
+        response.raise_for_status()
+
+    # Consume the SSE stream and reconstruct full content
+    content = ""
+    for line in response.iter_lines():
+        if not line:
+            continue
+        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+        if not decoded.startswith("data: "):
+            continue
+        data_str = decoded[6:]
+        if data_str == "[DONE]":
+            break
+        try:
+            event = json.loads(data_str)
+            if event.get("type") == "content_block_delta":
+                delta = event.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    content += delta.get("text", "")
+            elif event.get("type") == "message_stop":
+                break
+            elif event.get("type") == "error":
+                raise RuntimeError(f"Stream error: {event}")
+        except json.JSONDecodeError:
+            continue
+
     content = content.strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[1]
         content = content.rsplit("```", 1)[0]
-    
     return json.loads(content)
 
 
