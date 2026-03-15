@@ -147,219 +147,177 @@ def build_data_snapshot(conflict_day):
         "prev_scenario": prev_scenario[0] if prev_scenario else None,
     }
 
-def call_claude(conflict_day, data):
-    """Call Claude API with the data snapshot and get structured analysis back."""
-
-    system_prompt = """You are a geopolitical intelligence analyst for the MENA
-Conflict Intelligence Platform. You analyze raw data and produce structured
-JSON analysis applying STRUCTURAL NEUTRALITY — presenting all parties'
-perspectives equally without favoring US/Israel or Iran/resistance axis framing.
-
-STRUCTURAL NEUTRALITY RULES (apply to every country report and scenario):
-1. Present ALL parties' official positions — US/Israel AND Iran/IRGC AND
-   Gulf states AND resistance axis (Hezbollah, Houthis, PMF)
-2. When describing Iranian military actions: include Iran's stated justification
-   alongside the impact description — never describe only through CENTCOM/IDF lens
-3. When describing US/Israel actions: include Iranian characterization alongside
-   US/official framing — never describe only through Pentagon/IDF lens
-4. Casualty figures: include ALL sides ordered by count (highest first)
-5. Iranian civilian harm from US-Israel strikes is as relevant as Israeli/Gulf
-   civilian harm from Iranian strikes — include both always
-6. Ceasefire path: includes Iran-Oman back-channel (Iran's stated condition:
-   US base closure) AND Xi-Trump framework — not only one side's channel
-7. Source hierarchy: distinguish party sources (CENTCOM, IRGC, IDF) from
-   independent verifiers (AFP, Reuters, NetBlocks, HRW) — party denials
-   are CONTESTED, not DEBUNKED, without independent corroboration
-
-TELEGRAM PARTY SOURCE RULE:
-- Rybar (@rybar / @rybar_in_english): pro-Kremlin milblog, US DOJ flagged as
-  Russian disinfo org. All military claims require independent corroboration
-  (Reuters/AP/AFP/BBC) before CONFIRMED. Mark as CONTESTED pending verification.
-- Intel Slava (@intelslava): pro-Russian aggregator. Same rule applies.
-- Our Wars Today (@ourwarstoday): neutral aggregator. Standard triage.
-- الروائي: resistance-axis Arabic source. Party source rules apply.
-
-CHINESE SOURCE RULE:
-- Xinhua/Global Times/CGTN/People's Daily: CCP party sources. Diplomatic
-  signaling value is HIGH (official positions). Factual military claims
-  require independent corroboration. Label as [CN-STATE] in source attribution.
-- Guancha.cn: nationalist commentary, not state media. Label as [CN-NATIONALIST].
-
-OUTPUT: Valid JSON only — no preamble, no markdown, no explanation.
-
-Output structure:
-{
-  "nai_scores": [
-    {
-      "country_code": "XX",
-      "expressed_score": 0-100,
-      "latent_score": 0-100,
-      "gap_size": number,
-      "category": "ALIGNED|FRACTURED|INVERTED|TENSE"
+def batch_and_wait(custom_id, model, system_prompt, user_prompt, max_tokens):
+    """Submit to Batch API, poll until done, return text. 50% cheaper."""
+    headers = {
+        "x-api-key": ANTHROPIC_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+        "anthropic-beta": "message-batches-2024-09-24",
     }
-  ],
-  "country_reports": [
-    {
-      "country_code": "XX",
-      "country_name": "...",
-      "nai_score": number,
-      "nai_category": "...",
-      "content_json": {
-        "nai": {"expressed": n, "latent": n, "gap_size": n, "category": "..."},
-        "scenarios": {"A": pct, "B": pct, "C": pct, "D": pct, "E": pct},
-        "key_risks": ["...", "...", "...", "..."],
-        "stabilizers": ["...", "...", "..."],
-        "all_parties_positions": {
-          "us_israel_framing": "1 sentence",
-          "iran_irgc_framing": "1 sentence",
-          "local_govt_framing": "1 sentence",
-          "street_framing": "1 sentence"
-        },
-        "assessment": "3-5 sentence analytical paragraph — neutral, all perspectives",
-        "social_summary": "1-2 sentence summary of social media signals"
-      }
-    }
-  ],
-  "scenario_probabilities": {
-    "scenario_a": number,
-    "scenario_b": number,
-    "scenario_c": number,
-    "scenario_d": number,
-    "scenario_e": number
-  },
-  "new_scenario_detected": true | false,
-  "new_scenario_description": "string or null"
-}
-
-NAI CATEGORY DEFINITIONS:
-- ALIGNED: expressed and latent within ~15 pts, same direction
-- FRACTURED: gap >15 pts, govt and public diverge significantly
-- INVERTED: government says X, public believes opposite
-- TENSE: unstable, direction unclear, external pressure building
-
-SCENARIO DEFINITIONS (neutral framing — all parties' perspectives):
-- A: Managed Exit (ceasefire via Xi-Trump OR Iran-Oman — Iran's condition: US base closure)
-- B: Prolonged War (4+ weeks, no breakthrough)
-- C: Cascade (Hormuz + Red Sea dual closure; Egypt IMF emergency)
-- D: Escalation Spiral (Iran hits Gulf oil → Kharg oil terminals destroyed → $150/bbl)
-- E: UAE Direct Strike on Iranian missile sites (sub-branch, independent probability)
-A+B+C+D must sum to 100. E is independent (0-100 separately).
-
-Analyze ALL 20 countries. Include at minimum: IR, US, IL, EG, AE, SA, IQ, LB, YE,
-TR, RU, CN, GB, FR, DE, QA, KW, IN, PK, JO."""
-
-    # Mark Arabic/Iranian/resistance-axis sources explicitly for model context
-    articles_text = "\n".join(
-        f"[{a.get('country','GLOBAL')}][{a.get('sentiment','')}]"
-        f"[{'AR/IR-PERSPECTIVE' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN-WESTERN'}]"
-        f" {a.get('source_name','')}: {a.get('title','')}"
-        for a in data["articles"]
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages/batches",
+        headers=headers,
+        json={"requests": [{"custom_id": custom_id, "params": {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }}]},
+        timeout=30,
     )
-    
-    markets_text = "\n".join(
-        f"{m['indicator']}: {m['value']} {m['unit']} ({m['change_pct']:+.1f}%)"
-        for m in data["markets"]
-    )
-    
-    social_text = "\n".join(
-        f"{s.get('country','')}/{s.get('platform','')}: [{s.get('sentiment','')}] {s.get('trend','')[:120]}"
-        for s in data["social"]
-    )
-    
+    resp.raise_for_status()
+    batch_id = resp.json()["id"]
+    print(f"    Batch submitted: {batch_id}")
+
+    for i in range(120):
+        time.sleep(15)
+        status_resp = requests.get(
+            f"https://api.anthropic.com/v1/messages/batches/{batch_id}",
+            headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01"},
+            timeout=15,
+        )
+        status_resp.raise_for_status()
+        status = status_resp.json()
+        processing = status.get("processing_status", "")
+        counts = status.get("request_counts", {})
+        print(f"    [{(i+1)*15}s] {processing} — succeeded={counts.get('succeeded',0)} errored={counts.get('errored',0)}")
+        if processing == "ended":
+            break
+    else:
+        raise RuntimeError(f"Batch {batch_id} timed out after 30 min")
+
+    results_url = status.get("results_url")
+    if not results_url:
+        raise RuntimeError(f"No results_url for batch {batch_id}")
+    results = requests.get(results_url, timeout=60).text
+    for line in results.strip().split("\n"):
+        if not line:
+            continue
+        row = json.loads(line)
+        if row.get("custom_id") != custom_id:
+            continue
+        result = row.get("result", {})
+        if "error" in result:
+            raise RuntimeError(f"Batch error: {result['error']}")
+        content = result.get("message", {}).get("content", [])
+        if content and content[0].get("type") == "text":
+            text = content[0]["text"].strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+                text = text.rsplit("```", 1)[0]
+            return text.strip()
+    raise RuntimeError(f"No matching result for custom_id={custom_id}")
+
+
+def call_claude_nai(conflict_day, data):
+    """CALL 1 — NAI scores + scenario probabilities. ~1,500 tokens output."""
     prev_nai_text = "\n".join(
-        f"{n['country_code']}: expressed={n['expressed_score']} latent={n['latent_score']} [{n['category']}]"
+        f"{n['country_code']}: E={n['expressed_score']} L={n['latent_score']} [{n['category']}]"
         for n in data["prev_nai"]
     )
-    
     prev_sc = data["prev_scenario"]
     if prev_sc:
-        prev_sc_text = f"A={prev_sc['scenario_a']}% B={prev_sc['scenario_b']}% C={prev_sc['scenario_c']}% D={prev_sc['scenario_d']}%"
+        prev_sc_text = (
+            f"A={prev_sc['scenario_a']}% B={prev_sc['scenario_b']}% "
+            f"C={prev_sc['scenario_c']}% D={prev_sc['scenario_d']}%"
+        )
         if prev_sc.get("scenario_e") is not None:
             prev_sc_text += f" E={prev_sc['scenario_e']}%"
     else:
         prev_sc_text = "No previous data"
 
-    user_prompt = f"""CONFLICT DAY {conflict_day} — Daily Intelligence Analysis
-
-COUNTRIES TO ANALYZE: IR, US, IL, SA, AE, IQ, LB, YE, JO, EG, TR, RU, CN, GB, FR, DE, QA, KW, IN, PK
-
-=== PREVIOUS DAY NAI BASELINE ===
-{prev_nai_text}
-
-=== PREVIOUS DAY SCENARIOS ===
-{prev_sc_text}
-
-=== TODAY'S ARTICLES ({len(data['articles'])} items) ===
-{articles_text}
-
-=== MARKET DATA ===
-{markets_text}
-
-=== SOCIAL TRENDS ===
-{social_text}
-
-Based on the above, generate updated Day {conflict_day} analysis for all 20 countries.
-Output ONLY valid JSON. No explanation. No markdown.
-Velocity = today's expressed_score minus yesterday's expressed_score."""
-
-    response = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": ANTHROPIC_KEY,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": "claude-sonnet-4-6",
-            "max_tokens": 16000,
-            "stream": True,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_prompt}],
-        },
-        stream=True,
-        timeout=(30, 300),  # connect=30s, per-chunk read=300s (resets each chunk)
+    articles_text = "\n".join(
+        f"[{a.get('country','?')}][{'AR/IR' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN'}]"
+        f" {a.get('source_name','')}: {a.get('title','')}"
+        for a in data["articles"]
+    )
+    markets_text = "\n".join(
+        f"{m['indicator']}: {m['value']} {m['unit']} ({m['change_pct']:+.1f}%)"
+        for m in data["markets"]
     )
 
-    if not response.ok:
-        try:
-            err_body = response.json()
-            msg = err_body.get("error", {}).get("message", "") or response.text[:500]
-            if "credit balance is too low" in msg.lower() or "purchase credits" in msg.lower():
-                print("  ⚠️ Anthropic API: insufficient credits. Add credits at https://console.anthropic.com → Plans & Billing")
-            print(f"  Anthropic API error {response.status_code}: {msg}")
-        except Exception:
-            print(f"  Anthropic API error {response.status_code}: {response.text[:1500]}")
-        response.raise_for_status()
+    system = (
+        "You are a geopolitical intelligence analyst. Apply STRUCTURAL NEUTRALITY. "
+        "Output ONLY valid JSON. No markdown. No preamble."
+    )
+    user = f"""CONFLICT DAY {conflict_day} — NAI SCORES + SCENARIOS
 
-    # Consume the SSE stream and reconstruct full content
-    content = ""
-    for line in response.iter_lines():
-        if not line:
-            continue
-        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
-        if not decoded.startswith("data: "):
-            continue
-        data_str = decoded[6:]
-        if data_str == "[DONE]":
-            break
-        try:
-            event = json.loads(data_str)
-            if event.get("type") == "content_block_delta":
-                delta = event.get("delta", {})
-                if delta.get("type") == "text_delta":
-                    content += delta.get("text", "")
-            elif event.get("type") == "message_stop":
-                break
-            elif event.get("type") == "error":
-                raise RuntimeError(f"Stream error: {event}")
-        except json.JSONDecodeError:
-            continue
+COUNTRIES: IR, US, IL, SA, AE, IQ, LB, YE, JO, EG, TR, RU, CN, GB, FR, DE, QA, KW, IN, PK
 
-    content = content.strip()
-    if content.startswith("```"):
-        content = content.split("\n", 1)[1]
-        content = content.rsplit("```", 1)[0]
-    return json.loads(content)
+PREVIOUS NAI: {prev_nai_text}
+PREVIOUS SCENARIOS: {prev_sc_text}
+
+ARTICLES ({len(data['articles'])}):
+{articles_text}
+
+MARKETS:
+{markets_text}
+
+NAI CATEGORIES: ALIGNED (gap<15) | FRACTURED (gap>15) | INVERTED (govt vs public opposite) | TENSE (unstable)
+SCENARIOS (A+B+C+D=100; E independent 0-100):
+A: Managed Exit (ceasefire via Xi-Trump OR Iran-Oman — Iran condition: US base closure)
+B: Prolonged War (4+ weeks)
+C: Cascade (Hormuz + Red Sea dual closure)
+D: Escalation Spiral (Iran hits Gulf oil → Kharg terminals → $150/bbl)
+E: UAE Direct Strike on Iranian missile sites
+
+Output ONLY:
+{{"nai_scores":[{{"country_code":"IR","expressed_score":72,"latent_score":58,"gap_size":14,"category":"ALIGNED"}}],"scenario_probabilities":{{"scenario_a":20,"scenario_b":45,"scenario_c":22,"scenario_d":13,"scenario_e":22}},"new_scenario_detected":false,"new_scenario_description":null}}
+
+All 20 countries in nai_scores. A+B+C+D must equal 100."""
+
+    print("  [1/2] NAI + Scenarios (Batch)...")
+    raw = batch_and_wait(f"nai-day{conflict_day}", "claude-sonnet-4-6", system, user, 6000)
+    result = json.loads(raw)
+    sc = result.get("scenario_probabilities", {})
+    print(f"  [1/2] ✅ {len(result.get('nai_scores',[]))} countries | A={sc.get('scenario_a')}% B={sc.get('scenario_b')}%")
+    return result
+
+
+def call_claude_reports(conflict_day, data, nai_data):
+    """CALL 2 — Compact country reports, all 20. ~7,000 tokens output."""
+    nai_context = "\n".join(
+        f"{n['country_code']}: E={n['expressed_score']} L={n['latent_score']} [{n['category']}]"
+        for n in nai_data.get("nai_scores", [])
+    )
+    articles_text = "\n".join(
+        f"[{a.get('country','?')}][{'AR/IR' if a.get('source_name','') in ARABIC_IRANIAN_SOURCES else 'EN'}]"
+        f" {a.get('source_name','')}: {a.get('title','')}"
+        for a in data["articles"]
+    )
+    sc = nai_data.get("scenario_probabilities", {})
+
+    system = (
+        "You are a geopolitical intelligence analyst. Apply STRUCTURAL NEUTRALITY. "
+        "Present US/Israel AND Iran/IRGC AND local government AND street perspectives. "
+        "Keep ALL text fields to 1-2 sentences maximum. "
+        "Output ONLY valid JSON. No markdown. No preamble."
+    )
+    user = f"""CONFLICT DAY {conflict_day} — COUNTRY REPORTS
+
+NAI SCORES (use exactly):
+{nai_context}
+
+SCENARIOS: A={sc.get('scenario_a',20)}% B={sc.get('scenario_b',45)}% C={sc.get('scenario_c',22)}% D={sc.get('scenario_d',13)}% E={sc.get('scenario_e',22)}%
+
+ARTICLES:
+{articles_text}
+
+NEUTRALITY: Iranian civilian harm = as relevant as Israeli/Gulf harm.
+Egypt sentiment = anti-US-intervention NOT pro-Iran (not the same).
+CENTCOM/IRGC/IDF = party sources.
+
+Output for ALL 20 countries (IR,US,IL,SA,AE,IQ,LB,YE,JO,EG,TR,RU,CN,GB,FR,DE,QA,KW,IN,PK):
+{{"country_reports":[{{"country_code":"IR","country_name":"Iran","nai_score":72,"nai_category":"ALIGNED","content_json":{{"nai":{{"expressed":72,"latent":58,"gap_size":14,"category":"ALIGNED"}},"scenarios":{{"A":20,"B":45,"C":22,"D":13,"E":22}},"key_risks":["risk1","risk2","risk3"],"stabilizers":["s1","s2"],"us_israel_framing":"1 sentence.","iran_irgc_framing":"1 sentence.","local_framing":"1 sentence.","assessment":"2 sentences max.","social_summary":"1 sentence."}}}}]}}
+
+All 20 countries required. nai_score must match NAI scores above exactly."""
+
+    print("  [2/2] Country Reports (Batch)...")
+    raw = batch_and_wait(f"reports-day{conflict_day}", "claude-sonnet-4-6", system, user, 14000)
+    result = json.loads(raw)
+    print(f"  [2/2] ✅ {len(result.get('country_reports',[]))} country reports")
+    return result
 
 
 BATCH_HEADERS = {
@@ -925,9 +883,11 @@ def main():
     data = build_data_snapshot(conflict_day)
     print(f"   Articles: {len(data['articles'])} | Markets: {len(data['markets'])} | Social: {len(data['social'])}")
 
-    print("🤖 Calling Claude API...")
-    analysis = call_claude(conflict_day, data)
-    print(f"   Got {len(analysis.get('nai_scores',[]))} NAI scores, {len(analysis.get('country_reports',[]))} reports")
+    print("🤖 Running intelligence pipeline (2 Batch API calls)...")
+    nai_data = call_claude_nai(conflict_day, data)
+    reports_data = call_claude_reports(conflict_day, data, nai_data)
+    analysis = {**nai_data, **reports_data}
+    print(f"  Pipeline complete: {len(analysis.get('nai_scores',[]))} NAI + {len(analysis.get('country_reports',[]))} reports")
 
     print("💾 Writing to Supabase...")
     write_to_supabase(conflict_day, analysis)
