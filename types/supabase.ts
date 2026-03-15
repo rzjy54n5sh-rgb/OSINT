@@ -36,6 +36,10 @@ export interface ScenarioProbability {
   scenario_b: number;
   scenario_c: number;
   scenario_d: number;
+  scenario_e: number | null;   // UAE Direct Strike — added Day 15
+  updated_at?: string | null;
+  // Dynamic scenarios discovered by smart detection (Day 15+)
+  // stored as scenario_f, scenario_g etc. — see SCENARIO_META for labels
 }
 
 export interface CountryReport {
@@ -67,7 +71,7 @@ export interface MarketData {
   unit: string | null;
   source: string | null;
   conflict_day: number | null;
-  created_at?: string | null;
+  created_at: string | null;
 }
 
 export interface SocialTrend {

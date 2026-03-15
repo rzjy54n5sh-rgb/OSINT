@@ -35,7 +35,7 @@ export function useRealtimeCount() {
           .select('conflict_day')
           .order('conflict_day', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
         if (!isActive) return;
         if (data?.conflict_day != null) setConflictDay(data.conflict_day);
       } catch {

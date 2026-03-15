@@ -105,7 +105,8 @@ export function AsciiHero({
         OSINT
       </span>
 
-      {/* ASCII Logo */}
+      {/* ASCII animation — hidden on mobile to prevent horizontal scroll */}
+      <div className="ascii-hero-full">
       <div
         style={{
           width: '100%',
@@ -249,6 +250,32 @@ export function AsciiHero({
           ))}
         </div>
       )}
+      </div>
+
+      {/* Mobile replacement */}
+      <div className="ascii-hero-mobile">
+        <div
+          style={{
+            fontFamily: 'IBM Plex Mono, monospace',
+            fontSize: 10,
+            letterSpacing: '3px',
+            color: 'var(--accent-gold)',
+            marginBottom: 8,
+          }}
+        >
+          ◆ MENA INTEL DESK
+        </div>
+        <div
+          style={{
+            fontFamily: 'IBM Plex Mono, monospace',
+            fontSize: 8,
+            letterSpacing: '2px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          OSINT INTELLIGENCE PLATFORM — US-IRAN CONFLICT TRACKER
+        </div>
+      </div>
     </div>
   );
 }

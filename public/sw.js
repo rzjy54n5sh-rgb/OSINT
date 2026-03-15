@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mena-intel-v1';
+const CACHE_NAME = 'mena-intel-v2';
 
 // Assets to cache immediately on install
 const PRECACHE = [
@@ -9,6 +9,11 @@ const PRECACHE = [
   '/countries',
   '/scenarios',
   '/markets',
+  '/disinfo',
+  '/social',
+  '/timeline',
+  '/analytics',
+  '/mediaroom',
 ];
 
 // Install — precache shell pages

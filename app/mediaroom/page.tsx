@@ -1,6 +1,7 @@
 'use client';
 
 import { createClient } from '@/lib/supabase/client';
+import { PageBriefing } from '@/components/PageBriefing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryQueryValues } from '@/lib/utils';
 
@@ -458,6 +459,11 @@ export default function MediaRoomPage() {
           </span>
         </div>
       )}
+      <PageBriefing
+        title="MEDIA ROOM — LIVE COVERAGE MONITOR"
+        description="Live television streams from 8 international broadcasters across four editorial perspectives: Western liberal (BBC, CNN, France 24), Gulf and Arab (Al Jazeera), Turkish geopolitical (TRT World), and Israeli security (i24). Photo wire and video clips from RSS feeds. All streams are embedded directly from YouTube — we do not control or modify their content."
+        note="The Narrative Divergence Matrix below the TV grid shows analyst-assessed editorial positions for each channel. These are static assessments updated manually — not algorithmic scores."
+      />
       <main className="flex-1 p-4 md:p-6 max-w-[1800px] mx-auto w-full">
         {/* Top bar: country chips + view mode */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
