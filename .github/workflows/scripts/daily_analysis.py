@@ -190,24 +190,49 @@ def batch_and_wait(custom_id, model, system_prompt, user_prompt, max_tokens):
     results_url = status.get("results_url")
     if not results_url:
         raise RuntimeError(f"No results_url for batch {batch_id}")
-    results = requests.get(results_url, timeout=60).text
+
+    results_resp = requests.get(results_url, timeout=60)
+    results_resp.raise_for_status()
+    results = results_resp.text
+    print(f"    Results: {len(results)} chars, {results.count(chr(10))+1} lines")
+
+    if not results.strip():
+        raise RuntimeError(f"Empty results from results_url for batch {batch_id}")
+
+    matched_line = None
     for line in results.strip().split("\n"):
         if not line:
             continue
-        row = json.loads(line)
-        if row.get("custom_id") != custom_id:
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
             continue
-        result = row.get("result", {})
-        if "error" in result:
-            raise RuntimeError(f"Batch error: {result['error']}")
-        content = result.get("message", {}).get("content", [])
-        if content and content[0].get("type") == "text":
-            text = content[0]["text"].strip()
-            if text.startswith("```"):
-                text = text.split("\n", 1)[1]
-                text = text.rsplit("```", 1)[0]
-            return text.strip()
-    raise RuntimeError(f"No matching result for custom_id={custom_id}")
+        # Accept exact match OR first available result (we submit 1 request per batch)
+        if row.get("custom_id") == custom_id or matched_line is None:
+            matched_line = row
+
+    if matched_line is None:
+        raise RuntimeError(f"No results found in JSONL for batch {batch_id}")
+
+    row = matched_line
+    result = row.get("result", {})
+    result_type = result.get("type", "")
+    if result_type == "errored":
+        raise RuntimeError(f"Batch request errored: {result.get('error', {})}")
+    if result_type != "succeeded":
+        raise RuntimeError(f"Unexpected result type: {result_type}")
+
+    content = result.get("message", {}).get("content", [])
+    if not content:
+        raise RuntimeError(f"Empty content in batch result for {custom_id}")
+    if content[0].get("type") != "text":
+        raise RuntimeError(f"Unexpected content type: {content[0].get('type')}")
+
+    text = content[0]["text"].strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1]
+        text = text.rsplit("```", 1)[0]
+    return text.strip()
 
 
 def call_claude_nai(conflict_day, data):
