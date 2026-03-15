@@ -108,7 +108,7 @@ def build_data_snapshot(conflict_day):
     # Latest articles (limit 80 to keep prompt manageable)
     articles = sb_get(
         f"articles?select=title,source_name,country,sentiment,tags&"
-        f"published_at=gte.{since}&order=published_at.desc&limit=80"
+        f"published_at=gte.{since}&order=published_at.desc&limit=40"
     )
 
     # Market data latest snapshot
@@ -311,7 +311,7 @@ Velocity = today's expressed_score minus yesterday's expressed_score."""
         },
         json={
             "model": "claude-sonnet-4-6",
-            "max_tokens": 32000,
+            "max_tokens": 16000,
             "stream": True,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
