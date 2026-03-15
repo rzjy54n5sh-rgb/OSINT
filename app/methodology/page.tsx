@@ -243,7 +243,11 @@ const SECTIONS: Section[] = [
     items: [
       {
         q: 'Where do the articles come from?',
-        a: 'All articles are collected automatically from public RSS feeds across seven source categories: international wire services (Reuters, AP, AFP), broadcast media (BBC, Al Jazeera, France 24, CNN, Al Arabiya), regional news outlets (country-specific publications), official government and ministry press feeds, military command communications, elite individual figures (Telegram channels of public political and military leaders), financial and energy media (OilPrice.com, Financial Times), and think tanks and research institutions (War on the Rocks, Foreign Policy, RAND). A full list of all sources by country and category is maintained in our open-source repository.',
+        a: 'All articles are collected automatically from public RSS feeds across seven source categories: international wire services (Reuters, AP, AFP), broadcast media (BBC, France 24, CNN, Al Arabiya), regional news outlets (country-specific publications), official government and ministry press feeds, military command communications, elite individual figures (Telegram channels of public political and military leaders), financial and energy media (OilPrice.com; Financial Times is a primary source for economic and energy analysis), and think tanks and research institutions (War on the Rocks, Foreign Policy, RAND). A full list of all sources by country and category is maintained in our open-source repository.',
+      },
+      {
+        q: 'What regional and Arabic sources do you use?',
+        a: 'We include regional and Arabic-language sources to meet our source universe audit requirement. Key Tier 2 sources: Mada Masr (Egypt independent), Al-Monitor (regional analysis), The National (UAE), and Arab News (Saudi). These are used with attribution and framed according to their editorial alignment (e.g. government-aligned for UAE/Saudi outlets). All sources are assigned bias profiles and cross-checked against the platform\'s source universe audit requirement before publication.',
       },
       {
         q: 'What do the source type labels mean?',
