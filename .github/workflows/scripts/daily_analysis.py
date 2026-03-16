@@ -147,91 +147,63 @@ def build_data_snapshot(conflict_day):
         "prev_scenario": prev_scenario[0] if prev_scenario else None,
     }
 
-def batch_and_wait(custom_id, model, system_prompt, user_prompt, max_tokens):
-    """Submit to Batch API, poll until done, return text. 50% cheaper."""
-    headers = {
-        "x-api-key": ANTHROPIC_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-        "anthropic-beta": "message-batches-2024-09-24",
-    }
-    resp = requests.post(
-        "https://api.anthropic.com/v1/messages/batches",
-        headers=headers,
-        json={"requests": [{"custom_id": custom_id, "params": {
+def stream_claude(custom_id, model, system_prompt, user_prompt, max_tokens):
+    """Stream from Anthropic API. timeout=(30,300): 30s connect, 300s per-chunk. Reliable 3-5 min for up to 15k tokens."""
+    response = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": ANTHROPIC_KEY,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+        json={
             "model": model,
             "max_tokens": max_tokens,
+            "stream": True,
             "system": system_prompt,
             "messages": [{"role": "user", "content": user_prompt}],
-        }}]},
-        timeout=30,
+        },
+        stream=True,
+        timeout=(30, 300),
     )
-    resp.raise_for_status()
-    batch_id = resp.json()["id"]
-    print(f"    Batch submitted: {batch_id}")
-
-    for i in range(120):
-        time.sleep(15)
-        status_resp = requests.get(
-            f"https://api.anthropic.com/v1/messages/batches/{batch_id}",
-            headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01"},
-            timeout=15,
-        )
-        status_resp.raise_for_status()
-        status = status_resp.json()
-        processing = status.get("processing_status", "")
-        counts = status.get("request_counts", {})
-        print(f"    [{(i+1)*15}s] {processing} — succeeded={counts.get('succeeded',0)} errored={counts.get('errored',0)}")
-        if processing == "ended":
-            break
-    else:
-        raise RuntimeError(f"Batch {batch_id} timed out after 30 min")
-
-    results_url = status.get("results_url")
-    if not results_url:
-        raise RuntimeError(f"No results_url for batch {batch_id}")
-
-    results_resp = requests.get(results_url, timeout=60)
-    results_resp.raise_for_status()
-    results = results_resp.text
-    print(f"    Results: {len(results)} chars, {results.count(chr(10))+1} lines")
-
-    if not results.strip():
-        raise RuntimeError(f"Empty results from results_url for batch {batch_id}")
-
-    matched_line = None
-    for line in results.strip().split("\n"):
+    if not response.ok:
+        try:
+            err = response.json().get("error", {})
+            msg = err.get("message", response.text[:300])
+            if "credit balance is too low" in msg.lower():
+                print("  ⚠️  Insufficient credits — add credits at console.anthropic.com")
+            print(f"  API error {response.status_code}: {msg}")
+        except Exception:
+            print(f"  API error {response.status_code}: {response.text[:300]}")
+        response.raise_for_status()
+    content = ""
+    for line in response.iter_lines():
         if not line:
             continue
+        decoded = line.decode("utf-8") if isinstance(line, bytes) else line
+        if not decoded.startswith("data: "):
+            continue
+        data_str = decoded[6:]
+        if data_str == "[DONE]":
+            break
         try:
-            row = json.loads(line)
+            event = json.loads(data_str)
+            etype = event.get("type", "")
+            if etype == "content_block_delta":
+                delta = event.get("delta", {})
+                if delta.get("type") == "text_delta":
+                    content += delta.get("text", "")
+            elif etype == "message_stop":
+                break
+            elif etype == "error":
+                raise RuntimeError(f"Stream error: {event}")
         except json.JSONDecodeError:
             continue
-        # Accept exact match OR first available result (we submit 1 request per batch)
-        if row.get("custom_id") == custom_id or matched_line is None:
-            matched_line = row
-
-    if matched_line is None:
-        raise RuntimeError(f"No results found in JSONL for batch {batch_id}")
-
-    row = matched_line
-    result = row.get("result", {})
-    result_type = result.get("type", "")
-    if result_type == "errored":
-        raise RuntimeError(f"Batch request errored: {result.get('error', {})}")
-    if result_type != "succeeded":
-        raise RuntimeError(f"Unexpected result type: {result_type}")
-
-    content = result.get("message", {}).get("content", [])
-    if not content:
-        raise RuntimeError(f"Empty content in batch result for {custom_id}")
-    if content[0].get("type") != "text":
-        raise RuntimeError(f"Unexpected content type: {content[0].get('type')}")
-
-    text = content[0]["text"].strip()
+    text = content.strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]
+    print(f"    {custom_id}: {len(text)} chars received")
     return text.strip()
 
 
@@ -293,7 +265,7 @@ Output ONLY:
 All 20 countries in nai_scores. A+B+C+D must equal 100."""
 
     print("  [1/2] NAI + Scenarios (Batch)...")
-    raw = batch_and_wait(f"nai-day{conflict_day}", "claude-sonnet-4-6", system, user, 6000)
+    raw = stream_claude(f"nai-day{conflict_day}", "claude-sonnet-4-6", system, user, 6000)
     result = json.loads(raw)
     sc = result.get("scenario_probabilities", {})
     print(f"  [1/2] ✅ {len(result.get('nai_scores',[]))} countries | A={sc.get('scenario_a')}% B={sc.get('scenario_b')}%")
@@ -339,7 +311,7 @@ Output for ALL 20 countries (IR,US,IL,SA,AE,IQ,LB,YE,JO,EG,TR,RU,CN,GB,FR,DE,QA,
 All 20 countries required. nai_score must match NAI scores above exactly."""
 
     print("  [2/2] Country Reports (Batch)...")
-    raw = batch_and_wait(f"reports-day{conflict_day}", "claude-sonnet-4-6", system, user, 14000)
+    raw = stream_claude(f"reports-day{conflict_day}", "claude-sonnet-4-6", system, user, 14000)
     result = json.loads(raw)
     print(f"  [2/2] ✅ {len(result.get('country_reports',[]))} country reports")
     return result
