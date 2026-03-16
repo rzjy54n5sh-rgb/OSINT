@@ -11,14 +11,14 @@ export function useDataFreshness() {
     const supabase = createClient();
     supabase
       .from('nai_scores')
-      .select('created_at')
-      .order('created_at', { ascending: false })
+      .select('updated_at')
+      .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (!data?.created_at) return;
-        setLastNaiUpdate(data.created_at);
-        const hoursOld = (Date.now() - new Date(data.created_at).getTime()) / 36e5;
+        if (!data?.updated_at) return;
+        setLastNaiUpdate(data.updated_at);
+        const hoursOld = (Date.now() - new Date(data.updated_at).getTime()) / 36e5;
         setStale(hoursOld > 26); // flag if NAI scores are more than 26 hours old
       });
   }, []);
