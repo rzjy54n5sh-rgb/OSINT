@@ -1,3 +1,7 @@
+# Phase 11 audit (2026-03): This workflow is the "feeds" data collector.
+# - Writes to: articles (Supabase). Does NOT write to nai_scores, country_reports, disinformation_tracker.
+# - Does NOT duplicate daily_pipeline.yml Stage 1 (Stage 1 = Perplexity API fetch; this = RSS/Nitter/Telegram).
+# - Keep running. Future: optional article_sources health updates (last_fetch_at, health_status) if registry aligns.
 name: Collect Feeds (News + Elite Accounts)
 
 on:

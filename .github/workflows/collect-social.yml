@@ -1,3 +1,6 @@
+# Phase 11 audit (2026-03): This workflow is the "social_trends" data collector.
+# - Writes to: social_trends (Supabase). Does NOT write to nai_scores, country_reports, disinformation_tracker.
+# - Does NOT duplicate daily_pipeline.yml Stage 1. Keep running.
 name: Collect Social Trends
 
 on:

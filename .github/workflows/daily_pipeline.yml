@@ -1,0 +1,127 @@
+# Phase 11: Daily Intelligence Pipeline — runs Stage 1–5 (fetch → analysis → db_write → reports → scenario_detection).
+# Schedule: 06:00 UTC daily. Manual trigger from admin panel (/admin/pipeline) or Actions tab with optional stage and conflict_day override.
+name: Daily Intelligence Pipeline
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      conflict_day:
+        description: 'Override conflict day (blank = auto-calculate)'
+        required: false
+        type: string
+      stage:
+        description: 'Stage to run'
+        required: false
+        type: choice
+        default: full
+        options:
+          - full
+          - fetch
+          - analysis
+          - db_write
+          - reports
+          - scenario_detection
+      run_id:
+        description: 'Pipeline run ID from admin panel (for manual triggers)'
+        required: false
+        type: string
+
+env:
+  SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+  RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+  ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Python deps
+        run: pip install -r .github/workflows/scripts/requirements.txt
+
+      - name: Install docx (global)
+        run: npm install -g docx
+
+      - name: Calculate conflict day
+        id: day
+        run: python3 .github/workflows/scripts/pipeline_audit.py calc-day ${{ github.event.inputs.conflict_day || '' }}
+
+      - name: Start audit record
+        run: |
+          python3 .github/workflows/scripts/pipeline_audit.py start \
+            --day ${{ steps.day.outputs.conflict_day }} \
+            --stage "${{ github.event.inputs.stage || 'full' }}" \
+            --triggered-by "${{ github.event_name == 'workflow_dispatch' && 'manual_admin' || 'cron' }}" \
+            --run-id "${{ github.event.inputs.run_id || '' }}"
+
+      - name: Stage 1 — Perplexity Fetch
+        if: github.event.inputs.stage == 'fetch' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
+        id: fetch
+        run: python3 .github/workflows/scripts/stage1_fetch.py --day ${{ steps.day.outputs.conflict_day }}
+
+      - name: Upload intel artifact
+        if: steps.fetch.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: intel-day-${{ steps.day.outputs.conflict_day }}
+          path: /tmp/intel_day_${{ steps.day.outputs.conflict_day }}.json
+          retention-days: 7
+
+      - name: Stage 2 — Claude Analysis
+        if: github.event.inputs.stage == 'analysis' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
+        id: analysis
+        run: python3 .github/workflows/scripts/stage2_analysis.py --day ${{ steps.day.outputs.conflict_day }}
+
+      - name: Stage 3 — DB Write
+        if: github.event.inputs.stage == 'db_write' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
+        id: db_write
+        run: python3 .github/workflows/scripts/stage3_db_write.py --day ${{ steps.day.outputs.conflict_day }}
+
+      - name: Stage 4 — Report Generation
+        if: github.event.inputs.stage == 'reports' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
+        id: reports
+        run: python3 .github/workflows/scripts/stage4_reports.py --day ${{ steps.day.outputs.conflict_day }}
+
+      - name: Upload reports artifact
+        if: steps.reports.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-day-${{ steps.day.outputs.conflict_day }}
+          path: /tmp/reports/
+          retention-days: 30
+
+      - name: Stage 5 — Scenario Detection
+        if: github.event.inputs.stage == 'scenario_detection' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
+        id: scenario_detection
+        run: python3 .github/workflows/scripts/detect_scenarios.py --day ${{ steps.day.outputs.conflict_day }}
+
+      - name: Complete audit record
+        if: always()
+        run: |
+          python3 .github/workflows/scripts/pipeline_audit.py complete \
+            --day ${{ steps.day.outputs.conflict_day }} \
+            --job-status "${{ job.status }}" \
+            --stages '{"fetch":"${{ steps.fetch.outcome || 'skipped' }}","analysis":"${{ steps.analysis.outcome || 'skipped' }}","db_write":"${{ steps.db_write.outcome || 'skipped' }}","reports":"${{ steps.reports.outcome || 'skipped' }}","scenario_detection":"${{ steps.scenario_detection.outcome || 'skipped' }}"}' 
+
+      - name: Alert on failure
+        if: failure()
+        run: |
+          python3 .github/workflows/scripts/pipeline_audit.py alert \
+            --day ${{ steps.day.outputs.conflict_day }} \
+            --run-id "${{ github.run_id }}"

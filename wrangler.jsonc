@@ -1,0 +1,7 @@
+{
+  "name": "mena-intel-desk",
+  "compatibility_date": "2025-05-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": ".open-next/assets" },
+  "vars": { "WORKER_SELF_REFERENCE": "https://mena-intel-desk.pages.dev" }
+}

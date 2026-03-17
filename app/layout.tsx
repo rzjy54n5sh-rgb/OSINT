@@ -2,9 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Bebas_Neue, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
+import { validateEnv } from '@/lib/env';
 import { BackgroundCanvas } from '@/components/BackgroundCanvas';
 import { CommandHeader } from '@/components/CommandHeader';
 import { TranslationBanner } from '@/components/TranslationBanner';
+
+validateEnv();
 
 const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });

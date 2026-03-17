@@ -1,0 +1,128 @@
+{
+  "_comment": "Run: stripe fixtures stripe-fixtures.json --api-key sk_test_xxx. Creates all 3 products and 9 prices. Requires Stripe CLI: https://stripe.com/docs/stripe-cli",
+  "_meta": {
+    "template_version": 0
+  },
+  "fixtures": [
+    {
+      "name": "product_informed",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "MENA Intel Desk — Informed"
+      }
+    },
+    {
+      "name": "product_professional",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "MENA Intel Desk — Professional"
+      }
+    },
+    {
+      "name": "product_report",
+      "path": "/v1/products",
+      "method": "post",
+      "params": {
+        "name": "MENA Intel Desk — Single Report"
+      }
+    },
+    {
+      "name": "price_informed_usd",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_informed:id}",
+        "currency": "usd",
+        "unit_amount": 900,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_informed_aed",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_informed:id}",
+        "currency": "aed",
+        "unit_amount": 3500,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_informed_egp",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_informed:id}",
+        "currency": "egp",
+        "unit_amount": 45000,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_pro_usd",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_professional:id}",
+        "currency": "usd",
+        "unit_amount": 2900,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_pro_aed",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_professional:id}",
+        "currency": "aed",
+        "unit_amount": 10900,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_pro_egp",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_professional:id}",
+        "currency": "egp",
+        "unit_amount": 145000,
+        "recurring": { "interval": "month" }
+      }
+    },
+    {
+      "name": "price_report_usd",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_report:id}",
+        "currency": "usd",
+        "unit_amount": 499
+      }
+    },
+    {
+      "name": "price_report_aed",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_report:id}",
+        "currency": "aed",
+        "unit_amount": 1900
+      }
+    },
+    {
+      "name": "price_report_egp",
+      "path": "/v1/prices",
+      "method": "post",
+      "params": {
+        "product": "${product_report:id}",
+        "currency": "egp",
+        "unit_amount": 24900
+      }
+    }
+  ]
+}

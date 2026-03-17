@@ -1,3 +1,7 @@
+# Phase 11 audit (2026-03): This workflow is the "disinfo" data collector.
+# - Writes to: disinfo_claims (Supabase). Data source for platform; not duplicated by daily_pipeline Stage 1.
+# - Same cron (06:00 UTC) as daily_pipeline; runs independently. Keep running.
+# - Future: if article_sources has rows for fact-check feeds, add health columns update here.
 name: Collect Disinfo Claims
 
 on:

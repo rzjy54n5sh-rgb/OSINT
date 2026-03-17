@@ -1,13 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/utils/supabase/client';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { useDataFreshness } from '@/hooks/useDataFreshness';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { GLOSSARY } from '@/lib/glossary';
 import { GlobeMenu } from '@/components/GlobeMenu';
+import type { UserTier } from '@/types';
 
 const NAV_LINKS = [
   { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
@@ -18,6 +20,7 @@ const NAV_LINKS = [
   { href: '/countries', label: 'COUNTRIES' },
   { href: '/scenarios', label: 'SCENARIOS' },
   { href: '/disinfo',   label: 'DISINFO' },
+  { href: '/pricing',   label: 'PRICING' },
   { href: '/markets',   label: 'MARKETS' },
   { href: '/social',    label: 'SOCIAL' },
   { href: '/timeline',  label: 'TIMELINE' },
@@ -32,6 +35,32 @@ export function CommandHeader() {
   const conflictDay = useConflictDay();
   const { lastNaiUpdate, stale } = useDataFreshness();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userTier, setUserTier] = useState<UserTier | null | undefined>(undefined);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user?.id) {
+        setUserTier(null);
+        return;
+      }
+      supabase.from('users').select('tier').eq('id', session.user.id).maybeSingle().then(({ data }) => {
+        setUserTier((data?.tier as UserTier) ?? null);
+      });
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session?.user?.id) {
+          setUserTier(null);
+          return;
+        }
+        supabase.from('users').select('tier').eq('id', session.user.id).maybeSingle().then(({ data }) => {
+          setUserTier((data?.tier as UserTier) ?? null);
+        });
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <header
@@ -198,6 +227,35 @@ export function CommandHeader() {
             </Link>
           ))}
           <GlobeMenu />
+          {userTier === null && (
+            <Link
+              href="/login"
+              className="header-link font-mono"
+              style={{ fontSize: '10px', letterSpacing: '1.5px', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 2 }}
+            >
+              Sign in
+            </Link>
+          )}
+          {userTier && userTier !== undefined && (
+            <>
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: '9px',
+                  letterSpacing: '1.5px',
+                  border: '1px solid',
+                  padding: '4px 8px',
+                  borderRadius: 2,
+                  ...(userTier === 'professional' ? { borderColor: '#E8C547', color: '#E8C547' } : userTier === 'informed' ? { borderColor: '#1E90FF', color: '#1E90FF' } : { borderColor: '#4A5568', color: '#4A5568' }),
+                }}
+              >
+                {userTier === 'professional' ? '◆ PRO' : userTier === 'informed' ? 'INFORMED' : 'FREE'}
+              </span>
+              <Link href="/account" className="header-link" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px' }}>
+                Account
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* Mobile hamburger */}
@@ -253,6 +311,27 @@ export function CommandHeader() {
             </Link>
           ))}
           <GlobeMenu />
+          {userTier === null && (
+            <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: '11px' }}>
+              Sign in
+            </Link>
+          )}
+          {userTier && userTier !== undefined && (
+            <>
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: '10px',
+                  ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
+                }}
+              >
+                {userTier === 'professional' ? '◆ PRO' : userTier === 'informed' ? 'INFORMED' : 'FREE'}
+              </span>
+              <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: '11px' }}>
+                Account
+              </Link>
+            </>
+          )}
         </nav>
       )}
 

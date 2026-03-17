@@ -1,3 +1,6 @@
+# Phase 11 audit (2026-03): This workflow is the "markets" data collector.
+# - Writes to: market_data (Supabase). Does NOT write to nai_scores, country_reports, disinformation_tracker.
+# - Does NOT duplicate daily_pipeline.yml Stage 1 (Perplexity fetch). Keep running.
 name: Collect Market Data
 
 on:
