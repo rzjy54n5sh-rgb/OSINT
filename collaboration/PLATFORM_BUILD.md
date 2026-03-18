@@ -1,237 +1,115 @@
-# MENA Intel Desk — Platform Build Reference
-# For collaborators — read this before beginning analytical work.
-# Status: ALL 14 PHASES COMPLETE | Verified and pushed March 2026
+# PLATFORM BUILD — Collaborator Reference
+**Status: ✅ COMPLETE — All 14 phases built, tested, verified, pushed (March 18, 2026)**
+
+> This file is for your context only. You do not build, review, or access the platform.
+> It exists so you understand what infrastructure your analytical work runs on.
 
 ---
 
 ## What This Platform Is
 
 MENA Intel Desk is a live OSINT intelligence platform tracking the US-Iran War 2026.
-It is not a news aggregator. It is a structured analytical product with three user tiers,
-an automated intelligence pipeline, and an editorial layer governed by structural neutrality.
+It is an anonymously-operated subscription intelligence service, not a news outlet.
 
-The platform went from concept to fully verified production-ready build across 14 phases.
-This document gives collaborators context to understand what the platform does,
-how it works, and what is and is not your role within it.
+**Core principle:** Structural neutrality — enforced at the data layer, not just in framing.
 
----
-
-## Architecture in Plain English
-
-The platform has four layers:
-
-### Layer 1 — Data ingestion
-
-An automated Python pipeline runs daily at 06:00 UTC via GitHub Actions.
-It pulls from 94+ RSS sources across 26 seeded outlets in 6 languages (EN, AR, FA, HE, FR, DE).
-Perplexity Deep Research handles intelligence gathering. Claude handles analysis and structuring.
-Source tiers enforced per SOURCES.md. Party sources (CENTCOM, IRGC, IDF, PressTV) are flagged
-and require independent corroboration before any claim is marked confirmed.
-
-### Layer 2 — Intelligence database (Supabase)
-
-All intelligence stored in PostgreSQL. Key tables:
-- nai_scores: NAI scores for 20 countries, dual-track (expressed vs latent)
-- country_reports: Full intelligence briefs per country per conflict day
-- scenario_probabilities: A/B/C/D/E probabilities, one row per conflict day
-- disinformation_tracker: Claims with verification status and source attribution
-- detected_scenarios: New scenarios detected by pipeline (require admin approval)
-
-### Layer 3 — The platform
-
-Next.js 15 frontend on Cloudflare Workers. Three user tiers:
-- Free: expressed NAI scores, scenario probability bars, 5 disinformation entries
-- Informed ($9/mo): latent scores, gap analysis, Egypt + UAE full reports, scenario detail
-- Professional ($29/mo): all countries, API access, downloadable reports
-
-### Layer 4 — The report suite (11 files per day)
-
-5 English .docx + 5 Arabic .docx + 1 SQL platform update, generated daily.
-Reports: General Intelligence Brief (350+ paragraphs), Egypt Country Brief,
-UAE Country Brief, Eschatology and Geopolitics, Business Opportunities.
+**Three user tiers:**
+- Free: Basic access (NAI expressed scores, scenario bars, 5 disinformation entries)
+- Informed (~$9/month): Egypt + UAE country reports, full NAI, full disinformation tracker
+- Professional (~$29/month): All 20+ countries, Arabic reports, API access, full reports
 
 ---
 
-## The 14 Phases
+## The Stack (for context — not for you to modify)
 
-All 14 phases verified and pushed to main by March 17, 2026 (Day 17 of the conflict).
-
-Phase 1  | CVE patch, Cloudflare Workers migration, environment setup         | VERIFIED
-Phase 2  | 8 database migrations: users, subscriptions, RBAC, config, alerts  | VERIFIED
-Phase 3  | Supabase client factory, auth middleware, typed API layer           | VERIFIED
-Phase 4  | Email system (Resend): 4 templates                                  | VERIFIED
-Phase 5  | 10 public Edge Functions: NAI, country, scenarios, disinfo, dispute | VERIFIED
-Phase 6  | 6 admin Edge Functions + AI agent panel                             | VERIFIED
-Phase 7  | Frontend tier gating on all existing components                     | VERIFIED
-Phase 8  | Auth pages, password reset, account page, pricing page              | VERIFIED
-Phase 9  | Admin panel layout + 5 core pages                                   | VERIFIED
-Phase 10 | 12 remaining admin pages + AI agent (Zustand, role-scoped)          | VERIFIED
-Phase 11 | GitHub Actions daily pipeline, scenario detection, alerting          | VERIFIED
-Phase 12 | Stripe: 9 prices, 3 currencies, Customer Portal, webhooks           | VERIFIED
-Phase 13 | Security hardening: CSP headers, Cloudflare WAF, secret audit       | VERIFIED
-Phase 14 | Integration tests, go-live checklist, all 10 hard gates passed      | VERIFIED
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 15.2.3+ / TypeScript / Tailwind |
+| Database | Supabase PostgreSQL |
+| Hosting | Cloudflare Workers (OpenNext) |
+| Auth | Supabase Auth (@supabase/ssr) |
+| Payments | Stripe (3 tiers × 3 currencies) |
+| Email | Resend |
+| Edge Functions | 16 total (10 public + 6 admin) |
 
 ---
 
-## Two Claude Systems — Do Not Confuse Them
+## The Daily Intelligence Pipeline
 
-There are two Claude-powered systems on this project.
+The platform runs an automated 5-stage pipeline every day at 06:00 UTC:
 
-1. Your collaboration session (this folder)
-   - Strategic analytical partner for Omar
-   - Works on IDEAS.md, SCENARIOS.md, DEBATES.md
-   - No access to the platform, database, or admin panel
-   - Governed by CLAUDE_INSTRUCTIONS.md
+1. **Fetch** — Perplexity AI pulls from 94+ RSS sources across 20+ countries
+2. **Analysis** — Claude Sonnet produces NAI scores and country reports
+3. **DB Write** — Results written to Supabase (idempotent — safe to re-run)
+4. **Reports** — 11 files generated: 5 English .docx + 5 Arabic .docx + 1 SQL
+5. **Scenario Detection** — Checks if a genuinely new scenario (F, G...) has emerged
 
-2. Admin panel AI agent (embedded in /admin on the platform)
-   - Operational assistant for platform management
-   - Can trigger pipelines, edit RSS sources, manage users, update config
-   - Cannot touch scenarios or disinformation (structural neutrality)
-   - Every action logged to immutable audit_log
-   - Scoped to the RBAC role of whoever is logged in
+**Scenario detection rules** (all three required for a new scenario):
+1. Named by ≥2 independent sources in today's data
+2. New state actor entering OR new instrument category (nuclear/chemical/ground/second front)
+3. NOT reducible to existing scenarios A-E
 
----
-
-## RBAC Roles (5 roles)
-
-SUPER_ADMIN (Omar): everything, no restrictions
-INTEL_ANALYST: pipeline, NAI scores, country reports, RSS sources, alerts
-USER_MANAGER: users, subscriptions, API keys, disputes
-FINANCE_MANAGER: payments, pricing config, subscription view
-CONTENT_REVIEWER: country reports and feed, view only
-
-The AI agent inherits the logged-in admin role exactly.
-Agent NEVER touches: scenario_probabilities, disinformation_tracker (structural neutrality).
+Candidates go to `detected_scenarios` with `status='candidate'` — admin approval required.
 
 ---
 
-## Structural Neutrality — The Core Constraint
+## What the Admin AI Agent Does (and Does NOT Do)
 
-Structural neutrality is not a marketing claim. It is an architectural rule enforced at
-the data layer, not just in framing. It governs everything on this platform.
+The admin panel has an AI agent (Claude Sonnet, role-scoped).
 
-What it means in practice:
-- Both expressed and latent sentiment stored — not just one track
-- Casualties ordered by count, highest first (Iran first as of Day 17)
-- Iranian civilian harm from US-Israel strikes included in every brief
-- Scenario framing requires both acting_party_framing AND affected_party_framing
-- Disinformation claims from party sources marked CONTESTED, not DEBUNKED,
-  unless independently verified by AFP, Reuters, HRW, NetBlocks, or PolitiFact
+**It CAN help with:**
+- Adding/removing RSS sources
+- Adjusting pipeline schedules
+- Tier feature flag changes
+- User management
+- Reviewing audit logs
 
-Official operation names used for all parties:
-- US: Operation Epic Fury
-- Israel: Operation Roaring Lion
-- Iran/IRGC: Operation True Promise IV
-- Iran counter-narrative: Operation Epic Mistake
-- Hezbollah: joint with Iran under True Promise IV, no separate codename
-- Houthis: support front, no formal codename
+**It CANNOT touch (by design):**
+- `scenario_probabilities` table — that's the intelligence layer, not the ops layer
+- `disinformation_tracker` — same reason
+- These live on the public platform frontend under structural neutrality rules
 
-If your analysis would only pass the NAI rubric from one party's perspective, it fails.
+**Your work** (scenario probabilities, disinformation analysis) is independent of this agent.
 
 ---
 
-## What Collaborators Are NOT Responsible For
+## What This Means for Your Analytical Work
 
-Per CLAUDE_INSTRUCTIONS.md:
-- Do not write or review code
-- Do not access the live platform or Supabase
-- Do not publish anything (Omar approves all publications)
-- Do not manage the admin panel or pipeline
+**Nothing changes.** You operate through this `/collaboration/` folder only.
 
-You are responsible for:
-- Scenario probability assessment (submit independently before reading Omar's)
-- Stress-testing analytical positions (escalate to DEBATES.md when positions conflict)
-- Surfacing blind spots and new angles (log to IDEAS.md with [Next:] tag)
-- NAI compliance checks — self-assess every major analysis piece
-- Business relevance framing for Egypt and UAE operators
+The pipeline produces raw intelligence. You provide the strategic analytical layer:
+- Independent scenario probability assessments (SCENARIOS.md)
+- Methodology challenges and stress-tests
+- Blind spot identification
+- Post-conflict viability analysis (currently the open question in IDEAS.md)
+
+The platform *publishes* analysis. You *improve* analysis. Those are separate jobs.
 
 ---
 
-## Current Platform Status (Day 17 — March 17, 2026)
+## Current Build Decisions (summary — full log in DECISIONS.md)
 
-Platform:  Live and verified. All 14 phases pushed to main.
-Pipeline:  Running daily 06:00 UTC. 94+ sources, 20 countries.
-Launch:    Soft launch — 5 trusted users before going public.
-Next:      First real subscriber. Stripe live mode verification.
-
-Intelligence snapshot:
-- Conflict day:    17 (Day 1 = February 28, 2026)
-- Scenario probs:  A=15% | B=50% | C=25% | D=13% | E=25%
-- Iran blackout:   380+ hours (NetBlocks — worst ever recorded)
-- Brent crude:     $103-106/bbl (+41.5% since Day 1)
-- EGP/USD:         52+ record low
-- Hormuz:          Effectively closed. Iran mining active.
-- Kharg Island:    Military facilities struck March 13. Oil terminals not yet targeted.
-- US KIA:          11 (7 combat + 4 KC-135 non-hostile crash)
-- Iran KIA:        1,444+ (Iran Health Ministry, unverifiable due to blackout)
-
-See SCENARIOS.md for full probability log.
-See IDEAS.md for the active discussion thread.
-See DECISIONS.md for the full decision log.# MENA Intel Desk — Platform Build Reference
-# For collaborators. Read this to understand what has been built.
-# Status: ALL 14 PHASES COMPLETE ✓ | Verified and pushed March 17, 2026
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Deployment | Cloudflare Workers (not Pages) | Full Node.js runtime needed |
+| Email | Resend (not Nodemailer) | Nodemailer incompatible with Workers |
+| Auth | @supabase/ssr (not auth-helpers) | auth-helpers deprecated |
+| Audit log | Immutable — no UPDATE/DELETE | Structural integrity requirement |
+| Scenario detection | status=candidate only | Admin approval required — no auto-publish |
+| Feature flags | All in DB | Runtime changes without redeployment |
 
 ---
 
-## What This Platform Is
+## Key Integrity Rules (structural neutrality at data layer)
 
-MENA Intel Desk is a live OSINT intelligence platform tracking the US-Iran War 2026.
-It is a structured analytical product with three user tiers, an automated intelligence
-pipeline, and an editorial layer governed by structural neutrality.
+These are architectural constraints, not editorial guidelines:
 
-The platform went from concept to fully verified production-ready build across 14 phases.
-This document gives collaborators context on what the platform does, how it works,
-and what is and is not your role within it.
-
----
-
-## Architecture in Plain English
-
-The platform has four layers.
-
-**Layer 1 — Data ingestion**
-An automated Python pipeline runs daily at 06:00 UTC via GitHub Actions.
-It pulls from 94+ RSS sources across 26 seeded outlets in 6 languages (EN, AR, FA, HE, FR, DE).
-Perplexity handles intelligence gathering. Claude handles analysis and structuring.
-Source tiers are enforced per SOURCES.md. Party sources (CENTCOM, IRGC, IDF, PressTV)
-require independent corroboration before any claim is marked confirmed.
-
-**Layer 2 — Intelligence database (Supabase)**
-All intelligence is stored in PostgreSQL. Key tables:
-- nai_scores: NAI scores for 20 countries, dual-track expressed vs latent
-- country_reports: Full intelligence briefs per country per conflict day
-- scenario_probabilities: A/B/C/D/E probabilities, one row per conflict day
-- disinformation_tracker: Claims with verification status and source attribution
-- detected_scenarios: New scenarios from pipeline — require admin approval to go live
-
-**Layer 3 — The platform**
-Next.js 15 frontend on Cloudflare Workers. Three user tiers:
-- Free: expressed NAI scores, scenario probability bars, 5 disinformation entries
-- Informed ($9/mo): latent scores, gap analysis, Egypt + UAE full reports, scenario detail
-- Professional ($29/mo): all countries, API access, downloadable reports
-
-**Layer 4 — The report suite (11 files per day)**
-5 English .docx + 5 Arabic .docx + 1 SQL platform update, generated daily.
-Reports: General Intelligence Brief (350+ paragraphs, 7 geopolitical zones),
-Egypt Country Brief, UAE Country Brief, Eschatology & Geopolitics, Business Opportunities.
+- `nai_scores` has NO velocity column — velocity computed at display only
+- `scenario_probabilities` is ONE ROW per conflict_day (not one per scenario)
+- Disinformation: CONTESTED for party-source-only claims — never DEBUNKED without independent verification
+- All new scenarios require `acting_party_framing` AND `affected_party_framing`
+- The AI admin agent is explicitly prohibited from modifying the above
 
 ---
 
-## The 14 Phases — What Was Built
-
-All 14 phases verified and pushed to main by March 17, 2026 (conflict Day 17).
-
-Phase 1  — CVE patch, Cloudflare Workers migration, environment setup          VERIFIED
-Phase 2  — 8 database migrations: users, subscriptions, RBAC, config, alerts   VERIFIED
-Phase 3  — Supabase client factory, auth middleware, typed API layer            VERIFIED
-Phase 4  — Email system (Resend): welcome, payment, past-due, alert templates   VERIFIED
-Phase 5  — 10 public Edge Functions: NAI, country, scenarios, disinfo, dispute  VERIFIED
-Phase 6  — 6 admin Edge Functions: pipeline, users, config, sources, agent      VERIFIED
-Phase 7  — Frontend tier gating on all existing components                      VERIFIED
-Phase 8  — Auth pages, password reset, account page, pricing page               VERIFIED
-Phase 9  — Admin panel layout + 5 core pages                                    VERIFIED
-Phase 10 — 12 remaining admin pages + AI agent panel (Zustand, role-scoped)    VERIFIED
-Phase 11 — GitHub Actions daily pipeline, scenario detection, failure alerting  VERIFIED
-Phase 12 — Stripe: 9 prices, 3 currencies, Customer Portal, webhooks           VERIFIED
-Phase 13 — Security hardening: CSP headers, Cloudflare WAF, secret audit       VERIFIED
-Phase 14 — Integration tests, go-live checklist, all 10 hard gates passed       VERIFIED
+*Last updated: 2026-03-18 (Day 19) by Omar*
