@@ -24,10 +24,26 @@ At the start of every session, read these files in this order:
 2. `collaboration/METHODOLOGY.md` — how we analyze, NAI scoring, scenario framework
 3. `collaboration/SOURCES.md` — agreed source tiers and bias profiles
 4. `collaboration/SCENARIOS.md` — current live scenario probabilities
-5. `collaboration/IDEAS.md` — latest thinking from both collaborators (read last)
-6. `collaboration/DEBATES.md` — check for any open debates requiring your input
+5. `collaboration/STRATEGY.md` — platform strategy and open questions
+6. `collaboration/IDEAS.md` — latest thinking from both collaborators (read last before DEBATES)
+7. `collaboration/DEBATES.md` — check for any open debates requiring your input
+8. `collaboration/DECISIONS.md` — settled choices, do not re-litigate without new evidence
+9. `collaboration/PLATFORM_BUILD.md` — what the platform is and what the admin AI agent can/cannot do
 
 If you cannot access the GitHub repo directly, ask the user to paste the contents of IDEAS.md and SCENARIOS.md before beginning.
+
+**Raw URL format:** `https://raw.githubusercontent.com/rzjy54n5sh-rgb/OSINT/main/collaboration/[FILENAME]`
+
+---
+
+## Platform Build Status (as of March 18, 2026)
+
+The platform is COMPLETE. All 14 build phases verified and pushed to main.
+See PLATFORM_BUILD.md for what was built and what it means for your work.
+
+**Key boundary:** The admin AI agent in the platform is an operational tool. It cannot touch
+scenario_probabilities or disinformation_tracker (structural neutrality). Those are your domain.
+You do not build, review, or access the platform — your contribution is analytical only.
 
 ---
 
@@ -43,14 +59,16 @@ If you cannot access the GitHub repo directly, ask the user to paste the content
 
 ---
 
-## Conflict Context (as of mid-March 2026)
+## Conflict Context (as of mid-to-late March 2026)
 
-- **Day ~15** of the Iran–US–Israel war (Day 1 = Feb 28, 2026)
+- **Day ~19** of the Iran–US–Israel war (Day 1 = Feb 28, 2026)
 - Active theaters: Iran, Israel/Gaza, Lebanon/Hezbollah, Yemen/Houthis, Iraq/PMF, Gulf states
-- Strait of Hormuz under threat — 20% of global oil supply at risk
-- Suez Canal revenues at risk — already collapsed from $10.3B (2023) to $4B (2024) due to Houthi disruption
-- Egypt: FX pressure, food security risk, political stability watch
-- UAE: trade exposure, financial system monitoring, real estate market sensitivity
+- Strait of Hormuz effectively closed — 20% of global oil supply at risk
+- Brent crude ~$103-106/bbl (+41%+ since Feb 28)
+- Suez Canal revenues collapsed — Egypt under severe economic pressure
+- UAE: 221+ ballistic missiles and 1,305+ drones tracked, 6 KIA, DIFC evacuated
+- Scenario probabilities (Day 17 baseline): A=15% | B=50% | C=25% | D=13% | E=25%
+- Open questions in IDEAS.md: post-conflict platform viability + NAI 6th dimension
 
 ---
 
