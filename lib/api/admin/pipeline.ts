@@ -28,12 +28,12 @@ export async function getPipelineRuns(
 export async function triggerPipeline(
   stage: string,
   token: string,
-  payload?: { conflictDay?: number }
+  payload?: { conflictDay?: number } & Record<string, unknown>
 ): Promise<{ runId: string }> {
   return adminFetch<{ runId: string }>('admin-pipeline', {
     method: 'POST',
     token,
-    body: { stage, conflictDay: payload?.conflictDay },
+    body: { stage, conflictDay: payload?.conflictDay, ...(payload ?? {}) },
   });
 }
 

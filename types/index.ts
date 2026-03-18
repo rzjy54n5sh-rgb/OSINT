@@ -80,9 +80,9 @@ export interface NaiScore {
   latent_score?: number;
   gap_size?: number;
   category?: string;
-  velocity?: 'up' | 'down' | 'stable';
+  velocity?: string;
   velocity_delta?: number;
-  updated_at: string;
+  updated_at?: string;
   _tier_note?: string;
 }
 
@@ -92,8 +92,8 @@ export interface CountryReport {
   nai_score: number;
   nai_category: string;
   conflict_day: number;
-  updated_at: string;
-  content_json: unknown | null;
+  updated_at?: string;
+  content_json?: unknown | null;
   _tier_note?: string;
 }
 
@@ -316,8 +316,10 @@ export interface FeedTestResult {
 export interface AuditFilters {
   admin_id?: string;
   action_type?: string;
-  from?: string;
-  to?: string;
+  target_type?: string;
+  since?: string;
+  until?: string;
+  ai_only?: boolean;
   page?: number;
   limit?: number;
 }

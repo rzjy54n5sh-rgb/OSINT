@@ -43,13 +43,14 @@ export interface ScenarioProbability {
 }
 
 export interface CountryReport {
-  id: string;
+  id?: string;
   country_code: string;
   country_name: string | null;
   nai_score: number | null;
   nai_category: string | null;
-  content_json: Record<string, unknown> | null;
+  content_json?: Record<string, unknown> | null;
   conflict_day: number | null;
+  updated_at?: string | null;
 }
 
 export interface DisinfoClaim {

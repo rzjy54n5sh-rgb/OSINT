@@ -209,7 +209,7 @@ export function NaiMapClient({
                   style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
                 >
                   <div className="flex items-center gap-2 flex-wrap">
-                    <NaiScoreBadge category={s.category} score={s.expressed_score} />
+                    <NaiScoreBadge category={s.category ?? '—'} score={s.expressed_score} />
                     <span translate="no">{s.country_code}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--text-muted)' }}>
