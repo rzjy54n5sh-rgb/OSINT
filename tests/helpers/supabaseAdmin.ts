@@ -85,13 +85,52 @@ export async function createConfirmedTestUser(runTag: string): Promise<CreatedTe
   const email = `prod-e2e-${stamp}-${rnd}@example.com`;
   const password = `Test!${rnd}aA1`;
 
-  const created = await authAdmin<{ id: string }>('POST', '/admin/users', {
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: { test_run: runTag, purpose: 'prod-e2e' },
-    app_metadata: { test_run: runTag, purpose: 'prod-e2e' },
-  });
+  // Some Supabase projects have auth triggers that are sensitive to metadata shape.
+  // Try a richer payload first, then fall back to minimal if creation fails.
+  let created: { id: string } | null = null;
+  const payloads: Array<Record<string, unknown>> = [
+    {
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        test_run: runTag,
+        purpose: 'prod-e2e',
+        full_name: `prod-e2e ${stamp}`,
+        country: 'AE',
+      },
+      app_metadata: {
+        provider: 'email',
+        test_run: runTag,
+        purpose: 'prod-e2e',
+      },
+    },
+    {
+      email,
+      password,
+      email_confirm: true,
+      app_metadata: { provider: 'email' },
+    },
+    {
+      email,
+      password,
+      email_confirm: true,
+    },
+  ];
+
+  let lastErr: unknown;
+  for (const p of payloads) {
+    try {
+      created = await authAdmin<{ id: string }>('POST', '/admin/users', p);
+      lastErr = undefined;
+      break;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (!created) {
+    throw lastErr instanceof Error ? lastErr : new Error('Failed to create test user');
+  }
 
   // Ensure public.users row exists (some setups use trigger; still safe to upsert minimal)
   try {
