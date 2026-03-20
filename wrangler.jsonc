@@ -1,7 +1,17 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "mena-intel-desk",
+  "main": ".open-next/worker.js",
   "compatibility_date": "2026-03-20",
   "compatibility_flags": ["nodejs_compat"],
-  "assets": { "directory": ".open-next/assets" },
-  "vars": { "WORKER_SELF_REFERENCE": "https://mena-intel-desk.pages.dev" }
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "mena-intel-desk"
+    }
+  ]
 }
