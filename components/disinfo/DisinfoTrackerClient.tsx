@@ -28,6 +28,8 @@ type ClaimRow = {
   source?: string;
   source_url?: string;
   debunk_url?: string;
+  /** Alias for spread_estimate from server map */
+  spread?: string | number | null;
   spread_estimate?: string | number | null;
   created_at?: string;
 };
@@ -108,13 +110,16 @@ export function DisinfoTrackerClient({
                       {c.verdict ?? c.status ?? 'UNVERIFIED'}
                     </span>
                   </GlossaryTooltip>
-                  {c.spread_estimate != null && (
+                  {(c.spread ?? c.spread_estimate) != null && (
                     <span
                       className="font-mono text-xs px-2 py-0.5 border rounded-sm"
                       style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
                       translate="no"
                     >
-                      📡 {typeof c.spread_estimate === 'string' ? c.spread_estimate : String(c.spread_estimate)}
+                      📡{' '}
+                      {typeof (c.spread ?? c.spread_estimate) === 'string'
+                        ? (c.spread ?? c.spread_estimate)
+                        : String(c.spread ?? c.spread_estimate)}
                     </span>
                   )}
                 </div>

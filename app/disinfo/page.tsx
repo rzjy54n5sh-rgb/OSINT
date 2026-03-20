@@ -15,7 +15,7 @@ function verdictToStatus(verdict: string | null | undefined): string {
     case 'UNVERIFIED':
       return 'UNVERIFIED';
     default:
-      return verdict?.trim() ? verdict.toUpperCase() : 'UNVERIFIED';
+      return verdict ?? 'UNVERIFIED';
   }
 }
 
@@ -39,8 +39,9 @@ export default async function DisinfoPage() {
   const hasFullAccess = tierHasFeature(user?.tier, 'disinformation_full', flags);
   const isFreeUser = !hasFullAccess;
 
-  const { data, error, count } = await supabase
+  const { data, count } = await supabase
     .from('disinfo_claims')
+    // debunk_url included for DEBUNK link in UI (not in minimal spec but present in DB)
     .select('id, claim_text, verdict, source_url, debunk_url, spread_estimate, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .limit(isFreeUser ? 5 : 200);
@@ -56,6 +57,7 @@ export default async function DisinfoPage() {
       status,
       verdict: status,
       source: row.source_url ?? '',
+      spread: row.spread_estimate,
       debunk_url: row.debunk_url ?? undefined,
       spread_estimate: row.spread_estimate,
       created_at: row.created_at,
