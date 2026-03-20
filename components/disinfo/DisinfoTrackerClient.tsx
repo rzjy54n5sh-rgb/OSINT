@@ -1,12 +1,12 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PageBriefing } from '@/components/PageBriefing';
 import { DisinfoDisputeForm } from './DisinfoDisputeForm';
+import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 
 const VERDICT_DEFS: Record<string, string> = {
   FALSE: 'Claim has been definitively debunked by primary sources or direct contradiction',
@@ -23,6 +23,7 @@ type ClaimRow = {
   conflict_day?: number;
   claim?: string;
   claim_text?: string;
+  status?: string;
   verdict?: string;
   source?: string;
   source_url?: string;
@@ -46,12 +47,16 @@ export function DisinfoTrackerClient({
   showing,
   conflictDayBadge,
 }: DisinfoTrackerClientProps) {
-  const verdictClass = (v: string | null) => {
-    const vv = (v ?? '').toUpperCase();
-    if (vv === 'TRUE' || vv === 'CONFIRMED') return 'sentiment-badge positive';
-    if (vv === 'FALSE' || vv === 'DEBUNKED') return 'sentiment-badge negative';
-    if (vv === 'MISLEADING' || vv === 'CONTESTED') return 'sentiment-badge neutral';
-    return 'sentiment-badge neutral';
+  /** Badge styles: DEBUNKED / CONTESTED / CONFIRMED / UNVERIFIED (+ legacy DB verdicts). */
+  const verdictBadgeClass = (v: string | null | undefined) => {
+    const vv = (v ?? 'UNVERIFIED').toUpperCase();
+    if (vv === 'DEBUNKED' || vv === 'FALSE')
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-red-900/30 text-red-400 border-red-700';
+    if (vv === 'CONTESTED' || vv === 'MISLEADING')
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-amber-900/30 text-amber-400 border-amber-700';
+    if (vv === 'CONFIRMED' || vv === 'TRUE')
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-green-900/30 text-green-400 border-green-700';
+    return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-white/5 text-white/40 border-white/20';
   };
 
   return (
@@ -91,10 +96,17 @@ export function DisinfoTrackerClient({
                 </p>
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <GlossaryTooltip
-                    term={c.verdict ?? 'UNVERIFIED'}
-                    definition={VERDICT_DEFS[(c.verdict ?? 'UNVERIFIED').toUpperCase()] ?? VERDICT_DEFS.UNVERIFIED}
+                    term={c.verdict ?? c.status ?? 'UNVERIFIED'}
+                    definition={
+                      VERDICT_DEFS[(c.verdict ?? c.status ?? 'UNVERIFIED').toUpperCase()] ?? VERDICT_DEFS.UNVERIFIED
+                    }
                   >
-                    <span className={`cursor-help ${verdictClass(c.verdict ?? null)}`} translate="no">{c.verdict ?? 'UNVERIFIED'}</span>
+                    <span
+                      className={`cursor-help ${verdictBadgeClass(c.verdict ?? c.status ?? null)}`}
+                      translate="no"
+                    >
+                      {c.verdict ?? c.status ?? 'UNVERIFIED'}
+                    </span>
                   </GlossaryTooltip>
                   {c.spread_estimate != null && (
                     <span
@@ -121,26 +133,22 @@ export function DisinfoTrackerClient({
               </OsintCard>
             </motion.div>
           ))}
-          {!hasFullAccess && total > 5 && (
+          {!hasFullAccess && total > showing && (
             <div
-              className="font-mono text-sm py-4 px-4 rounded-sm border flex flex-wrap items-center justify-between gap-2"
+              className="font-mono text-sm py-4 px-4 rounded-sm border flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
               style={{
                 background: 'rgba(232, 197, 71, 0.05)',
                 borderColor: '#E8C547',
                 color: '#E2E8F0',
               }}
             >
-              <span>
-                <span style={{ color: '#E8C547' }}>◆</span>{' '}
-                <span translate="no">{total - showing}</span> more entries — Informed plan required
+              <span translate="no">
+                <span style={{ color: '#E8C547' }}>◆</span> {total - showing} more claims locked
               </span>
-              <Link
-                href="/pricing"
-                className="border px-3 py-1.5 rounded-sm hover:opacity-90 transition-opacity"
-                style={{ borderColor: '#E8C547', color: '#E8C547' }}
-              >
-                Upgrade to see all →
-              </Link>
+              <div className="flex flex-col gap-2 sm:items-end">
+                <p className="font-mono text-xs text-white/70">Upgrade to Informed for full access</p>
+                <PaywallOverlay requiredTier="informed" featureName="Disinformation tracker" compact />
+              </div>
             </div>
           )}
         </div>

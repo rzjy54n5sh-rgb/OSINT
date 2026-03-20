@@ -4,30 +4,30 @@ import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { DisinfoTrackerClient } from '@/components/disinfo/DisinfoTrackerClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 
-type DisinfoRow = {
-  id: string;
-  conflict_day?: number;
-  claim?: string;
-  verdict?: string;
-  source?: string;
-  debunk_url?: string;
-  spread_estimate?: string | number | null;
-  created_at?: string;
-};
-
-function mapDisinfoRecord(r: Record<string, unknown>): DisinfoRow {
-  const verdictRaw = String(r.status ?? r.verdict ?? 'UNVERIFIED').toUpperCase();
-  return {
-    id: String(r.id),
-    conflict_day: typeof r.conflict_day === 'number' ? r.conflict_day : undefined,
-    claim: String(r.claim_text ?? r.claim ?? ''),
-    verdict: verdictRaw,
-    source: String(r.source_url ?? r.source ?? ''),
-    debunk_url: r.debunk_url != null ? String(r.debunk_url) : undefined,
-    spread_estimate: r.spread_estimate as string | number | null | undefined,
-    created_at: r.created_at != null ? String(r.created_at) : undefined,
-  };
+function verdictToStatus(verdict: string | null | undefined): string {
+  switch (verdict?.toUpperCase()) {
+    case 'FALSE':
+      return 'DEBUNKED';
+    case 'MISLEADING':
+      return 'CONTESTED';
+    case 'TRUE':
+      return 'CONFIRMED';
+    case 'UNVERIFIED':
+      return 'UNVERIFIED';
+    default:
+      return verdict?.trim() ? verdict.toUpperCase() : 'UNVERIFIED';
+  }
 }
+
+type DisinfoClaimDbRow = {
+  id: string;
+  claim_text: string;
+  verdict: string | null;
+  source_url: string | null;
+  debunk_url: string | null;
+  spread_estimate: string | null;
+  created_at: string;
+};
 
 export default async function DisinfoPage() {
   const [user, supabase] = await Promise.all([getUser(), createClient()]);
@@ -37,41 +37,37 @@ export default async function DisinfoPage() {
     .select('feature_key, free_access, informed_access, pro_access');
   const flags = buildTierFlags(tierRows ?? []);
   const hasFullAccess = tierHasFeature(user?.tier, 'disinformation_full', flags);
+  const isFreeUser = !hasFullAccess;
 
-  let rawRows: Record<string, unknown>[] | null = null;
-  let totalCount: number | null = null;
+  const { data, error, count } = await supabase
+    .from('disinfo_claims')
+    .select('id, claim_text, verdict, source_url, debunk_url, spread_estimate, created_at', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .limit(isFreeUser ? 5 : 200);
 
-  const primary = await supabase
-    .from('disinformation_tracker')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false });
+  const rows = (data ?? []) as DisinfoClaimDbRow[];
+  const total = count ?? rows.length;
 
-  if (!primary.error && primary.data) {
-    rawRows = primary.data as Record<string, unknown>[];
-    totalCount = primary.count;
-  } else {
-    const fallback = await supabase
-      .from('disinfo_claims')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false });
-    if (!fallback.error && fallback.data) {
-      rawRows = fallback.data as Record<string, unknown>[];
-      totalCount = fallback.count;
-    }
-  }
-
-  const mapped = (rawRows ?? []).map(mapDisinfoRecord);
-  const limit = hasFullAccess ? 500 : 5;
-  const data = mapped.slice(0, limit);
-  const total = totalCount ?? mapped.length;
-  const showing = data.length;
+  const mapped = rows.map((row) => {
+    const status = verdictToStatus(row.verdict);
+    return {
+      id: row.id,
+      claim: row.claim_text,
+      status,
+      verdict: status,
+      source: row.source_url ?? '',
+      debunk_url: row.debunk_url ?? undefined,
+      spread_estimate: row.spread_estimate,
+      created_at: row.created_at,
+    };
+  });
 
   return (
     <DisinfoTrackerClient
-      claims={data}
+      claims={mapped}
       hasFullAccess={hasFullAccess}
       total={total}
-      showing={showing}
+      showing={mapped.length}
       conflictDayBadge={<ConflictDayBadge />}
     />
   );
