@@ -12,7 +12,7 @@ Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const dayParam = url.searchParams.get("day");
   const country = url.searchParams.get("country") || "";
-  const conflictDay = dayParam ? parseInt(dayParam, 10) : null;
+  const conflictDayParam = dayParam ? parseInt(dayParam, 10) : null;
 
   const auth = await authenticate(req);
   const flags = await getFeatureFlags();
@@ -20,23 +20,57 @@ Deno.serve(async (req: Request) => {
   const canSeeFull = tierHasFeature(tier, "nai_expressed_score", flags) && tier !== "free";
   const supabase = serviceClient();
 
-  let query = supabase.from("nai_scores").select("country_code, conflict_day, expressed_score, latent_score, gap_size, category, updated_at");
-  if (conflictDay != null) query = query.eq("conflict_day", conflictDay);
-  if (country) query = query.eq("country_code", country);
-  query = query.order("conflict_day", { ascending: false }).limit(country ? 1 : 200);
+  let currentDay = conflictDayParam;
+  if (currentDay == null || !Number.isFinite(currentDay)) {
+    const { data: latest } = await supabase
+      .from("nai_scores")
+      .select("conflict_day")
+      .order("conflict_day", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    currentDay = (latest?.conflict_day as number | undefined) ?? null;
+  }
 
-  const { data: rows, error } = await query;
+  if (currentDay == null || currentDay < 1) {
+    const res: Record<string, unknown> = { data: [], conflictDay: 0, tier, total: 0 };
+    if (tier === "free") res._tier_note = "Upgrade to Informed or Pro for latent score, gap, and category.";
+    return jsonResponse(res, 200, origin);
+  }
+
+  const prevDay = currentDay - 1;
+  let query = supabase
+    .from("nai_scores")
+    .select("country_code, conflict_day, expressed_score, latent_score, gap_size, category, updated_at")
+    .in("conflict_day", [currentDay, prevDay]);
+  if (country) query = query.eq("country_code", country);
+  const { data: rows, error } = await query.order("conflict_day", { ascending: false });
   if (error) {
     return jsonResponse({ error: error.message }, 500, origin);
   }
 
-  const day = conflictDay ?? (rows?.[0]?.conflict_day as number | undefined) ?? 0;
-  let data: unknown[] = (rows || []).map((r: Record<string, unknown>) => {
+  const list = rows || [];
+  const todayScores = list.filter((r: { conflict_day: number }) => r.conflict_day === currentDay);
+  const yesterdayMap = new Map(
+    list
+      .filter((r: { conflict_day: number }) => r.conflict_day === prevDay)
+      .map((r: { country_code: string; expressed_score: number }) => [r.country_code, r.expressed_score]),
+  );
+
+  const withDeltas = todayScores.map((r: Record<string, unknown>) => {
+    const code = r.country_code as string;
+    const exp = r.expressed_score as number;
+    const prev = yesterdayMap.get(code);
+    const delta = prev !== undefined ? exp - prev : null;
+    return { ...r, delta };
+  });
+
+  let data: unknown[] = withDeltas.map((r: Record<string, unknown>) => {
     const out: Record<string, unknown> = {
       country_code: r.country_code,
       conflict_day: r.conflict_day,
       expressed_score: r.expressed_score,
       updated_at: r.updated_at,
+      delta: r.delta,
     };
     if (canSeeFull) {
       out.latent_score = r.latent_score;
@@ -49,26 +83,23 @@ Deno.serve(async (req: Request) => {
   });
 
   if (canSeeFull && data.length > 0) {
-    const prevDay = day - 1;
-    const { data: prevRows } = await supabase.from("nai_scores").select("country_code, expressed_score").eq("conflict_day", prevDay);
-    const prevMap = new Map((prevRows || []).map((r: Record<string, unknown>) => [r.country_code, r.expressed_score as number]));
     data = data.map((row: Record<string, unknown>) => {
-      const code = row.country_code as string;
-      const current = (row.expressed_score as number) ?? 0;
-      const prev = prevMap.get(code);
-      if (prev == null) return { ...row, velocity: "stable" as const, velocity_delta: 0 };
-      const delta = Math.round((current - prev) * 10) / 10;
-      const velocity = delta > 2 ? "up" : delta < -2 ? "down" : "stable";
-      return { ...row, velocity, velocity_delta: delta };
+      const d = row.delta as number | null;
+      if (d == null) return { ...row, velocity: "stable" as const, velocity_delta: 0 };
+      const velocity_delta = Math.round(d * 10) / 10;
+      const velocity = velocity_delta > 2 ? "up" : velocity_delta < -2 ? "down" : "stable";
+      return { ...row, velocity, velocity_delta };
     });
   }
 
   const res: Record<string, unknown> = {
     data,
-    conflictDay: day,
+    conflictDay: currentDay,
     tier,
     total: data.length,
   };
-  if (tier === "free") res._tier_note = "Upgrade to Informed or Pro for latent score, gap, category, and velocity.";
+  if (tier === "free") {
+    res._tier_note = "Upgrade to Informed or Pro for latent score, gap, and category.";
+  }
   return jsonResponse(res, 200, origin);
 });

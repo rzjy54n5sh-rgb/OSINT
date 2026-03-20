@@ -5,6 +5,7 @@ import { getNaiScores } from '@/lib/api/nai';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiMapClient } from '@/components/nai/NaiMapClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
+import type { NaiScore } from '@/types';
 
 export default async function NaiMapPage({
   searchParams,
@@ -29,10 +30,10 @@ export default async function NaiMapPage({
   const hasLatentAccess = tierHasFeature(user?.tier, 'nai_latent_score', flags);
   const hasGapAccess = tierHasFeature(user?.tier, 'nai_gap_analysis', flags);
 
-  let scores: Array<{ country_code: string; conflict_day: number; expressed_score: number; latent_score?: number; gap_size?: number; category?: string; velocity?: string; velocity_delta?: number }> = [];
+  let scores: NaiScore[] = [];
   try {
     const res = await getNaiScores(conflictDay, token ?? undefined);
-    scores = (res?.data ?? []) as typeof scores;
+    scores = (res?.data ?? []) as NaiScore[];
   } catch {
     scores = [];
   }

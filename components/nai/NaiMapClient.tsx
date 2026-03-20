@@ -11,6 +11,7 @@ import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
+import { NaiDelta } from '@/components/ui/NaiDelta';
 import { createClient } from '@/lib/supabase/client';
 import { PageBriefing } from '@/components/PageBriefing';
 import { PageShareButton, buildNaiMapShareText } from '@/components/PageShareButton';
@@ -221,9 +222,15 @@ export function NaiMapClient({
                     <NaiScoreBadge category={s.category ?? '—'} score={s.expressed_score} />
                     <span translate="no">{s.country_code}</span>
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--text-muted)' }}>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center" style={{ color: 'var(--text-muted)' }}>
                     <span translate="no">
                       EXP <span translate="no">{s.expressed_score}</span>
+                    </span>
+                    <span className="hidden sm:inline-flex items-center gap-1">
+                      <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                        ΔDAY
+                      </span>
+                      <NaiDelta delta={s.delta ?? null} />
                     </span>
                     {hasLatentAccess ? (
                       <span translate="no">
@@ -258,6 +265,12 @@ export function NaiMapClient({
               </li>
             ))}
           </ul>
+          <p className="mt-3 font-mono text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            <span className="hidden sm:inline">
+              ↑↓ = change in expressed score vs previous conflict day. ⚠ = movement of 10+ points.
+            </span>
+            <span className="sm:hidden">↑↓ vs prior conflict day (ΔDAY hidden on small screens).</span>
+          </p>
         </aside>
         {selectedCountry && (
           <div

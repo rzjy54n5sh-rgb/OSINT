@@ -77,6 +77,8 @@ export interface NaiScore {
   country_code: string;
   conflict_day: number;
   expressed_score: number;
+  /** Expressed delta vs previous conflict day (all tiers; null if no prior row). */
+  delta?: number | null;
   latent_score?: number;
   gap_size?: number;
   category?: string;
