@@ -6,6 +6,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import type { User } from '@/types';
+import { applySecurityHeaders } from '@/lib/security-headers';
 
 export async function updateSession(request: NextRequest): Promise<{
   supabaseResponse: NextResponse;
@@ -16,10 +17,13 @@ export async function updateSession(request: NextRequest): Promise<{
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
   if (!url || !anonKey) {
-    return { supabaseResponse: NextResponse.next({ request }), user: null };
+    const res = NextResponse.next({ request });
+    applySecurityHeaders(res);
+    return { supabaseResponse: res, user: null };
   }
 
   const response = NextResponse.next({ request });
+  applySecurityHeaders(response);
   const supabase = createServerClient(url, anonKey, {
     cookies: {
       getAll() {

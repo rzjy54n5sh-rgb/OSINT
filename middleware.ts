@@ -3,11 +3,13 @@
  * 1. Refresh Supabase session on every request (@supabase/ssr requirement).
  * 2. Protect /admin/* — redirect unauthenticated or non-admin users.
  * Layer 2: each admin Server Component must still verify independently (Phase 9).
+ * Security headers (CSP, X-Frame-Options, etc.) are applied at Worker level via applySecurityHeaders.
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { updateSession } from '@/utils/supabase/middleware';
+import { applySecurityHeaders } from '@/lib/security-headers';
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
@@ -20,13 +22,17 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     const redirect = new URL('/login', request.url);
     redirect.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(redirect);
+    const res = NextResponse.redirect(redirect);
+    applySecurityHeaders(res);
+    return res;
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const res = NextResponse.redirect(new URL('/', request.url));
+    applySecurityHeaders(res);
+    return res;
   }
 
   const admin = createClient(url, serviceKey, {
@@ -40,7 +46,9 @@ export async function middleware(request: NextRequest) {
     .maybeSingle();
 
   if (!adminRow) {
-    return NextResponse.redirect(new URL('/', request.url));
+    const res = NextResponse.redirect(new URL('/', request.url));
+    applySecurityHeaders(res);
+    return res;
   }
 
   supabaseResponse.headers.set('x-admin-role', adminRow.role);

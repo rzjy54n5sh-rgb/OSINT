@@ -35,6 +35,7 @@ env:
   PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
   RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
   ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+  PIPELINE_MODEL: "claude-sonnet-4-6"
 
 jobs:
   pipeline:
@@ -83,10 +84,28 @@ jobs:
           path: /tmp/intel_day_${{ steps.day.outputs.conflict_day }}.json
           retention-days: 7
 
-      - name: Stage 2 — Claude Analysis
+      - name: Run daily analysis (claude-sonnet-4-6 with structured outputs)
         if: github.event.inputs.stage == 'analysis' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
         id: analysis
-        run: python3 .github/workflows/scripts/stage2_analysis.py --day ${{ steps.day.outputs.conflict_day }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CONFLICT_DAY: ${{ steps.day.outputs.conflict_day }}
+        run: |
+          python .github/workflows/scripts/daily_analysis.py
+
+      - name: Alert on pipeline failure
+        if: failure() && steps.analysis.outcome == 'failure'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          CONFLICT_DAY: ${{ steps.day.outputs.conflict_day }}
+        run: |
+          python .github/workflows/scripts/pipeline_alert.py \
+            --stage "daily_analysis" \
+            --day "${{ env.CONFLICT_DAY }}" \
+            --error "Validation failed — hallucination detected. No data written to DB."
 
       - name: Stage 3 — DB Write
         if: github.event.inputs.stage == 'db_write' || github.event.inputs.stage == 'full' || github.event_name == 'schedule'
