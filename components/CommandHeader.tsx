@@ -26,6 +26,7 @@ const NAV_LINKS = [
   { href: '/timeline',  label: 'TIMELINE' },
   { href: '/analytics', label: 'ANALYTICS' },
   { href: '/methodology', label: 'METHODOLOGY' },
+  { href: '/sources', label: 'SOURCES' },
   { href: '/contact',   label: 'CONTACT' },
 ];
 

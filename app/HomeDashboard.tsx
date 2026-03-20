@@ -32,6 +32,7 @@ const QUICK_LINKS = [
   { href: '/timeline', label: 'TIMELINE', description: 'Day-by-day conflict chronology from Day 1 to present' },
   { href: '/analytics', label: 'ANALYTICS', description: 'Mix-and-match chart builder across all data dimensions' },
   { href: '/methodology', label: 'METHODOLOGY', description: 'How this platform works — NAI scoring, scenario framework, data sources, and neutrality principles' },
+  { href: '/sources', label: 'SOURCES', description: 'Full registry of monitored feeds — tiers, languages, and party-source attribution' },
 ];
 
 export default function HomeDashboard({ children }: { children?: ReactNode }) {
