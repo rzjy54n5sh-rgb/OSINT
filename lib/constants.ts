@@ -1,23 +1,26 @@
 /** Calendar start of conflict-day counter (matches pipeline: 2026-02-28). */
 export const CONFLICT_START = '2026-02-28';
 
-/**
- * Conflict day index: (UTC calendar date − Feb 28 2026) + 1, minimum 1.
- * Use where UTC calendar alignment with the pipeline is required.
- */
-export function getConflictDayNumber(d = new Date()): number {
-  const startUtc = Date.UTC(2026, 1, 28);
-  const dayUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  const days = Math.floor((dayUtc - startUtc) / 86400000) + 1;
+function conflictDayFromUtcCalendar(d: Date): number {
+  const nowUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  const startUTC = Date.UTC(2026, 1, 28); // Feb 28 — month 0-indexed
+  const days = Math.floor((nowUTC - startUTC) / (1000 * 60 * 60 * 24)) + 1;
   return Math.max(1, days);
 }
 
-/** Local calendar day offset from CONFLICT_START + 1 (matches Prompt 2 / live badge spec). */
+/**
+ * Conflict day index: UTC calendar days since Feb 28 2026 inclusive (Feb 28 = Day 1).
+ */
+export function getConflictDayNumber(d = new Date()): number {
+  return conflictDayFromUtcCalendar(d);
+}
+
+/**
+ * Same as getConflictDayNumber — used by ConflictDayBadge and scenario day alignment.
+ * Mar 21 2026 UTC → Day 22; Feb 28 2026 UTC → Day 1.
+ */
 export function getConflictDay(): number {
-  const start = new Date(CONFLICT_START);
-  const now = new Date();
-  const raw = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-  return Math.max(1, raw);
+  return conflictDayFromUtcCalendar(new Date());
 }
 
 export function getFormattedConflictDate(): string {

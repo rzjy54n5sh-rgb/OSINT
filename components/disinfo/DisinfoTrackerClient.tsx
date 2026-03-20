@@ -6,12 +6,16 @@ import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PageBriefing } from '@/components/PageBriefing';
+import { DisinfoDisputeForm } from './DisinfoDisputeForm';
 
 const VERDICT_DEFS: Record<string, string> = {
   FALSE: 'Claim has been definitively debunked by primary sources or direct contradiction',
+  DEBUNKED: 'Claim has been definitively debunked by primary sources or direct contradiction',
   UNVERIFIED: 'Claim cannot be confirmed or denied with available open-source evidence',
   TRUE: 'Claim corroborated by multiple independent primary sources',
+  CONFIRMED: 'Claim corroborated by multiple independent primary sources',
   MISLEADING: 'Claim contains factual elements but is presented in a deceptive context',
+  CONTESTED: 'Assessment is disputed; evidence is mixed or interpretation differs across sources',
 };
 
 type ClaimRow = {
@@ -46,7 +50,7 @@ export function DisinfoTrackerClient({
     const vv = (v ?? '').toUpperCase();
     if (vv === 'TRUE' || vv === 'CONFIRMED') return 'sentiment-badge positive';
     if (vv === 'FALSE' || vv === 'DEBUNKED') return 'sentiment-badge negative';
-    if (vv === 'MISLEADING') return 'sentiment-badge neutral';
+    if (vv === 'MISLEADING' || vv === 'CONTESTED') return 'sentiment-badge neutral';
     return 'sentiment-badge neutral';
   };
 
@@ -141,6 +145,8 @@ export function DisinfoTrackerClient({
           )}
         </div>
       )}
+
+      <DisinfoDisputeForm />
     </div>
   );
 }

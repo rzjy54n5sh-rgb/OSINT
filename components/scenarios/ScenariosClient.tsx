@@ -12,6 +12,7 @@ import { useScenarios } from '@/hooks/useScenarios';
 import { GLOSSARY } from '@/lib/glossary';
 import { useI18n } from '@/components/I18nProvider';
 import type { UIStringKey } from '@/lib/i18n';
+import type { ScenarioProbability } from '@/types/supabase';
 import {
   LineChart,
   Line,
@@ -21,6 +22,15 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+
+/** Display names aligned with DB scenario keys (fallback if i18n missing). */
+const SCENARIO_DEFS: Record<'A' | 'B' | 'C' | 'D' | 'E', { name: string; desc: string }> = {
+  A: { name: 'Managed Exit', desc: 'Ceasefire via Xi-Trump / Iran-Oman channel' },
+  B: { name: 'Prolonged War', desc: 'Conflict continues 4+ weeks' },
+  C: { name: 'Cascade', desc: 'Hormuz + Red Sea dual closure' },
+  D: { name: 'Escalation Spiral', desc: 'Iran strikes Gulf oil → $150/bbl' },
+  E: { name: 'UAE Direct Strike', desc: 'UAE hits Iranian missile sites' },
+};
 
 const SCENARIO_META: Record<string, { name: string; description: string; color: string }> = {
   A: {
@@ -59,8 +69,10 @@ type ScenariosClientProps = {
   hasDetailAccess: boolean;
   /** Server-rendered conflict day strip (placed after page &lt;h1&gt;). */
   conflictDayBadge?: ReactNode;
-  /** Full A–D history for shareable trend chart (server-fetched). */
-  scenarioHistory: ScenarioDay[];
+  /** Full history for trend chart (server-fetched; includes scenario_e when present). */
+  scenarioHistory: ScenarioProbability[];
+  /** Latest row from server (correct conflict day or last available) when client fetch is empty. */
+  serverLatest: ScenarioProbability | null;
 };
 
 function scenarioEValue(row: { scenario_e?: number | null } | null): number | null {
@@ -71,15 +83,25 @@ function scenarioEValue(row: { scenario_e?: number | null } | null): number | nu
 
 function scenarioChromeTitle(key: 'A' | 'B' | 'C' | 'D' | 'E', t: (k: UIStringKey) => string): string {
   const m = { A: 'scenarioA', B: 'scenarioB', C: 'scenarioC', D: 'scenarioD', E: 'scenarioE' } as const;
-  return t(m[key]);
+  const label = t(m[key]);
+  if (label && label.trim()) return label;
+  return SCENARIO_DEFS[key].name;
 }
 
-export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHistory }: ScenariosClientProps) {
+export function ScenariosClient({
+  hasDetailAccess,
+  conflictDayBadge,
+  scenarioHistory,
+  serverLatest,
+}: ScenariosClientProps) {
   const { t } = useI18n();
   const { scenarios, loading, error } = useScenarios();
-  const latest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
+  const clientLatest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
+  const latest = clientLatest ?? serverLatest;
   const latestScenarioE = latest ? scenarioEValue(latest) : null;
-  const chartData = scenarios.map((s) => ({
+  const chartSource: ScenarioProbability[] =
+    scenarios.length > 0 ? scenarios : scenarioHistory;
+  const chartData = chartSource.map((s) => ({
     day: s.conflict_day,
     A: s.scenario_a,
     B: s.scenario_b,
@@ -95,37 +117,39 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
         description="Five conflict scenarios are tracked daily. Scenarios A through D sum to 100%. Scenario E (UAE Direct Strike) is an independent sub-branch probability that can overlap with others. Scenarios are updated daily based on observable trigger conditions — not predictions."
         note="Probabilities reflect observable trigger conditions from all parties' actions — not editorial positions. Scenario A includes Iran's stated ceasefire condition (closure/drawdown of US regional military bases) as a required pathway, not only a US-China diplomatic resolution. All parties' official framings are presented alongside independent analysis."
       />
-      <div className="flex flex-wrap items-center gap-4 mb-8">
-        <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
-          {t('scenarios')}
-        </h1>
-        {latest && (
-          <PageShareButton
-            label="SHARE"
-            getCopyText={() =>
-              buildScenariosShareText(
-                latest.scenario_a,
-                latest.scenario_b,
-                latest.scenario_c,
-                latest.scenario_d,
-                latest.conflict_day
-              )
-            }
-          />
-        )}
+      <div className="mb-8">
+        <div className="flex flex-wrap items-center gap-4">
+          <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
+            {t('scenarios')}
+          </h1>
+          {latest && (
+            <PageShareButton
+              label="SHARE"
+              getCopyText={() =>
+                buildScenariosShareText(
+                  latest.scenario_a,
+                  latest.scenario_b,
+                  latest.scenario_c,
+                  latest.scenario_d,
+                  latest.conflict_day
+                )
+              }
+            />
+          )}
+        </div>
+        {conflictDayBadge}
       </div>
-      {conflictDayBadge}
-      {loading && (
+      {loading && !latest && (
         <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
           LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
         </p>
       )}
-      {error && (
+      {error && !latest && (
         <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
           [DATA UNAVAILABLE]
         </div>
       )}
-      {!loading && !error && latest && (
+      {latest && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {(['A', 'B', 'C', 'D'] as const).map((key) => (
@@ -149,7 +173,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
                 />
                 {hasDetailAccess && (
                   <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                    {SCENARIO_META[key].description}
+                    {SCENARIO_META[key].description || SCENARIO_DEFS[key].desc}
                   </p>
                 )}
               </OsintCard>
@@ -199,7 +223,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
 
           {scenarioHistory.length > 0 && (
             <div className="my-8 border-t border-white/10 pt-8">
-              <ScenarioHistoryChart data={scenarioHistory} />
+              <ScenarioHistoryChart data={scenarioHistory as ScenarioDay[]} />
             </div>
           )}
 
@@ -253,7 +277,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
           )}
         </>
       )}
-      {!loading && !error && !latest && (
+      {!latest && !loading && !error && (
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
       )}
     </div>
