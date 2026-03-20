@@ -30,6 +30,7 @@ const NAV_LINKS: { href: string; labelKey: UIStringKey; isWarRoom?: boolean }[] 
   { href: '/methodology', labelKey: 'methodology' },
   { href: '/sources', labelKey: 'sources' },
   { href: '/timeline', labelKey: 'timeline' },
+  { href: '/api-docs', labelKey: 'navApiDocs' },
   { href: '/contact', labelKey: 'navContact' },
 ];
 
