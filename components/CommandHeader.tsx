@@ -23,10 +23,10 @@ const NAV_LINKS = [
   { href: '/pricing',   label: 'PRICING' },
   { href: '/markets',   label: 'MARKETS' },
   { href: '/social',    label: 'SOCIAL' },
-  { href: '/timeline',  label: 'TIMELINE' },
   { href: '/analytics', label: 'ANALYTICS' },
   { href: '/methodology', label: 'METHODOLOGY' },
   { href: '/sources', label: 'SOURCES' },
+  { href: '/timeline', label: 'TIMELINE' },
   { href: '/contact',   label: 'CONTACT' },
 ];
 
