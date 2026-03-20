@@ -4,6 +4,7 @@ import { getUser, getSessionToken, getConflictDay } from '@/utils/supabase/serve
 import { getNaiScores } from '@/lib/api/nai';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiMapClient } from '@/components/nai/NaiMapClient';
+import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 
 export default async function NaiMapPage({
   searchParams,
@@ -50,6 +51,7 @@ export default async function NaiMapPage({
         latestDay={latestDay}
         hasLatentAccess={hasLatentAccess}
         hasGapAccess={hasGapAccess}
+        conflictDayBadge={<ConflictDayBadge />}
       />
     </Suspense>
   );

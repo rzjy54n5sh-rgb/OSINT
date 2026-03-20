@@ -3,6 +3,7 @@ import { getUser, getSessionToken } from '@/utils/supabase/server';
 import { getDisinfo } from '@/lib/api/disinfo';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { DisinfoTrackerClient } from '@/components/disinfo/DisinfoTrackerClient';
+import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 
 export default async function DisinfoPage() {
   const [user, token, supabase] = await Promise.all([
@@ -35,6 +36,7 @@ export default async function DisinfoPage() {
       hasFullAccess={hasFullAccess}
       total={total}
       showing={showing}
+      conflictDayBadge={<ConflictDayBadge />}
     />
   );
 }

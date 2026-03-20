@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
@@ -31,6 +32,7 @@ type DisinfoTrackerClientProps = {
   hasFullAccess: boolean;
   total: number;
   showing: number;
+  conflictDayBadge?: ReactNode;
 };
 
 export function DisinfoTrackerClient({
@@ -38,6 +40,7 @@ export function DisinfoTrackerClient({
   hasFullAccess,
   total,
   showing,
+  conflictDayBadge,
 }: DisinfoTrackerClientProps) {
   const verdictClass = (v: string | null) => {
     const vv = (v ?? '').toUpperCase();
@@ -57,10 +60,11 @@ export function DisinfoTrackerClient({
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         DISINFORMATION TRACKER
       </h1>
+      {conflictDayBadge}
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         CLAIMS — VERDICT — SPREAD ESTIMATE
         {!hasFullAccess && total > 0 && (
-          <span className="block mt-1">
+          <span className="block mt-1" translate="no">
             Showing {showing} of {total}
           </span>
         )}
@@ -92,6 +96,7 @@ export function DisinfoTrackerClient({
                     <span
                       className="font-mono text-xs px-2 py-0.5 border rounded-sm"
                       style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }}
+                      translate="no"
                     >
                       📡 {typeof c.spread_estimate === 'string' ? c.spread_estimate : String(c.spread_estimate)}
                     </span>
@@ -122,7 +127,8 @@ export function DisinfoTrackerClient({
               }}
             >
               <span>
-                <span style={{ color: '#E8C547' }}>◆</span> {total - showing} more entries — Informed plan required
+                <span style={{ color: '#E8C547' }}>◆</span>{' '}
+                <span translate="no">{total - showing}</span> more entries — Informed plan required
               </span>
               <Link
                 href="/pricing"

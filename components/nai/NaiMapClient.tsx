@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -38,6 +39,7 @@ type NaiMapClientProps = {
   latestDay: number;
   hasLatentAccess: boolean;
   hasGapAccess: boolean;
+  conflictDayBadge?: ReactNode;
 };
 
 export function NaiMapClient({
@@ -46,6 +48,7 @@ export function NaiMapClient({
   latestDay,
   hasLatentAccess,
   hasGapAccess,
+  conflictDayBadge,
 }: NaiMapClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -121,6 +124,12 @@ export function NaiMapClient({
         description="Each country is scored 0–100 on how closely its observable public behavior aligns with US-led coalition objectives. The score is calculated daily from official statements, media framing, social signals, and elite communications. It is an estimate based on public data — not a classified intelligence assessment."
         note="Click any country in the sidebar to view its full report. Use the day scrubber to compare alignment across conflict days. High scores mean public alignment — not necessarily private intent."
       />
+      <div className="px-4 max-w-6xl mx-auto w-full">
+        <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
+          NARRATIVE ALIGNMENT INDEX MAP
+        </h1>
+        {conflictDayBadge}
+      </div>
       <div className="flex flex-col sm:flex-row" style={{ minHeight: 'calc(100vh - 44px)' }}>
         <div className="w-full flex-1 relative" style={{ minHeight: '40vh' }} ref={mapContainer} />
         <aside
@@ -213,9 +222,13 @@ export function NaiMapClient({
                     <span translate="no">{s.country_code}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1" style={{ color: 'var(--text-muted)' }}>
-                    <span>EXP {s.expressed_score}</span>
+                    <span translate="no">
+                      EXP <span translate="no">{s.expressed_score}</span>
+                    </span>
                     {hasLatentAccess ? (
-                      <span>LAT {s.latent_score ?? '—'}</span>
+                      <span translate="no">
+                        LAT <span translate="no">{s.latent_score ?? '—'}</span>
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1">
                         <span className="blur-sm select-none">—</span>
@@ -224,9 +237,15 @@ export function NaiMapClient({
                     )}
                     {hasGapAccess ? (
                       <>
-                        <span>GAP {s.gap_size ?? '—'}</span>
+                        <span translate="no">
+                          GAP <span translate="no">{s.gap_size ?? '—'}</span>
+                        </span>
                         <span translate="no">{s.category ?? '—'}</span>
-                        {s.velocity != null && <span>VEL {s.velocity}</span>}
+                        {s.velocity != null && (
+                          <span translate="no">
+                            VEL <span translate="no">{s.velocity}</span>
+                          </span>
+                        )}
                       </>
                     ) : (
                       <span className="inline-flex items-center gap-1">

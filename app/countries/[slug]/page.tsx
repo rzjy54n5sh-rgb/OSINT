@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getUser } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { CountryReportClient } from './CountryReportClient';
+import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import type { CountryReport } from '@/types/supabase';
 
 /** Slug (URL) -> ISO2 country_code. */
@@ -92,6 +93,7 @@ export default async function CountryReportPage({
       hasAccess={hasAccess}
       requiredTier={requiredTier}
       summaryOnly={summaryOnly}
+      conflictDayBadge={<ConflictDayBadge />}
     />
   );
 }

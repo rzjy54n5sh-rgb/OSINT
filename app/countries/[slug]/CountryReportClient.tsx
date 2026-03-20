@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { CountryFlag } from '@/components/CountryFlag';
@@ -55,6 +56,7 @@ type CountryReportClientProps = {
   hasAccess: boolean;
   requiredTier: 'informed' | 'professional';
   summaryOnly: boolean;
+  conflictDayBadge?: ReactNode;
 };
 
 export function CountryReportClient({
@@ -62,6 +64,7 @@ export function CountryReportClient({
   hasAccess,
   requiredTier,
   summaryOnly,
+  conflictDayBadge,
 }: CountryReportClientProps) {
   const parsed = report?.content_json ? parseContent(report.content_json as Record<string, unknown>) : null;
   const hasStructuredContent = hasAccess && parsed && (parsed.nai ?? parsed.scenarios ?? parsed.elite_network ?? parsed.key_risks ?? parsed.stabilizers ?? parsed.assessment);
@@ -76,13 +79,18 @@ export function CountryReportClient({
         ← COUNTRIES
       </Link>
 
+      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }} translate="no">
+        {(report.country_name ?? report.country_code).toUpperCase()}
+      </h1>
+      {conflictDayBadge}
+
       <div className="flex items-center gap-4 mb-6">
         <CountryFlag code={report.country_code} name={report.country_name} />
         <NaiScoreBadge
           category={report.nai_category ?? parsed?.nai?.category ?? '—'}
           score={report.nai_score ?? parsed?.nai?.expressed ?? undefined}
         />
-        <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+        <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }} translate="no">
           CONFLICT DAY {report.conflict_day ?? '—'}
         </span>
       </div>
@@ -114,19 +122,23 @@ export function CountryReportClient({
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>EXPRESSED</p>
-                  <p className="font-display text-2xl" style={{ color: NAI_CATEGORY_COLOR[parsed.nai.category ?? ''] ?? 'var(--text-primary)' }}>
+                  <p className="font-display text-2xl" style={{ color: NAI_CATEGORY_COLOR[parsed.nai.category ?? ''] ?? 'var(--text-primary)' }} translate="no">
                     {parsed.nai.expressed ?? '—'}
                   </p>
                 </div>
                 <div>
                   <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>LATENT</p>
-                  <p className="font-display text-2xl" style={{ color: NAI_CATEGORY_COLOR[parsed.nai.category ?? ''] ?? 'var(--text-primary)' }}>
+                  <p className="font-display text-2xl" style={{ color: NAI_CATEGORY_COLOR[parsed.nai.category ?? ''] ?? 'var(--text-primary)' }} translate="no">
                     {parsed.nai.latent ?? '—'}
                   </p>
                 </div>
                 <div>
                   <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>VELOCITY</p>
-                  <p className="font-display text-2xl" style={{ color: (parsed.nai.velocity ?? 0) > 0 ? 'var(--accent-green)' : (parsed.nai.velocity ?? 0) < 0 ? 'var(--accent-red)' : 'var(--text-secondary)' }}>
+                  <p
+                    className="font-display text-2xl"
+                    style={{ color: (parsed.nai.velocity ?? 0) > 0 ? 'var(--accent-green)' : (parsed.nai.velocity ?? 0) < 0 ? 'var(--accent-red)' : 'var(--text-secondary)' }}
+                    translate="no"
+                  >
                     {(parsed.nai.velocity ?? 0) > 0 ? '↑' : (parsed.nai.velocity ?? 0) < 0 ? '↓' : '→'} {parsed.nai.velocity ?? 0}
                   </p>
                 </div>
@@ -143,9 +155,9 @@ export function CountryReportClient({
                   const colors = { A: 'var(--accent-gold)', B: 'var(--accent-blue)', C: 'var(--accent-orange)', D: 'var(--accent-red)' };
                   return (
                     <div key={key}>
-                      <div className="flex justify-between font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                        <span>SCENARIO {key}</span>
-                        <span>{pct}%</span>
+                      <div className="flex justify-between font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }} translate="no">
+                        <span translate="no">SCENARIO {key}</span>
+                        <span translate="no">{pct}%</span>
                       </div>
                       <div className="nai-bar-track w-full">
                         <div className="nai-bar-fill tension" style={{ width: `${pct}%`, background: colors[key], boxShadow: `0 0 8px ${colors[key]}80` }} />
@@ -218,7 +230,9 @@ export function CountryReportClient({
           {report.nai_score != null && (
             <div className="mb-4">
               <NaiScoreBadge category={report.nai_category ?? '—'} score={report.nai_score} />
-              <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>EXPRESSED: {report.nai_score} | LATENT: —</p>
+              <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
+              EXPRESSED: {report.nai_score} | LATENT: —
+            </p>
             </div>
           )}
           <p className="redacted">[FULL REPORT PENDING]</p>

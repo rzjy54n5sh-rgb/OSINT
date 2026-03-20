@@ -24,7 +24,9 @@ export function TimelineScrubber({
         style={{ color: 'var(--text-secondary)' }}
       >
         <span>{label}</span>
-        <span style={{ color: 'var(--accent-gold)' }}>{value}</span>
+        <span style={{ color: 'var(--accent-gold)' }} translate="no">
+          {value}
+        </span>
       </div>
       <input
         type="range"

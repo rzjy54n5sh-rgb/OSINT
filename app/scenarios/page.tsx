@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getUser } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { ScenariosClient } from '@/components/scenarios/ScenariosClient';
+import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 
 export default async function ScenariosPage() {
   const [user, supabase] = await Promise.all([
@@ -15,5 +16,10 @@ export default async function ScenariosPage() {
   const flags = buildTierFlags(tierRows ?? []);
   const hasDetailAccess = tierHasFeature(user?.tier, 'scenario_detail', flags);
 
-  return <ScenariosClient hasDetailAccess={hasDetailAccess} />;
+  return (
+    <ScenariosClient
+      hasDetailAccess={hasDetailAccess}
+      conflictDayBadge={<ConflictDayBadge />}
+    />
+  );
 }

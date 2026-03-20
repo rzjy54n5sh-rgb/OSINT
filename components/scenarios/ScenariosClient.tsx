@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { SentimentBar } from '@/components/SentimentBar';
@@ -7,7 +8,6 @@ import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PageShareButton, buildScenariosShareText } from '@/components/PageShareButton';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import { useScenarios } from '@/hooks/useScenarios';
-import { useConflictDay } from '@/hooks/useConflictDay';
 import { GLOSSARY } from '@/lib/glossary';
 import {
   LineChart,
@@ -48,18 +48,26 @@ const SCENARIO_META: Record<string, { name: string; description: string; color: 
     name: 'UAE Direct Strike',
     color: '#a855f7',
     description:
-      'UAE hits Iranian missile sites directly — unprecedented military escalation. Axios (2 sources, March 3): UAE "considering active defensive measures." Australia evacuation advisory and DIFC emptying signal rising pressure. Can overlap with Scenario D. Sub-branch probability, independent of A+B+C+D sum.',
+      'Further context: Axios (2 sources, March 3) reported UAE "considering active defensive measures." Australia evacuation advisory and DIFC emptying signal rising pressure. Can overlap with Scenario D.',
   },
 };
 
 type ScenariosClientProps = {
   hasDetailAccess: boolean;
+  /** Server-rendered conflict day strip (placed after page &lt;h1&gt;). */
+  conflictDayBadge?: ReactNode;
 };
 
-export function ScenariosClient({ hasDetailAccess }: ScenariosClientProps) {
+function scenarioEValue(row: { scenario_e?: number | null } | null): number | null {
+  if (!row) return null;
+  const v = row.scenario_e;
+  return typeof v === 'number' && !Number.isNaN(v) ? v : null;
+}
+
+export function ScenariosClient({ hasDetailAccess, conflictDayBadge }: ScenariosClientProps) {
   const { scenarios, loading, error } = useScenarios();
-  const conflictDay = useConflictDay();
   const latest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
+  const latestScenarioE = latest ? scenarioEValue(latest) : null;
   const chartData = scenarios.map((s) => ({
     day: s.conflict_day,
     A: s.scenario_a,
@@ -95,6 +103,7 @@ export function ScenariosClient({ hasDetailAccess }: ScenariosClientProps) {
           />
         )}
       </div>
+      {conflictDayBadge}
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         EVOLUTION ACROSS CONFLICT DAYS
       </p>
@@ -115,14 +124,16 @@ export function ScenariosClient({ hasDetailAccess }: ScenariosClientProps) {
               <OsintCard key={key}>
                 <GlossaryTooltip term={`SCENARIO_${key}`} definition={GLOSSARY[`SCENARIO_${key}` as keyof typeof GLOSSARY]}>
                   <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-                    <span translate="no">Scenario {key}</span>
+                    <span translate="no">SCENARIO {key}</span>
                   </p>
                 </GlossaryTooltip>
                 <p className="font-mono text-sm mb-2" style={{ color: SCENARIO_META[key].color }}>
                   &quot;{SCENARIO_META[key].name}&quot;
                 </p>
-                <p className="font-display text-2xl" style={{ color: SCENARIO_META[key].color }} translate="no">
-                  {latest[`scenario_${key.toLowerCase()}` as keyof typeof latest]}%
+                <p className="font-display text-2xl" style={{ color: SCENARIO_META[key].color }}>
+                  <span translate="no">
+                    {latest[`scenario_${key.toLowerCase()}` as keyof typeof latest]}%
+                  </span>
                 </p>
                 <SentimentBar
                   value={(latest[`scenario_${key.toLowerCase()}` as keyof typeof latest] as number) / 100}
@@ -135,32 +146,47 @@ export function ScenariosClient({ hasDetailAccess }: ScenariosClientProps) {
                 )}
               </OsintCard>
             ))}
-            {latest.scenario_e != null && (
-              <OsintCard key="E" className="border-purple-800/40">
+            {/* Scenario E: full-width mobile, half row on md+ (cols 2–3), dashed — not part of A–D sum */}
+            <div className="col-span-2 md:col-span-2 md:col-start-2 w-full min-w-0">
+              <OsintCard
+                className="border-2 border-dashed border-purple-500/50 h-full"
+                style={{
+                  background: 'color-mix(in srgb, var(--bg-card) 50%, transparent)',
+                }}
+              >
                 <GlossaryTooltip term="SCENARIO_E" definition={GLOSSARY.SCENARIO_E}>
-                  <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-                    <span translate="no">Scenario E — NEW</span>
+                  <p className="font-mono text-xs uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
+                    SCENARIO E
+                  </p>
+                  <p className="font-mono text-sm mb-2" style={{ color: '#a855f7' }} translate="no">
+                    UAE Direct Strike
                   </p>
                 </GlossaryTooltip>
-                <p className="font-mono text-sm mb-2" style={{ color: '#a855f7' }}>
-                  &quot;{SCENARIO_META.E.name}&quot;
+                <p className="font-display text-2xl mb-1" style={{ color: '#a855f7' }}>
+                  <span translate="no">
+                    {latestScenarioE != null ? `${latestScenarioE}%` : '—'}
+                  </span>
                 </p>
-                <p className="font-display text-2xl" style={{ color: '#a855f7' }} translate="no">
-                  {latest.scenario_e}%
-                </p>
-                <SentimentBar value={latest.scenario_e / 100} className="mt-2" />
-                {hasDetailAccess && (
-                  <>
-                    <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                      {SCENARIO_META.E.description}
-                    </p>
-                    <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-                      Sub-branch — independent of A+B+C+D sum
-                    </p>
-                  </>
+                {latestScenarioE == null && (
+                  <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                    Sub-branch
+                  </p>
                 )}
+                {latestScenarioE != null && <SentimentBar value={latestScenarioE / 100} className="mt-2 mb-2" />}
+                <p className="font-body text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
+                  UAE conducts direct military strike on Iranian missile sites. Independent sub-branch — can overlap with
+                  Scenarios A through D. Probability reflects UAE&apos;s declared red lines being crossed.
+                </p>
+                {hasDetailAccess && (
+                  <p className="font-body text-xs mt-1 leading-relaxed border-t pt-2" style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}>
+                    {SCENARIO_META.E.description}
+                  </p>
+                )}
+                <p className="font-mono text-[10px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
+                  ◆ Independent sub-branch · Not included in A–D sum
+                </p>
               </OsintCard>
-            )}
+            </div>
           </div>
           {hasDetailAccess ? (
             <OsintCard className="scanlines">

@@ -18,6 +18,9 @@ const config: Config = {
         'accent-green': 'var(--accent-green)',
         'accent-blue': 'var(--accent-blue)',
         'accent-orange': 'var(--accent-orange)',
+        /** Semantic aliases for ConflictDayBadge + UI */
+        gold: 'var(--accent-gold)',
+        subtle: 'var(--text-muted)',
       },
       fontFamily: {
         display: ['var(--font-bebas)', 'Bebas Neue', 'sans-serif'],
