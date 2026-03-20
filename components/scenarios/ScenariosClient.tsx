@@ -6,6 +6,7 @@ import { PageBriefing } from '@/components/PageBriefing';
 import { SentimentBar } from '@/components/SentimentBar';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PageShareButton, buildScenariosShareText } from '@/components/PageShareButton';
+import { ScenarioHistoryChart, type ScenarioDay } from '@/components/scenarios/ScenarioHistoryChart';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import { useScenarios } from '@/hooks/useScenarios';
 import { GLOSSARY } from '@/lib/glossary';
@@ -56,6 +57,8 @@ type ScenariosClientProps = {
   hasDetailAccess: boolean;
   /** Server-rendered conflict day strip (placed after page &lt;h1&gt;). */
   conflictDayBadge?: ReactNode;
+  /** Full A–D history for shareable trend chart (server-fetched). */
+  scenarioHistory: ScenarioDay[];
 };
 
 function scenarioEValue(row: { scenario_e?: number | null } | null): number | null {
@@ -64,7 +67,7 @@ function scenarioEValue(row: { scenario_e?: number | null } | null): number | nu
   return typeof v === 'number' && !Number.isNaN(v) ? v : null;
 }
 
-export function ScenariosClient({ hasDetailAccess, conflictDayBadge }: ScenariosClientProps) {
+export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHistory }: ScenariosClientProps) {
   const { scenarios, loading, error } = useScenarios();
   const latest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
   const latestScenarioE = latest ? scenarioEValue(latest) : null;
@@ -104,9 +107,6 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge }: Scenarios
         )}
       </div>
       {conflictDayBadge}
-      <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
-        EVOLUTION ACROSS CONFLICT DAYS
-      </p>
       {loading && (
         <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
           LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
@@ -188,6 +188,17 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge }: Scenarios
               </OsintCard>
             </div>
           </div>
+
+          {scenarioHistory.length > 0 && (
+            <div className="my-8 border-t border-white/10 pt-8">
+              <ScenarioHistoryChart data={scenarioHistory} />
+            </div>
+          )}
+
+          <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
+            EVOLUTION ACROSS CONFLICT DAYS
+          </p>
+
           {hasDetailAccess ? (
             <OsintCard className="scanlines">
               <h2 className="font-display text-lg mb-4">PROBABILITY OVER TIME</h2>
