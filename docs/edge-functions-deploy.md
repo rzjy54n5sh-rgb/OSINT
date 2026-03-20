@@ -13,7 +13,10 @@ supabase functions deploy api-scenarios
 supabase functions deploy api-disinfo
 supabase functions deploy api-dispute
 supabase functions deploy manage-api-keys
+supabase functions deploy send-digest
 ```
+
+`send-digest` is invoked by the daily pipeline (service role only). Set `RESEND_*` secrets and optionally `DIGEST_SITE_URL` for email links.
 
 ## Secrets
 
@@ -32,6 +35,7 @@ Optional for auth-profile-sync and emails:
 - `RESEND_FROM_EMAIL` — verified sender address
 - `RESEND_FROM_NAME` — sender name
 - `NEXT_PUBLIC_SITE_URL` — site URL for links in emails
+- `DIGEST_SITE_URL` — optional base URL for digest / unsubscribe links (Edge Functions)
 
 ## Auth webhook
 
