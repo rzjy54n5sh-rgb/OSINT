@@ -1,15 +1,26 @@
 /**
+ * DECISION — Next.js 16 `middleware.ts` vs `proxy.ts` (security patch documentation):
+ * - Next.js 16 deprecates the `middleware` file name in favor of `proxy.ts` for the
+ *   default Node.js request boundary. See https://nextjs.org/docs/messages/middleware-to-proxy
+ * - **OpenNext + Cloudflare** (`npm run build:cf`) does not support the Node.js `proxy.ts`
+ *   path. We **keep `middleware.ts`**. Next 16 rejects `runtime = "edge"` on this file during the
+ *   OpenNext build; **`runtime = "experimental-edge"`** is required (see Next build error).
+ * - CVE-2025-55182: addressed by framework version (Next 16.1.5, React 19.2.4), not by
+ *   renaming this file.
+ *
  * Two responsibilities:
  * 1. Refresh Supabase session on every request (@supabase/ssr requirement).
  * 2. Protect /admin/* — redirect unauthenticated or non-admin users.
  * Layer 2: each admin Server Component must still verify independently (Phase 9).
- * Security headers (CSP, X-Frame-Options, etc.) are applied at Worker level via applySecurityHeaders.
+ * Security headers on redirects: applySecurityHeaders; static headers: next.config.js.
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { updateSession } from '@/utils/supabase/middleware';
 import { applySecurityHeaders } from '@/lib/security-headers';
+
+export const runtime = 'experimental-edge';
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);

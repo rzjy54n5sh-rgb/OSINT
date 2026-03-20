@@ -1,5 +1,5 @@
 /**
- * Session refresh for use in middleware.ts only.
+ * Session refresh for use in root middleware.ts only (Edge runtime for OpenNext CF).
  * Creates server client with cookie read/write and refreshes token if expired.
  */
 import { createServerClient } from '@supabase/ssr';

@@ -9,6 +9,9 @@ import { TranslationBanner } from '@/components/TranslationBanner';
 
 validateEnv();
 
+/** Resolves relative OG/Twitter image URLs; silences Next.js metadataBase build warnings. */
+const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mena-intel-desk.com';
+
 const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
 const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
@@ -22,6 +25,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(metadataBaseUrl),
   title: 'MENA Intel Desk — US-Iran Conflict Intelligence',
   description: 'Real-time OSINT platform tracking the US-Iran conflict. Narrative Alignment Index, scenario probabilities, disinformation tracker, and live intelligence feed across 29 countries.',
   manifest: '/manifest.json',

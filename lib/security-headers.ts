@@ -1,5 +1,5 @@
 /**
- * Security headers applied at the edge (Next.js middleware → CF Worker).
+ * Security headers applied at the edge (Next.js Edge middleware → CF Worker).
  * Single source of truth so CSP and other headers are consistent with next.config.js.
  */
 import { NextResponse } from 'next/server';
