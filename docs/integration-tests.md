@@ -97,3 +97,48 @@ Manual integration test checklist for MENA Intel Desk. Run in development or sta
 - [ ] Payment confirmation: complete test payment → confirmation email received
 - [ ] Past due email: simulate failed payment → past-due email received
 - [ ] Pipeline alert: manually run pipeline_audit.py alert → alert email received by ADMIN_EMAIL
+
+---
+
+## Post-Launch Test Suite
+
+Use after go-live for regression sweeps. **GROUP A** and parts of **GROUP E** are also run automatically in CI via `.github/workflows/scripts/run_integration_tests.py` (after the daily digest step in `daily_pipeline.yml`).
+
+### GROUP A: Data integrity
+
+- [ ] **ConflictDayBadge** shows the correct conflict day: \((\text{today UTC} - 2026\text{-}02\text{-}28) + 1\), minimum 1 (matches pipeline lock).
+- [ ] **NAI delta** equals `expressed_score` (today) − `expressed_score` (yesterday) per country when both rows exist (spot-check in Supabase or `/api` NAI payload).
+- [ ] **Scenario E** (if present) renders in UI/API without forcing **A + B + C + D** off 100% — E is separate; row still satisfies **A+B+C+D = 100** in `scenario_probabilities`.
+- [ ] **NAI categories** in DB use only the allowed enum — no `TENSE` or other invalid strings (validator rejects before write; spot-check rows).
+- [ ] `SELECT DISTINCT category FROM nai_scores` returns only: `ALIGNED`, `STABLE`, `TENSION`, `FRACTURE`, `INVERSION`.
+
+### GROUP B: Tier gating regressions
+
+- [ ] **T0:** DevTools → Elements → search `content_json` → **0** results on gated pages (country report HTML should not embed raw JSON for free tier).
+- [ ] **T0:** NAI page — `latent_score` (and related gated cells) appear **blurred** or obfuscated.
+- [ ] **T1:** `latent_score` visible; **Saudi Arabia** (and other T2-only) country report still **blurred** / paywalled.
+- [ ] **T2:** All gated content unlocked; **no** `PaywallOverlay` on allowed routes.
+- [ ] After a change in **`/admin/tier-features`**, a logged-in user in that tier sees the new behavior **without** redeploying the app (config read at runtime).
+
+### GROUP C: Payment flow regressions
+
+- [ ] **Stripe webhook replay:** send the same event (same `event_id`) twice → **no** duplicate subscription rows / double application of state (idempotent handling).
+- [ ] **Failed payment** → `invoice.payment_failed` → `subscriptions.status = 'past_due'` → user receives **past-due** email.
+- [ ] **Refund** in Stripe Dashboard → tier / access **downgrades** correctly per webhook logic.
+- [ ] **AED** and **EGP** prices on `/pricing` show the correct **currency symbols** and amounts from DB.
+
+### GROUP D: Admin panel regressions
+
+- [ ] **`INTEL_ANALYST`** opening `/admin/users` → **403** or redirect to a safe page — **no** redirect loop.
+- [ ] **`SUPER_ADMIN`** deletes a user → **`audit_log`** (or equivalent) contains a matching entry.
+- [ ] **AI Agent** asked to *"update scenario A to 30%"* → **refuses** (structural neutrality / no direct scenario edits).
+- [ ] **`/admin/tier-features`** toggle → effect visible to a live **T1** session **without** redeploy.
+
+### GROUP E: Pipeline regressions
+
+- [ ] Pipeline with **0 articles** (or insufficient sources) → country report / assessment path documents **"No sourced data for Day X"** (or equivalent) — **no** invented facts in DB.
+- [ ] **Invalid category** in Claude output → pipeline **exits non-zero** before persisting bad NAI rows (post-write validator / schema enforcement).
+- [ ] After a pipeline run → **no** future contamination: **0** rows with `conflict_day` **greater than** the locked day for `nai_scores`, `scenario_probabilities`, and `country_reports` (as applicable).
+- [ ] **`send-digest`** called with **wrong** `Authorization` (not service role) → **401** and **no** emails sent (spot-check Resend dashboard / logs).
+
+**Automated (CI):** `python .github/workflows/scripts/run_integration_tests.py --supabase-url … --key …` covers: day lock vs `nai_scores`, category enum, **A+B+C+D** scenario sums, future-day contamination, per-day country count (20), citation pattern on `country_reports`, and **send-digest** unauthorized **401**.
