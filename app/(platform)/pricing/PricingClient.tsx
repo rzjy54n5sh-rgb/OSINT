@@ -31,7 +31,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
   const callCheckout = async (type: 'subscription' | 'one_time', plan?: 'informed' | 'professional') => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      router.push('/login?redirect=/pricing');
+      router.push('/login?redirect=/pricing&signup=1');
       return;
     }
     const key = type === 'one_time' ? 'report' : loading;
@@ -96,7 +96,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
               ))}
             </ul>
             <Link
-              href={isLoggedIn ? '/account' : '/login'}
+              href={isLoggedIn ? '/account' : '/login?redirect=/account&signup=1'}
               className="font-mono text-xs px-4 py-2 border rounded-sm inline-block mt-6 text-center"
               style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
             >
