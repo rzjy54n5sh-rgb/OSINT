@@ -1,5 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useI18n } from '@/components/I18nProvider';
+import type { UIStringKey } from '@/lib/i18n';
 
 // Full-width ASCII logo — scales via font-size
 const ASCII_LOGO = `
@@ -10,15 +12,22 @@ const ASCII_LOGO = `
 ██║ ╚═╝ ██║███████╗██║ ╚████║██║  ██║    ██║██║ ╚████║   ██║   ███████╗███████╗    ██████╔╝███████╗███████║██║  ██╗
 ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝   ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝`.trim();
 
-const getBootLines = (conflictDay: number, articleCount: number, countriesTracked: number) => [
-  '> INITIALIZING OSINT COLLECTION SYSTEMS........... OK',
-  '> ESTABLISHING SECURE CHANNEL TO DATABASE......... OK',
-  '> LOADING NARRATIVE ALIGNMENT INDEX MATRICES...... OK',
-  '> CONFLICT INTELLIGENCE FEED: ACTIVE',
-  '> NAI SCORING ENGINE: OPERATIONAL',
-  `> ARTICLES INDEXED: ${articleCount > 0 ? articleCount : 'LOADING...'} | COUNTRIES TRACKED: ${countriesTracked}`,
-  `> CONFLICT DAY ${conflictDay} — ALL SYSTEMS NOMINAL ████████ 100%`,
-];
+function getBootLines(
+  conflictDay: number,
+  articleCount: number,
+  countriesTracked: number,
+  t: (k: UIStringKey) => string
+) {
+  return [
+    '> INITIALIZING OSINT COLLECTION SYSTEMS........... OK',
+    '> ESTABLISHING SECURE CHANNEL TO DATABASE......... OK',
+    '> LOADING NARRATIVE ALIGNMENT INDEX MATRICES...... OK',
+    `> ${t('asciiConflictLine')}`,
+    '> NAI SCORING ENGINE: OPERATIONAL',
+    `> ARTICLES INDEXED: ${articleCount > 0 ? articleCount : 'LOADING...'} | COUNTRIES TRACKED: ${countriesTracked}`,
+    `> ${t('conflictDay')} ${conflictDay} ${t('conflictDayBootSuffix')}`,
+  ];
+}
 
 type Phase = 'logo' | 'boot' | 'done';
 
@@ -33,9 +42,10 @@ export function AsciiHero({
   conflictDay  = 10,
   countriesTracked = 20,
 }: AsciiHeroProps) {
+  const { t, lang } = useI18n();
   const bootLines = useMemo(
-    () => getBootLines(conflictDay, articleCount, countriesTracked),
-    [conflictDay, articleCount, countriesTracked]
+    () => getBootLines(conflictDay, articleCount, countriesTracked, t),
+    [conflictDay, articleCount, countriesTracked, t, lang]
   );
   const [displayedLogo, setDisplayedLogo] = useState('');
   const [completedLines, setCompletedLines] = useState<string[]>([]);
@@ -217,10 +227,10 @@ export function AsciiHero({
           }}
         >
           {[
-            { label: 'CONFLICT DAY', value: conflictDay, color: 'var(--accent-red)' },
-            { label: 'ARTICLES', value: articleCount, color: 'var(--accent-gold)' },
-            { label: 'COUNTRIES', value: countriesTracked, color: 'var(--accent-blue)' },
-            { label: 'SCENARIOS', value: 4, color: 'var(--accent-green)' },
+            { label: t('conflictDay'), value: conflictDay, color: 'var(--accent-red)' },
+            { label: t('articlesLabel'), value: articleCount, color: 'var(--accent-gold)' },
+            { label: t('countriesLabel'), value: countriesTracked, color: 'var(--accent-blue)' },
+            { label: t('scenariosLabel'), value: 4, color: 'var(--accent-green)' },
           ].map(({ label, value, color }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div

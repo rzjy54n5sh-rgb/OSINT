@@ -9,28 +9,32 @@ import { useDataFreshness } from '@/hooks/useDataFreshness';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { GLOSSARY } from '@/lib/glossary';
 import { GlobeMenu } from '@/components/GlobeMenu';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
+import { useI18n } from '@/components/I18nProvider';
 import type { UserTier } from '@/types';
+import type { UIStringKey } from '@/lib/i18n';
 
-const NAV_LINKS = [
-  { href: '/warroom',   label: 'WAR ROOM', isWarRoom: true },
-  { href: '/briefings', label: 'BRIEFINGS' },
-  { href: '/mediaroom', label: 'MEDIA ROOM' },
-  { href: '/feed',      label: 'FEED' },
-  { href: '/nai',       label: 'NAI MAP' },
-  { href: '/countries', label: 'COUNTRIES' },
-  { href: '/scenarios', label: 'SCENARIOS' },
-  { href: '/disinfo',   label: 'DISINFO' },
-  { href: '/pricing',   label: 'PRICING' },
-  { href: '/markets',   label: 'MARKETS' },
-  { href: '/social',    label: 'SOCIAL' },
-  { href: '/analytics', label: 'ANALYTICS' },
-  { href: '/methodology', label: 'METHODOLOGY' },
-  { href: '/sources', label: 'SOURCES' },
-  { href: '/timeline', label: 'TIMELINE' },
-  { href: '/contact',   label: 'CONTACT' },
+const NAV_LINKS: { href: string; labelKey: UIStringKey; isWarRoom?: boolean }[] = [
+  { href: '/warroom', labelKey: 'navWarRoom', isWarRoom: true },
+  { href: '/briefings', labelKey: 'navBriefings' },
+  { href: '/mediaroom', labelKey: 'navMediaRoom' },
+  { href: '/feed', labelKey: 'navFeed' },
+  { href: '/nai', labelKey: 'navNai' },
+  { href: '/countries', labelKey: 'navCountries' },
+  { href: '/scenarios', labelKey: 'navScenarios' },
+  { href: '/disinfo', labelKey: 'navDisinfo' },
+  { href: '/pricing', labelKey: 'pricing' },
+  { href: '/markets', labelKey: 'navMarkets' },
+  { href: '/social', labelKey: 'navSocial' },
+  { href: '/analytics', labelKey: 'navAnalytics' },
+  { href: '/methodology', labelKey: 'methodology' },
+  { href: '/sources', labelKey: 'sources' },
+  { href: '/timeline', labelKey: 'timeline' },
+  { href: '/contact', labelKey: 'navContact' },
 ];
 
 export function CommandHeader() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const { articleCount, lastUpdate, live } = useRealtimeCount();
   const conflictDay = useConflictDay();
@@ -207,7 +211,7 @@ export function CommandHeader() {
           }}
           className="hidden-mobile"
         >
-          {NAV_LINKS.map(({ href, label, isWarRoom }) => (
+          {NAV_LINKS.map(({ href, labelKey, isWarRoom }) => (
             <Link
               key={href}
               href={href}
@@ -219,22 +223,29 @@ export function CommandHeader() {
               }}
             >
               {isWarRoom && (
-                <span style={{ position: 'relative', display: 'inline-flex', marginRight: '4px' }}>
+                <span
+                  style={{
+                    position: 'relative',
+                    display: 'inline-flex',
+                    marginInlineEnd: '4px',
+                  }}
+                >
                   <span className="pulse-ring" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'var(--accent-red)', opacity: 0.5 }} />
                   <span style={{ position: 'relative', width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent-red)', display: 'inline-block' }} />
                 </span>
               )}
-              {label}
+              {t(labelKey)}
             </Link>
           ))}
           <GlobeMenu />
+          <LanguageToggle />
           {userTier === null && (
             <Link
               href="/login"
               className="header-link font-mono"
               style={{ fontSize: '10px', letterSpacing: '1.5px', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 2 }}
             >
-              Sign in
+              {t('signIn')}
             </Link>
           )}
           {userTier && userTier !== undefined && (
@@ -250,10 +261,14 @@ export function CommandHeader() {
                   ...(userTier === 'professional' ? { borderColor: '#E8C547', color: '#E8C547' } : userTier === 'informed' ? { borderColor: '#1E90FF', color: '#1E90FF' } : { borderColor: '#4A5568', color: '#4A5568' }),
                 }}
               >
-                {userTier === 'professional' ? '◆ PRO' : userTier === 'informed' ? 'INFORMED' : 'FREE'}
+                {userTier === 'professional'
+                  ? `◆ ${t('proLabel')}`
+                  : userTier === 'informed'
+                    ? t('informedLabel')
+                    : t('freeLabel')}
               </span>
               <Link href="/account" className="header-link" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px' }}>
-                Account
+                {t('account')}
               </Link>
             </>
           )}
@@ -280,7 +295,7 @@ export function CommandHeader() {
               letterSpacing: '2px',
             }}
           >
-            {menuOpen ? '✕ CLOSE' : '☰ MENU'}
+            {menuOpen ? t('menuClose') : t('menuOpen')}
           </span>
         </button>
       </div>
@@ -297,7 +312,7 @@ export function CommandHeader() {
             background: 'rgba(7,10,15,0.96)',
           }}
         >
-          {NAV_LINKS.map(({ href, label, isWarRoom }) => (
+          {NAV_LINKS.map(({ href, labelKey, isWarRoom }) => (
             <Link
               key={href}
               href={href}
@@ -308,13 +323,16 @@ export function CommandHeader() {
                 color: isWarRoom ? 'var(--accent-red)' : pathname === href ? 'var(--accent-gold)' : undefined,
               }}
             >
-              {label}
+              {t(labelKey)}
             </Link>
           ))}
           <GlobeMenu />
+          <div className="py-1">
+            <LanguageToggle />
+          </div>
           {userTier === null && (
             <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: '11px' }}>
-              Sign in
+              {t('signIn')}
             </Link>
           )}
           {userTier && userTier !== undefined && (
@@ -326,10 +344,14 @@ export function CommandHeader() {
                   ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
                 }}
               >
-                {userTier === 'professional' ? '◆ PRO' : userTier === 'informed' ? 'INFORMED' : 'FREE'}
+                {userTier === 'professional'
+                  ? `◆ ${t('proLabel')}`
+                  : userTier === 'informed'
+                    ? t('informedLabel')
+                    : t('freeLabel')}
               </span>
               <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: '11px' }}>
-                Account
+                {t('account')}
               </Link>
             </>
           )}

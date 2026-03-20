@@ -1,4 +1,7 @@
+'use client';
+
 import { getConflictDay, getFormattedConflictDate } from '@/lib/constants';
+import { useI18n } from '@/components/I18nProvider';
 
 interface ConflictDayBadgeProps {
   className?: string;
@@ -6,6 +9,7 @@ interface ConflictDayBadgeProps {
 }
 
 export function ConflictDayBadge({ className = '', showTime = true }: ConflictDayBadgeProps) {
+  const { t } = useI18n();
   const day = getConflictDay();
   const date = getFormattedConflictDate();
   const utcTime = new Date().toISOString().slice(11, 16);
@@ -17,7 +21,7 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
       aria-live="polite"
     >
       <span className="text-[#E8C547] font-bold tracking-wider whitespace-nowrap">
-        ◆ CONFLICT DAY <span translate="no">{day}</span>
+        ◆ {t('conflictDay')} <span translate="no">{day}</span>
       </span>
       <span className="text-white/30 hidden sm:inline" aria-hidden>
         ·
@@ -29,7 +33,7 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
             ·
           </span>
           <span className="text-white/40 whitespace-nowrap">
-            Updated <span translate="no">{utcTime}</span> UTC
+            {t('updatedAt')} <span translate="no">{utcTime}</span> {t('utc')}
           </span>
         </>
       )}

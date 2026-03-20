@@ -20,6 +20,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { useI18n } from '@/components/I18nProvider';
 
 const QUICK_LINKS = [
   { href: '/feed', label: 'FEED', description: 'Live OSINT articles filtered by region, sentiment & source' },
@@ -36,6 +37,7 @@ const QUICK_LINKS = [
 ];
 
 export default function HomeDashboard({ children }: { children?: ReactNode }) {
+  const { t } = useI18n();
   const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
   const { articles } = useArticles({}, 3);
   const { scenarios } = useScenarios();
@@ -70,9 +72,15 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
           className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-6 mb-10"
           style={{ color: 'var(--text-secondary)' }}
         >
-          <span>CONFLICT DAY <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span></span>
-          <span>ARTICLES <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span></span>
-          <span>LAST UPDATE <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span></span>
+          <span>
+            {t('conflictDay')} <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span>
+          </span>
+          <span>
+            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span>
+          </span>
+          <span>
+            {t('lastUpdateLabel')} <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span>
+          </span>
           <span>{live ? '● LIVE' : '○ OFFLINE'}</span>
         </div>
 

@@ -10,6 +10,8 @@ import { ScenarioHistoryChart, type ScenarioDay } from '@/components/scenarios/S
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import { useScenarios } from '@/hooks/useScenarios';
 import { GLOSSARY } from '@/lib/glossary';
+import { useI18n } from '@/components/I18nProvider';
+import type { UIStringKey } from '@/lib/i18n';
 import {
   LineChart,
   Line,
@@ -67,7 +69,13 @@ function scenarioEValue(row: { scenario_e?: number | null } | null): number | nu
   return typeof v === 'number' && !Number.isNaN(v) ? v : null;
 }
 
+function scenarioChromeTitle(key: 'A' | 'B' | 'C' | 'D' | 'E', t: (k: UIStringKey) => string): string {
+  const m = { A: 'scenarioA', B: 'scenarioB', C: 'scenarioC', D: 'scenarioD', E: 'scenarioE' } as const;
+  return t(m[key]);
+}
+
 export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHistory }: ScenariosClientProps) {
+  const { t } = useI18n();
   const { scenarios, loading, error } = useScenarios();
   const latest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
   const latestScenarioE = latest ? scenarioEValue(latest) : null;
@@ -89,7 +97,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
       />
       <div className="flex flex-wrap items-center gap-4 mb-8">
         <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
-          SCENARIO PROBABILITY TRACKER
+          {t('scenarios')}
         </h1>
         {latest && (
           <PageShareButton
@@ -128,7 +136,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
                   </p>
                 </GlossaryTooltip>
                 <p className="font-mono text-sm mb-2" style={{ color: SCENARIO_META[key].color }}>
-                  &quot;{SCENARIO_META[key].name}&quot;
+                  &quot;{scenarioChromeTitle(key, t)}&quot;
                 </p>
                 <p className="font-display text-2xl" style={{ color: SCENARIO_META[key].color }}>
                   <span translate="no">
@@ -159,7 +167,7 @@ export function ScenariosClient({ hasDetailAccess, conflictDayBadge, scenarioHis
                     SCENARIO E
                   </p>
                   <p className="font-mono text-sm mb-2" style={{ color: '#a855f7' }} translate="no">
-                    UAE Direct Strike
+                    {scenarioChromeTitle('E', t)}
                   </p>
                 </GlossaryTooltip>
                 <p className="font-display text-2xl mb-1" style={{ color: '#a855f7' }}>

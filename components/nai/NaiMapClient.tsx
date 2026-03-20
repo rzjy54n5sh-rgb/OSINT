@@ -18,6 +18,8 @@ import { PageShareButton, buildNaiMapShareText } from '@/components/PageShareBut
 import { PageShareCard } from '@/components/PageShareCard';
 import type { CountryReport } from '@/types/supabase';
 import type { NaiScore } from '@/types';
+import { useI18n } from '@/components/I18nProvider';
+import { categoryLabel } from '@/lib/i18n';
 
 const COUNTRY_COORDS: Record<string, [number, number]> = {
   IR: [53.688, 32.427], IL: [34.851, 31.046], IQ: [43.679, 33.223],
@@ -51,6 +53,7 @@ export function NaiMapClient({
   hasGapAccess,
   conflictDayBadge,
 }: NaiMapClientProps) {
+  const { t, lang } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -121,13 +124,13 @@ export function NaiMapClient({
   return (
     <div>
       <PageBriefing
-        title="NARRATIVE ALIGNMENT INDEX MAP"
+        title={t('naiMapHeading')}
         description="Each country is scored 0–100 on how closely its observable public behavior aligns with US-led coalition objectives. The score is calculated daily from official statements, media framing, social signals, and elite communications. It is an estimate based on public data — not a classified intelligence assessment."
         note="Click any country in the sidebar to view its full report. Use the day scrubber to compare alignment across conflict days. High scores mean public alignment — not necessarily private intent."
       />
       <div className="px-4 max-w-6xl mx-auto w-full">
         <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
-          NARRATIVE ALIGNMENT INDEX MAP
+          {t('naiMapHeading')}
         </h1>
         {conflictDayBadge}
       </div>
@@ -247,7 +250,7 @@ export function NaiMapClient({
                         <span translate="no">
                           GAP <span translate="no">{s.gap_size ?? '—'}</span>
                         </span>
-                        <span translate="no">{s.category ?? '—'}</span>
+                        <span translate="no">{categoryLabel(s.category ?? '—', lang)}</span>
                         {s.velocity != null && (
                           <span translate="no">
                             VEL <span translate="no">{s.velocity}</span>

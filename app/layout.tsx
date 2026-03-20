@@ -1,11 +1,15 @@
 import type { Metadata, Viewport } from 'next';
-import { Bebas_Neue, IBM_Plex_Mono, DM_Sans } from 'next/font/google';
+import { cookies } from 'next/headers';
+import { Bebas_Neue, IBM_Plex_Mono, DM_Sans, Noto_Sans_Arabic } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { validateEnv } from '@/lib/env';
 import { BackgroundCanvas } from '@/components/BackgroundCanvas';
 import { CommandHeader } from '@/components/CommandHeader';
 import { TranslationBanner } from '@/components/TranslationBanner';
+import { I18nProvider } from '@/components/I18nProvider';
+import { SiteFooter } from '@/components/SiteFooter';
+import type { Lang } from '@/lib/i18n';
 
 validateEnv();
 
@@ -15,6 +19,7 @@ const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mena-intel-
 const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
 const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
+const notoArabic = Noto_Sans_Arabic({ weight: ['400', '500', '600'], subsets: ['arabic'], variable: '--font-arabic' });
 
 export const viewport: Viewport = {
   themeColor: '#070A0F',
@@ -62,9 +67,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const lang: Lang = cookieStore.get('lang')?.value === 'ar' ? 'ar' : 'en';
+  const isRtl = lang === 'ar';
+
   return (
-    <html lang="en" dir="ltr" translate="yes" className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable}`}>
+    <html
+      lang={lang}
+      dir={isRtl ? 'rtl' : 'ltr'}
+      translate="yes"
+      className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
+    >
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
@@ -78,13 +92,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
       </head>
-      <body className={`min-h-screen overflow-x-hidden ${dmSans.className}`}>
+      <body
+        className={`min-h-screen overflow-x-hidden ${dmSans.className} ${lang === 'ar' ? 'font-arabic-ui' : ''}`}
+      >
         <TranslationBanner />
         <BackgroundCanvas />
-        <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
-          <CommandHeader />
-          <main className="flex-1">{children}</main>
-        </div>
+        <I18nProvider lang={lang}>
+          <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
+            <CommandHeader />
+            <main className="flex-1">{children}</main>
+            <SiteFooter />
+          </div>
+        </I18nProvider>
         {/* Register service worker */}
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {

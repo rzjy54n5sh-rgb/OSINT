@@ -7,7 +7,11 @@
    Do not modify these variables without updating all components
    ============================================================ */
 
-/* Fonts loaded via next/font in app/layout.tsx (--font-bebas, --font-mono, --font-dm) */
+/* Fonts loaded via next/font in app/layout.tsx (--font-bebas, --font-mono, --font-dm, --font-arabic) */
+
+.font-arabic-ui {
+  font-family: var(--font-arabic), var(--font-dm), system-ui, sans-serif;
+}
 
 :root {
   /* Background layers */
