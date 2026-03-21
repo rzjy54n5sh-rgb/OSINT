@@ -45,11 +45,11 @@
     "postcss": "^8.5.4",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.0",
-    "wrangler": "3.99.0"
+    "wrangler": "4.76.0"
   },
   "overrides": {
     "glob": "^13.0.6",
     "rimraf": "^5.0.10",
-    "wrangler": "3.99.0"
+    "wrangler": "4.76.0"
   }
 }
