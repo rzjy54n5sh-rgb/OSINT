@@ -54,8 +54,14 @@ function LoginContent() {
         return;
       }
       setLoading(false);
-      router.replace(redirectTo);
-      router.refresh();
+      // Full navigation so session cookies are visible to the server on first paint (avoids RSC hang after sign-in).
+      const path = redirectTo.startsWith('/') ? redirectTo : '/account';
+      if (typeof window !== 'undefined') {
+        window.location.assign(path);
+      } else {
+        router.replace(path);
+        router.refresh();
+      }
     } catch {
       setError('Something went wrong');
     } finally {
@@ -127,7 +133,12 @@ function LoginContent() {
         return;
       }
       if (data.session) {
-        router.replace(redirectTo);
+        const path = redirectTo.startsWith('/') ? redirectTo : '/account';
+        if (typeof window !== 'undefined') {
+          window.location.assign(path);
+        } else {
+          router.replace(path);
+        }
         return;
       }
       setSignUpEmailSent(true);

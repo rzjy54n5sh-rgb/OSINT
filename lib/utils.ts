@@ -125,5 +125,10 @@ export function formatEngagement(value: NullableScalar): string {
     const parsed = parseEngagementEstimate(raw);
     return parsed == null ? raw : compactNumber(parsed);
   }
+  // Pipeline stores Google Trends 0–100 score as int(round(avg * 1000)) (see collect_social.py)
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100_000) {
+    const outOf100 = Math.min(100, Math.max(0, Math.round(value / 1000)));
+    return `${outOf100}/100`;
+  }
   return compactNumber(value);
 }

@@ -133,11 +133,9 @@ def fetch_trends_for_group(group, pytrends, max_retries=3):
             col_means = interest[keyword_cols].mean()
             top_keyword = col_means.idxmax() if not col_means.empty else group["keywords"][0]
 
-            engagement = (
-                "HIGH" if avg_interest > 60
-                else "MEDIUM" if avg_interest > 30
-                else "LOW"
-            )
+            # Store numeric score only: matches lib/utils parseEngagementEstimate (x/100 → x*1000).
+            # String "LOW (21/100)" breaks DB columns typed as bigint; integer works for bigint and TEXT.
+            engagement_numeric = int(round(float(avg_interest) * 1000))
 
             return {
                 "region": group["region"],
@@ -145,7 +143,7 @@ def fetch_trends_for_group(group, pytrends, max_retries=3):
                 "platform": "Google Trends",
                 "trend": top_keyword,
                 "sentiment": classify_sentiment_from_keywords(group["keywords"]),
-                "engagement_estimate": f"{engagement} ({avg_interest:.0f}/100)",
+                "engagement_estimate": engagement_numeric,
                 "conflict_day": conflict_day(),
                 "created_at": datetime.datetime.utcnow().isoformat(),
             }
@@ -194,7 +192,7 @@ def main():
         result = fetch_trends_for_group(group, pytrends)
         if result:
             records.append(result)
-            print(f"    → {result['trend']} | {result['sentiment']} | {result['engagement_estimate']}")
+            print(f"    → {result['trend']} | {result['sentiment']} | engagement_estimate={result['engagement_estimate']}")
         # 15s between countries to stay under Google Trends rate limit (avoid 429)
         if i < len(TREND_GROUPS) - 1:
             time.sleep(15)
