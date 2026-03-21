@@ -14,13 +14,16 @@ export default function SocialPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
-    supabase
-      .from('social_trends')
-      .select('*')
-      .order('conflict_day', { ascending: false })
-      .order('created_at', { ascending: false })
-      .then(({ data, error: e }) => {
+    void (async () => {
+      try {
+        const { data, error: e } = await supabase
+          .from('social_trends')
+          .select('*')
+          .order('conflict_day', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (cancelled) return;
         setLoading(false);
         if (e) {
           setError(e);
@@ -33,12 +36,16 @@ export default function SocialPage() {
             (parseEngagementEstimate(a.engagement_estimate) ?? -1)
         );
         setTrends(rows);
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (cancelled) return;
         setLoading(false);
         setError(err instanceof Error ? err : new Error('Failed to load'));
         setTrends([]);
-      });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const sentimentClass = (s: string | null) => {
