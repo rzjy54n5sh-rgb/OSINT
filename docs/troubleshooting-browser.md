@@ -37,3 +37,5 @@
 **Deploy (GitHub Actions):** Ensure secrets `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set; the workflow writes `lib/supabase/env.client.generated.ts` before `build:cf`.
 
 **Local Cloudflare deploy:** Keep the same vars in `.env.local`. `npm run build:cf` / `deploy` runs `sync:supabase-client-env` in CI only; locally Next still inlines `NEXT_PUBLIC_*` from `.env.local`. To bake keys into the generated file on purpose: `FORCE_WRITE_SUPABASE_CLIENT_ENV=1 npm run sync:supabase-client-env` (do **not** commit real keys).
+
+**Runtime override (Cloudflare):** `app/layout.tsx` injects `window.__MENA_SUPABASE_PUBLIC__` from the Worker’s `process.env` on every HTML response. Client `createClient()` reads that **before** the compiled bundle, so live Worker env (e.g. `wrangler.toml` / dashboard) wins over a stale static build. After a deploy, bump the service worker cache (`public/sw.js` `CACHE_NAME`) and hard-reload if you still see old behaviour.

@@ -3,13 +3,7 @@
  * Do not call Supabase or Edge Functions directly from components.
  */
 
-const BASE =
-  (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPABASE_URL) || '';
-const ANON_KEY =
-  (typeof process !== 'undefined' &&
-    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)) ||
-  '';
+import { resolveSupabasePublicKey, resolveSupabasePublicUrl } from '@/lib/supabase/resolve-public-env';
 
 export class ApiError extends Error {
   constructor(
@@ -33,6 +27,8 @@ export async function apiFetch<T>(
   }
 ): Promise<T> {
   const { method = 'GET', body, params, token, apiKey } = options ?? {};
+  const BASE = resolveSupabasePublicUrl();
+  const ANON_KEY = resolveSupabasePublicKey();
   const url = new URL(`${BASE}/functions/v1/${functionName}`);
   if (params) {
     Object.entries(params).forEach(([k, v]) => {

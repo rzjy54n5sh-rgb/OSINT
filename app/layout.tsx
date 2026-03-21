@@ -72,6 +72,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang: Lang = cookieStore.get('lang')?.value === 'ar' ? 'ar' : 'en';
   const isRtl = lang === 'ar';
 
+  /** Worker/dashboard env at request time — fixes client bundle missing/stale NEXT_PUBLIC_* on Cloudflare. */
+  const runtimeSupabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim();
+  const runtimeSupabaseKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    ''
+  ).trim();
+
   return (
     <html
       lang={lang}
@@ -80,6 +88,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
     >
       <head>
+        {runtimeSupabaseUrl && runtimeSupabaseKey ? (
+          <script
+            // Runs before React; `createClient` / `apiFetch` read `window.__MENA_SUPABASE_PUBLIC__` first.
+            dangerouslySetInnerHTML={{
+              __html: `window.__MENA_SUPABASE_PUBLIC__=${JSON.stringify({ url: runtimeSupabaseUrl, key: runtimeSupabaseKey })};`,
+            }}
+          />
+        ) : null}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
