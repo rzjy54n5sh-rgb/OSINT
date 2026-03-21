@@ -2,9 +2,13 @@
 
 We **cannot** log into your Supabase project from here. Fix it in your project using the steps below.
 
+**TL;DR:** In Supabase **SQL Editor**, run `supabase/migrations/20260321120000_harden_handle_new_auth_user.sql`, then retry creating the user (Dashboard or app **Create account** on `/login`).
+
 ## Likely cause
 
 Supabase creates a row in `auth.users`, then a **trigger** (`on_auth_user_created` → `public.handle_new_auth_user`) inserts into `public.users`. If that `INSERT` fails (often **`email` NULL or empty**), Auth shows *Database error creating new user*.
+
+The same trigger runs for **Authentication → Add user**, **Sign up** on the site, **OAuth**, and **magic link** (first-time user).
 
 ## Fix (recommended)
 
