@@ -184,10 +184,11 @@ async function fetchFlickrPhotos(tags: string): Promise<Photo[]> {
   const url = `/api/flickr?tags=${encodeURIComponent(tags)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Flickr fetch failed');
-  const data = await res.json();
+  type FlickrItem = { title: string; media?: { m: string }; link: string; author?: string };
+  const data = (await res.json()) as Photo[] | { items?: FlickrItem[] };
   if (Array.isArray(data)) return data as Photo[];
-  const items = data?.items ?? [];
-  return items.map((item: { title: string; media?: { m: string }; link: string; author?: string }) => ({
+  const items = (data as { items?: FlickrItem[] })?.items ?? [];
+  return items.map((item) => ({
     title: item.title || 'Untitled',
     thumb: item.media?.m?.replace('_m.', '_z.') || item.media?.m || '',
     full: item.media?.m?.replace('_m.', '_b.') || item.media?.m || '',
@@ -338,9 +339,10 @@ export default function MediaRoomPage() {
     const ids = LIVE_CHANNELS.map((c) => c.id).join(',');
     fetch(`/api/youtube-live?ids=${encodeURIComponent(ids)}`)
       .then((r) => r.json())
-      .then((arr: { channelId: string; videoId: string | null }[]) => {
+      .then((arr: unknown) => {
+        const list = Array.isArray(arr) ? (arr as { channelId: string; videoId: string | null }[]) : [];
         const map: Record<string, string | null> = {};
-        arr.forEach((x) => { map[x.channelId] = x.videoId ?? null; });
+        list.forEach((x) => { map[x.channelId] = x.videoId ?? null; });
         setLiveVideoIds(map);
       })
       .catch(() => {});

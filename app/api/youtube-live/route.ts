@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&eventType=live&type=video&key=${apiKey}`;
       const res = await fetch(url, { next: { revalidate: 60 } });
       if (!res.ok) continue;
-      const data = await res.json();
+      const data = (await res.json()) as { items?: Array<{ id?: { videoId?: string } }> };
       const first = data?.items?.[0];
       const videoId = first?.id?.videoId ?? null;
       results.push({

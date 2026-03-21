@@ -54,7 +54,7 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: ANON_KEY },
       });
-      const data = await res.json();
+      const data = (await res.json()) as { url?: string };
       if (data?.url) window.location.href = data.url;
     } finally {
       setPortalLoading(false);
@@ -69,8 +69,8 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: ANON_KEY },
     });
-    const data = await res.json();
-    if (data?.key) setNewKeyModal({ key: data.key, keyId: data.keyId, keyPrefix: data.keyPrefix });
+    const data = (await res.json()) as { key?: string; keyId?: string; keyPrefix?: string };
+    if (data?.key) setNewKeyModal({ key: data.key, keyId: data.keyId ?? '', keyPrefix: data.keyPrefix ?? '' });
   };
 
   const handleRevokeKey = async (id: string) => {

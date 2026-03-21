@@ -17,9 +17,11 @@ Deno.serve(async (req: Request) => {
   const limit = auth.tier === "free" ? 5 : 500;
 
   const supabase = serviceClient();
-  let query = supabase.from("disinfo_claims").select("id, conflict_day, claim_text as claim, verdict, source_url as source, created_at", { count: "exact" });
-  if (conflictDay != null) query = query.eq("conflict_day", conflictDay);
-  query = query.order("published_at", { ascending: false }).order("created_at", { ascending: false }).range(0, limit - 1);
+  // Schema matches collect_disinfo.py / app/disinfo — no conflict_day on disinfo_claims in all envs
+  let query = supabase
+    .from("disinfo_claims")
+    .select("id, claim_text, verdict, source_url, created_at", { count: "exact" });
+  query = query.order("created_at", { ascending: false }).range(0, limit - 1);
 
   const { data: rows, error, count } = await query;
   if (error) {
@@ -28,11 +30,11 @@ Deno.serve(async (req: Request) => {
 
   const data = (rows || []).map((r: Record<string, unknown>) => ({
     id: r.id,
-    conflict_day: r.conflict_day,
-    claim: r.claim ?? r.claim_text,
+    conflict_day: null,
+    claim: r.claim_text,
     status: "published",
     verdict: r.verdict,
-    source: r.source ?? r.source_url,
+    source: r.source_url,
     created_at: r.created_at,
   }));
 

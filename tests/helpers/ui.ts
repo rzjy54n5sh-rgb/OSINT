@@ -13,12 +13,27 @@ export async function expectNoReportJsonLeak(page: Page) {
   expect(html).not.toContain('content_json');
 }
 
-export async function loginWithEmailPassword(page: Page, email: string, password: string) {
-  await page.goto('/login?redirect=/account');
+/**
+ * Sign in via email/password. Waits until browser lands on redirectPath (default /account).
+ */
+export async function loginWithEmailPassword(
+  page: Page,
+  email: string,
+  password: string,
+  redirectPath = '/account'
+) {
+  const safe = redirectPath.startsWith('/') ? redirectPath : `/${redirectPath}`;
+  await page.goto(`/login?redirect=${encodeURIComponent(safe)}`);
   await page.getByLabel(/email/i).fill(email);
   await page.getByLabel(/password/i).fill(password);
   await page.getByRole('button', { name: /sign in|login/i }).click();
-  // Allow redirect back
-  await page.waitForURL(/\/account/, { timeout: 30_000 });
+  const target = safe.replace(/\/$/, '') || '/';
+  await page.waitForURL(
+    (url) => {
+      const p = new URL(url).pathname.replace(/\/$/, '') || '/';
+      return p === target;
+    },
+    { timeout: 30_000 }
+  );
 }
 

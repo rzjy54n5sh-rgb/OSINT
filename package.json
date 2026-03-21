@@ -16,7 +16,9 @@
     "db:fix-social-trends": "node scripts/run-social-trends-fix.mjs",
     "db:repair-migration-history": "bash scripts/repair-supabase-migration-history.sh",
     "test:e2e:smoke": "playwright test tests/e2e/prod-smoke.spec.ts tests/api/edge-functions-smoke.spec.ts",
-    "test:e2e:deep": "playwright test"
+    "test:e2e:deep": "playwright test",
+    "test:stress": "npm run lint && npm run type-check && playwright test tests/e2e/stress-comprehensive.spec.ts tests/e2e/prod-smoke.spec.ts tests/api/edge-functions-smoke.spec.ts",
+    "test:stress:quick": "npm run lint && playwright test tests/e2e/stress-comprehensive.spec.ts tests/e2e/prod-smoke.spec.ts tests/api/edge-functions-smoke.spec.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

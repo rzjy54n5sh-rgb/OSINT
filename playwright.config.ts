@@ -1,4 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
+import path from 'path';
+import { config as loadEnv } from 'dotenv';
+
+// Load local secrets for Playwright (SUPABASE_SERVICE_ROLE_KEY, E2E_ADMIN_*, etc.)
+loadEnv({ path: path.resolve(__dirname, '.env.local') });
+loadEnv({ path: path.resolve(__dirname, '.env') });
 
 const baseURL =
   process.env.PW_BASE_URL ||

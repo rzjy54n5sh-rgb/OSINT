@@ -42,8 +42,8 @@ export function ApiKeysClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, apikey: ANON_KEY },
       });
-      const data = await res.json();
-      if (data?.key) setNewKeyModal({ key: data.key, keyId: data.keyId, keyPrefix: data.keyPrefix });
+      const data = (await res.json()) as { key?: string; keyId?: string; keyPrefix?: string; error?: string };
+      if (data?.key) setNewKeyModal({ key: data.key, keyId: data.keyId ?? '', keyPrefix: data.keyPrefix ?? '' });
       else alert(data?.error || 'Failed to create key');
     } finally {
       setGenerating(false);

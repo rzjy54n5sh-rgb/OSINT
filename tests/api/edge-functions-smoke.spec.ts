@@ -1,10 +1,20 @@
 import { test, expect } from '@playwright/test';
-import { mustGetEnv } from '../helpers/env';
-
 function baseSupabaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   if (!url) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL');
   return url.replace(/\/$/, '');
+}
+
+/** Same fallbacks as playwright.config.ts baseURL */
+function appBaseUrl(): string {
+  const u =
+    process.env.PW_BASE_URL ||
+    process.env.STAGING_BASE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL;
+  if (!u) {
+    return 'https://mena-intel-desk.mores-cohorts9x.workers.dev';
+  }
+  return u.replace(/\/$/, '');
 }
 
 test.describe('Edge Functions smoke (live)', () => {
@@ -21,14 +31,23 @@ test.describe('Edge Functions smoke (live)', () => {
     expect([200, 401, 403]).toContain(res.status());
   });
 
+  test('api-country responds without 500', async ({ request }) => {
+    const res = await request.get(`${baseSupabaseUrl()}/functions/v1/api-country?code=EGY`);
+    expect(res.status()).toBeLessThan(500);
+  });
+
+  test('api-disinfo responds without 500', async ({ request }) => {
+    const res = await request.get(`${baseSupabaseUrl()}/functions/v1/api-disinfo`);
+    expect(res.status()).toBeLessThan(500);
+  });
+
   test('manage-api-keys requires auth', async ({ request }) => {
     const res = await request.get(`${baseSupabaseUrl()}/functions/v1/manage-api-keys`);
     expect([401, 403, 405]).toContain(res.status());
   });
 
   test('CSP is present on app HTML response', async ({ request }) => {
-    const baseURL = mustGetEnv('PW_BASE_URL');
-    const res = await request.get(`${baseURL}/`);
+    const res = await request.get(`${appBaseUrl()}/`);
     expect(res.headers()['content-security-policy']).toBeTruthy();
   });
 });

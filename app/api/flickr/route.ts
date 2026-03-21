@@ -12,17 +12,17 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       return NextResponse.json({ error: 'Flickr fetch failed' }, { status: res.status });
     }
-    const data = await res.json();
+    type FlickrItem = { title: string; media?: { m: string }; link: string; author?: string };
+    const data = (await res.json()) as { items?: FlickrItem[] };
     const items = data?.items ?? [];
-    const photos = items.map(
-      (item: { title: string; media?: { m: string }; link: string; author?: string }) => ({
+    const photos = items.map((item) => ({
         title: item.title || 'Untitled',
         thumb: item.media?.m?.replace('_m.', '_z.') || item.media?.m || '',
         full: item.media?.m?.replace('_m.', '_b.') || item.media?.m || '',
         url: item.link || '',
         author: item.author,
       })
-    ).filter((p: { thumb: string }) => p.thumb);
+    ).filter((p) => p.thumb);
     return NextResponse.json(photos);
   } catch (e) {
     console.error('[api/flickr]', e);

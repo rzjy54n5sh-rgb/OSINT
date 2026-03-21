@@ -44,7 +44,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}`, apikey: ANON_KEY },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const data = (await res.json()) as { url?: string; message?: string; error?: string };
       if (data?.url) {
         window.location.href = data.url;
       } else {

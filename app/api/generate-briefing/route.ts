@@ -6,7 +6,13 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 export async function POST(req: NextRequest) {
   try {
-    const { apiKey, countryCode, countryName, conflictDay } = await req.json();
+    const body = (await req.json()) as {
+      apiKey?: string;
+      countryCode?: string;
+      countryName?: string;
+      conflictDay?: number;
+    };
+    const { apiKey, countryCode, countryName, conflictDay } = body;
 
     // Validate
     if (!apiKey?.startsWith('sk-ant-')) {
