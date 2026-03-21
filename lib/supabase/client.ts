@@ -34,9 +34,13 @@ function createMockClient(): SupabaseClient {
       empty.then(onFulfilled, onRejected),
     catch: (onRejected?: (e: unknown) => unknown) => empty.catch(onRejected),
   };
+  const noopSub = { unsubscribe: () => {} };
   return {
     from: () => chain,
-    auth: { getSession: () => Promise.resolve({ data: { session: null }, error: null }) },
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      onAuthStateChange: () => ({ data: { subscription: noopSub } }),
+    },
   } as unknown as SupabaseClient;
 }
 

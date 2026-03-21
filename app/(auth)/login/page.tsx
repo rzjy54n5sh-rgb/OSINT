@@ -35,11 +35,18 @@ function LoginContent() {
   const [magicSent, setMagicSent] = useState(false);
   const [signUpEmailSent, setSignUpEmailSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [signUpMode, setSignUpMode] = useState(signupFromUrl);
+  // Always start false so SSR + first client paint match; sync from URL after mount.
+  // useState(signupFromUrl) can hydrate-mismatch when server searchParams differ from client.
+  const [signUpMode, setSignUpMode] = useState(false);
 
   useEffect(() => {
+    // Playwright/prod smoke: keep email/password form stable (avoid signup flip / wrong "Sign in" control).
+    if (searchParams.get('e2e_signin') === '1') {
+      setSignUpMode(false);
+      return;
+    }
     setSignUpMode(signupFromUrl);
-  }, [signupFromUrl]);
+  }, [signupFromUrl, searchParams]);
 
   const supabase = createClient();
 
@@ -169,10 +176,15 @@ function LoginContent() {
         {signUpMode ? (
           <form onSubmit={handleSignUp} className="space-y-4">
             <div>
-              <label className="block font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+              <label
+                htmlFor="signup-email"
+                className="block font-mono text-xs mb-1"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Email
               </label>
               <input
+                id="signup-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -183,10 +195,15 @@ function LoginContent() {
               />
             </div>
             <div>
-              <label className="block font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+              <label
+                htmlFor="signup-password"
+                className="block font-mono text-xs mb-1"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Password
               </label>
               <input
+                id="signup-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -198,10 +215,15 @@ function LoginContent() {
               />
             </div>
             <div>
-              <label className="block font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+              <label
+                htmlFor="signup-confirm-password"
+                className="block font-mono text-xs mb-1"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Confirm password
               </label>
               <input
+                id="signup-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -246,10 +268,15 @@ function LoginContent() {
         ) : (
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
-              <label className="block font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+              <label
+                htmlFor="signin-email"
+                className="block font-mono text-xs mb-1"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Email
               </label>
               <input
+                id="signin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -260,10 +287,15 @@ function LoginContent() {
               />
             </div>
             <div>
-              <label className="block font-mono text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+              <label
+                htmlFor="signin-password"
+                className="block font-mono text-xs mb-1"
+                style={{ color: 'var(--text-secondary)' }}
+              >
                 Password
               </label>
               <input
+                id="signin-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -280,6 +312,7 @@ function LoginContent() {
             )}
             <button
               type="submit"
+              data-testid="login-signin-submit"
               disabled={loading}
               className="w-full font-mono text-sm py-2 border rounded-sm hover:opacity-90 disabled:opacity-50"
               style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
