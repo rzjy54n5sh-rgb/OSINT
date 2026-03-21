@@ -1,5 +1,5 @@
 /** Bump when fetch strategy changes so old cache-first JS bundles are dropped (fixes stale Supabase client / zero articles). */
-const CACHE_NAME = 'mena-intel-v5';
+const CACHE_NAME = 'mena-intel-v6';
 
 // Assets to cache immediately on install
 const PRECACHE = [

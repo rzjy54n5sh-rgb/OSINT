@@ -24,7 +24,6 @@ export default function SocialPage() {
           .order('conflict_day', { ascending: false })
           .order('created_at', { ascending: false });
         if (cancelled) return;
-        setLoading(false);
         if (e) {
           setError(e);
           setTrends([]);
@@ -37,10 +36,12 @@ export default function SocialPage() {
         );
         setTrends(rows);
       } catch (err) {
-        if (cancelled) return;
-        setLoading(false);
-        setError(err instanceof Error ? err : new Error('Failed to load'));
-        setTrends([]);
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error('Failed to load'));
+          setTrends([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {

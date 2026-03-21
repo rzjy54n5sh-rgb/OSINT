@@ -50,20 +50,33 @@ export function useBriefing(day: number | null, type: string) {
       setError(null);
       return;
     }
+    let cancelled = false;
     const supabase = createClient();
     setLoading(true);
     setError(null);
     void (async () => {
-      const { data, error: e } = await supabase
-        .from('daily_briefings')
-        .select('*')
-        .eq('conflict_day', day)
-        .eq('report_type', type)
-        .maybeSingle();
-      setLoading(false);
-      if (e) setError(e);
-      else setBriefing((data as Briefing) ?? null);
+      try {
+        const { data, error: e } = await supabase
+          .from('daily_briefings')
+          .select('*')
+          .eq('conflict_day', day)
+          .eq('report_type', type)
+          .maybeSingle();
+        if (cancelled) return;
+        if (e) setError(e);
+        else setBriefing((data as Briefing) ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error('Failed to load briefing'));
+          setBriefing(null);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [day, type]);
 
   return { briefing, loading, error };

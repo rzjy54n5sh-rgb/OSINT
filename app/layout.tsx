@@ -10,6 +10,10 @@ import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
 import type { Lang } from '@/lib/i18n';
+import {
+  NEXT_PUBLIC_SUPABASE_URL as GEN_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
+} from '@/lib/supabase/env.client.generated';
 
 validateEnv();
 
@@ -72,11 +76,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const lang: Lang = cookieStore.get('lang')?.value === 'ar' ? 'ar' : 'en';
   const isRtl = lang === 'ar';
 
-  /** Worker/dashboard env at request time — fixes client bundle missing/stale NEXT_PUBLIC_* on Cloudflare. */
-  const runtimeSupabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim();
+  /**
+   * Prefer Worker `process.env`, fall back to build-inlined `env.client.generated.ts`
+   * so the browser still gets keys if CF bindings are missing on this request.
+   */
+  const runtimeSupabaseUrl =
+    (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim() ||
+    (typeof GEN_SUPABASE_URL === 'string' ? GEN_SUPABASE_URL.trim() : '');
   const runtimeSupabaseKey = (
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    (typeof GEN_SUPABASE_ANON_KEY === 'string' ? GEN_SUPABASE_ANON_KEY : '') ||
     ''
   ).trim();
 

@@ -13,16 +13,28 @@ export default function MarketsPage() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
-    supabase
-      .from('market_data')
-      .select('*')
-      .order('conflict_day', { ascending: true })
-      .then(({ data: d, error: e }) => {
-        setLoading(false);
+    void (async () => {
+      try {
+        const { data: d, error: e } = await supabase
+          .from('market_data')
+          .select('*')
+          .order('conflict_day', { ascending: true });
+        if (cancelled) return;
         if (e) setError(e);
         else setData((d as MarketData[]) ?? []);
-      });
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err : new Error('Failed to load markets'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const byIndicator = data.reduce<Record<string, MarketData[]>>((acc, row) => {

@@ -45,39 +45,76 @@ export default function BriefingsPage() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [briefings, setBriefings] = useState<BriefingMeta[]>([]);
   const [availableDays, setAvailableDays] = useState<number[]>([]);
+  /** True after first `daily_briefings` index fetch finishes (even if empty). */
+  const [daysLoaded, setDaysLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Load available days
+  // Phase 1: which conflict days have any briefing rows
   useEffect(() => {
+    let cancelled = false;
     const supabase = createClient();
     void (async () => {
-      const { data } = await supabase
-        .from('daily_briefings')
-        .select('conflict_day')
-        .order('conflict_day', { ascending: false });
-      if (data) {
-        const days = [...new Set(data.map(r => r.conflict_day))] as number[];
-        setAvailableDays(days);
-        if (days.length > 0) setSelectedDay(days[0]);
+      try {
+        const { data, error } = await supabase
+          .from('daily_briefings')
+          .select('conflict_day')
+          .order('conflict_day', { ascending: false });
+        if (cancelled) return;
+        if (error || !data?.length) {
+          setAvailableDays([]);
+          setSelectedDay(null);
+        } else {
+          const days = [...new Set(data.map((r) => r.conflict_day))] as number[];
+          setAvailableDays(days);
+          if (days.length > 0) {
+            setSelectedDay((prev) => prev ?? days[0]);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setAvailableDays([]);
+          setSelectedDay(null);
+        }
+      } finally {
+        if (!cancelled) setDaysLoaded(true);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Load briefings for selected day
+  // Phase 2: rows for the selected day (after we know index fetch outcome)
   useEffect(() => {
-    if (!selectedDay) return;
+    if (!daysLoaded) return;
+    if (selectedDay == null) {
+      setBriefings([]);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     const supabase = createClient();
     setLoading(true);
     void (async () => {
-      const { data } = await supabase
-        .from('daily_briefings')
-        .select('conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at')
-        .eq('conflict_day', selectedDay)
-        .in('report_type', REPORT_ORDER);
-      setLoading(false);
-      setBriefings((data as BriefingMeta[]) ?? []);
+      try {
+        const { data, error } = await supabase
+          .from('daily_briefings')
+          .select('conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at')
+          .eq('conflict_day', selectedDay)
+          .in('report_type', REPORT_ORDER);
+        if (cancelled) return;
+        if (error) setBriefings([]);
+        else setBriefings((data as BriefingMeta[]) ?? []);
+      } catch {
+        if (!cancelled) setBriefings([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
-  }, [selectedDay]);
+    return () => {
+      cancelled = true;
+    };
+  }, [daysLoaded, selectedDay]);
 
   const day = selectedDay ?? latestDay ?? 15;
   const byType = Object.fromEntries(briefings.map(b => [b.report_type, b]));

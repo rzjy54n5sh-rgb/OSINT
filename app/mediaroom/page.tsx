@@ -351,6 +351,7 @@ export default function MediaRoomPage() {
   // Supabase articles: fetch when country changes (client-only)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    let cancelled = false;
     const supabase = createClient();
     const countryValues = activeCountry === 'ALL' ? [] : countryQueryValues(activeCountry);
     let query = supabase
@@ -363,16 +364,23 @@ export default function MediaRoomPage() {
         ? query.eq('country', countryValues[0])
         : query.in('country', countryValues);
     }
-    Promise.resolve(
-      query.then(({ data, error }) => {
+    void (async () => {
+      try {
+        const { data, error } = await query;
+        if (cancelled) return;
         if (error) {
           setArticleError(true);
           return;
         }
         setArticles((data as Article[]) ?? []);
         setArticleError(false);
-      })
-    ).catch(() => setArticleError(true));
+      } catch {
+        if (!cancelled) setArticleError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [activeCountry]);
 
   const loadChannel = useCallback((channelId: string) => {

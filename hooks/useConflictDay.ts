@@ -11,7 +11,7 @@ export function useConflictDay(): number | null {
   const [conflictDay, setConflictDay] = useState<number | null>(null);
 
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
     const supabase = createClient();
     void (async () => {
       try {
@@ -21,15 +21,14 @@ export function useConflictDay(): number | null {
           .order('conflict_day', { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!isActive) return;
+        if (cancelled) return;
         if (data?.conflict_day != null) setConflictDay(data.conflict_day);
       } catch {
-        if (!isActive) return;
-        setConflictDay(null);
+        if (!cancelled) setConflictDay(null);
       }
     })();
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, []);
 
