@@ -56,7 +56,11 @@ const NAV_GROUPS: { groupLabelKey: UIStringKey; links: NavItem[] }[] = [
   },
 ];
 
-const NAV_LINKS: NavItem[] = NAV_GROUPS.flatMap((g) => g.links);
+function tierLabel(tier: UserTier, t: (k: UIStringKey) => string): string {
+  if (tier === 'professional') return `◆ ${t('proLabel')}`;
+  if (tier === 'informed') return t('informedLabel');
+  return t('freeLabel');
+}
 
 export function CommandHeader() {
   const { t } = useI18n();
@@ -88,6 +92,9 @@ export function CommandHeader() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(load);
     return () => subscription.unsubscribe();
   }, []);
+
+  const loggedIn = userTier === 'free' || userTier === 'informed' || userTier === 'professional';
+  const showGuestAuth = !loggedIn; /* null, undefined, or unexpected */
 
   return (
     <header
@@ -245,6 +252,7 @@ export function CommandHeader() {
                     ▾
                   </span>
                 </button>
+                <div className="desktop-nav-mega__hover-bridge" aria-hidden />
                 <div className="desktop-nav-mega__panel" aria-label={t(group.groupLabelKey)}>
                   {group.links.map(({ href, labelKey, isWarRoom }) => {
                     const active = pathname === href;
@@ -275,48 +283,62 @@ export function CommandHeader() {
                 </div>
               </div>
             ))}
+            {/* Account: tier, sign-in, billing, admin — same hover bridge as other megas */}
+            <div className="desktop-nav-mega__item">
+              <button type="button" className="desktop-nav-mega__trigger" aria-haspopup="true" aria-label={t('navGroupAccount')}>
+                <span>{t('navGroupAccount')}</span>
+                {loggedIn && (
+                  <span className="desktop-nav-mega__trigger-tier" translate="no">
+                    · {tierLabel(userTier, t)}
+                  </span>
+                )}
+                <span className="desktop-nav-mega__chev" aria-hidden>
+                  ▾
+                </span>
+              </button>
+              <div className="desktop-nav-mega__hover-bridge" aria-hidden />
+              <div className="desktop-nav-mega__panel" aria-label={t('navGroupAccount')}>
+                {loggedIn && (
+                  <div className="desktop-nav-mega__tier-meta">
+                    {t('navCurrentPlan')}
+                    <span
+                      className={`desktop-nav-mega__tier-value${userTier === 'professional' ? ' desktop-nav-mega__tier-value--pro' : ''}${userTier === 'informed' ? ' desktop-nav-mega__tier-value--informed' : ''}${userTier === 'free' ? ' desktop-nav-mega__tier-value--free' : ''}`}
+                      translate="no"
+                    >
+                      {tierLabel(userTier, t)}
+                    </span>
+                  </div>
+                )}
+                {showGuestAuth && (
+                  <Link
+                    href="/login"
+                    className={`desktop-nav-mega__link${pathname === '/login' ? ' desktop-nav-mega__link--active' : ''}`}
+                  >
+                    {t('login')}
+                  </Link>
+                )}
+                {loggedIn && (
+                  <Link
+                    href="/account"
+                    className={`desktop-nav-mega__link${pathname === '/account' ? ' desktop-nav-mega__link--active' : ''}`}
+                  >
+                    {t('account')}
+                  </Link>
+                )}
+                <Link href="/pricing" className={`desktop-nav-mega__link${pathname === '/pricing' ? ' desktop-nav-mega__link--active' : ''}`}>
+                  {t('pricing')}
+                </Link>
+                {isAdmin && (
+                  <Link href="/admin" className={`desktop-nav-mega__link${pathname.startsWith('/admin') ? ' desktop-nav-mega__link--active' : ''}`} style={{ color: 'var(--accent-gold)' }}>
+                    {t('admin')}
+                  </Link>
+                )}
+              </div>
+            </div>
           </div>
           <span style={{ width: 1, height: 14, background: 'var(--border)', flexShrink: 0 }} aria-hidden />
           <GlobeMenu />
           <LanguageToggle />
-          {userTier === null && (
-            <Link
-              href="/login"
-              className="header-link font-mono"
-              style={{ fontSize: '10px', letterSpacing: '1.5px', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 2 }}
-            >
-              {t('signIn')}
-            </Link>
-          )}
-          {userTier && userTier !== undefined && (
-            <>
-              <span
-                className="font-mono"
-                style={{
-                  fontSize: '9px',
-                  letterSpacing: '1.5px',
-                  border: '1px solid',
-                  padding: '4px 8px',
-                  borderRadius: 2,
-                  ...(userTier === 'professional' ? { borderColor: '#E8C547', color: '#E8C547' } : userTier === 'informed' ? { borderColor: '#1E90FF', color: '#1E90FF' } : { borderColor: '#4A5568', color: '#4A5568' }),
-                }}
-              >
-                {userTier === 'professional'
-                  ? `◆ ${t('proLabel')}`
-                  : userTier === 'informed'
-                    ? t('informedLabel')
-                    : t('freeLabel')}
-              </span>
-              {isAdmin && (
-                <Link href="/admin" className="header-link" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px', color: 'var(--accent-gold)' }}>
-                  {t('admin')}
-                </Link>
-              )}
-              <Link href="/account" className="header-link" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '10px' }}>
-                {t('account')}
-              </Link>
-            </>
-          )}
         </nav>
 
         {/* Mobile hamburger */}
@@ -388,35 +410,60 @@ export function CommandHeader() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-            <GlobeMenu />
-            <LanguageToggle />
-            {userTier === null && (
-              <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
-                {t('signIn')}
-              </Link>
+          <div
+            style={{
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: 'IBM Plex Mono, monospace',
+                fontSize: 8,
+                letterSpacing: '1.5px',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {t('navGroupAccount')}
+            </div>
+            {loggedIn && (
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: 10,
+                  ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
+                }}
+                translate="no"
+              >
+                {t('navCurrentPlan')}: {tierLabel(userTier, t)}
+              </span>
             )}
-            {userTier && userTier !== undefined && (
-              <>
-                <span
-                  className="font-mono"
-                  style={{
-                    fontSize: 9,
-                    ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
-                  }}
-                >
-                  {userTier === 'professional' ? `◆ ${t('proLabel')}` : userTier === 'informed' ? t('informedLabel') : t('freeLabel')}
-                </span>
-                {isAdmin && (
-                  <Link href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10, color: 'var(--accent-gold)' }}>
-                    {t('admin')}
-                  </Link>
-                )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+              {showGuestAuth && (
+                <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
+                  {t('login')}
+                </Link>
+              )}
+              {loggedIn && (
                 <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
                   {t('account')}
                 </Link>
-              </>
-            )}
+              )}
+              <Link href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
+                {t('pricing')}
+              </Link>
+              {isAdmin && (
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10, color: 'var(--accent-gold)' }}>
+                  {t('admin')}
+                </Link>
+              )}
+              <GlobeMenu />
+              <LanguageToggle />
+            </div>
           </div>
         </nav>
       )}

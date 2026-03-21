@@ -246,6 +246,20 @@ body > * { position: relative; z-index: 1; }
 .desktop-nav-mega__item {
   position: relative;
 }
+/* Invisible hit area between trigger and panel so the menu does not close while moving the cursor */
+.desktop-nav-mega__hover-bridge {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 14px;
+  z-index: 99;
+  pointer-events: none;
+}
+.desktop-nav-mega__item:hover .desktop-nav-mega__hover-bridge,
+.desktop-nav-mega__item:focus-within .desktop-nav-mega__hover-bridge {
+  pointer-events: auto;
+}
 .desktop-nav-mega__trigger {
   display: inline-flex;
   align-items: center;
@@ -314,6 +328,10 @@ body > * { position: relative; z-index: 1; }
   left: auto;
   right: 0;
 }
+[dir='rtl'] .desktop-nav-mega__hover-bridge {
+  left: auto;
+  right: 0;
+}
 .desktop-nav-mega__link {
   display: flex;
   align-items: center;
@@ -343,6 +361,40 @@ body > * { position: relative; z-index: 1; }
 .desktop-nav-mega__link--war:hover {
   color: #ff8a8a;
   background: rgba(224, 82, 82, 0.12);
+}
+.desktop-nav-mega__tier-meta {
+  padding: 10px 16px 8px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.desktop-nav-mega__tier-value {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+}
+.desktop-nav-mega__tier-value--pro {
+  color: #e8c547;
+}
+.desktop-nav-mega__tier-value--informed {
+  color: #1e90ff;
+}
+.desktop-nav-mega__tier-value--free {
+  color: #94a3b8;
+}
+.desktop-nav-mega__trigger-tier {
+  margin-inline-start: 6px;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  opacity: 0.85;
+  color: var(--text-muted);
+  font-weight: 500;
 }
 .desktop-nav-mega__dot {
   position: relative;
