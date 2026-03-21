@@ -63,7 +63,7 @@ BEGIN
   ELSIF p_country = 'EG' THEN p_currency := 'egp';
   END IF;
 
-  CASE NEW.app_metadata->>'provider'
+  CASE NEW.raw_app_meta_data->>'provider'
     WHEN 'google'    THEN p_provider := 'google';
     WHEN 'apple'     THEN p_provider := 'apple';
     WHEN 'samsung'   THEN p_provider := 'samsung';

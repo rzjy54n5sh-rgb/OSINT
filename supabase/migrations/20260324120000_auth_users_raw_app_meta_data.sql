@@ -1,6 +1,5 @@
--- Harden auth → public.users sync: avoid NOT NULL / empty email failures when creating users
--- from Dashboard or OAuth (Supabase error: "Database error creating new user").
--- Idempotent: replaces public.handle_new_auth_user.
+-- auth.users columns are raw_app_meta_data / raw_user_meta_data (not app_metadata).
+-- Fixes: record "new" has no field "app_metadata"
 
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS TRIGGER
@@ -33,36 +32,37 @@ BEGIN
     ELSE                 p_provider := 'email';
   END CASE;
 
-  -- NOT NULL email: empty string must not slip through (COALESCE alone keeps '').
   p_email := COALESCE(
     NULLIF(BTRIM(NEW.email), ''),
     NULLIF(BTRIM(COALESCE(NEW.raw_user_meta_data->>'email', '')), ''),
     'user-' || NEW.id::text || '@placeholder.invalid'
   );
 
-  INSERT INTO public.users (
-    id,
-    email,
-    display_name,
-    avatar_url,
-    preferred_currency,
-    country_code,
-    auth_provider
-  )
-  VALUES (
-    NEW.id,
-    p_email,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'avatar_url',
-    p_currency,
-    NULLIF(p_country, ''),
-    p_provider
-  )
-  ON CONFLICT (id) DO NOTHING;
+  BEGIN
+    INSERT INTO public.users (
+      id,
+      email,
+      display_name,
+      avatar_url,
+      preferred_currency,
+      country_code,
+      auth_provider
+    )
+    VALUES (
+      NEW.id,
+      p_email,
+      NEW.raw_user_meta_data->>'full_name',
+      NEW.raw_user_meta_data->>'avatar_url',
+      p_currency,
+      NULLIF(p_country, ''),
+      p_provider
+    )
+    ON CONFLICT (id) DO NOTHING;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'handle_new_auth_user → public.users: % [SQLSTATE %]', SQLERRM, SQLSTATE;
+  END;
 
   RETURN NEW;
 END;
 $$;
-
-COMMENT ON FUNCTION public.handle_new_auth_user() IS
-  'After INSERT on auth.users, mirror row into public.users. Safe email fallback for Dashboard / phone / empty metadata.';

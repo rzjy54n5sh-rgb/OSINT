@@ -10,6 +10,8 @@ Supabase creates a row in `auth.users`, then a **trigger** (`on_auth_user_create
 
 The same trigger runs for **Authentication → Add user**, **Sign up** on the site, **OAuth**, and **magic link** (first-time user).
 
+**If logs show `record "new" has no field "app_metadata"`:** In Postgres, `auth.users` stores OAuth/app data in **`raw_app_meta_data`** (jsonb), not `app_metadata`. The trigger must use `NEW.raw_app_meta_data->>'provider'`, not `NEW.app_metadata` (that name exists in the JS API only).
+
 ## Fix (recommended)
 
 1. Open **Supabase Dashboard** → **SQL Editor**.
