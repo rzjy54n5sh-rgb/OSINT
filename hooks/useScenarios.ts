@@ -10,7 +10,8 @@ export function useScenarios() {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
+    setLoading(true);
     const supabase = createClient();
     void (async () => {
       try {
@@ -18,19 +19,19 @@ export function useScenarios() {
           .from('scenario_probabilities')
           .select('*')
           .order('conflict_day', { ascending: true });
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         if (e) setError(e);
         else setScenarios((data as ScenarioProbability[]) ?? []);
       } catch (e) {
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         setError(e instanceof Error ? e : new Error('Failed to fetch scenarios'));
         setScenarios([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, []);
 

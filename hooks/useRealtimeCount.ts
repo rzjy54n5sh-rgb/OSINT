@@ -9,42 +9,40 @@ export function useRealtimeCount() {
   const [conflictDay, setConflictDay] = useState<number | null>(null);
 
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
     const supabase = createClient();
 
     void (async () => {
       try {
-        const { count } = await supabase
-          .from('articles')
-          .select('*', { count: 'exact', head: true });
-        if (!isActive) return;
-        setArticleCount(count ?? 0);
-        setLastUpdate(new Date().toISOString().slice(11, 16) + ' UTC');
-        setLive(true);
+        const [articlesRes, dayRes] = await Promise.all([
+          supabase.from('articles').select('*', { count: 'exact', head: true }),
+          supabase
+            .from('nai_scores')
+            .select('conflict_day')
+            .order('conflict_day', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+        if (cancelled) return;
+        if (articlesRes.error) {
+          setArticleCount(0);
+          setLive(false);
+        } else {
+          setArticleCount(articlesRes.count ?? 0);
+          setLastUpdate(new Date().toISOString().slice(11, 16) + ' UTC');
+          setLive(true);
+        }
+        if (dayRes.data?.conflict_day != null) setConflictDay(dayRes.data.conflict_day);
       } catch {
-        if (!isActive) return;
-        setArticleCount(0);
-        setLive(false);
+        if (!cancelled) {
+          setArticleCount(0);
+          setLive(false);
+        }
       }
     })();
 
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from('nai_scores')
-          .select('conflict_day')
-          .order('conflict_day', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (!isActive) return;
-        if (data?.conflict_day != null) setConflictDay(data.conflict_day);
-      } catch {
-        if (!isActive) return;
-        setConflictDay(null);
-      }
-    })();
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, []);
 

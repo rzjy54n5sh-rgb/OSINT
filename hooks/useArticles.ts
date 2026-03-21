@@ -18,7 +18,7 @@ export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20) {
   const [page, setPage] = useState(0);
 
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
     setLoading(true);
     setError(null);
     const supabase = createClient();
@@ -34,19 +34,19 @@ export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20) {
     void (async () => {
       try {
         const { data, error: e } = await q;
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         if (e) setError(e);
         else setArticles((data as Article[]) ?? []);
       } catch (e) {
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         setError(e instanceof Error ? e : new Error('Failed to fetch articles'));
         setArticles([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, [filters.region, filters.sentiment, filters.source_type, filters.conflict_day, page]); // eslint-disable-line react-hooks/exhaustive-deps
 

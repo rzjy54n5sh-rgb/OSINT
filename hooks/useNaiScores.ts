@@ -10,7 +10,7 @@ export function useNaiScores(conflictDay: number | null) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let isActive = true;
+    let cancelled = false;
     if (conflictDay == null) {
       setScores([]);
       setLoading(false);
@@ -26,19 +26,19 @@ export function useNaiScores(conflictDay: number | null) {
           .select('*')
           .eq('conflict_day', conflictDay)
           .order('expressed_score', { ascending: false });
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         if (e) setError(e);
         else setScores((data as NaiScore[]) ?? []);
       } catch (e) {
-        if (!isActive) return;
-        setLoading(false);
+        if (cancelled) return;
         setError(e instanceof Error ? e : new Error('Failed to fetch NAI scores'));
         setScores([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
-      isActive = false;
+      cancelled = true;
     };
   }, [conflictDay]);
 
