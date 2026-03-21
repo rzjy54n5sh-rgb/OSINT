@@ -5,12 +5,16 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import type { User } from '@/types';
+import type { User } from '@supabase/supabase-js';
+import type { User as AppUser } from '@/types';
 import { applySecurityHeaders } from '@/lib/security-headers';
 
 export async function updateSession(request: NextRequest): Promise<{
   supabaseResponse: NextResponse;
-  user: User | null;
+  /** Public.users profile row (may be missing briefly after signup). */
+  user: AppUser | null;
+  /** Supabase Auth user when JWT is valid — use for gates that must not depend on profile sync. */
+  authUser: User | null;
 }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey =
@@ -19,7 +23,7 @@ export async function updateSession(request: NextRequest): Promise<{
   if (!url || !anonKey) {
     const res = NextResponse.next({ request });
     applySecurityHeaders(res);
-    return { supabaseResponse: res, user: null };
+    return { supabaseResponse: res, user: null, authUser: null };
   }
 
   const response = NextResponse.next({ request });
@@ -37,10 +41,12 @@ export async function updateSession(request: NextRequest): Promise<{
     },
   });
 
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
 
   if (!authUser) {
-    return { supabaseResponse: response, user: null };
+    return { supabaseResponse: response, user: null, authUser: null };
   }
 
   const { data: profile } = await supabase
@@ -48,7 +54,7 @@ export async function updateSession(request: NextRequest): Promise<{
     .select('*')
     .eq('id', authUser.id)
     .maybeSingle();
-  const user = profile ? (profile as unknown as User) : null;
+  const user = profile ? (profile as unknown as AppUser) : null;
 
-  return { supabaseResponse: response, user };
+  return { supabaseResponse: response, user, authUser };
 }

@@ -13,14 +13,15 @@ import { updateSession } from '@/utils/supabase/middleware';
 import { applySecurityHeaders } from '@/lib/security-headers';
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, user } = await updateSession(request);
+  const { supabaseResponse, authUser } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
   if (!pathname.startsWith('/admin')) {
     return supabaseResponse;
   }
 
-  if (!user) {
+  // Gate on Auth JWT, not public.users — profile sync can lag; admins still have user_id in admin_users.
+  if (!authUser) {
     const redirect = new URL('/login', request.url);
     redirect.searchParams.set('redirect', pathname);
     const res = NextResponse.redirect(redirect);
@@ -42,7 +43,7 @@ export async function middleware(request: NextRequest) {
   const { data: adminRow } = await admin
     .from('admin_users')
     .select('id, role')
-    .eq('user_id', user.id)
+    .eq('user_id', authUser.id)
     .eq('is_active', true)
     .maybeSingle();
 

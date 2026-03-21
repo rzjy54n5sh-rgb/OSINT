@@ -38,25 +38,31 @@ export interface Briefing {
   generated_at: string;
 }
 
-export function useBriefing(day: number, type: string) {
+export function useBriefing(day: number | null, type: string) {
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!day || !type) return;
+    if (day == null || day < 1 || !type) {
+      setBriefing(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     const supabase = createClient();
     setLoading(true);
+    setError(null);
     void (async () => {
       const { data, error: e } = await supabase
         .from('daily_briefings')
         .select('*')
         .eq('conflict_day', day)
         .eq('report_type', type)
-        .single();
+        .maybeSingle();
       setLoading(false);
       if (e) setError(e);
-      else setBriefing(data as Briefing);
+      else setBriefing((data as Briefing) ?? null);
     })();
   }, [day, type]);
 

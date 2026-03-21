@@ -21,6 +21,15 @@ import {
   Legend,
 } from 'recharts';
 import { useI18n } from '@/components/I18nProvider';
+import { useBriefing } from '@/hooks/useBriefing';
+
+function briefingLeadToPlainText(lead: string | null | undefined): string {
+  if (!lead?.trim()) return '';
+  return lead
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const QUICK_LINKS = [
   { href: '/feed', label: 'FEED', description: 'Live OSINT articles filtered by region, sentiment & source' },
@@ -42,6 +51,8 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
   const { articles } = useArticles({}, 3);
   const { scenarios } = useScenarios();
   const newScenarioAlert = useNewScenarioAlert();
+  const { briefing: generalBrief, loading: topFindingLoading } = useBriefing(conflictDay, 'general');
+  const topFindingText = briefingLeadToPlainText(generalBrief?.lead);
 
   const scenarioChartData =
     scenarios.length > 0
@@ -119,14 +130,27 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
               ◆ DAY {conflictDay ?? '—'} TOP FINDING
             </span>
           </div>
-          <p className="font-body text-sm leading-relaxed"
+          <p className="font-body text-sm leading-relaxed min-h-[3.5rem]"
              style={{ color: 'var(--text-secondary)' }}>
-            US forces struck Kharg Island military facilities on March 13 —
-            handling 90% of Iranian crude exports. Mojtaba Khamenei issued
-            his first statement as Supreme Leader: war continues until US
-            bases close. Brent settled at $103.14, up 41.5% since Feb 28.
+            {topFindingLoading && conflictDay != null && (
+              <span style={{ color: 'var(--text-muted)' }}>Loading latest synthesis…</span>
+            )}
+            {!topFindingLoading && topFindingText && (
+              <>
+                {topFindingText.length > 520 ? `${topFindingText.slice(0, 520).trim()}…` : topFindingText}
+              </>
+            )}
+            {!topFindingLoading && !topFindingText && conflictDay != null && (
+              <span style={{ color: 'var(--text-muted)' }}>
+                No general briefing for day {conflictDay} yet. Open briefings to view or generate the latest
+                synthesis.
+              </span>
+            )}
+            {conflictDay == null && !topFindingLoading && (
+              <span style={{ color: 'var(--text-muted)' }}>Resolving conflict day…</span>
+            )}
           </p>
-          <Link href={`/briefings/${conflictDay ?? 15}/general`}
+          <Link href={`/briefings/${conflictDay ?? 1}/general`}
                 className="font-mono text-xs mt-2 inline-block"
                 style={{ color: 'var(--accent-gold)' }}>
             READ FULL BRIEF →
@@ -184,7 +208,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
               { type: 'business', label: 'BUSINESS', emoji: '◈' },
             ].map(({ type, label, emoji }) => (
               <Link key={type}
-                    href={`/briefings/${conflictDay ?? 15}/${type}`}
+                    href={`/briefings/${conflictDay ?? 1}/${type}`}
                     className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
                     style={{ borderColor: 'var(--border)',
                              background: 'var(--bg-card)',

@@ -1,4 +1,5 @@
-const CACHE_NAME = 'mena-intel-v2';
+/** Bump when fetch strategy changes so old cache-first JS bundles are dropped (fixes stale Supabase client / zero articles). */
+const CACHE_NAME = 'mena-intel-v4';
 
 // Assets to cache immediately on install
 const PRECACHE = [
@@ -38,7 +39,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network-first for API/Supabase, cache-first for static assets
+// Fetch — network-first for API/Supabase and for /_next/static (hashed filenames; cache-first caused stale app JS after deploy)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -54,20 +55,22 @@ self.addEventListener('fetch', (event) => {
     return; // default browser fetch
   }
 
-  // Cache-first for static assets (JS, CSS, fonts, images)
+  // Network-first for build assets + PWA shell (avoid serving outdated JS after deploy)
   if (
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
     url.pathname === '/manifest.json'
   ) {
     event.respondWith(
-      caches.match(request).then(
-        (cached) => cached || fetch(request).then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
-      )
+        .catch(() => caches.match(request))
     );
     return;
   }
