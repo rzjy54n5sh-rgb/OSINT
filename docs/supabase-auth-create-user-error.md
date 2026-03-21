@@ -74,9 +74,11 @@ ALTER TABLE auth.users ENABLE TRIGGER on_auth_user_created;
 
 After that, insert into `public.users` manually for that `auth.users.id` or fix the function and re-enable.
 
-## Link `admin_users.user_id`
+## Link `admin_users.user_id` (required for admin access)
 
-After the user exists in **Authentication** and `public.users`, run:
+Admin pages (`/admin`, `/admin/feed`, `/admin/users`, `/admin/subscriptions`, etc.) require your `admin_users` row to have `user_id` set. If you were added as admin before your auth user existed, `user_id` may be `NULL`.
+
+After the user exists in **Authentication** and `public.users`, run in **SQL Editor**:
 
 ```sql
 UPDATE public.admin_users au
@@ -85,3 +87,5 @@ FROM public.users u
 WHERE u.email = 'your@email.com'
   AND au.email = 'your@email.com';
 ```
+
+Replace `your@email.com` with your email. After this, the **Admin** link appears in the header (desktop and mobile) and you can access `/admin`.

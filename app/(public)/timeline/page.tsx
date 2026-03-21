@@ -1,6 +1,7 @@
 import { getUser } from '@/utils/supabase/server';
 import { createClient } from '@/utils/supabase/server';
 import { formatConflictDayDate } from '@/lib/conflict-calendar';
+import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { TimelineDayNav } from '@/components/timeline/TimelineDayNav';
 import { TimelineDayBlock, type TimelineArticle } from '@/components/timeline/TimelineDayBlock';
 
@@ -103,6 +104,7 @@ export default async function ConflictTimelinePage() {
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         CONFLICT TIMELINE
       </h1>
+      <ConflictDayBadge />
       <p className="font-mono text-xs mb-2 max-w-2xl leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
         Headline articles (negative / positive sentiment) and daily scenario probabilities — newest days first. Deep link
         to any day: <span style={{ color: 'var(--text-muted)' }}>/timeline#day-15</span>

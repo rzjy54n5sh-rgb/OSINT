@@ -25,16 +25,17 @@ function formatPrice(n: number, currency: keyof PricesByCurrency): string {
 export function PricingClient({ prices, features, preferredCurrency, isLoggedIn }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<'informed' | 'professional' | 'report' | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const supabase = createClient();
 
   const callCheckout = async (type: 'subscription' | 'one_time', plan?: 'informed' | 'professional') => {
+    setError(null);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
       router.push('/login?redirect=/pricing&signup=1');
       return;
     }
-    const key = type === 'one_time' ? 'report' : loading;
     setLoading(type === 'one_time' ? 'report' : plan ?? null);
     try {
       const body = type === 'one_time' ? { type: 'one_time', currency: preferredCurrency } : { type: 'subscription', plan, currency: preferredCurrency };
@@ -44,7 +45,13 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (data?.url) window.location.href = data.url;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        setError(data?.message || data?.error || 'Checkout failed. Please try again or contact support.');
+      }
+    } catch (e) {
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(null);
     }
@@ -77,6 +84,14 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
         >
           ◆ CHOOSE YOUR PLAN
         </h1>
+        {error && (
+          <div
+            className="font-mono text-xs px-4 py-3 mb-6 max-w-xl mx-auto rounded-sm"
+            style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)' }}
+          >
+            {error}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Free */}
