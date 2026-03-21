@@ -46,7 +46,10 @@ function createMockClient(): SupabaseClient {
 
 export function createClient(): SupabaseClient {
   const url = (typeof GEN_URL === 'string' && GEN_URL) || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = (typeof GEN_ANON_KEY === 'string' && GEN_ANON_KEY) || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anonKey =
+    (typeof GEN_ANON_KEY === 'string' && GEN_ANON_KEY) ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !anonKey) {
     if (typeof window !== 'undefined') {
       console.warn('@supabase/ssr:', SUPABASE_NOT_CONFIGURED);

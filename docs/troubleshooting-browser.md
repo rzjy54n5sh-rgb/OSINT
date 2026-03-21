@@ -23,3 +23,17 @@
 **Cause:** The paragraph was **hardcoded** in `HomeDashboard.tsx`, not read from the database.
 
 **Fix (in repo):** The strip loads **`daily_briefings.lead`** for `report_type = 'general'` and the current **conflict day** (same day source as the rest of the dashboard). If no row exists, it shows a short message and link to briefings.
+
+## Whole platform shows empty data (not reading the database)
+
+**Causes:**
+
+1. **Supabase env not in the browser bundle** — `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or publishable key) must be present at **`next build` / OpenNext build** time. If they’re missing, the app uses a no-op client and queries return empty (check the browser console for `@supabase/ssr: Supabase not configured`).
+
+2. **Stale service worker** — an old bundle without keys (see “0 articles” above). Unregister SW + hard reload.
+
+3. **RLS / wrong project** — anon key must match the same Supabase project as your data; RLS policies must allow `anon` to `SELECT` the tables you expect for public pages.
+
+**Deploy (GitHub Actions):** Ensure secrets `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set; the workflow writes `lib/supabase/env.client.generated.ts` before `build:cf`.
+
+**Local Cloudflare deploy:** Keep the same vars in `.env.local`. `npm run build:cf` / `deploy` runs `sync:supabase-client-env` in CI only; locally Next still inlines `NEXT_PUBLIC_*` from `.env.local`. To bake keys into the generated file on purpose: `FORCE_WRITE_SUPABASE_CLIENT_ENV=1 npm run sync:supabase-client-env` (do **not** commit real keys).

@@ -5,9 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:cf": "opennextjs-cloudflare build",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "sync:supabase-client-env": "node scripts/write-supabase-client-env.mjs",
+    "build:cf": "node scripts/write-supabase-client-env.mjs && opennextjs-cloudflare build",
+    "preview": "node scripts/write-supabase-client-env.mjs && opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "node scripts/write-supabase-client-env.mjs && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
     "lint": "eslint .",
