@@ -19,6 +19,35 @@ The same trigger runs for **Authentication → Add user**, **Sign up** on the si
 
 3. Try **Authentication → Users → Add user** again (email + password, confirm email if your project requires it).
 
+## Still failing after that?
+
+Run the **second migration** (RLS / owner / clearer errors):
+
+- `supabase/migrations/20260323120000_auth_user_trigger_rls_owner_and_errors.sql`
+
+It:
+
+- Turns off **`FORCE ROW LEVEL SECURITY`** on `public.users` (a common reason inserts from triggers fail even with `SECURITY DEFINER`).
+- Sets **`handle_new_auth_user` owner to `postgres`**.
+- On hosted projects, **`GRANT INSERT ON public.users TO supabase_auth_admin`** when that role exists.
+- Wraps the `INSERT` in **`EXCEPTION`** so Postgres / Auth logs show a line like  
+  `handle_new_auth_user → public.users: … [SQLSTATE …]` instead of a generic message.
+
+Then run diagnostics (copy/paste in SQL Editor):
+
+- `docs/supabase-auth-create-user-debug.sql`
+
+Check **Dashboard → Logs → Postgres** at the exact time you create a user — the new exception text should name the real problem (duplicate email, missing column, check violation, etc.).
+
+**Quick isolation test:** only if you accept the security tradeoff temporarily:
+
+```sql
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+-- try creating the user again
+-- if it works, the problem was RLS; re-enable and fix policies:
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+```
+
 ## See the real error (if it still fails)
 
 - **Dashboard** → **Reports** (or **Logs**) → **Postgres** / **Database** — look for errors at the time you click “Create user”.
