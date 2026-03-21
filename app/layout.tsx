@@ -100,9 +100,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         {runtimeSupabaseUrl && runtimeSupabaseKey ? (
           <script
-            // Runs before React; `createClient` / `apiFetch` read `window.__MENA_SUPABASE_PUBLIC__` first.
+            // Same credentials as NEXT_PUBLIC_SUPABASE_* (GitHub/CF env) — not an extra secret name.
             dangerouslySetInnerHTML={{
-              __html: `window.__MENA_SUPABASE_PUBLIC__=${JSON.stringify({ url: runtimeSupabaseUrl, key: runtimeSupabaseKey })};`,
+              __html: `window.__SUPABASE_BROWSER_ENV__=${JSON.stringify({ url: runtimeSupabaseUrl, key: runtimeSupabaseKey })};`,
             }}
           />
         ) : null}
