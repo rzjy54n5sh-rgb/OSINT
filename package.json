@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "test:email": "node scripts/test-email.mjs",
+    "db:fix-social-trends": "node scripts/run-social-trends-fix.mjs",
     "test:e2e:smoke": "playwright test tests/e2e/prod-smoke.spec.ts tests/api/edge-functions-smoke.spec.ts",
     "test:e2e:deep": "playwright test"
   },

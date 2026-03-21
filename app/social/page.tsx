@@ -18,18 +18,26 @@ export default function SocialPage() {
     supabase
       .from('social_trends')
       .select('*')
-      .order('engagement_estimate', { ascending: false })
+      .order('conflict_day', { ascending: false })
+      .order('created_at', { ascending: false })
       .then(({ data, error: e }) => {
         setLoading(false);
-        if (e) setError(e);
-        else {
-          const rows = ((data as SocialTrend[]) ?? []).sort(
-            (a, b) =>
-              (parseEngagementEstimate(b.engagement_estimate) ?? -1) -
-              (parseEngagementEstimate(a.engagement_estimate) ?? -1)
-          );
-          setTrends(rows);
+        if (e) {
+          setError(e);
+          setTrends([]);
+          return;
         }
+        const rows = ((data as SocialTrend[]) ?? []).sort(
+          (a, b) =>
+            (parseEngagementEstimate(b.engagement_estimate) ?? -1) -
+            (parseEngagementEstimate(a.engagement_estimate) ?? -1)
+        );
+        setTrends(rows);
+      })
+      .catch((err) => {
+        setLoading(false);
+        setError(err instanceof Error ? err : new Error('Failed to load'));
+        setTrends([]);
       });
   }, []);
 

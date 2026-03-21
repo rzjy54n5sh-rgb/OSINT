@@ -2,7 +2,7 @@
 
 We **cannot** log into your Supabase project from here. Fix it in your project using the steps below.
 
-**TL;DR:** In Supabase **SQL Editor**, run `supabase/migrations/20260321120000_harden_handle_new_auth_user.sql`, then retry creating the user (Dashboard or app **Create account** on `/login`).
+**TL;DR:** In Supabase **SQL Editor**, run `supabase/migrations/20260324120000_auth_users_raw_app_meta_data.sql` first (fixes `app_metadata`). If you still see errors, run `20260323120000_auth_user_trigger_rls_owner_and_errors.sql`, then retry creating the user (Dashboard or app **Create account** on `/login`).
 
 ## Likely cause
 
@@ -16,8 +16,8 @@ The same trigger runs for **Authentication → Add user**, **Sign up** on the si
 
 1. Open **Supabase Dashboard** → **SQL Editor**.
 2. Run the migration file in the repo:
-   - `supabase/migrations/20260321120000_harden_handle_new_auth_user.sql`  
-   Or use **CLI**: `supabase db push` (if this repo is linked to the project).
+   - **First:** `supabase/migrations/20260324120000_auth_users_raw_app_meta_data.sql` (fixes `app_metadata`)
+   - Or use **CLI**: `supabase db push` (if this repo is linked to the project).
 
 3. Try **Authentication → Users → Add user** again (email + password, confirm email if your project requires it).
 
@@ -89,3 +89,7 @@ WHERE u.email = 'your@email.com'
 ```
 
 Replace `your@email.com` with your email. After this, the **Admin** link appears in the header (desktop and mobile) and you can access `/admin`.
+
+## Other login errors (admin_bootstrap, bigint, etc.)
+
+If logs show `admin_bootstrap` violations or `invalid input syntax for type bigint: "LOW (21/100)"`, see **`docs/supabase-login-errors-fix.md`** for fixes.

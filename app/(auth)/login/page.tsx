@@ -51,12 +51,14 @@ function LoginContent() {
       const { error: err } = await supabase.auth.signInWithPassword({ email, password });
       if (err) {
         setError(err.message);
-        setLoading(false);
         return;
       }
+      setLoading(false);
       router.replace(redirectTo);
+      router.refresh();
     } catch {
       setError('Something went wrong');
+    } finally {
       setLoading(false);
     }
   };
