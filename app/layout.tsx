@@ -11,6 +11,10 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
 import type { Lang } from '@/lib/i18n';
 import {
+  INJECTED_NEXT_PUBLIC_GLOBAL,
+  type InjectedNextPublicRuntime,
+} from '@/lib/env/injected-next-public';
+import {
   NEXT_PUBLIC_SUPABASE_URL as GEN_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
 } from '@/lib/supabase/env.client.generated';
@@ -83,12 +87,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const runtimeSupabaseUrl =
     (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim() ||
     (typeof GEN_SUPABASE_URL === 'string' ? GEN_SUPABASE_URL.trim() : '');
-  const runtimeSupabaseKey = (
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    (typeof GEN_SUPABASE_ANON_KEY === 'string' ? GEN_SUPABASE_ANON_KEY : '') ||
-    ''
-  ).trim();
+  const fromEnvAnon = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
+  const fromEnvPub = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? '').trim();
+  const fromGenAnon =
+    typeof GEN_SUPABASE_ANON_KEY === 'string' ? GEN_SUPABASE_ANON_KEY.trim() : '';
+
+  /** Property names must match GitHub/CF env names (see PROJECT.md). Same precedence as `resolve-public-env`. */
+  const injectedRuntime: InjectedNextPublicRuntime = {
+    NEXT_PUBLIC_SUPABASE_URL: runtimeSupabaseUrl,
+    ...(fromEnvAnon
+      ? { NEXT_PUBLIC_SUPABASE_ANON_KEY: fromEnvAnon }
+      : !fromEnvPub && fromGenAnon
+        ? { NEXT_PUBLIC_SUPABASE_ANON_KEY: fromGenAnon }
+        : {}),
+    ...(fromEnvPub ? { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: fromEnvPub } : {}),
+  };
+
+  const hasInjectableKey = Boolean(
+    injectedRuntime.NEXT_PUBLIC_SUPABASE_ANON_KEY || injectedRuntime.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  );
 
   return (
     <html
@@ -98,11 +115,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
     >
       <head>
-        {runtimeSupabaseUrl && runtimeSupabaseKey ? (
+        {runtimeSupabaseUrl && hasInjectableKey ? (
           <script
-            // Same credentials as NEXT_PUBLIC_SUPABASE_* (GitHub/CF env) — not an extra secret name.
+            // Same values as NEXT_PUBLIC_* env vars; keys on the object = exact env names.
             dangerouslySetInnerHTML={{
-              __html: `window.__SUPABASE_BROWSER_ENV__=${JSON.stringify({ url: runtimeSupabaseUrl, key: runtimeSupabaseKey })};`,
+              __html: `window[${JSON.stringify(INJECTED_NEXT_PUBLIC_GLOBAL)}]=${JSON.stringify(injectedRuntime)};`,
             }}
           />
         ) : null}

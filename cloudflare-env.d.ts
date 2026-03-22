@@ -11,6 +11,8 @@ declare namespace Cloudflare {
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
 		Github_URL: string;
 		SUPABASE_SERVICE_ROLE_KEY: string;
+		/** Same JWT as service_role; preferred name in GitHub Actions / wrangler for this repo */
+		SUPABASE_SERVICE_KEY: string;
 		supabase_db_password: string;
 		supabase_project_id: string;
 		DATABASE_URL: string;
@@ -27,7 +29,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY" | "Github_URL" | "SUPABASE_SERVICE_ROLE_KEY" | "supabase_db_password" | "supabase_project_id" | "DATABASE_URL" | "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN" | "CLOUDFLARE_API_TOKEN" | "cloudfare_Origin_CA_Key" | "CLOUDFLARE_ACCOUNT_ID" | "NEXT_PUBLIC_SITE_URL">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY" | "Github_URL" | "SUPABASE_SERVICE_ROLE_KEY" | "SUPABASE_SERVICE_KEY" | "supabase_db_password" | "supabase_project_id" | "DATABASE_URL" | "NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN" | "CLOUDFLARE_API_TOKEN" | "cloudfare_Origin_CA_Key" | "CLOUDFLARE_ACCOUNT_ID" | "NEXT_PUBLIC_SITE_URL">> {}
 }
 
 // Begin runtime types

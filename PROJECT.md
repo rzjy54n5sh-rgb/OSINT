@@ -37,15 +37,45 @@
 
 ## 2. Environment Variables
 
+**Canonical list for humans and AI:** also keep **`CURSOR.md`** in sync when names change. Do not invent parallel names (especially no extra `window.*` globals).
+
+### Public / browser (Next.js + Cloudflare Worker)
+
 | Variable | Where used | Purpose |
 |----------|-------------|---------|
-| `NEXT_PUBLIC_SUPABASE_URL` | `lib/supabase/client.ts`, all pages/hooks that use Supabase | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same | Supabase anonymous (public) key for browser client |
-| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | `app/layout.tsx` (head script) | Optional. Set to your Plausible-registered domain (e.g. `mena-intel-desk.com`) to enable privacy-first analytics. No cookie banner required. Register at plausible.io. |
-| `YOUTUBE_API_KEY` | `app/api/youtube-live/route.ts` only (server) | Optional; when set, Live TV uses YouTube Data API to resolve current live video IDs |
-| **Secrets (GitHub Actions only)** | Workflows | **Deploy (`.github/workflows/deploy.yml`):** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (passed to build so the client bundle has Supabase; otherwise War Room / all Supabase calls fail in production), `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. **Pipelines:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. Optional: `YOUTUBE_API_KEY` for Media Room Live TV. |
+| `NEXT_PUBLIC_SUPABASE_URL` | `lib/supabase/resolve-public-env.ts`, `@/lib/supabase/client`, hooks/pages | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same | Default public anon key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same | Optional; if set (and anon empty), used as the public key |
+| `NEXT_PUBLIC_SITE_URL` | `app/layout.tsx` (metadata), redirects | Canonical origin |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | `app/layout.tsx` (head script) | Optional analytics domain |
+| `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Maps (if used) | Map tiles |
 
-**Note:** The app does **not** use a server-side Supabase client. `NEXT_PUBLIC_*` vars are inlined at **build time**. For the deployed app (Cloudflare), the deploy workflow must pass `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from GitHub Secrets into the Build step; local dev uses `.env.local`. All Supabase access is from the browser via `createClient()` from `@/lib/supabase/client.ts`, which uses the two `NEXT_PUBLIC_*` vars. If those env vars are **not** set at build time, the app still loads: `createClient()` returns a no-op client and pages show empty data (no crash). To get real data in production, set the Supabase env vars in your deployment (e.g. Cloudflare Pages / Wrangler secrets or GitHub Actions secrets passed into the build).
+### Service role (server-only; never `NEXT_PUBLIC_*`)
+
+| Variable | Where used | Purpose |
+|----------|-------------|---------|
+| **`SUPABASE_SERVICE_KEY`** | **Preferred** in GitHub Actions, `wrangler.toml`, `middleware.ts`, `utils/supabase/admin.ts`, `app/api/generate-briefing/route.ts` | Same JWT as Supabase Dashboard **service_role** |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Accepted alias** — same value; middleware/admin resolve **either** name via `lib/env/service-key.ts` | Supabase CLI / dashboard naming |
+
+### Pipelines (Python on GitHub Actions)
+
+| Variable | Purpose |
+|----------|---------|
+| `SUPABASE_URL` | REST URL for scripts |
+| `SUPABASE_SERVICE_KEY` | Service JWT for inserts/updates |
+
+### Browser runtime bridge (not a separate secret)
+
+On Cloudflare/OpenNext, `app/layout.tsx` may inject **`window.__NEXT_PUBLIC_RUNTIME__`** (constant `INJECTED_NEXT_PUBLIC_GLOBAL` in `lib/env/injected-next-public.ts`). The value is a plain object whose **keys are the real env strings**, e.g. `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` — not `{ url, key }`. Client resolution: `lib/supabase/resolve-public-env.ts`.
+
+### Other
+
+| Variable | Where used | Purpose |
+|----------|-------------|---------|
+| `YOUTUBE_API_KEY` | `app/api/youtube-live/route.ts` | Optional Live TV |
+| **Secrets (GitHub Actions)** | Workflows | **Deploy:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_SERVICE_KEY` (for worker/API). **Pipelines:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. |
+
+**Note:** `NEXT_PUBLIC_*` are available at build time and on the Worker as `process.env`. The browser bundle may still need the **`__NEXT_PUBLIC_RUNTIME__`** bridge when inlining is incomplete. Local dev: `.env.local`. If public Supabase vars are missing, the app can load with empty data; service routes need `SUPABASE_SERVICE_KEY` or `SUPABASE_SERVICE_ROLE_KEY`.
 
 **Pipeline failure alerts:** When any of the data pipeline workflows (collect-articles, collect-markets, collect-social, collect-disinfo, daily-analysis) fails, a GitHub Issue is created with label `pipeline-failure`. Create this label once in the repo: go to `github.com/<owner>/<repo>/labels` and create a label named `pipeline-failure` with color `#E84040`.
 

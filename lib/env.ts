@@ -11,9 +11,18 @@ const REQUIRED = [
 /** Either anon or publishable key must be set for Supabase client. */
 const SUPABASE_KEY_NAMES = ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'] as const;
 
-const WARN_IN_PRODUCTION = [
-  'SUPABASE_SERVICE_ROLE_KEY',
-] as const;
+/** Prefer SUPABASE_SERVICE_KEY (repo/GitHub); SUPABASE_SERVICE_ROLE_KEY is accepted as alias. */
+function warnIfNoServiceKeyInProduction(isDev: boolean): void {
+  if (isDev) return;
+  const has =
+    (process.env.SUPABASE_SERVICE_KEY && process.env.SUPABASE_SERVICE_KEY.trim() !== '') ||
+    (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim() !== '');
+  if (!has) {
+    console.error(
+      '[env] Optional but recommended in production: set SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) for admin routes and /api/generate-briefing.'
+    );
+  }
+}
 
 export function validateEnv(): void {
   const isDev = process.env.NODE_ENV === 'development';
@@ -41,11 +50,6 @@ export function validateEnv(): void {
   }
 
   if (!isDev) {
-    for (const key of WARN_IN_PRODUCTION) {
-      const val = process.env[key];
-      if (val === undefined || val === '') {
-        console.error(`[env] Optional but recommended in production: ${key}`);
-      }
-    }
+    warnIfNoServiceKeyInProduction(isDev);
   }
 }

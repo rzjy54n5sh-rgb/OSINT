@@ -13,9 +13,9 @@ function supabaseBaseUrl(): string {
 
 function serviceRoleKey(): string {
   return (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SERVICE_KEY ||
-    mustGetEnv('SUPABASE_SERVICE_ROLE_KEY')
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    mustGetEnv('SUPABASE_SERVICE_KEY')
   );
 }
 

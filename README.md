@@ -2,6 +2,8 @@
 
 ## Docs
 
+- **[PROJECT.md](PROJECT.md)** — stack, structure, **canonical env vars** (§2)
+- **[CURSOR.md](CURSOR.md)** — same env names + rules for AI/tools (keep in sync with PROJECT.md)
 - [Stripe Setup Guide](docs/stripe-setup.md)
 - [Email Setup Guide](docs/email-setup.md)
 - [Supabase Auth Setup](docs/supabase-auth-setup.md)

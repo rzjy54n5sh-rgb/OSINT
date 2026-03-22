@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveSupabaseServiceRoleKey } from '@/lib/env/service-key';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +25,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid conflict day' }, { status: 400 });
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+    const serviceKey = resolveSupabaseServiceRoleKey();
+    if (!SUPABASE_URL || !serviceKey) {
+      return NextResponse.json({ error: 'Server misconfigured: Supabase URL or service key missing' }, { status: 500 });
+    }
+    const supabase = createClient(SUPABASE_URL, serviceKey);
     const code = countryCode.toUpperCase();
 
     // Check if report already exists for this day

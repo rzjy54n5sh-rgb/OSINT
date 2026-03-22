@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { updateSession } from '@/utils/supabase/middleware';
 import { applySecurityHeaders } from '@/lib/security-headers';
+import { resolveSupabaseServiceRoleKey } from '@/lib/env/service-key';
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, authUser } = await updateSession(request);
@@ -30,7 +31,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = resolveSupabaseServiceRoleKey();
   if (!url || !serviceKey) {
     const res = NextResponse.redirect(new URL('/', request.url));
     applySecurityHeaders(res);
