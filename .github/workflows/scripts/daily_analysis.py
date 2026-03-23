@@ -329,9 +329,7 @@ def run_structured_analysis(schema, task_prompt, articles_block):
     """Run Claude with structured outputs — schema enforced at token level."""
     response = client.messages.create(
         model=MODEL,
-        max_tokens=8000,
-        # Adaptive thinking — model decides when to think
-        thinking={"type": "adaptive"},
+        max_tokens=16000,
         system=SYSTEM_PROMPT,
         messages=[{
             "role": "user",
@@ -355,13 +353,14 @@ def run_structured_analysis(schema, task_prompt, articles_block):
             }
         }
     )
-    # With adaptive thinking, response may contain ThinkingBlock + TextBlock.
-    # Extract the last TextBlock (structured output).
-    text_blocks = [b for b in response.content if b.type == "text"]
-    if not text_blocks:
-        raise RuntimeError("No text block in Claude response")
-    text = text_blocks[-1].text
-    return json.loads(text)
+    # Log content block types for debugging
+    block_types = [b.type for b in response.content]
+    print(f"    Response blocks: {block_types}, stop_reason={response.stop_reason}")
+    # Extract text from any block that has a .text attribute
+    for b in reversed(response.content):
+        if hasattr(b, "text") and b.text:
+            return json.loads(b.text)
+    raise RuntimeError(f"No parseable text in Claude response (blocks: {block_types})")
 
 
 # Run NAI scoring

@@ -146,13 +146,18 @@ def batch_and_wait(custom_id, model, system_prompt, user_prompt, max_tokens):
     if result_type != "succeeded":
         raise RuntimeError(f"Unexpected result type: {result_type}")
 
+    stop_reason = result.get("message", {}).get("stop_reason", "")
+    if stop_reason == "max_tokens":
+        print(f"  ⚠️ Response truncated (hit max_tokens) — increase limit")
     content = result.get("message", {}).get("content", [])
     if not content:
         raise RuntimeError(f"Empty content in batch result for {custom_id}")
-    if content[0].get("type") != "text":
-        raise RuntimeError(f"Unexpected content type: {content[0].get('type')}")
+    # Filter for text blocks (skip thinking blocks if present)
+    text_blocks = [b for b in content if b.get("type") == "text"]
+    if not text_blocks:
+        raise RuntimeError(f"No text content in batch result for {custom_id}")
 
-    text = content[0]["text"].strip()
+    text = text_blocks[-1]["text"].strip()
     if text.startswith("```"):
         text = text.split("\n", 1)[1]
         text = text.rsplit("```", 1)[0]
@@ -270,7 +275,7 @@ All {len(to_analyze)} countries required. sentiment_bar values must sum to 100.
 Be specific — name actual hashtags trending in each country."""
 
     print("  Calling Claude — social analysis (Batch)...")
-    raw = batch_and_wait(f"social-day{conflict_day}", "claude-sonnet-4-6", system, user, 10000)
+    raw = batch_and_wait(f"social-day{conflict_day}", "claude-sonnet-4-6", system, user, 16000)
     result = json.loads(raw)
 
     now = datetime.datetime.utcnow().isoformat() + "+00:00"
