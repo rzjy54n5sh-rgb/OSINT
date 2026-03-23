@@ -13,5 +13,10 @@
       "binding": "WORKER_SELF_REFERENCE",
       "service": "mena-intel-desk"
     }
-  ]
+  ],
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://qmaszkkyukgiludcakjg.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_jgm9epohpvCavP6zr4pcig_t3E5mvup",
+    "NEXT_PUBLIC_SITE_URL": "https://mena-intel-desk.mores-cohorts9x.workers.dev/"
+  }
 }
