@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "write_file|edit_file",
+        "type": "command",
+        "command": "FILE=\"$FILE_PATH\"; if echo \"$FILE\" | grep -q '\\.docx$'; then echo \"Validating $FILE...\"; python3 /mnt/skills/public/docx/scripts/office/validate.py \"$FILE\" && echo \"✓ DOCX valid\" || echo \"✗ DOCX INVALID — fix before continuing\"; fi"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "bash",
+        "type": "command",
+        "command": "CMD=\"$TOOL_INPUT\"; if echo \"$CMD\" | grep -qiE 'DROP TABLE|TRUNCATE TABLE'; then echo '{\"block\": true, \"message\": \"Destructive DDL blocked — confirm manually in Supabase dashboard\"}' >&2; exit 2; fi; if echo \"$CMD\" | grep -qiE 'DELETE FROM (nai_scores|country_reports|scenario_probabilities|articles) WHERE' | grep -v 'conflict_day'; then echo '{\"block\": true, \"message\": \"Mass DELETE without conflict_day filter blocked — too risky\"}' >&2; exit 2; fi"
+      }
+    ]
+  }
+}

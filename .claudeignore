@@ -1,0 +1,24 @@
+# .claudeignore — Tell Claude Code what to skip
+
+# Partner analysis — never modify
+collaboration/
+
+# Secrets — never read or expose
+.env.local
+.env*.local
+*.pem
+*.key
+
+# Generated build output — not useful context
+.next/
+.open-next/
+.wrangler/
+node_modules/
+
+# Test output — not useful context
+playwright-report/
+playwright-report 2/
+test-results/
+
+# Large lock file — skip for context
+package-lock.json
