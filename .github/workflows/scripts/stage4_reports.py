@@ -353,9 +353,7 @@ def main():
             "generated_at": now_ts,
         }
 
-        status = sb_post(
-            "daily_briefings", row, upsert_cols="conflict_day,report_type"
-        )
+        status = sb_post("daily_briefings", row)
         if isinstance(status, int) and status < 300:
             print(f"  ✅ {report_type} written")
             generated += 1
