@@ -23,6 +23,8 @@ import sys
 import urllib.request
 import urllib.error
 
+import time
+
 import anthropic
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
@@ -264,8 +266,8 @@ BRIEFING_SCHEMA = {
 
 
 # ── GENERATE BRIEFING ─────────────────────────────────────────────────────────
-def generate_briefing(report_type, report_title, day, context_block):
-    """Call Claude to generate a single briefing."""
+def generate_briefing(report_type, report_title, day, context_block, max_retries=4):
+    """Call Claude to generate a single briefing with retry on rate limits."""
     system = get_system_prompt(report_type, day)
     user_prompt = f"""Generate the {report_title} for Conflict Day {day}.
 
@@ -279,18 +281,24 @@ Return a JSON object with:
 
 Ground EVERY claim in the source data above. If no data exists for a topic, state that explicitly."""
 
-    response = client.messages.create(
-        model=MODEL,
-        max_tokens=8000,
-        system=system,
-        messages=[{"role": "user", "content": user_prompt}],
-        output_config={"format": {"type": "json_schema", "schema": BRIEFING_SCHEMA}},
-    )
-    # Extract text from response
-    for b in reversed(response.content):
-        if hasattr(b, "text") and b.text:
-            return json.loads(b.text)
-    raise RuntimeError(f"No text in Claude response for {report_type}")
+    for attempt in range(max_retries):
+        try:
+            response = client.messages.create(
+                model=MODEL,
+                max_tokens=8000,
+                system=system,
+                messages=[{"role": "user", "content": user_prompt}],
+                output_config={"format": {"type": "json_schema", "schema": BRIEFING_SCHEMA}},
+            )
+            for b in reversed(response.content):
+                if hasattr(b, "text") and b.text:
+                    return json.loads(b.text)
+            raise RuntimeError(f"No text in Claude response for {report_type}")
+        except anthropic.RateLimitError as e:
+            wait = 30 * (2 ** attempt)  # 30s, 60s, 120s, 240s
+            print(f"    Rate limited, waiting {wait}s (attempt {attempt + 1}/{max_retries})...")
+            time.sleep(wait)
+    raise RuntimeError(f"Rate limit exceeded after {max_retries} retries for {report_type}")
 
 
 # ── MAIN ──────────────────────────────────────────────────────────────────────
@@ -359,6 +367,9 @@ def main():
             generated += 1
         else:
             print(f"  ⚠️ {report_type} write failed: {status}")
+
+        # Pause between briefings to respect rate limits (8K tokens/min)
+        time.sleep(15)
 
     print(f"\nStage 4 complete: {generated} briefings generated for Day {day}")
 
