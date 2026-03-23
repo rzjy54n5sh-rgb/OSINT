@@ -210,8 +210,8 @@ NAI_SCHEMA = {
                 "type": "object",
                 "properties": {
                     "country_code": {"type": "string"},
-                    "expressed_score": {"type": "integer", "minimum": 0, "maximum": 100},
-                    "latent_score":    {"type": "integer", "minimum": 0, "maximum": 100},
+                    "expressed_score": {"type": "integer"},
+                    "latent_score":    {"type": "integer"},
                     "category": {
                         "type": "string",
                         # ENFORCED AT TOKEN LEVEL — model CANNOT output "TENSE" or any other value
@@ -239,21 +239,20 @@ CR_SCHEMA = {
                     "country_code": {"type": "string"},
                     "key_risks": {
                         "type": "array",
-                        "items": {"type": "string"},
-                        "minItems": 1
+                        "items": {"type": "string"}
                     },
                     "stabilizers": {
                         "type": "array",
                         "items": {"type": "string"}
                     },
-                    "assessment": {"type": "string", "minLength": 50},
+                    "assessment": {"type": "string"},
                     "scenarios": {
                         "type": "object",
                         "properties": {
-                            "A": {"type": "integer", "minimum": 0, "maximum": 100},
-                            "B": {"type": "integer", "minimum": 0, "maximum": 100},
-                            "C": {"type": "integer", "minimum": 0, "maximum": 100},
-                            "D": {"type": "integer", "minimum": 0, "maximum": 100},
+                            "A": {"type": "integer"},
+                            "B": {"type": "integer"},
+                            "C": {"type": "integer"},
+                            "D": {"type": "integer"},
                         },
                         "required": ["A","B","C","D"],
                         "additionalProperties": False

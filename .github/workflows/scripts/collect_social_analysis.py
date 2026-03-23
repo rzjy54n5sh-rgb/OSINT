@@ -111,7 +111,11 @@ def batch_and_wait(custom_id, model, system_prompt, user_prompt, max_tokens):
     if not results_url:
         raise RuntimeError(f"No results_url for batch {batch_id}")
 
-    results_resp = requests.get(results_url, timeout=60)
+    results_resp = requests.get(
+        results_url,
+        headers={"x-api-key": ANTHROPIC_KEY, "anthropic-version": "2023-06-01"},
+        timeout=60,
+    )
     results_resp.raise_for_status()
     results = results_resp.text
     print(f"    Results: {len(results)} chars, {results.count(chr(10))+1} lines")
