@@ -51,7 +51,7 @@ export function createClient(): SupabaseClient {
     return createMockClient();
   }
   try {
-    return createBrowserClient(url, anonKey);
+    return createBrowserClient(url, anonKey, { isSingleton: false });
   } catch (e) {
     if (typeof window !== 'undefined') {
       console.warn('@supabase/ssr: createBrowserClient failed, using no-op client.', e);
