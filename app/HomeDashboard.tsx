@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import { useI18n } from '@/components/I18nProvider';
 import { useBriefing } from '@/hooks/useBriefing';
+import { useMarketData } from '@/hooks/useMarketData';
 
 function briefingLeadToPlainText(lead: string | null | undefined): string {
   if (!lead?.trim()) return '';
@@ -52,6 +53,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
   const { scenarios } = useScenarios();
   const newScenarioAlert = useNewScenarioAlert();
   const { briefing: generalBrief, loading: topFindingLoading } = useBriefing(conflictDay, 'general');
+  const { metrics: marketMetrics, loading: marketLoading } = useMarketData();
   const topFindingText = briefingLeadToPlainText(generalBrief?.lead);
 
   const scenarioChartData =
@@ -70,7 +72,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
     <div className="relative">
       <AsciiHero
         articleCount={articleCount}
-        conflictDay={conflictDay ?? 10}
+        conflictDay={conflictDay ?? null}
         countriesTracked={20}
       />
 
@@ -159,12 +161,17 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
 
         {/* ── KEY METRICS ROW ─────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: 'BRENT', value: '$103.14', change: '+41.5%', up: true },
-            { label: 'EGP/USD', value: '52+', change: 'RECORD LOW', up: false },
-            { label: 'HORMUZ', value: 'CLOSED', change: 'Day 1', up: false },
-            { label: 'US KIA', value: '11', change: '7 combat', up: false },
-          ].map(({ label, value, change, up }) => (
+          {marketLoading && (
+            <div className="col-span-full font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+              LOADING MARKETS<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
+            </div>
+          )}
+          {!marketLoading && marketMetrics.length === 0 && (
+            <div className="col-span-full font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+              MARKET DATA UNAVAILABLE
+            </div>
+          )}
+          {!marketLoading && marketMetrics.map(({ label, value, change, up }) => (
             <div key={label} className="px-3 py-2"
                  style={{ border: '1px solid var(--border)',
                           background: 'var(--bg-card)' }}>

@@ -87,7 +87,7 @@ function formatTime(iso: string | null): string {
 
 export default function WarRoomPage() {
   const conflictDayFromDb = useConflictDay();
-  const CONFLICT_DAY = conflictDayFromDb ?? 10;
+  const CONFLICT_DAY = conflictDayFromDb;
   const [activeCountry, setActiveCountry] = useState<string>('IR');
   const [lastRefresh, setLastRefresh] = useState<string>('--:--');
   const [countryReports, setCountryReports] = useState<CountryReport[]>([]);
@@ -184,6 +184,7 @@ export default function WarRoomPage() {
   };
 
   useEffect(() => {
+    if (CONFLICT_DAY == null) return;
     fetchAll();
     const interval = setInterval(fetchAll, 60_000);
     return () => clearInterval(interval);
@@ -382,7 +383,7 @@ export default function WarRoomPage() {
       >
         <span style={{ color: 'var(--accent-gold)' }}>◆ MENA WAR ROOM</span>
         <span>|</span>
-        <span>CONFLICT DAY {CONFLICT_DAY}</span>
+        <span>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
         <span>|</span>
         <span style={{ color: 'var(--accent-red)' }}>● LIVE</span>
         <span>PIPELINE ACTIVE</span>
@@ -394,7 +395,7 @@ export default function WarRoomPage() {
         <span>AUTO-REFRESH: 60s</span>
         <span style={{ marginLeft: 'auto', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
           <PageShareCard
-            label={`WAR ROOM · DAY ${CONFLICT_DAY}`}
+            label={`WAR ROOM · DAY ${CONFLICT_DAY ?? '—'}`}
             summary={`Scenario A: ${scenarios?.scenario_a ?? '—'}% · B: ${scenarios?.scenario_b ?? '—'}% · C: ${scenarios?.scenario_c ?? '—'}% · D: ${scenarios?.scenario_d ?? '—'}%`}
           />
           <PageShareButton
@@ -405,7 +406,7 @@ export default function WarRoomPage() {
               const name = report?.country_name ?? activeCountry;
               const score = naiRow?.expressed_score ?? report?.nai_score ?? 0;
               const category = naiRow?.category ?? report?.nai_category ?? '—';
-              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), CONFLICT_DAY);
+              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), CONFLICT_DAY ?? 0);
             }}
           />
         </span>
@@ -605,7 +606,7 @@ export default function WarRoomPage() {
               >
                 {naiLatest?.category ?? activeReport?.nai_category ?? '—'}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>CONFLICT DAY {CONFLICT_DAY}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
             </div>
             <div className="nai-bar-track" style={{ width: 120, height: 4 }}>
               <div

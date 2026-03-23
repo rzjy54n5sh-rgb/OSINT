@@ -13,7 +13,7 @@ const ASCII_LOGO = `
 ╚═╝     ╚═╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚══════╝   ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝`.trim();
 
 function getBootLines(
-  conflictDay: number,
+  conflictDay: number | null | undefined,
   articleCount: number,
   countriesTracked: number,
   t: (k: UIStringKey) => string
@@ -25,7 +25,7 @@ function getBootLines(
     `> ${t('asciiConflictLine')}`,
     '> NAI SCORING ENGINE: OPERATIONAL',
     `> ARTICLES INDEXED: ${articleCount > 0 ? articleCount : 'LOADING...'} | COUNTRIES TRACKED: ${countriesTracked}`,
-    `> ${t('conflictDay')} ${conflictDay} ${t('conflictDayBootSuffix')}`,
+    `> ${t('conflictDay')} ${conflictDay ?? '—'} ${t('conflictDayBootSuffix')}`,
   ];
 }
 
@@ -33,13 +33,13 @@ type Phase = 'logo' | 'boot' | 'done';
 
 interface AsciiHeroProps {
   articleCount?: number;
-  conflictDay?: number;
+  conflictDay?: number | null;
   countriesTracked?: number;
 }
 
 export function AsciiHero({
   articleCount = 0,
-  conflictDay  = 10,
+  conflictDay,
   countriesTracked = 20,
 }: AsciiHeroProps) {
   const { t, lang } = useI18n();

@@ -93,7 +93,7 @@ export default function FeedPage() {
           style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
         >
           <option value="">ALL DAYS</option>
-          {Array.from({ length: maxConflictDay ?? 11 }, (_, i) => i + 1).map((d) => (
+          {Array.from({ length: maxConflictDay ?? 1 }, (_, i) => i + 1).map((d) => (
             <option key={d} value={d}>DAY {d}</option>
           ))}
         </select>

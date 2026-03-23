@@ -12,8 +12,7 @@ import { useConflictDay } from '@/hooks/useConflictDay';
 
 export default function CountriesPage() {
   const conflictDay = useConflictDay();
-  const CONFLICT_DAY = conflictDay ?? 10;
-  const { scores, loading, error } = useNaiScores(CONFLICT_DAY);
+  const { scores, loading, error } = useNaiScores(conflictDay);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -26,7 +25,7 @@ export default function CountriesPage() {
         COUNTRY INTELLIGENCE
       </h1>
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY {CONFLICT_DAY} — NAI BY COUNTRY
+        CONFLICT DAY {conflictDay ?? '—'} — NAI BY COUNTRY
       </p>
       {loading && (
         <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
