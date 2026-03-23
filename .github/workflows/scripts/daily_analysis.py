@@ -355,7 +355,12 @@ def run_structured_analysis(schema, task_prompt, articles_block):
             }
         }
     )
-    text = response.content[-1].text  # structured output is always last content block
+    # With adaptive thinking, response may contain ThinkingBlock + TextBlock.
+    # Extract the last TextBlock (structured output).
+    text_blocks = [b for b in response.content if b.type == "text"]
+    if not text_blocks:
+        raise RuntimeError("No text block in Claude response")
+    text = text_blocks[-1].text
     return json.loads(text)
 
 
