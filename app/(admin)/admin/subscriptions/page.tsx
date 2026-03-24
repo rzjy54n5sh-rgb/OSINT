@@ -14,7 +14,7 @@ export default async function AdminSubscriptionsPage() {
   const role = adminUser.role as AdminRole;
   if (!canAccess('subscriptions', role)) redirect('/admin');
 
-  const { data: subs } = await adminClient.from('subscriptions').select('id, user_id, plan, status, currency, amount, current_period_end, stripe_subscription_id').in('status', ['active', 'trialing', 'past_due', 'canceled']).order('created_at', { ascending: false });
+  const { data: subs } = await adminClient.from('subscriptions').select('id, user_id, plan, status, currency, amount, current_period_end, stripe_subscription_id, created_at, billing_cycle, cancel_at_period_end').in('status', ['active', 'trialing', 'past_due', 'canceled']).order('created_at', { ascending: false });
   const userIds = [...new Set((subs ?? []).map((s) => (s as { user_id: string }).user_id))];
   const { data: users } = userIds.length > 0 ? await adminClient.from('users').select('id, email').in('id', userIds) : { data: [] };
   const emailByUserId: Record<string, string> = {};
@@ -23,7 +23,7 @@ export default async function AdminSubscriptionsPage() {
   const STRIPE_DASH = process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_URL || 'https://dashboard.stripe.com';
   return (
     <SubscriptionsClient
-      subscriptions={(subs ?? []) as { id: string; user_id: string; plan: string; status: string; currency: string; amount?: number; current_period_end?: string; stripe_subscription_id?: string }[]}
+      subscriptions={(subs ?? []) as { id: string; user_id: string; plan: string; status: string; currency: string; amount?: number; current_period_end?: string; stripe_subscription_id?: string; created_at?: string; billing_cycle?: string; cancel_at_period_end?: boolean }[]}
       emailByUserId={emailByUserId}
       role={role}
       stripeDashboardUrl={STRIPE_DASH}
