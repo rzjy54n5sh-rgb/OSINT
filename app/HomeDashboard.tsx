@@ -46,15 +46,35 @@ const QUICK_LINKS = [
   { href: '/sources', label: 'SOURCES', description: 'Full registry of monitored feeds — tiers, languages, and party-source attribution' },
 ];
 
-export default function HomeDashboard({ children }: { children?: ReactNode }) {
+interface ServerData {
+  conflictDay: number;
+  articleCount: number;
+  articles: import('@/types/supabase').Article[];
+  scenarios: import('@/types/supabase').ScenarioProbability[];
+  topFindingLead: string | null;
+  marketMetrics: { label: string; value: string; change: string; up: boolean }[];
+}
+
+export default function HomeDashboard({ children, serverData }: { children?: ReactNode; serverData?: ServerData }) {
   const { t } = useI18n();
-  const { articleCount, lastUpdate, live, conflictDay } = useRealtimeCount();
-  const { articles } = useArticles({}, 3);
-  const { scenarios } = useScenarios();
+  // Use server data if available, fall back to client hooks for real-time updates
+  const rtCount = useRealtimeCount();
+  const clientArticles = useArticles({}, 3);
+  const clientScenarios = useScenarios();
   const newScenarioAlert = useNewScenarioAlert();
-  const { briefing: generalBrief, loading: topFindingLoading } = useBriefing(conflictDay, 'general');
-  const { metrics: marketMetrics, loading: marketLoading } = useMarketData();
-  const topFindingText = briefingLeadToPlainText(generalBrief?.lead);
+  const clientBriefing = useBriefing(serverData?.conflictDay ?? rtCount.conflictDay, 'general');
+  const clientMarket = useMarketData();
+
+  const conflictDay = serverData?.conflictDay ?? rtCount.conflictDay;
+  const articleCount = serverData?.articleCount ?? rtCount.articleCount;
+  const lastUpdate = rtCount.lastUpdate;
+  const live = serverData ? true : rtCount.live;
+  const articles = serverData?.articles?.length ? serverData.articles : clientArticles.articles;
+  const scenarios = serverData?.scenarios?.length ? serverData.scenarios : clientScenarios.scenarios;
+  const topFindingLoading = !serverData?.topFindingLead && clientBriefing.loading;
+  const topFindingText = briefingLeadToPlainText(serverData?.topFindingLead ?? clientBriefing.briefing?.lead);
+  const marketMetrics = serverData?.marketMetrics?.length ? serverData.marketMetrics : clientMarket.metrics;
+  const marketLoading = !serverData?.marketMetrics?.length && clientMarket.loading;
 
   const scenarioChartData =
     scenarios.length > 0
