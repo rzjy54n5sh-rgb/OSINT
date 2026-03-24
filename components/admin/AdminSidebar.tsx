@@ -80,7 +80,7 @@ export function AdminSidebar({ role, disputeCount = 0, failingSourcesCount = 0 }
           return (
             <div key={section.label} className="mb-6">
               <p
-                className="font-mono text-[10px] uppercase px-3 py-1 mb-1"
+                className="font-mono text-[11px] uppercase px-3 py-1 mb-1"
                 style={{ color: 'var(--text-muted)', letterSpacing: '1.5px' }}
               >
                 {section.label}
@@ -109,7 +109,7 @@ export function AdminSidebar({ role, disputeCount = 0, failingSourcesCount = 0 }
                         <span className="flex-1">{label}</span>
                         {badge != null && badge > 0 && (
                           <span
-                            className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-mono"
+                            className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[11px] font-mono"
                             style={{ background: 'var(--accent-red)', color: '#fff' }}
                           >
                             {badge}

@@ -188,7 +188,7 @@ export function NaiClient({ initialConflictDay, initialScores }: NaiClientProps)
                       type="button"
                       onClick={() => handleSave(r.country_code, editing.field, editValue)}
                       disabled={saving}
-                      className="font-mono text-[10px] px-2 py-1 border rounded-sm"
+                      className="font-mono text-[11px] px-2 py-1 border rounded-sm"
                       style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
                     >
                       Save

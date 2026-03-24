@@ -25,7 +25,7 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   if (tier === 1) {
     return (
       <span
-        className="inline-block font-mono text-[10px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
         style={{ background: 'rgba(26, 122, 74, 0.25)', color: '#4ade80', border: '1px solid #1A7A4A' }}
       >
         TIER 1 — INDEPENDENT
@@ -35,7 +35,7 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   if (tier === 2) {
     return (
       <span
-        className="inline-block font-mono text-[10px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
         style={{ background: 'rgba(232, 197, 71, 0.12)', color: '#E8C547', border: '1px solid rgba(232, 197, 71, 0.45)' }}
       >
         TIER 2 — REGIONAL
@@ -44,7 +44,7 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   }
   return (
     <span
-      className="inline-block font-mono text-[10px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+      className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
       style={{ background: 'rgba(217, 119, 6, 0.2)', color: '#fdba74', border: '1px solid #D97706' }}
     >
       TIER 3 — PARTY/STATE
@@ -62,7 +62,7 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
               <th
                 key={h}
                 className="text-left py-3 px-3 uppercase tracking-wider"
-                style={{ color: 'var(--text-muted)', fontSize: '10px' }}
+                style={{ color: 'var(--text-muted)', fontSize: '11px' }}
               >
                 {h}
               </th>
@@ -89,7 +89,7 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
                     <TierBadge tier={s.tier} />
                     {s.is_party_source && (
                       <span
-                        className="inline-block font-mono text-[10px] px-2 py-0.5 rounded-sm cursor-help"
+                        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm cursor-help"
                         style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.5)' }}
                         title="This source represents a conflict party. All claims require independent corroboration before use."
                       >

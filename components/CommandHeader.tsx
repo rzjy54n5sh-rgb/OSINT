@@ -136,7 +136,7 @@ export function CommandHeader() {
             style={{
               fontFamily: 'Bebas Neue, sans-serif',
               fontSize: '16px',
-              letterSpacing: '3px',
+              letterSpacing: '2px',
               color: 'var(--text-primary)',
             }}
           >
@@ -151,7 +151,7 @@ export function CommandHeader() {
             alignItems: 'center',
             gap: '20px',
             fontFamily: 'IBM Plex Mono, monospace',
-            fontSize: '9px',
+            fontSize: '11px',
             letterSpacing: '1.5px',
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
@@ -209,7 +209,7 @@ export function CommandHeader() {
           {stale && (
             <span
               style={{
-                fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1px',
+                fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1px',
                 color: 'var(--accent-orange)',
                 border: '1px solid var(--accent-orange)',
                 padding: '2px 8px',
@@ -222,7 +222,7 @@ export function CommandHeader() {
           )}
           {!stale && lastNaiUpdate && (
             <span
-              style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', letterSpacing: '1px' }}
+              style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}
               title={`NAI scores last updated: ${new Date(lastNaiUpdate).toLocaleString()}`}
             >
               ◆ SYNCED
@@ -385,7 +385,7 @@ export function CommandHeader() {
                   style={{
                     gridColumn: '1 / -1',
                     fontFamily: 'IBM Plex Mono, monospace',
-                    fontSize: 8,
+                    fontSize: 11,
                     letterSpacing: '1.5px',
                     color: 'var(--text-muted)',
                     marginTop: 4,
@@ -400,7 +400,7 @@ export function CommandHeader() {
                     className="header-link"
                     onClick={() => setMenuOpen(false)}
                     style={{
-                      fontSize: 10,
+                      fontSize: 11,
                       color: isWarRoom ? 'var(--accent-red)' : pathname === href ? 'var(--accent-gold)' : undefined,
                     }}
                   >
@@ -423,7 +423,7 @@ export function CommandHeader() {
             <div
               style={{
                 fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: 8,
+                fontSize: 11,
                 letterSpacing: '1.5px',
                 color: 'var(--text-muted)',
               }}
@@ -434,7 +434,7 @@ export function CommandHeader() {
               <span
                 className="font-mono"
                 style={{
-                  fontSize: 10,
+                  fontSize: 12,
                   ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
                 }}
                 translate="no"
@@ -444,20 +444,20 @@ export function CommandHeader() {
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
               {showGuestAuth && (
-                <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
+                <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                   {t('login')}
                 </Link>
               )}
               {loggedIn && (
-                <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
+                <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                   {t('account')}
                 </Link>
               )}
-              <Link href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10 }}>
+              <Link href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                 {t('pricing')}
               </Link>
               {isAdmin && (
-                <Link href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 10, color: 'var(--accent-gold)' }}>
+                <Link href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11, color: 'var(--accent-gold)' }}>
                   {t('admin')}
                 </Link>
               )}

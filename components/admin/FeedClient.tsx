@@ -95,7 +95,7 @@ export function FeedClient({
         {articles.map((a) => (
           <div key={a.id} className="p-3 rounded border flex items-center justify-between gap-4" style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.02)' }}>
             <div className="min-w-0 flex-1">
-              <span className="inline-block px-2 py-0.5 rounded text-[10px] mr-2" style={{ background: CATEGORY_COLORS[(a as { region?: string }).region ?? 'general'] ?? '#4A5568', color: '#fff' }}>
+              <span className="inline-block px-2 py-0.5 rounded text-[11px] mr-2" style={{ background: CATEGORY_COLORS[(a as { region?: string }).region ?? 'general'] ?? '#4A5568', color: '#fff' }}>
                 {a.source_name ?? (a as { region?: string }).region ?? '—'}
               </span>
               <span style={{ color: 'var(--text-primary)' }}>{a.title}</span>
@@ -103,7 +103,7 @@ export function FeedClient({
               <span className="ml-2" style={{ color: 'var(--text-muted)' }}>{a.published_at ? new Date(a.published_at).toLocaleString() : '—'}</span>
             </div>
             {canFlag && (
-              <button type="button" onClick={() => handleFlag(a.id)} disabled={!!flaggingId} className="font-mono text-[10px] px-2 py-1 border rounded-sm shrink-0" style={{ borderColor: 'var(--accent-orange)', color: 'var(--accent-orange)' }}>
+              <button type="button" onClick={() => handleFlag(a.id)} disabled={!!flaggingId} className="font-mono text-[11px] px-2 py-1 border rounded-sm shrink-0" style={{ borderColor: 'var(--accent-orange)', color: 'var(--accent-orange)' }}>
                 {flaggingId === a.id ? '…' : 'Flag'}
               </button>
             )}

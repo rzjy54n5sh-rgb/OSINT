@@ -50,10 +50,10 @@ export function DisputesClient({
                   <td className="p-2">{d.source_url.length > 40 ? `${d.source_url.slice(0, 40)}…` : d.source_url}</td>
                   <td className="p-2">{new Date(d.submitted_at).toLocaleString()}</td>
                   <td className="p-2">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); handleResolve(d.id, 'accepted'); }} disabled={!!resolving} className="font-mono text-[10px] px-2 py-1 rounded border mr-1" style={{ borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }}>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleResolve(d.id, 'accepted'); }} disabled={!!resolving} className="font-mono text-[11px] px-2 py-1 rounded border mr-1" style={{ borderColor: 'var(--accent-green)', color: 'var(--accent-green)' }}>
                       Accept
                     </button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); handleResolve(d.id, 'rejected'); }} disabled={!!resolving} className="font-mono text-[10px] px-2 py-1 rounded border" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); handleResolve(d.id, 'rejected'); }} disabled={!!resolving} className="font-mono text-[11px] px-2 py-1 rounded border" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
                       Reject
                     </button>
                   </td>

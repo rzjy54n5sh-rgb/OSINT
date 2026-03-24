@@ -80,7 +80,7 @@ export function ReportsClient({
                 </td>
                 {canRegenerate && (
                   <td className="p-2">
-                    <button type="button" onClick={() => handleRegenerate(r.country_code)} disabled={!!regenerating} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
+                    <button type="button" onClick={() => handleRegenerate(r.country_code)} disabled={!!regenerating} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
                       {regenerating === r.country_code ? '…' : 'Regenerate'}
                     </button>
                   </td>

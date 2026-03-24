@@ -33,7 +33,7 @@ export function TimelineDayNav({ dayNumbers }: Props) {
         borderColor: 'var(--border)',
       }}
     >
-      <p className="font-mono text-[10px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
         Jump to day
       </p>
       {/* Mobile: dropdown */}

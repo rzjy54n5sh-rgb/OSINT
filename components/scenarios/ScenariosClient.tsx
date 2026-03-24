@@ -214,7 +214,7 @@ export function ScenariosClient({
                     {SCENARIO_META.E.description}
                   </p>
                 )}
-                <p className="font-mono text-[10px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
+                <p className="font-mono text-[11px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
                   ◆ Independent sub-branch · Not included in A–D sum
                 </p>
               </OsintCard>
@@ -240,8 +240,8 @@ export function ScenariosClient({
                 <div className="h-72">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
-                      <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                      <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
                       <Tooltip
                         contentStyle={{
                           background: 'var(--bg-card)',

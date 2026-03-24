@@ -33,10 +33,10 @@ export function TranslationBanner() {
       role="banner"
       aria-label="Translation notice"
     >
-      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'var(--accent-blue)', flexShrink: 0 }}>
+      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-blue)', flexShrink: 0 }}>
         🌐
       </span>
-      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>
+      <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>
         This platform is published in English only.{' '}
         <span style={{ color: 'var(--text-muted)' }}>
           Chrome/Edge: right-click → Translate · Safari: tap AA → Translate · Firefox: translate icon in address bar ·{' '}
@@ -55,7 +55,7 @@ export function TranslationBanner() {
         onClick={dismiss}
         aria-label="Dismiss translation notice"
         style={{
-          fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)',
+          fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)',
           background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '2px 6px',
           letterSpacing: '1px',
         }}

@@ -127,7 +127,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
              style={{ background: 'rgba(232,197,71,0.04)',
                       border: '1px solid rgba(232,197,71,0.15)' }}>
           <div className="flex items-center gap-2 mb-2">
-            <span style={{ color: 'var(--accent-gold)', fontSize: '10px',
+            <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
                            fontFamily: 'IBM Plex Mono', letterSpacing: '2px' }}>
               ◆ DAY {conflictDay ?? '—'} TOP FINDING
             </span>
@@ -175,7 +175,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
             <div key={label} className="px-3 py-2"
                  style={{ border: '1px solid var(--border)',
                           background: 'var(--bg-card)' }}>
-              <div className="font-mono" style={{ fontSize: '8px',
+              <div className="font-mono" style={{ fontSize: '11px',
                    letterSpacing: '1px', color: 'var(--text-muted)',
                    marginBottom: '4px' }}>
                 {label}
@@ -185,7 +185,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
                             lineHeight: 1.1 }}>
                 {value}
               </div>
-              <div className="font-mono" style={{ fontSize: '8px',
+              <div className="font-mono" style={{ fontSize: '11px',
                    color: 'var(--text-muted)', marginTop: '2px' }}>
                 {change}
               </div>
@@ -222,7 +222,7 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
                              minWidth: 'max-content' }}>
                 <span>{emoji}</span>
                 <span className="font-mono"
-                      style={{ fontSize: '9px', letterSpacing: '1.5px',
+                      style={{ fontSize: '11px', letterSpacing: '1.5px',
                                color: 'var(--text-secondary)' }}>
                   {label}
                 </span>
@@ -293,8 +293,8 @@ export default function HomeDashboard({ children }: { children?: ReactNode }) {
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={scenarioChartData}>
-                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                     <Tooltip
                       contentStyle={{
                         background: 'var(--bg-card)',

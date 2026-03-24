@@ -86,7 +86,7 @@ export default function AgentPanel({ role }: AgentPanelProps) {
               cursor: 'pointer',
               color: '#C084FC',
               fontFamily: 'IBM Plex Mono, monospace',
-              fontSize: 10,
+              fontSize: 11,
               letterSpacing: 1,
             }}
           >
@@ -117,7 +117,7 @@ export default function AgentPanel({ role }: AgentPanelProps) {
                 <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#C084FC', letterSpacing: 1 }}>
                   ◈ AI AGENT
                 </span>
-                <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, color: 'var(--text-muted)' }}>{role}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: 'var(--text-muted)' }}>{role}</span>
                 <button
                   type="button"
                   onClick={togglePanel}
@@ -250,7 +250,7 @@ export default function AgentPanel({ role }: AgentPanelProps) {
                   onClick={clearConversation}
                   style={{
                     fontFamily: 'IBM Plex Mono',
-                    fontSize: 10,
+                    fontSize: 11,
                     background: 'none',
                     border: 'none',
                     color: 'var(--text-muted)',

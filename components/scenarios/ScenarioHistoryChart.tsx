@@ -167,7 +167,7 @@ export function ScenarioHistoryChart({ data }: Props) {
                     label={{
                       value: 'B dominant',
                       fill: '#D97706',
-                      fontSize: 10,
+                      fontSize: 12,
                       position: 'top',
                     }}
                   />

@@ -166,13 +166,13 @@ export default function BriefingReaderPage() {
           </span>
           <div className="flex items-center gap-2 shrink-0">
             <span className="font-mono"
-                  style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                  style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               {sectionProgress}%
             </span>
             <button onClick={() => setTocOpen(v => !v)}
                     className="font-mono text-xs px-2 py-1 border"
                     style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)',
-                             fontSize: '9px', letterSpacing: '1px' }}>
+                             fontSize: '11px', letterSpacing: '1px' }}>
               ☰ CONTENTS
             </button>
           </div>
@@ -192,7 +192,7 @@ export default function BriefingReaderPage() {
           {dayToDate(day)}
         </span>
         <span className="font-mono"
-              style={{ fontSize: '8px', letterSpacing: '1px',
+              style={{ fontSize: '11px', letterSpacing: '1px',
                        color: briefing.quality === 'full' ? 'var(--accent-gold)' : 'var(--text-muted)',
                        border: `1px solid ${briefing.quality === 'full' ? 'var(--accent-gold)' : 'var(--border)'}`,
                        padding: '1px 5px' }}>
@@ -270,7 +270,7 @@ export default function BriefingReaderPage() {
               </h2>
               {readSections.has(section.id) && (
                 <span className="font-mono"
-                      style={{ fontSize: '9px', color: 'var(--accent-green)', opacity: 0.7 }}>
+                      style={{ fontSize: '11px', color: 'var(--accent-green)', opacity: 0.7 }}>
                   ✓ READ
                 </span>
               )}
@@ -337,7 +337,7 @@ function SubsectionBlock({
         )}
         {sub.nai_expressed != null && sub.nai_latent != null && (
           <span className="font-mono"
-                style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
             E:{sub.nai_expressed} / L:{sub.nai_latent}
           </span>
         )}
@@ -380,7 +380,7 @@ function ParagraphBlock({
       {para.perspective && para.perspective !== 'neutral' && (
         <div className="mb-1">
           <span className="font-mono"
-                style={{ fontSize: '8px', letterSpacing: '1px',
+                style={{ fontSize: '11px', letterSpacing: '1px',
                          color: perspColor, opacity: 0.8 }}>
             [{perspLabel}]
           </span>
@@ -397,7 +397,7 @@ function ParagraphBlock({
             onClick={() => onSourceTap(sid)}
             className="inline-block ml-0.5 align-super font-mono hover:opacity-100 transition-opacity"
             style={{
-              fontSize: '8px',
+              fontSize: '11px',
               color: activeSourceId === sid ? 'var(--accent-gold)' : 'var(--accent-blue)',
               opacity: activeSourceId === sid ? 1 : 0.7,
               padding: '0 2px',
@@ -437,7 +437,7 @@ function ParagraphBlock({
                       {activeArticle.article.source_name ?? 'UNKNOWN SOURCE'}
                     </span>
                     <span className="font-mono shrink-0"
-                          style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                          style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                       {activeArticle.article.published_at
                         ? new Date(activeArticle.article.published_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'

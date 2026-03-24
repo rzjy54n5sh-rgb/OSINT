@@ -74,7 +74,7 @@ export function ConfigClient({ initialConfig }: { initialConfig: ConfigRow[] }) 
                     <>
                       {displayValue(row)}
                       {row.is_sensitive && !revealed[row.key] && (
-                        <button type="button" onClick={() => setRevealed((r) => ({ ...r, [row.key]: true }))} className="ml-2 font-mono text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
+                        <button type="button" onClick={() => setRevealed((r) => ({ ...r, [row.key]: true }))} className="ml-2 font-mono text-[11px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
                           Reveal
                         </button>
                       )}
@@ -85,11 +85,11 @@ export function ConfigClient({ initialConfig }: { initialConfig: ConfigRow[] }) 
                 <td className="p-2">
                   {editingKey === row.key ? (
                     <>
-                      <button type="button" onClick={handleSave} disabled={saving} className="font-mono text-[10px] px-2 py-1 rounded border mr-1" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>Save</button>
-                      <button type="button" onClick={() => { setEditingKey(null); setEditValue(''); }} className="font-mono text-[10px] px-2 py-1 rounded border" style={{ borderColor: 'var(--border)' }}>Cancel</button>
+                      <button type="button" onClick={handleSave} disabled={saving} className="font-mono text-[11px] px-2 py-1 rounded border mr-1" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>Save</button>
+                      <button type="button" onClick={() => { setEditingKey(null); setEditValue(''); }} className="font-mono text-[11px] px-2 py-1 rounded border" style={{ borderColor: 'var(--border)' }}>Cancel</button>
                     </>
                   ) : (
-                    <button type="button" onClick={() => { setEditingKey(row.key); setEditValue(displayValue(row)); }} className="font-mono text-[10px] px-2 py-1 rounded border" style={{ borderColor: 'var(--border)' }}>Edit</button>
+                    <button type="button" onClick={() => { setEditingKey(row.key); setEditValue(displayValue(row)); }} className="font-mono text-[11px] px-2 py-1 rounded border" style={{ borderColor: 'var(--border)' }}>Edit</button>
                   )}
                 </td>
               </tr>

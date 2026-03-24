@@ -82,7 +82,7 @@ export function AdminsClient({
                   {a.id === currentAdminId || a.role === 'SUPER_ADMIN' ? (
                     a.role
                   ) : (
-                    <select value={a.role} onChange={(e) => handleRoleChange(a.id, e.target.value as AdminRole)} disabled={roleChanging === a.id} className="font-mono text-[10px] px-1 py-0.5 rounded border bg-transparent" style={{ borderColor: 'var(--border)' }}>
+                    <select value={a.role} onChange={(e) => handleRoleChange(a.id, e.target.value as AdminRole)} disabled={roleChanging === a.id} className="font-mono text-[11px] px-1 py-0.5 rounded border bg-transparent" style={{ borderColor: 'var(--border)' }}>
                       {ROLES_NO_SA.map((r) => (
                         <option key={r} value={r}>{r}</option>
                       ))}
@@ -94,7 +94,7 @@ export function AdminsClient({
                 <td className="p-2">{new Date(a.created_at).toLocaleDateString()}</td>
                 <td className="p-2">
                   {a.id !== currentAdminId && a.is_active && (
-                    <button type="button" onClick={() => handleDeactivate(a.id)} disabled={!!deactivating} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
+                    <button type="button" onClick={() => handleDeactivate(a.id)} disabled={!!deactivating} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
                       Deactivate
                     </button>
                   )}

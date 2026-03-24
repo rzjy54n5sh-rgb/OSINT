@@ -318,7 +318,7 @@ export default function WarRoomPage() {
           <span
             style={{
               fontFamily: 'IBM Plex Mono',
-              fontSize: 8,
+              fontSize: 11,
               color: 'var(--accent-red)',
               letterSpacing: '2px',
               border: '1px solid var(--accent-red)',
@@ -339,7 +339,7 @@ export default function WarRoomPage() {
                 style={{
                   display: 'block',
                   fontFamily: 'IBM Plex Mono',
-                  fontSize: 10,
+                  fontSize: 12,
                   color: 'var(--text-primary)',
                   textDecoration: 'none',
                   overflow: 'hidden',
@@ -355,7 +355,7 @@ export default function WarRoomPage() {
           <span
             style={{
               fontFamily: 'IBM Plex Mono',
-              fontSize: 8,
+              fontSize: 11,
               color: 'var(--text-muted)',
               flexShrink: 0,
             }}
@@ -374,7 +374,7 @@ export default function WarRoomPage() {
           justifyContent: 'center',
           gap: 16,
           fontFamily: 'IBM Plex Mono, monospace',
-          fontSize: 9,
+          fontSize: 11,
           letterSpacing: '1.5px',
           color: 'var(--text-muted)',
           background: 'var(--bg-secondary)',
@@ -423,7 +423,7 @@ export default function WarRoomPage() {
         <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }}>
           <div className="warroom-panel-header">
             <span>◆ THEATRE COUNTRIES</span>
-            <span style={{ color: 'var(--text-muted)', fontSize: 8 }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
               {uniqueCountries.length} MONITORED
             </span>
           </div>
@@ -472,12 +472,12 @@ export default function WarRoomPage() {
                     <div className="country-name" style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 500 }}>
                       {report?.country_name ?? code}
                     </div>
-                    <div className="country-meta" style={{ color: 'var(--text-muted)', fontSize: 9, marginTop: 2 }}>
+                    <div className="country-meta" style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
                       NAI {(naiRow?.expressed_score ?? report?.nai_score ?? 0).toFixed(1)} · {naiRow?.category ?? report?.nai_category ?? '—'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                       <GlossaryTooltip term="GAP" definition="Difference between expressed and latent scores. GAP &gt; 30 = critical divergence.">
-                        <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px' }} translate="no">GAP</span>
+                        <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }} translate="no">GAP</span>
                       </GlossaryTooltip>
                       <div
                         style={{
@@ -492,7 +492,7 @@ export default function WarRoomPage() {
                       <span
                         style={{
                           fontFamily: 'IBM Plex Mono',
-                          fontSize: 8,
+                          fontSize: 11,
                           color: gapSize > 30 ? 'var(--accent-red)' : gapSize > 15 ? 'var(--accent-orange)' : 'var(--text-muted)',
                         }}
                       >
@@ -503,7 +503,7 @@ export default function WarRoomPage() {
                       <span
                         style={{
                           fontFamily: 'IBM Plex Mono',
-                          fontSize: 7,
+                          fontSize: 11,
                           color: 'var(--accent-red)',
                           letterSpacing: '1px',
                           border: '1px solid rgba(224,82,82,0.4)',
@@ -518,7 +518,7 @@ export default function WarRoomPage() {
                       </span>
                     )}
                   </div>
-                  <span className="article-count" style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)' }}>
+                  <span className="article-count" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)' }}>
                     {count}
                   </span>
                 </button>
@@ -526,7 +526,7 @@ export default function WarRoomPage() {
             })}
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
+            <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
               SCENARIO DRIFT — DAY {CONFLICT_DAY}
             </div>
             {[
@@ -565,7 +565,7 @@ export default function WarRoomPage() {
                   <span
                     style={{
                       fontFamily: 'IBM Plex Mono',
-                      fontSize: 8,
+                      fontSize: 11,
                       color: delta > 0 ? 'var(--accent-red)' : delta < 0 ? 'var(--accent-green)' : 'var(--text-muted)',
                       letterSpacing: '0.5px',
                     }}
@@ -575,7 +575,7 @@ export default function WarRoomPage() {
                 </div>
               );
             })}
-            <div style={{ padding: '6px 14px', fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+            <div style={{ padding: '6px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
               ↑ Scenario B +{((scenarioHistory.at(-1)?.scenario_b ?? 0) - (scenarioHistory.at(0)?.scenario_b ?? 0))}pts since Day 1
             </div>
           </div>
@@ -593,7 +593,7 @@ export default function WarRoomPage() {
               <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Bebas Neue' }}>
                 {activeReport?.country_name ?? activeCountry}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>NAI: {(naiLatest?.expressed_score ?? activeReport?.nai_score ?? 0).toFixed(1)}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>NAI: {(naiLatest?.expressed_score ?? activeReport?.nai_score ?? 0).toFixed(1)}</span>
               <span
                 className="nai-badge"
                 style={{
@@ -601,12 +601,12 @@ export default function WarRoomPage() {
                   background: 'transparent',
                   border: '1px solid currentColor',
                   padding: '2px 6px',
-                  fontSize: 8,
+                  fontSize: 11,
                 }}
               >
                 {naiLatest?.category ?? activeReport?.nai_category ?? '—'}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
             </div>
             <div className="nai-bar-track" style={{ width: 120, height: 4 }}>
               <div
@@ -621,9 +621,9 @@ export default function WarRoomPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 14px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', letterSpacing: '1px' }}>INTEL CONFIDENCE</span>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)' }}>{countryRecentCount} sources / 24h</span>
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>INTEL CONFIDENCE</span>
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} sources / 24h</span>
           </div>
 
           <div
@@ -637,12 +637,12 @@ export default function WarRoomPage() {
             }}
           >
             <div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>EXPRESSED</div>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>EXPRESSED</div>
               <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--accent-blue)', lineHeight: 1 }}>{naiLatest?.expressed_score ?? '—'}</div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)' }}>Official behavior</div>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>Official behavior</div>
             </div>
             <div style={{ textAlign: 'center', padding: '0 12px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px' }}>PRESSURE GAP</div>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>PRESSURE GAP</div>
               <div
                 style={{
                   fontFamily: 'Bebas Neue',
@@ -657,7 +657,7 @@ export default function WarRoomPage() {
               <div
                 style={{
                   fontFamily: 'IBM Plex Mono',
-                  fontSize: 7,
+                  fontSize: 11,
                   letterSpacing: '1px',
                   color: (naiLatest?.gap_size ?? 0) > 30 ? 'var(--accent-red)' : 'var(--text-muted)',
                 }}
@@ -666,9 +666,9 @@ export default function WarRoomPage() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
               <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--accent-orange)', lineHeight: 1 }}>{naiLatest?.latent_score ?? '—'}</div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)' }}>Hidden pressure</div>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>Hidden pressure</div>
             </div>
           </div>
 
@@ -681,7 +681,7 @@ export default function WarRoomPage() {
                 borderLeft: '3px solid var(--accent-red)',
                 border: '1px solid rgba(224,82,82,0.25)',
                 fontFamily: 'IBM Plex Mono',
-                fontSize: 10,
+                fontSize: 12,
                 color: 'var(--accent-red)',
                 letterSpacing: '0.5px',
                 lineHeight: 1.5,
@@ -709,7 +709,7 @@ export default function WarRoomPage() {
                   flexShrink: 0,
                   padding: '0 10px',
                   fontFamily: 'IBM Plex Mono',
-                  fontSize: 8,
+                  fontSize: 11,
                   color: 'var(--accent-red)',
                   letterSpacing: '2px',
                   borderRight: '1px solid var(--border)',
@@ -736,12 +736,12 @@ export default function WarRoomPage() {
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
                         fontFamily: 'IBM Plex Mono',
-                        fontSize: 9,
+                        fontSize: 11,
                         color: 'var(--text-secondary)',
                         letterSpacing: '0.3px',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)', fontSize: 8 }}>{(a.country ?? 'INTL').toUpperCase().slice(0, 6)}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{(a.country ?? 'INTL').toUpperCase().slice(0, 6)}</span>
                       <span style={{ color: 'var(--border-bright)' }}>|</span>
                       {(a.title ?? '').slice(0, 80)}
                       {(a.title?.length ?? 0) > 80 ? '…' : ''}
@@ -752,7 +752,7 @@ export default function WarRoomPage() {
             </div>
             {/* Live feed - top ~55% */}
             <div style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '8px 14px', fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
+              <div style={{ padding: '8px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
                 ▸ LIVE INTELLIGENCE — {activeReport?.country_name ?? activeCountry} — UPDATING EVERY 60s
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -770,7 +770,7 @@ export default function WarRoomPage() {
                           </span>
                         )}
                         {a.sentiment && (
-                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 8 }} translate="no">
+                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 11 }} translate="no">
                             {a.sentiment}
                           </span>
                         )}
@@ -796,43 +796,43 @@ export default function WarRoomPage() {
             {/* Bottom row - 3 or 4 columns: Elite, Risks/Stabilizers, Social, optional Economic Stress */}
             <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: contentJson?.economic_exposure ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ ELITE NETWORK</div>
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ ELITE NETWORK</div>
                 <hr className="data-rule" />
                 {eliteNetwork.length === 0 ? (
-                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
+                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   eliteNetwork.map((p, i) => (
                     <div key={i} style={{ marginTop: 10, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
                       <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 11 }}>{p.name ?? '—'}</div>
-                      <div style={{ color: 'var(--accent-gold)', fontFamily: 'IBM Plex Mono', fontSize: 9 }}>{p.role ?? '—'}</div>
-                      {p.position && <div style={{ color: 'var(--text-secondary)', fontSize: 10, marginTop: 4 }}>{p.position}</div>}
-                      {p.red_line && <div style={{ color: 'var(--accent-red)', fontSize: 10, marginTop: 4 }}>⚠ {p.red_line}</div>}
+                      <div style={{ color: 'var(--accent-gold)', fontFamily: 'IBM Plex Mono', fontSize: 11 }}>{p.role ?? '—'}</div>
+                      {p.position && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{p.position}</div>}
+                      {p.red_line && <div style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 4 }}>⚠ {p.red_line}</div>}
                     </div>
                   ))
                 )}
               </div>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ KEY RISKS</div>
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ KEY RISKS</div>
                 <hr className="data-rule" />
-                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--accent-red)', fontSize: 10, marginTop: 6 }}>▸ {r}</div>)}
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
+                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 6 }}>▸ {r}</div>)}
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
-                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--accent-green)', fontSize: 10, marginTop: 6 }}>▸ {s}</div>)}
+                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--accent-green)', fontSize: 12, marginTop: 6 }}>▸ {s}</div>)}
               </div>
               <div style={{ borderRight: contentJson?.economic_exposure ? '1px solid var(--border)' : 'none', overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
                 <hr className="data-rule" />
                 {!socialForCountry ? (
-                  <p className="redacted" style={{ fontSize: 10, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
+                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   <>
-                    <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-primary)', marginTop: 4 }}>Trend: {socialForCountry.trend ?? '—'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>Trend: {socialForCountry.trend ?? '—'}</div>
                     <div style={{ marginTop: 4 }}>
-                      <span style={{ fontSize: 8, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'IBM Plex Mono', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
+                      <span style={{ fontSize: 11, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'IBM Plex Mono', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
                     </div>
                     {socialForCountry.engagement_estimate != null && (
-                      <div style={{ fontSize: 9, color: 'var(--text-secondary)', marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
                         Engagement: {formatEngagement(socialForCountry.engagement_estimate)}
                         {socialEngagement != null && socialEngagement > 0 && (
                           <span style={{ color: 'var(--text-muted)' }}> ({Math.round(socialEngagement).toLocaleString()})</span>
@@ -844,7 +844,7 @@ export default function WarRoomPage() {
               </div>
               {contentJson?.economic_exposure && (
                 <div style={{ padding: '10px 14px', borderLeft: '1px solid var(--border)', overflowY: 'auto' }}>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-orange)', letterSpacing: '2px', marginBottom: 10, textTransform: 'uppercase' }}>▸ Economic Stress</div>
+                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-orange)', letterSpacing: '2px', marginBottom: 10, textTransform: 'uppercase' }}>▸ Economic Stress</div>
                   {Object.entries(contentJson.economic_exposure).map(([key, val]) => {
                     const numVal = typeof val === 'number' ? val : null;
                     const displayVal = typeof val === 'number' ? (val > 1000000 ? `$${(val / 1000000).toFixed(1)}M` : `${val}${key.includes('pct') ? '%' : ''}`) : String(val);
@@ -852,8 +852,8 @@ export default function WarRoomPage() {
                     return (
                       <div key={key} style={{ marginBottom: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>{key.replace(/_/g, ' ')}</span>
-                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: numVal && numVal > 50 ? 'var(--accent-red)' : 'var(--accent-orange)' }}>{displayVal}</span>
+                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>{key.replace(/_/g, ' ')}</span>
+                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: numVal && numVal > 50 ? 'var(--accent-red)' : 'var(--accent-orange)' }}>{displayVal}</span>
                         </div>
                         {barPct !== null && (
                           <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 1, marginTop: 3 }}>
@@ -865,11 +865,11 @@ export default function WarRoomPage() {
                   })}
                   {contentJson?.key_flashpoints && contentJson.key_flashpoints.length > 0 && (
                     <>
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-red)', letterSpacing: '2px', margin: '10px 0 6px', textTransform: 'uppercase' }}>▸ Flashpoints</div>
+                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-red)', letterSpacing: '2px', margin: '10px 0 6px', textTransform: 'uppercase' }}>▸ Flashpoints</div>
                       {contentJson.key_flashpoints.map((f: string, i: number) => (
                         <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--accent-red)', fontSize: 9, fontFamily: 'IBM Plex Mono', flexShrink: 0 }}>⚠</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{f}</span>
+                          <span style={{ color: 'var(--accent-red)', fontSize: 11, fontFamily: 'IBM Plex Mono', flexShrink: 0 }}>⚠</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{f}</span>
                         </div>
                       ))}
                     </>
@@ -915,7 +915,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <span>▸ SENTIMENT MATRIX</span>
           </div>
-          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 9, fontFamily: 'IBM Plex Mono' }}>
+          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
             {uniqueCountries.slice(0, 12).map((code) => {
               const sentRaw = sentimentByCountry[code] ?? null;
               const { label, color } = mapSentimentDisplay(sentRaw);
@@ -940,7 +940,7 @@ export default function WarRoomPage() {
                 <span
                   className="verdict-badge"
                   style={{
-                    fontSize: 8,
+                    fontSize: 11,
                     padding: '2px 5px',
                     marginRight: 8,
                     color: c.verdict === 'FALSE' ? 'var(--accent-red)' : c.verdict === 'MISLEADING' ? 'var(--accent-orange)' : c.verdict === 'TRUE' ? 'var(--accent-green)' : 'var(--text-muted)',
@@ -949,7 +949,7 @@ export default function WarRoomPage() {
                 >
                   {c.verdict ?? 'UNVERIFIED'}
                 </span>
-                <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>{(c.claim_text ?? '').slice(0, 80)}…</span>
+                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{(c.claim_text ?? '').slice(0, 80)}…</span>
               </div>
             ))
           )}
@@ -957,7 +957,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <span>▸ PIPELINE STATUS</span>
           </div>
-          <div style={{ padding: '8px 14px', fontSize: 9, fontFamily: 'IBM Plex Mono' }}>
+          <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
             {['articles', 'markets', 'social', 'disinfo'].map((key) => {
               const status = pipelineStatus(key);
               const color = status === 'green' ? 'var(--accent-green)' : status === 'orange' ? 'var(--accent-orange)' : 'var(--accent-red)';

@@ -99,7 +99,7 @@ export default async function SourcesPage() {
           { label: 'Languages', value: String(languageCount) },
         ].map((s) => (
           <OsintCard key={s.label} className="py-4">
-            <p className="font-mono text-[10px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
+            <p className="font-mono text-[11px] uppercase tracking-wider mb-1" style={{ color: 'var(--text-muted)' }}>
               {s.label}
             </p>
             <p className="font-display text-2xl" style={{ color: 'var(--text-primary)' }}>

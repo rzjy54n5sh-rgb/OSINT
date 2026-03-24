@@ -28,7 +28,7 @@ export function CodeBlock({ code, allowCopy = true }: CodeBlockProps) {
         <button
           type="button"
           onClick={copy}
-          className="absolute top-2 end-2 z-10 font-mono text-[10px] px-2 py-1 rounded-sm border transition-colors"
+          className="absolute top-2 end-2 z-10 font-mono text-[11px] px-2 py-1 rounded-sm border transition-colors"
           style={{
             borderColor: copied ? 'var(--accent-green)' : 'var(--border)',
             color: copied ? 'var(--accent-green)' : 'var(--text-secondary)',

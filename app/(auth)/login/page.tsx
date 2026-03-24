@@ -167,7 +167,7 @@ function LoginContent() {
         <p className="font-mono text-xs uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           {signUpMode ? 'Create account' : 'Sign in'}
         </p>
-        <p className="font-mono text-[10px] mb-6 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-mono text-[11px] mb-6 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           {signUpMode
             ? 'After signing up you can complete checkout on the pricing page.'
             : 'Subscribe requires an account — use Create account if you are new.'}

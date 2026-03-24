@@ -183,12 +183,12 @@ export default function GenerateBriefingPage() {
           />
           {apiKey && !apiKey.startsWith('sk-ant-') && (
             <p className="font-mono mt-1"
-               style={{ fontSize: '9px', color: 'var(--accent-red)' }}>
+               style={{ fontSize: '11px', color: 'var(--accent-red)' }}>
               Key must start with sk-ant-
             </p>
           )}
           <p className="font-mono mt-1.5"
-             style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+             style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
             ◆ Stored in your browser only. Sent directly to Anthropic — never to our servers.
           </p>
         </div>
@@ -253,10 +253,10 @@ export default function GenerateBriefingPage() {
               border: '1px solid rgba(232,197,71,0.2)',
             }}
           >
-            <p className="font-mono" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+            <p className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               GENERATING: {countryName} · Conflict Day {conflictDay} · ~$0.04
             </p>
-            <p className="font-mono mt-1" style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+            <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
               Report saved as COMMUNITY — visible to all users after generation.
               Platform editorial reports take precedence on the same day.
             </p>

@@ -7,7 +7,7 @@ export function SiteFooter() {
 
   return (
     <footer
-      className="mt-auto border-t py-4 px-4 text-center font-mono text-[10px] uppercase tracking-wider"
+      className="mt-auto border-t py-4 px-4 text-center font-mono text-[11px] uppercase tracking-wider"
       style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
     >
       <p className="mb-1" style={{ color: 'var(--text-secondary)' }}>

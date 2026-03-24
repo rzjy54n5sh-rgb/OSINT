@@ -194,7 +194,7 @@ export function UsersClient() {
                   </td>
                   <td className="p-2">{u.email}</td>
                   <td className="p-2">
-                    <span className="px-2 py-0.5 border rounded text-[10px]" style={tierStyle(u.tier)}>
+                    <span className="px-2 py-0.5 border rounded text-[11px]" style={tierStyle(u.tier)}>
                       {u.tier === 'professional' ? '◆ PRO' : u.tier.toUpperCase()}
                     </span>
                   </td>
@@ -219,7 +219,7 @@ export function UsersClient() {
         <div className="fixed right-0 top-0 bottom-0 w-96 border-l p-6 overflow-y-auto z-40" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}>
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-mono text-xs uppercase" style={{ color: 'var(--text-muted)' }}>User detail</h2>
-            <button type="button" onClick={() => setDetail(null)} className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>✕</button>
+            <button type="button" onClick={() => setDetail(null)} className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>✕</button>
           </div>
           <div className="space-y-4 font-mono text-xs">
             <div className="flex items-center gap-2">
@@ -291,7 +291,7 @@ export function UsersClient() {
               <option value="informed">informed</option>
               <option value="professional">professional</option>
             </select>
-            <p className="font-mono text-[10px] mb-4" style={{ color: 'var(--text-muted)' }}>This is a manual override.</p>
+            <p className="font-mono text-[11px] mb-4" style={{ color: 'var(--text-muted)' }}>This is a manual override.</p>
             <div className="flex gap-2">
               <button type="button" onClick={handleSetTier} className="font-mono text-xs px-4 py-2 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>Confirm</button>
               <button type="button" onClick={() => setSetTierModal(null)} className="font-mono text-xs px-4 py-2 border rounded-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}>Cancel</button>
@@ -304,7 +304,7 @@ export function UsersClient() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={() => setSuspendModal(null)}>
           <div className="p-6 rounded border max-w-sm w-full" style={{ background: 'var(--bg)', borderColor: 'var(--border)' }} onClick={(e) => e.stopPropagation()}>
             <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Suspend {suspendModal.user.email}</p>
-            <label className="block font-mono text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Reason (required)</label>
+            <label className="block font-mono text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Reason (required)</label>
             <textarea value={suspendModal.reason} onChange={(e) => setSuspendModal((m) => m && { ...m, reason: e.target.value })} className="font-mono text-xs w-full px-2 py-2 rounded border mb-4 bg-transparent resize-none" style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }} rows={3} />
             <div className="flex gap-2">
               <button type="button" onClick={handleSuspend} disabled={!suspendModal.reason.trim()} className="font-mono text-xs px-4 py-2 border rounded-sm disabled:opacity-50" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>Confirm</button>

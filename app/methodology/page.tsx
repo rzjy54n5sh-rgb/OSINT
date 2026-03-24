@@ -121,7 +121,7 @@ const SECTIONS: Section[] = [
               { label: 'INVERSION (<20)', color: 'var(--nai-inversion)', desc: 'Expressed and latent positions have inverted — what the country says publicly and what its structural behavior indicates are sharply contradictory. This is the highest-risk category and typically precedes overt policy reversal or defection.' },
             ].map((cat) => (
               <div key={cat.label} style={{ marginBottom: 12 }}>
-                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: cat.color, letterSpacing: '1px', border: '1px solid currentColor', padding: '2px 8px', display: 'inline-block', marginBottom: 4 }}>{cat.label}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: cat.color, letterSpacing: '1px', border: '1px solid currentColor', padding: '2px 8px', display: 'inline-block', marginBottom: 4 }}>{cat.label}</span>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>{cat.desc}</p>
               </div>
             ))}
@@ -145,7 +145,7 @@ const SECTIONS: Section[] = [
               { label: 'Economic activity signals', desc: 'Market data, trade indicators, and conflict-sensitive economic metrics that reveal structural dependencies.' },
             ].map((input) => (
               <div key={input.label} style={{ marginBottom: 8, paddingLeft: 12, borderLeft: '2px solid var(--border)' }}>
-                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'var(--accent-gold)' }}>{input.label}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)' }}>{input.label}</span>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0 0 0', lineHeight: 1.5 }}>{input.desc}</p>
               </div>
             ))}
@@ -263,7 +263,7 @@ const SECTIONS: Section[] = [
               { type: 'THINK TANK', desc: 'Research institutions and policy analysis organizations. Higher analytical depth but should be read with awareness of institutional positioning.' },
             ].map((s) => (
               <div key={s.type} style={{ marginBottom: 8, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-gold)', border: '1px solid var(--accent-gold)', padding: '2px 6px', flexShrink: 0, marginTop: 2 }}>{s.type}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', border: '1px solid var(--accent-gold)', padding: '2px 6px', flexShrink: 0, marginTop: 2 }}>{s.type}</span>
                 <span style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{s.desc}</span>
               </div>
             ))}
@@ -287,7 +287,7 @@ const SECTIONS: Section[] = [
               { feed: 'Scenario probabilities', freq: 'Daily at 06:00 UTC alongside NAI update' },
             ].map((r) => (
               <div key={r.feed} style={{ display: 'flex', gap: 12, marginBottom: 6, alignItems: 'baseline' }}>
-                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, width: 220 }}>{r.feed}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, width: 220 }}>{r.feed}</span>
                 <span style={{ fontSize: 12, color: 'var(--accent-gold)' }}>{r.freq}</span>
               </div>
             ))}
@@ -316,7 +316,7 @@ const SECTIONS: Section[] = [
               { v: 'TRUE', c: 'var(--accent-green)', desc: 'The claim has been corroborated by multiple independent primary sources. Note: "true" in a conflict context requires careful reading — a claim can be factually accurate while serving a disinformation function through selective framing.' },
             ].map((item) => (
               <div key={item.v} style={{ marginBottom: 10 }}>
-                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: item.c, border: '1px solid currentColor', padding: '2px 8px', display: 'inline-block', marginBottom: 4 }}>{item.v}</span>
+                <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: item.c, border: '1px solid currentColor', padding: '2px 8px', display: 'inline-block', marginBottom: 4 }}>{item.v}</span>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>{item.desc}</p>
               </div>
             ))}
@@ -385,7 +385,7 @@ function AccordionItem({ item }: { item: QAItem }) {
             {item.a}
           </div>
           {item.citation && (
-            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.6 }}>
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic', lineHeight: 1.6 }}>
               ◆ Source: {item.citation}
             </div>
           )}
@@ -403,10 +403,10 @@ export default function MethodologyPage() {
     <div className="max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
       <div style={{ marginBottom: 32, borderBottom: '1px solid var(--border)', paddingBottom: 24 }}>
-        <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', letterSpacing: '3px', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
           ◆ MENA INTEL DESK — METHODOLOGY & TRANSPARENCY
         </div>
-        <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 40, color: 'var(--text-primary)', letterSpacing: '3px', margin: '0 0 12px 0' }}>
+        <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 40, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0' }}>
           HOW THIS PLATFORM WORKS
         </h1>
         <p style={{ fontFamily: 'DM Sans', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 680, margin: 0 }}>
@@ -415,7 +415,7 @@ export default function MethodologyPage() {
 
         {/* Neutrality statement */}
         <div style={{ marginTop: 20, padding: '14px 18px', border: '1px solid var(--accent-gold)', background: 'rgba(232,197,71,0.04)' }}>
-          <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
+          <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
             ◆ NEUTRALITY STATEMENT
           </div>
           <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0 }}>
@@ -432,7 +432,7 @@ export default function MethodologyPage() {
             type="button"
             onClick={() => setActiveSection(s.id)}
             style={{
-              fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1.5px',
+              fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px',
               padding: '6px 14px', border: '1px solid',
               borderColor: activeSection === s.id ? 'var(--accent-gold)' : 'var(--border)',
               color: activeSection === s.id ? 'var(--accent-gold)' : 'var(--text-muted)',
@@ -452,7 +452,7 @@ export default function MethodologyPage() {
             <h2 style={{ fontFamily: 'Bebas Neue', fontSize: 22, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 4px 0' }}>
               {section.title}
             </h2>
-            <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-muted)', margin: 0, letterSpacing: '1px' }}>
+            <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', margin: 0, letterSpacing: '1px' }}>
               {section.subtitle}
             </p>
           </div>
@@ -468,10 +468,10 @@ export default function MethodologyPage() {
       <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <EmailCapture source="methodology" compact />
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-muted)' }}>
+          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>
             MENA INTEL DESK — OPEN SOURCE INTELLIGENCE PLATFORM
           </span>
-          <Link href="/" style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-gold)', textDecoration: 'none' }}>
+          <Link href="/" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
             ← RETURN TO DASHBOARD
           </Link>
         </div>

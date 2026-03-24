@@ -28,7 +28,7 @@ export function PageShareButton({ getCopyText, label = 'SHARE PAGE', className =
       className={className}
       style={{
         fontFamily: 'IBM Plex Mono',
-        fontSize: 8,
+        fontSize: 11,
         letterSpacing: '1px',
         padding: '4px 10px',
         border: '1px solid var(--border)',

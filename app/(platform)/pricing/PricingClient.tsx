@@ -80,7 +80,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
       <div className="max-w-6xl mx-auto px-6 py-12">
         <h1
           className="text-center mb-12"
-          style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(28px, 4vw, 36px)', letterSpacing: '4px', color: 'var(--accent-gold)' }}
+          style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(28px, 4vw, 36px)', letterSpacing: '2px', color: 'var(--accent-gold)' }}
         >
           ◆ CHOOSE YOUR PLAN
         </h1>

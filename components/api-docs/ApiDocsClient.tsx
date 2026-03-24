@@ -210,7 +210,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
         </li>
       </ul>
       <CodeBlock code={curlNai} allowCopy={showSecrets} />
-      <p className="font-mono text-[10px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[11px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
         Example JSON (T2-style)
       </p>
       <CodeBlock code={jsonNaiT2} allowCopy={showSecrets} />

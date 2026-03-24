@@ -120,9 +120,9 @@ export default function AnalyticsPage() {
                   name={xAxis}
                   type={isConflictDayX ? 'number' : undefined}
                   domain={isConflictDayX ? [1, 10] : undefined}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
                 />
-                <YAxis dataKey="y" name={yAxis} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                <YAxis dataKey="y" name={yAxis} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{
                     background: 'var(--bg-card)',
@@ -142,9 +142,9 @@ export default function AnalyticsPage() {
                   dataKey="x"
                   type={isConflictDayX ? 'number' : undefined}
                   domain={isConflictDayX ? [1, 10] : undefined}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
                 />
-                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                 <Tooltip
                   contentStyle={{
                     background: 'var(--bg-card)',

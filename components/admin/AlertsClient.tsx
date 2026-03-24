@@ -62,13 +62,13 @@ export function AlertsClient({ alerts }: { alerts: AlertRow[] }) {
                 <td className="p-2">{row.priority}</td>
                 <td className="p-2">{row.activated_at ? new Date(row.activated_at).toLocaleString() : '—'}</td>
                 <td className="p-2 flex gap-2">
-                  <button type="button" onClick={() => handleToggle(row.key, row.is_active)} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
+                  <button type="button" onClick={() => handleToggle(row.key, row.is_active)} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
                     {row.is_active ? 'Deactivate' : 'Activate'}
                   </button>
                   {editing === row.key ? (
-                    <button type="button" onClick={saveEdit} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--border)' }}>Save</button>
+                    <button type="button" onClick={saveEdit} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--border)' }}>Save</button>
                   ) : (
-                    <button type="button" onClick={() => startEdit(row)} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--border)' }}>Edit</button>
+                    <button type="button" onClick={() => startEdit(row)} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--border)' }}>Edit</button>
                   )}
                 </td>
               </tr>
@@ -78,7 +78,7 @@ export function AlertsClient({ alerts }: { alerts: AlertRow[] }) {
       </div>
       {editing && (
         <div className="mb-6 p-4 rounded border" style={{ borderColor: 'var(--border)' }}>
-          <label className="block font-mono text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>Message</label>
+          <label className="block font-mono text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>Message</label>
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} className="font-mono text-xs w-full px-2 py-2 border bg-transparent resize-none" style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }} rows={3} />
         </div>
       )}
@@ -91,7 +91,7 @@ export function AlertsClient({ alerts }: { alerts: AlertRow[] }) {
             {activeAlerts.map((a) => (
               <div key={a.key} className="p-3 rounded border" style={{ borderColor: 'var(--accent-gold)', background: 'rgba(232,197,71,0.08)' }}>
                 <p className="font-mono text-xs" style={{ color: 'var(--accent-gold)' }}>◆ {a.title || a.key}</p>
-                <p className="font-mono text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>{a.message ?? '—'}</p>
+                <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>{a.message ?? '—'}</p>
               </div>
             ))}
           </div>

@@ -323,7 +323,7 @@ export function SourcesClient() {
                 >
                   <td className="p-2">
                     {s.display_name}
-                    {s.is_party_source && <span className="ml-1 text-[10px]" style={{ color: 'var(--accent-gold)' }}>PARTY</span>}
+                    {s.is_party_source && <span className="ml-1 text-[11px]" style={{ color: 'var(--accent-gold)' }}>PARTY</span>}
                   </td>
                   <td className="p-2">{s.language?.toUpperCase()}</td>
                   <td className="p-2">{s.is_party_source ? `PARTY SOURCE ${s.party_affiliation ?? ''}` : 'INDEPENDENT'}</td>
@@ -334,10 +334,10 @@ export function SourcesClient() {
                   <td className="p-2">{s.last_fetch_at ? new Date(s.last_fetch_at).toLocaleString() : '—'}</td>
                   <td className="p-2">{s.total_articles_fetched ?? 0}</td>
                   <td className="p-2 flex gap-1">
-                    <button type="button" onClick={() => openEdit(s)} className="font-mono text-[10px] px-1" style={{ color: 'var(--accent-gold)' }} title="Edit">✎</button>
-                    <button type="button" onClick={() => handleTestFeed(s.rss_url || s.url)} className="font-mono text-[10px] px-1" style={{ color: 'var(--text-muted)' }} title="Test">⟳</button>
-                    <button type="button" onClick={() => handleToggle(s)} className="font-mono text-[10px] px-1" style={{ color: 'var(--text-muted)' }} title="Toggle">{s.is_active ? 'On' : 'Off'}</button>
-                    <button type="button" onClick={() => handleDelete(s)} className="font-mono text-[10px] px-1" style={{ color: 'var(--accent-red)' }} title="Delete">×</button>
+                    <button type="button" onClick={() => openEdit(s)} className="font-mono text-[11px] px-1" style={{ color: 'var(--accent-gold)' }} title="Edit">✎</button>
+                    <button type="button" onClick={() => handleTestFeed(s.rss_url || s.url)} className="font-mono text-[11px] px-1" style={{ color: 'var(--text-muted)' }} title="Test">⟳</button>
+                    <button type="button" onClick={() => handleToggle(s)} className="font-mono text-[11px] px-1" style={{ color: 'var(--text-muted)' }} title="Toggle">{s.is_active ? 'On' : 'Off'}</button>
+                    <button type="button" onClick={() => handleDelete(s)} className="font-mono text-[11px] px-1" style={{ color: 'var(--accent-red)' }} title="Delete">×</button>
                   </td>
                 </tr>
               ))}
@@ -413,7 +413,7 @@ export function SourcesClient() {
                 Test Feed
               </button>
               {testResult && (
-                <p className="text-[10px]" style={{ color: testResult.success && testResult.isValidFeed ? 'var(--accent-green)' : 'var(--accent-orange)' }}>
+                <p className="text-[11px]" style={{ color: testResult.success && testResult.isValidFeed ? 'var(--accent-green)' : 'var(--accent-orange)' }}>
                   {testResult.success && testResult.isValidFeed ? '✓ Valid RSS feed — reachable' : testResult.success ? '⚠ URL reachable but not RSS' : '✗ Cannot reach URL'}
                   {testResult.message && ` — ${testResult.message}`}
                 </p>

@@ -146,7 +146,7 @@ export default function BriefingsPage() {
             }}
           >
             <div>{d}</div>
-            <div style={{ fontSize: '8px', opacity: 0.7 }}>{dayLabel(d)}</div>
+            <div style={{ fontSize: '11px', opacity: 0.7 }}>{dayLabel(d)}</div>
           </button>
         ))}
       </div>
@@ -295,7 +295,7 @@ function QualityBadge({ quality }: { quality: string }) {
   const q = map[quality] ?? { label: quality.toUpperCase(), color: 'var(--text-muted)' };
   return (
     <span className="font-mono shrink-0"
-          style={{ fontSize: '8px', letterSpacing: '1px', color: q.color,
+          style={{ fontSize: '11px', letterSpacing: '1px', color: q.color,
                    border: `1px solid ${q.color}`, padding: '1px 4px' }}>
       {q.label}
     </span>
@@ -332,7 +332,7 @@ function CoverStats({ stats, type }: { stats: Record<string, unknown>; type: str
     <div className="flex flex-wrap gap-3">
       {entries.map((e, i) => (
         <div key={i}>
-          <div className="font-mono" style={{ fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+          <div className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
             {e.label}
           </div>
           <div className="font-display text-sm"

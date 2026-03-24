@@ -89,7 +89,7 @@ export function ApiKeysClient({
                 <td className="p-2">{k.is_revoked ? 'Revoked' : 'Active'}</td>
                 <td className="p-2">
                   {!k.is_revoked && (
-                    <button type="button" onClick={() => handleRevoke(k.id)} disabled={!!revoking} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
+                    <button type="button" onClick={() => handleRevoke(k.id)} disabled={!!revoking} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
                       Revoke
                     </button>
                   )}

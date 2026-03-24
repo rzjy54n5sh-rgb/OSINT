@@ -140,7 +140,7 @@ export function PaymentsClient({
                 {isSa && (
                   <td className="p-2">
                     {p.status === 'succeeded' && (
-                      <button type="button" onClick={() => setRefundModal({ id: p.id, amount: p.amount, currency: p.currency })} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
+                      <button type="button" onClick={() => setRefundModal({ id: p.id, amount: p.amount, currency: p.currency })} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}>
                         Refund
                       </button>
                     )}

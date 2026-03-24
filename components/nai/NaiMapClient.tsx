@@ -230,7 +230,7 @@ export function NaiMapClient({
                       EXP <span translate="no">{s.expressed_score}</span>
                     </span>
                     <span className="hidden sm:inline-flex items-center gap-1">
-                      <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-[11px] uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>
                         ΔDAY
                       </span>
                       <NaiDelta delta={s.delta ?? null} />
@@ -268,7 +268,7 @@ export function NaiMapClient({
               </li>
             ))}
           </ul>
-          <p className="mt-3 font-mono text-[10px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="mt-3 font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             <span className="hidden sm:inline">
               ↑↓ = change in expressed score vs previous conflict day. ⚠ = movement of 10+ points.
             </span>

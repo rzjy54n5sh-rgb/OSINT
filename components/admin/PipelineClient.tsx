@@ -135,10 +135,10 @@ export function PipelineClient({ initialCron }: PipelineClientProps) {
               Last run: {new Date(lastRun.started_at).toLocaleString()} · {lastRun.duration_seconds != null ? `${lastRun.duration_seconds}s` : '—'} ·{' '}
               <span style={{ color: statusColor(lastRun.status) }}>{lastRun.status}</span>
             </p>
-            <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
               Next scheduled: {cronToLabel(cron)}
             </p>
-            <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+            <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
               Average runtime (last 7): {Math.round(avgDuration)}s
             </p>
           </>
@@ -239,12 +239,12 @@ export function PipelineClient({ initialCron }: PipelineClientProps) {
                   <tr>
                     <td colSpan={8} className="p-3 border-t" style={{ borderColor: 'var(--border)', background: 'rgba(0,0,0,0.15)' }}>
                       {Array.isArray(r.stages_completed) && r.stages_completed.length > 0 && (
-                        <p className="font-mono text-[10px] mb-1" style={{ color: 'var(--text-muted)' }}>
+                        <p className="font-mono text-[11px] mb-1" style={{ color: 'var(--text-muted)' }}>
                           Stages: {JSON.stringify(r.stages_completed)}
                         </p>
                       )}
                       {r.error_message && (
-                        <p className="font-mono text-[10px]" style={{ color: 'var(--accent-red)' }}>
+                        <p className="font-mono text-[11px]" style={{ color: 'var(--accent-red)' }}>
                           Error: {r.error_message}
                         </p>
                       )}
@@ -290,7 +290,7 @@ export function PipelineClient({ initialCron }: PipelineClientProps) {
         ) : (
           <div className="flex gap-2 items-center">
             <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{cron}</p>
-            <p className="font-mono text-[10px]" style={{ color: 'var(--text-muted)' }}>{cronToLabel(cron)}</p>
+            <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>{cronToLabel(cron)}</p>
             <button
               type="button"
               onClick={() => { setEditingCron(true); setCronInput(cron); }}

@@ -87,12 +87,12 @@ export function SubscriptionsClient({
                   {canAct && (
                     <>
                       {stripeLink(s.stripe_subscription_id) && (
-                        <a href={stripeLink(s.stripe_subscription_id)!} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] mr-2" style={{ color: 'var(--accent-gold)' }}>
+                        <a href={stripeLink(s.stripe_subscription_id)!} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] mr-2" style={{ color: 'var(--accent-gold)' }}>
                           Stripe ↗
                         </a>
                       )}
                       {s.status === 'active' && (
-                        <button type="button" onClick={() => handleCancel(s.id)} disabled={!!cancelling} className="font-mono text-[10px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
+                        <button type="button" onClick={() => handleCancel(s.id)} disabled={!!cancelling} className="font-mono text-[11px] px-2 py-1 border rounded-sm" style={{ borderColor: 'var(--accent-red)', color: 'var(--accent-red)' }}>
                           Cancel
                         </button>
                       )}
@@ -104,7 +104,7 @@ export function SubscriptionsClient({
           </tbody>
         </table>
       </div>
-      {!canAct && <p className="font-mono text-[10px] mt-2" style={{ color: 'var(--text-muted)' }}>View only (Finance Manager)</p>}
+      {!canAct && <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }}>View only (Finance Manager)</p>}
     </div>
   );
 }

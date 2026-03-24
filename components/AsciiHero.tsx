@@ -167,7 +167,7 @@ export function AsciiHero({
           <div
             style={{
               fontFamily: 'IBM Plex Mono, monospace',
-              fontSize: '9px',
+              fontSize: '11px',
               letterSpacing: '2px',
               color: 'var(--text-muted)',
               marginBottom: '12px',
@@ -185,7 +185,7 @@ export function AsciiHero({
               key={i}
               style={{
                 fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: '10px',
+                fontSize: '11px',
                 lineHeight: '1.8',
                 color: isLineGreen(line)
                   ? 'var(--accent-green)'
@@ -202,7 +202,7 @@ export function AsciiHero({
             <p
               style={{
                 fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: '10px',
+                fontSize: '11px',
                 lineHeight: '1.8',
                 color: 'var(--text-primary)',
               }}
@@ -247,7 +247,7 @@ export function AsciiHero({
               <div
                 style={{
                   fontFamily: 'IBM Plex Mono, monospace',
-                  fontSize: '9px',
+                  fontSize: '11px',
                   letterSpacing: '2px',
                   color: 'var(--text-muted)',
                   textTransform: 'uppercase',
@@ -267,8 +267,8 @@ export function AsciiHero({
         <div
           style={{
             fontFamily: 'IBM Plex Mono, monospace',
-            fontSize: 10,
-            letterSpacing: '3px',
+            fontSize: 11,
+            letterSpacing: '2px',
             color: 'var(--accent-gold)',
             marginBottom: 8,
           }}
@@ -278,7 +278,7 @@ export function AsciiHero({
         <div
           style={{
             fontFamily: 'IBM Plex Mono, monospace',
-            fontSize: 8,
+            fontSize: 11,
             letterSpacing: '2px',
             color: 'var(--text-muted)',
           }}

@@ -22,7 +22,7 @@ export default async function AdminTierFeaturesPage() {
     <div className="p-6 max-w-5xl">
       <h1 className="font-mono text-sm uppercase mb-6" style={{ color: 'var(--text-muted)' }}>Tier Features</h1>
       <TierFeaturesClient initialFeatures={list} />
-      <p className="font-mono text-[10px] mt-6" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[11px] mt-6" style={{ color: 'var(--text-muted)' }}>
         Changes take effect immediately for new page loads. Active sessions refresh on next auth token refresh.
       </p>
     </div>

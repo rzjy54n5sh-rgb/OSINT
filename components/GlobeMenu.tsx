@@ -25,7 +25,7 @@ export function GlobeMenu() {
         style={{
           background: 'none', border: '1px solid var(--border)',
           color: 'var(--text-muted)', cursor: 'pointer',
-          fontFamily: 'IBM Plex Mono', fontSize: 10, padding: '3px 8px',
+          fontFamily: 'IBM Plex Mono', fontSize: 11, padding: '3px 8px',
           letterSpacing: '1px', transition: 'color 0.15s, border-color 0.15s',
         }}
         onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.color = 'var(--accent-gold)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--accent-gold)'; }}
@@ -41,10 +41,10 @@ export function GlobeMenu() {
             border: '1px solid var(--border)', zIndex: 100, padding: 16,
           }}
         >
-          <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 10 }}>
+          <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 10 }}>
             LANGUAGE / TRANSLATION
           </div>
-          <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
+          <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12 }}>
             This platform is English-only. Use your browser or Google Translate to read in your language.
           </p>
           {[
@@ -53,8 +53,8 @@ export function GlobeMenu() {
             { label: 'Firefox', tip: 'Translate icon in the address bar' },
           ].map((b) => (
             <div key={b.label} style={{ marginBottom: 6 }}>
-              <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-secondary)' }}>{b.label}: </span>
-              <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)' }}>{b.tip}</span>
+              <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-secondary)' }}>{b.label}: </span>
+              <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>{b.tip}</span>
             </div>
           ))}
           <a
@@ -63,13 +63,13 @@ export function GlobeMenu() {
             rel="noopener noreferrer"
             style={{
               display: 'block', marginTop: 12, padding: '7px 0', textAlign: 'center',
-              fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--accent-blue)',
+              fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-blue)',
               border: '1px solid var(--accent-blue)', textDecoration: 'none', letterSpacing: '1px',
             }}
           >
             ↗ OPEN IN GOOGLE TRANSLATE
           </a>
-          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
             Common reader languages: Arabic · Farsi · Turkish · Hebrew · Russian · French
           </div>
         </div>

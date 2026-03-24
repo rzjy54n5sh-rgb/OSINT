@@ -33,7 +33,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         style={{
-          fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1.5px',
+          fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px',
           padding: '4px 12px', border: '1px solid var(--border)',
           color: 'var(--text-muted)', background: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 6,
@@ -53,7 +53,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
           {/* Preview card */}
           <div
             style={{
-              fontFamily: 'IBM Plex Mono', fontSize: 9, color: 'var(--text-secondary)',
+              fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-secondary)',
               padding: 10, border: '1px solid var(--border)',
               background: 'var(--bg-primary)', marginBottom: 10, lineHeight: 1.6,
               whiteSpace: 'pre-line',
@@ -68,7 +68,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
             onClick={copyText}
             style={{
               width: '100%', marginBottom: 6,
-              fontFamily: 'IBM Plex Mono', fontSize: 8, letterSpacing: '1px',
+              fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1px',
               padding: '6px 0', border: '1px solid',
               borderColor: copied ? 'var(--accent-green)' : 'var(--border)',
               color: copied ? 'var(--accent-green)' : 'var(--text-muted)',
@@ -92,7 +92,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  fontFamily: 'IBM Plex Mono', fontSize: 7, letterSpacing: '1px',
+                  fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1px',
                   padding: '5px 0', border: '1px solid var(--border)',
                   color: 'var(--text-muted)', textDecoration: 'none',
                   textAlign: 'center', display: 'block',
@@ -108,7 +108,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
             onClick={() => setOpen(false)}
             style={{
               width: '100%', marginTop: 8,
-              fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)',
+              fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)',
               background: 'none', border: 'none', cursor: 'pointer', letterSpacing: '1px',
             }}
           >

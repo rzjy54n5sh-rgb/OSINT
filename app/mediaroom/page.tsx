@@ -430,7 +430,7 @@ export default function MediaRoomPage() {
           <span
             style={{
               fontFamily: 'IBM Plex Mono',
-              fontSize: 8,
+              fontSize: 11,
               color: 'var(--accent-red)',
               letterSpacing: '2px',
               border: '1px solid var(--accent-red)',
@@ -451,7 +451,7 @@ export default function MediaRoomPage() {
                 style={{
                   display: 'block',
                   fontFamily: 'IBM Plex Mono',
-                  fontSize: 10,
+                  fontSize: 12,
                   color: 'var(--text-primary)',
                   textDecoration: 'none',
                   overflow: 'hidden',
@@ -464,7 +464,7 @@ export default function MediaRoomPage() {
               </a>
             ))}
           </div>
-          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
             {Math.round((Date.now() - new Date(breakingAlerts[0].published_at!).getTime()) / 60000)}m ago
           </span>
         </div>
@@ -477,7 +477,7 @@ export default function MediaRoomPage() {
       <main className="flex-1 p-4 md:p-6 max-w-[1800px] mx-auto w-full">
         {/* Top bar: country chips + view mode */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <span className="font-mono text-[9px] text-[var(--text-muted)] uppercase tracking-widest mr-2">Filter:</span>
+          <span className="font-mono text-[11px] text-[var(--text-muted)] uppercase tracking-widest mr-2">Filter:</span>
           {COUNTRIES.map((c) => (
             <button
               key={c.code}
@@ -490,7 +490,7 @@ export default function MediaRoomPage() {
             </button>
           ))}
           <span className="flex-1" />
-          <span className="font-mono text-[8px] text-[var(--text-muted)] uppercase tracking-widest mr-2">View:</span>
+          <span className="font-mono text-[11px] text-[var(--text-muted)] uppercase tracking-widest mr-2">View:</span>
           <button
             type="button"
             className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
@@ -507,7 +507,7 @@ export default function MediaRoomPage() {
           </button>
           {viewMode === 'focus' && (
             <>
-              <span className="font-mono text-[8px] text-[var(--text-muted)] ml-2">Section:</span>
+              <span className="font-mono text-[11px] text-[var(--text-muted)] ml-2">Section:</span>
               {(['tv', 'photos', 'clips', 'wire'] as const).map((s) => (
                 <button
                   key={s}
@@ -650,7 +650,7 @@ export default function MediaRoomPage() {
             </div>
             {/* Narrative Divergence Matrix — [STATIC CONFIG] */}
             <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 7, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
                 ANALYST-CURATED EDITORIAL POSITIONS — Updated manually
               </div>
               <div className="narrative-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
@@ -665,9 +665,9 @@ export default function MediaRoomPage() {
                         borderRadius: 2,
                       }}
                     >
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 9, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
+                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
+                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
                       {latest ? (
                         <a
                           href={latest.url ?? '#'}
@@ -675,10 +675,10 @@ export default function MediaRoomPage() {
                           rel="noopener noreferrer"
                           style={{
                             display: 'block',
-                            fontSize: 9,
+                            fontSize: 11,
                             color: 'var(--accent-teal)',
                             textDecoration: 'none',
-                            lineHeight: 1.3,
+                            lineHeight: 1.5,
                             marginTop: 4,
                             borderTop: '1px solid var(--border)',
                             paddingTop: 6,
@@ -688,7 +688,7 @@ export default function MediaRoomPage() {
                           Latest: {(latest.title ?? '').slice(0, 52)}{(latest.title ?? '').length > 52 ? '…' : ''} ↗
                         </a>
                       ) : (
-                        <div style={{ fontSize: 8, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>No matching article in feed</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>No matching article in feed</div>
                       )}
                     </div>
                   );
@@ -796,7 +796,7 @@ export default function MediaRoomPage() {
             <div className="media-section-header">
               ◈ COVERAGE COMPARISON — SAME EVENT, 3 SOURCES
             </div>
-            <p className="font-mono text-[9px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
+            <p className="font-mono text-[11px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
               Same story covered by 3 different source types (e.g. wire, broadcast, official). Algorithm: recent 24h articles → cluster by shared tags → pick top 3 with distinct source_type.
             </p>
             <div className="coverage-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12 }}>
@@ -814,12 +814,12 @@ export default function MediaRoomPage() {
                     transition: 'background 0.15s',
                   }}
                 >
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
+                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
                     {(a.source_type ?? 'wire').toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.3 }}>{a.title ?? '—'}</div>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 8, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.6 }}>{a.title ?? '—'}</div>
+                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
+                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                     {a.published_at ? formatRelativeTime(a.published_at) : '—'}
                   </div>
                 </a>
