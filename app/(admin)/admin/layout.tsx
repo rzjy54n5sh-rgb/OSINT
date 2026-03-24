@@ -3,6 +3,7 @@ import { getUser } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import AgentPanel from '@/components/admin/AgentPanel';
+import { AdminNotificationBanner } from '@/components/admin/AdminNotificationBanner';
 import type { AdminRole } from '@/types';
 
 export default async function AdminLayout({
@@ -38,7 +39,12 @@ export default async function AdminLayout({
   return (
     <div className="flex h-screen" style={{ background: 'var(--bg)', color: 'var(--text-primary)' }}>
       <AdminSidebar role={role} disputeCount={disputeCount} failingSourcesCount={failingSourcesCount} />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main className="flex-1 overflow-auto">
+        <div style={{ position: 'fixed', top: 8, right: 80, zIndex: 50 }}>
+          <AdminNotificationBanner />
+        </div>
+        {children}
+      </main>
       <AgentPanel role={role} />
     </div>
   );

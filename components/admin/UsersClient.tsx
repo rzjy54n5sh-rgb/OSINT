@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { adminFetch } from '@/lib/api/admin/client';
+import UserDetailDrawer from './UserDetailDrawer';
 import type { User, UserTier, UserListResponse, UserDetailResponse } from '@/types';
 
 /* ------------------------------------------------------------------ */
@@ -1026,6 +1027,12 @@ export function UsersClient() {
           </div>
         </div>
       )}
+
+      <UserDetailDrawer
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        token=""
+      />
     </div>
   );
 }
