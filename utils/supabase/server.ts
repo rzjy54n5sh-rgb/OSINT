@@ -37,7 +37,18 @@ export const getUser = cache(async (): Promise<User | null> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
-    return (profile as User) ?? null;
+    if (!profile) return null;
+    // Admin users always get professional tier access regardless of subscription
+    const { data: adminRow } = await supabase
+      .from('admin_users')
+      .select('role, is_active')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (adminRow?.is_active) {
+      (profile as Record<string, unknown>).tier = 'professional';
+      (profile as Record<string, unknown>).admin_role = adminRow.role;
+    }
+    return profile as User;
   } catch {
     return null;
   }

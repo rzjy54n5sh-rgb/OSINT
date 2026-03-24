@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getUser } from '@/utils/supabase/server';
+import { getUser, getSessionToken } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { UsersClient } from '@/components/admin/UsersClient';
 import type { AdminRole } from '@/types';
@@ -20,5 +20,7 @@ export default async function AdminUsersPage() {
   const role = adminUser.role as AdminRole;
   if (!canAccess('users', role)) redirect('/admin');
 
-  return <UsersClient />;
+  const token = await getSessionToken();
+
+  return <UsersClient serverToken={token} />;
 }

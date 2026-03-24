@@ -110,7 +110,7 @@ const inputStyle: React.CSSProperties = {
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
 
-export function UsersClient() {
+export function UsersClient({ serverToken }: { serverToken?: string | null }) {
   /* ---------- state ---------- */
   const [users, setUsers] = useState<(User & { total_spent_usd?: number })[]>([]);
   const [total, setTotal] = useState(0);
@@ -154,9 +154,13 @@ export function UsersClient() {
     setLoading(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      let accessToken = serverToken ?? null;
+      if (!accessToken) {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        accessToken = session?.access_token ?? null;
+      }
+      if (!accessToken) {
         setError('Not authenticated. Please log in.');
         setLoading(false);
         return;
@@ -173,7 +177,7 @@ export function UsersClient() {
       if (sortBy !== 'newest') params.sort_by = sortBy;
 
       const res = await adminFetch<UsersApiResponse>('admin-users', {
-        token: session.access_token,
+        token: accessToken,
         params,
       });
 
@@ -205,6 +209,7 @@ export function UsersClient() {
 
   /* ---------- actions ---------- */
   const getToken = async (): Promise<string | null> => {
+    if (serverToken) return serverToken;
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ?? null;
@@ -1031,7 +1036,7 @@ export function UsersClient() {
       <UserDetailDrawer
         userId={selectedUserId}
         onClose={() => setSelectedUserId(null)}
-        token=""
+        token={serverToken ?? ''}
       />
     </div>
   );
