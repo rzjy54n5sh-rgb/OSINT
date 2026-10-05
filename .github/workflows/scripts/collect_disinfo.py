@@ -88,7 +88,13 @@ def fetch_disinfo():
     records, seen_ids = [], set()
     for feed_cfg in FACT_CHECK_FEEDS:
         try:
-            for entry in feedparser.parse(feed_cfg["url"]).entries:
+            # feedparser.parse(url) has no network timeout: one unresponsive feed
+            # hung the whole job until GitHub cancelled it at 10 minutes. Fetch
+            # with an explicit timeout and hand feedparser the bytes instead.
+            resp = requests.get(feed_cfg["url"], timeout=15,
+                                headers={"User-Agent": "Mozilla/5.0 (MENA-Intel-Desk collector)"})
+            resp.raise_for_status()
+            for entry in feedparser.parse(resp.content).entries:
                 title = entry.get("title",""); summary = entry.get("summary","") or entry.get("description","")
                 url = entry.get("link","")
                 if not url or not is_relevant(title, summary): continue
