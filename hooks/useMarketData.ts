@@ -15,8 +15,9 @@ export interface KeyMetric {
  * Fetches the latest market_data rows (highest conflict_day) and maps
  * key indicators to a display-ready format for the homepage metrics strip.
  */
-export function useMarketData(): { metrics: KeyMetric[]; loading: boolean } {
+export function useMarketData(): { metrics: KeyMetric[]; loading: boolean; latestDay: number | null } {
   const [metrics, setMetrics] = useState<KeyMetric[]>([]);
+  const [latestDay, setLatestDay] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,8 +39,10 @@ export function useMarketData(): { metrics: KeyMetric[]; loading: boolean } {
         }
         const rows = data as MarketData[];
         // Use only the latest conflict day
-        const latestDay = rows[0].conflict_day;
-        const latest = rows.filter((r) => r.conflict_day === latestDay);
+        // Latest day in market_data itself (own-table max) — labelled against the calendar day by the caller.
+        const newestDay = rows[0].conflict_day;
+        setLatestDay(newestDay ?? null);
+        const latest = rows.filter((r) => r.conflict_day === newestDay);
 
         // Find key indicators (pick latest row per indicator)
         const seen = new Map<string, MarketData>();
@@ -120,5 +123,5 @@ export function useMarketData(): { metrics: KeyMetric[]; loading: boolean } {
     };
   }, []);
 
-  return { metrics, loading };
+  return { metrics, loading, latestDay };
 }

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { createClient } from '@/lib/supabase/client';
+import { DataAsOf } from '@/components/ui/DataAsOf';
 
 interface BriefingMeta {
   conflict_day: number;
@@ -41,11 +42,22 @@ function dayLabel(day: number): string {
 
 interface BriefingsClientProps {
   initialBriefings: BriefingMeta[];
+  /** Day initially displayed (calendar day, or latest available day when today has none). */
   conflictDay: number;
+  /** Calendar day (DAY LOCK). */
+  currentDay: number;
+  /** MAX(conflict_day) of daily_briefings. */
+  latestBriefingDay: number | null;
   availableDays: number[];
 }
 
-export default function BriefingsClient({ initialBriefings, conflictDay, availableDays: initialAvailableDays }: BriefingsClientProps) {
+export default function BriefingsClient({
+  initialBriefings,
+  conflictDay,
+  currentDay,
+  latestBriefingDay,
+  availableDays: initialAvailableDays,
+}: BriefingsClientProps) {
   const [selectedDay, setSelectedDay] = useState<number>(conflictDay);
   const [briefings, setBriefings] = useState<BriefingMeta[]>(initialBriefings);
   const [availableDays] = useState<number[]>(initialAvailableDays);
@@ -92,6 +104,9 @@ export default function BriefingsClient({ initialBriefings, conflictDay, availab
         description="Five structured reports published each conflict day covering all parties, all regions, and all analytical dimensions. Reports are generated from verified open-source intelligence. Source citations are embedded — tap any footnote to view the originating article."
         note="Reports marked PLATFORM are editorial-grade. Reports marked AUTO are generated from the platform's daily analysis database. Historical reports marked RECONSTRUCTED are regenerated from archived DB data."
       />
+
+      {/* Section freshness: daily_briefings' own latest day vs calendar day */}
+      <DataAsOf section="BRIEFINGS" latestDay={latestBriefingDay} currentDay={currentDay} className="mb-4" />
 
       {/* Day navigator */}
       <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2"

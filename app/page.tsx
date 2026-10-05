@@ -15,14 +15,24 @@ export default async function Page() {
     supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(3),
     supabase.from('articles').select('*', { count: 'exact', head: true }),
     supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: true }),
-    supabase.from('daily_briefings').select('lead').eq('conflict_day', conflictDay).eq('report_type', 'general').maybeSingle(),
+    // Latest general briefing by daily_briefings' OWN max day (not the nai_scores day, not
+    // "exactly today"). Its day is passed through and labelled against the calendar day.
+    supabase
+      .from('daily_briefings')
+      .select('lead, conflict_day')
+      .eq('report_type', 'general')
+      .order('conflict_day', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
     supabase.from('market_data').select('indicator, value, change_pct, unit, conflict_day').order('conflict_day', { ascending: false }).limit(50),
   ]);
 
   const articles = (articlesRes.data as Article[]) ?? [];
   const articleCount = countRes.count ?? 0;
   const scenarios = (scenariosRes.data as ScenarioProbability[]) ?? [];
-  const topFindingLead = (briefingRes.data as { lead?: string } | null)?.lead ?? null;
+  const briefingRow = briefingRes.data as { lead?: string | null; conflict_day?: number | null } | null;
+  const topFindingLead = briefingRow?.lead ?? null;
+  const briefingDay = briefingRow?.conflict_day ?? null;
 
   // Build market metrics from latest day
   const marketRows = (marketRes.data ?? []) as { indicator: string; value: number; change_pct: number; unit: string; conflict_day: number }[];
@@ -51,7 +61,9 @@ export default async function Page() {
         articles,
         scenarios,
         topFindingLead,
+        briefingDay,
         marketMetrics,
+        marketDay: latestDay ?? null,
       }}
     >
       <NaiBiggestMoveBanner />

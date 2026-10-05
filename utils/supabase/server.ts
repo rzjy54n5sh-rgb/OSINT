@@ -6,6 +6,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import type { User } from '@/types';
+import { currentConflictDay } from '@/lib/conflict-calendar';
 
 export const createClient = cache(async () => {
   const cookieStore = await cookies();
@@ -65,12 +66,44 @@ export const getSessionToken = cache(async (): Promise<string | null> => {
   }
 });
 
-export const getConflictDay = cache(async (): Promise<number> => {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase.rpc('get_current_conflict_day');
-    return (data as number) ?? 17;
-  } catch {
-    return 17;
+/**
+ * Current conflict day — DAY LOCK (CLAUDE.md rule 1): pure UTC calendar, no DB read.
+ * Previously this called the `get_current_conflict_day` RPC and fell back to a
+ * hardcoded 17 on any error; the day must never depend on DB availability or on
+ * any table's MAX(conflict_day). Kept async for call-site compatibility.
+ */
+export const getConflictDay = cache(async (): Promise<number> => currentConflictDay());
+
+/** Tables whose rows are stamped with a conflict_day and can report their own latest day. */
+export type DayStampedTable =
+  | 'daily_briefings'
+  | 'market_data'
+  | 'nai_scores'
+  | 'scenario_probabilities'
+  | 'social_trends'
+  | 'articles';
+
+/**
+ * Latest conflict_day present in ONE table ("latest day this section has data").
+ * Each section maxes over its OWN table — never nai_scores on behalf of another
+ * section. Returns null when the table is empty or unreadable.
+ */
+export const getLatestDayFor = cache(
+  async (table: DayStampedTable, reportType?: string): Promise<number | null> => {
+    try {
+      const supabase = await createClient();
+      let q = supabase
+        .from(table)
+        .select('conflict_day')
+        .not('conflict_day', 'is', null)
+        .order('conflict_day', { ascending: false })
+        .limit(1);
+      if (reportType && table === 'daily_briefings') q = q.eq('report_type', reportType);
+      const { data } = await q.maybeSingle();
+      const d = (data as { conflict_day?: number } | null)?.conflict_day;
+      return typeof d === 'number' && Number.isFinite(d) ? d : null;
+    } catch {
+      return null;
+    }
   }
-});
+);

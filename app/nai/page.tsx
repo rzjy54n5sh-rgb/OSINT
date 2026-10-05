@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import { createClient } from '@/utils/supabase/server';
-import { getUser, getSessionToken, getConflictDay } from '@/utils/supabase/server';
+import { getUser, getSessionToken, getConflictDay, getLatestDayFor } from '@/utils/supabase/server';
+import { DataAsOf } from '@/components/ui/DataAsOf';
 import { getNaiScores } from '@/lib/api/nai';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiMapClient } from '@/components/nai/NaiMapClient';
@@ -14,7 +15,11 @@ export default async function NaiMapPage({
 }) {
   const params = await searchParams;
   const dayParam = params.day ? parseInt(params.day, 10) : null;
-  const latestDay = await getConflictDay();
+  // currentDay = calendar (DAY LOCK). latestNaiDay = nai_scores' OWN max day — the newest
+  // day that actually has NAI rows. Defaulting to the calendar day would render an empty
+  // map while nai_scores is frozen; defaulting to the NAI day is labelled via DataAsOf.
+  const [currentDay, latestNaiDay] = await Promise.all([getConflictDay(), getLatestDayFor('nai_scores')]);
+  const latestDay = latestNaiDay ?? currentDay;
   const conflictDay = Number.isFinite(dayParam) && dayParam != null ? dayParam : latestDay;
 
   const [user, token, supabase] = await Promise.all([
@@ -52,7 +57,17 @@ export default async function NaiMapPage({
         latestDay={latestDay}
         hasLatentAccess={hasLatentAccess}
         hasGapAccess={hasGapAccess}
-        conflictDayBadge={<ConflictDayBadge />}
+        conflictDayBadge={
+          <>
+            <ConflictDayBadge />
+            <DataAsOf section="NAI" latestDay={latestNaiDay} currentDay={currentDay} className="mt-2" />
+            {conflictDay !== latestDay && (
+              <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
+                VIEWING HISTORICAL NAI — DAY {conflictDay}
+              </p>
+            )}
+          </>
+        }
       />
     </Suspense>
   );

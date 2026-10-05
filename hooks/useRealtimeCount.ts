@@ -1,12 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { currentConflictDay } from '@/lib/conflict-calendar';
 
 export function useRealtimeCount() {
   const [articleCount, setArticleCount] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<string>('--:-- UTC');
   const [live, setLive] = useState(false);
-  const [conflictDay, setConflictDay] = useState<number | null>(null);
+  // DAY LOCK: calendar day, never MAX(nai_scores.conflict_day) (nai_scores can be frozen).
+  const conflictDay: number = currentConflictDay();
 
   useEffect(() => {
     let cancelled = false;
@@ -14,15 +16,7 @@ export function useRealtimeCount() {
 
     void (async () => {
       try {
-        const [articlesRes, dayRes] = await Promise.all([
-          supabase.from('articles').select('*', { count: 'exact', head: true }),
-          supabase
-            .from('nai_scores')
-            .select('conflict_day')
-            .order('conflict_day', { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-        ]);
+        const articlesRes = await supabase.from('articles').select('*', { count: 'exact', head: true });
         if (cancelled) return;
         if (articlesRes.error) {
           setArticleCount(0);
@@ -32,7 +26,6 @@ export function useRealtimeCount() {
           setLastUpdate(new Date().toISOString().slice(11, 16) + ' UTC');
           setLive(true);
         }
-        if (dayRes.data?.conflict_day != null) setConflictDay(dayRes.data.conflict_day);
       } catch {
         if (!cancelled) {
           setArticleCount(0);

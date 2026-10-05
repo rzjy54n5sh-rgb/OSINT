@@ -2,7 +2,10 @@
 warm_kv_cache.py — Writes a fresh Supabase snapshot to Cloudflare KV after each pipeline run.
 
 This is called at the END of collect_feeds.py, collect_markets.py, and collect_social.py.
-The Cloudflare Worker then reads from KV instead of hitting Supabase on every page load.
+NOTE (2026-10-05): no code in the Next.js app / OpenNext Worker currently reads these keys
+(no OSINT_CACHE binding usage in app/, lib/, components/, hooks/, utils/, middleware.ts, and
+wrangler.jsonc declares no kv_namespaces). The snapshot is write-only until a reader exists.
+conflict_day in every key is the DAY LOCK calendar day; per-section data days are in "as_of".
 
 KV keys written:
   snapshot:dashboard   — main dashboard data (markets, NAI, scenarios, latest articles)
@@ -55,15 +58,36 @@ def kv_put(key, value_dict, ttl_seconds=300):
     )
     return r.status_code
 
-def build_and_warm():
-    now = datetime.datetime.utcnow().isoformat() + "Z"
-    
-    # Get current conflict day
-    nai_latest = sb_get("nai_scores?select=conflict_day&order=conflict_day.desc&limit=1")
-    conflict_day = nai_latest[0]["conflict_day"] if nai_latest else 1
+def calendar_conflict_day():
+    """DAY LOCK (CLAUDE.md rule 1): (today_utc - 2026-02-28).days + 1. NEVER a table's max."""
+    today = datetime.datetime.now(datetime.timezone.utc).date()
+    return max(1, (today - datetime.date(2026, 2, 28)).days + 1)
 
-    # Dashboard snapshot
-    markets = sb_get(f"market_data?conflict_day=eq.{conflict_day}&order=created_at.desc&limit=30")
+
+def latest_day(table):
+    """Latest conflict_day in ONE table (that section's own data day), or None."""
+    rows = sb_get(f"{table}?select=conflict_day&conflict_day=not.is.null&order=conflict_day.desc&limit=1")
+    return rows[0]["conflict_day"] if rows else None
+
+
+def build_and_warm():
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # Current conflict day = calendar. Previously MAX(nai_scores.conflict_day), which froze
+    # the snapshot (and its markets/social filters) at the last NAI day.
+    conflict_day = calendar_conflict_day()
+
+    # Each section is fetched at its OWN latest day and stamped with it (as_of), so a
+    # consumer can label stale sections instead of presenting them as today's data.
+    market_day = latest_day("market_data")
+    nai_day = latest_day("nai_scores")
+    social_day = latest_day("social_trends")
+    scenario_day = latest_day("scenario_probabilities")
+
+    markets = (
+        sb_get(f"market_data?conflict_day=eq.{market_day}&order=created_at.desc&limit=30")
+        if market_day is not None else []
+    )
     # Deduplicate by indicator
     seen, markets_clean = set(), []
     for m in markets:
@@ -71,13 +95,32 @@ def build_and_warm():
             seen.add(m["indicator"])
             markets_clean.append(m)
 
-    nai_scores = sb_get(f"nai_scores?conflict_day=eq.{conflict_day}&order=expressed_score.desc")
+    nai_scores = (
+        sb_get(f"nai_scores?conflict_day=eq.{nai_day}&order=expressed_score.desc")
+        if nai_day is not None else []
+    )
     scenarios = sb_get("scenario_probabilities?order=conflict_day.asc")
     articles_latest = sb_get("articles?select=id,title,summary,url,source_name,published_at,country,sentiment,tags&order=published_at.desc&limit=20")
-    social = sb_get(f"social_trends?conflict_day=eq.{conflict_day}&order=created_at.desc")
+    social = (
+        sb_get(f"social_trends?conflict_day=eq.{social_day}&order=created_at.desc")
+        if social_day is not None else []
+    )
+
+    as_of = {
+        "markets": market_day,
+        "nai_scores": nai_day,
+        "scenarios": scenario_day,
+        "social": social_day,
+    }
+    stale_sections = sorted(k for k, d in as_of.items() if d != conflict_day)
+    if stale_sections:
+        print(f"[warm_kv_cache] calendar Day {conflict_day}; sections without data for today: "
+              + ", ".join(f"{k}=Day {as_of[k]}" for k in stale_sections))
 
     dashboard_snapshot = {
         "conflict_day": conflict_day,
+        "as_of": as_of,
+        "stale_sections": stale_sections,
         "updated_at": now,
         "markets": markets_clean,
         "nai_scores": nai_scores,
@@ -93,7 +136,11 @@ def build_and_warm():
     statuses = {}
     statuses["snapshot:dashboard"] = kv_put("snapshot:dashboard", dashboard_snapshot, ttl_seconds=300)
     statuses["snapshot:countries"] = kv_put("snapshot:countries", {"reports": country_reports, "updated_at": now}, ttl_seconds=300)
-    statuses["snapshot:updated_at"] = kv_put("snapshot:updated_at", {"ts": now, "conflict_day": conflict_day}, ttl_seconds=300)
+    statuses["snapshot:updated_at"] = kv_put(
+        "snapshot:updated_at",
+        {"ts": now, "conflict_day": conflict_day, "as_of": as_of},
+        ttl_seconds=300,
+    )
 
     print(f"KV cache warmed: {statuses}")
     return statuses

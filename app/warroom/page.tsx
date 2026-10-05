@@ -9,6 +9,8 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { PageShareButton, buildWarRoomShareText } from '@/components/PageShareButton';
 import { PageShareCard } from '@/components/PageShareCard';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { DataAsOf } from '@/components/ui/DataAsOf';
+import { maxConflictDay } from '@/lib/conflict-calendar';
 import type {
   Article,
   CountryReport,
@@ -86,8 +88,9 @@ function formatTime(iso: string | null): string {
 }
 
 export default function WarRoomPage() {
-  const conflictDayFromDb = useConflictDay();
-  const CONFLICT_DAY = conflictDayFromDb;
+  // Calendar day (DAY LOCK). Previously MAX(nai_scores.conflict_day), which froze the War
+  // Room at the last NAI day and keyed the scenario panel to it.
+  const CONFLICT_DAY = useConflictDay();
   const [activeCountry, setActiveCountry] = useState<string>('IR');
   const [lastRefresh, setLastRefresh] = useState<string>('--:--');
   const [countryReports, setCountryReports] = useState<CountryReport[]>([]);
@@ -125,7 +128,9 @@ export default function WarRoomPage() {
         supabase.from('articles').select('*', { count: 'exact', head: true }),
         supabase.from('market_data').select('*').order('created_at', { ascending: false }),
         supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }),
-        supabase.from('scenario_probabilities').select('*').eq('conflict_day', CONFLICT_DAY).limit(1).maybeSingle(),
+        // scenario_probabilities' OWN latest row (labelled with its day below), not "row at
+        // some other table's day" — eq(calendar day) would return null → 0% bars while frozen.
+        supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
         supabase.from('nai_scores').select('country_code, conflict_day, expressed_score, latent_score, gap_size, category').order('conflict_day', { ascending: false }).limit(60),
         supabase.from('scenario_probabilities').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
@@ -266,6 +271,11 @@ export default function WarRoomPage() {
 
   const naiLatest = activeCountry ? naiLatestMap[activeCountry] : null;
 
+  // Per-section own-table latest days, each compared to the calendar day by DataAsOf.
+  const naiDay = maxConflictDay(naiHistory);
+  const scenarioDay = scenarios?.conflict_day ?? scenarioHistory.at(-1)?.conflict_day ?? null;
+  const marketDay = maxConflictDay(marketData);
+
   const breakingAlerts = (articles ?? []).filter((a) => {
     if (!a.published_at || !a.url) return false;
     const ageMinutes = (Date.now() - new Date(a.published_at).getTime()) / 60000;
@@ -396,7 +406,7 @@ export default function WarRoomPage() {
         <span style={{ marginLeft: 'auto', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
           <PageShareCard
             label={`WAR ROOM · DAY ${CONFLICT_DAY ?? '—'}`}
-            summary={`Scenario A: ${scenarios?.scenario_a ?? '—'}% · B: ${scenarios?.scenario_b ?? '—'}% · C: ${scenarios?.scenario_c ?? '—'}% · D: ${scenarios?.scenario_d ?? '—'}%`}
+            summary={`Scenario A: ${scenarios?.scenario_a ?? '—'}% · B: ${scenarios?.scenario_b ?? '—'}% · C: ${scenarios?.scenario_c ?? '—'}% · D: ${scenarios?.scenario_d ?? '—'}% (as of Day ${scenarioDay ?? '—'})`}
           />
           <PageShareButton
             label="SHARE"
@@ -406,7 +416,9 @@ export default function WarRoomPage() {
               const name = report?.country_name ?? activeCountry;
               const score = naiRow?.expressed_score ?? report?.nai_score ?? 0;
               const category = naiRow?.category ?? report?.nai_category ?? '—';
-              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), CONFLICT_DAY ?? 0);
+              // Stamp the share with the day the NAI figure belongs to, not the calendar day.
+              const scoreDay = naiRow?.conflict_day ?? report?.conflict_day ?? CONFLICT_DAY;
+              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), scoreDay);
             }}
           />
         </span>
@@ -527,8 +539,9 @@ export default function WarRoomPage() {
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
             <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
-              SCENARIO DRIFT — DAY {CONFLICT_DAY}
+              SCENARIO DRIFT — AS OF DAY {scenarioDay ?? '—'}
             </div>
+            <DataAsOf section="SCENARIOS" latestDay={scenarioDay} currentDay={CONFLICT_DAY} className="mx-3 mb-2" />
             {[
               { key: 'scenario_a' as const, label: 'A', name: 'Contained', color: 'var(--accent-gold)' },
               { key: 'scenario_b' as const, label: 'B', name: 'Regional Spread', color: 'var(--accent-blue)' },
@@ -606,8 +619,11 @@ export default function WarRoomPage() {
               >
                 {naiLatest?.category ?? activeReport?.nai_category ?? '—'}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                NAI AS OF DAY {naiLatest?.conflict_day ?? naiDay ?? '—'}
+              </span>
             </div>
+            <DataAsOf section="NAI" latestDay={naiLatest?.conflict_day ?? naiDay} currentDay={CONFLICT_DAY} />
             <div className="nai-bar-track" style={{ width: 120, height: 4 }}>
               <div
                 className="nai-bar-fill tension"
@@ -883,8 +899,11 @@ export default function WarRoomPage() {
         {/* RIGHT PANEL */}
         <aside className="warroom-panel warroom-right-panel" style={{ width: 300 }}>
           <div className="warroom-panel-header">
-            <span>▸ MARKET WATCH — LIVE</span>
+            <span>▸ MARKET WATCH — {marketDay != null && marketDay === CONFLICT_DAY ? 'LIVE' : 'LATEST'}</span>
           </div>
+          {Object.entries(latestByIndicator).length > 0 && (
+            <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={CONFLICT_DAY} className="mx-3 my-2" />
+          )}
           {Object.entries(latestByIndicator).length === 0 ? (
             <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
           ) : (

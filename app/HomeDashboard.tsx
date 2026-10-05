@@ -21,8 +21,10 @@ import {
   Legend,
 } from 'recharts';
 import { useI18n } from '@/components/I18nProvider';
-import { useBriefing } from '@/hooks/useBriefing';
+import { useLatestBriefing } from '@/hooks/useBriefing';
 import { useMarketData } from '@/hooks/useMarketData';
+import { DataAsOf } from '@/components/ui/DataAsOf';
+import { maxConflictDay } from '@/lib/conflict-calendar';
 
 function briefingLeadToPlainText(lead: string | null | undefined): string {
   if (!lead?.trim()) return '';
@@ -52,7 +54,11 @@ interface ServerData {
   articles: import('@/types/supabase').Article[];
   scenarios: import('@/types/supabase').ScenarioProbability[];
   topFindingLead: string | null;
+  /** conflict_day of the latest general briefing (daily_briefings' own max). */
+  briefingDay: number | null;
   marketMetrics: { label: string; value: string; change: string; up: boolean }[];
+  /** conflict_day of the market rows shown (market_data's own max). */
+  marketDay: number | null;
 }
 
 export default function HomeDashboard({ children, serverData }: { children?: ReactNode; serverData?: ServerData }) {
@@ -62,19 +68,29 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const clientArticles = useArticles({}, 3);
   const clientScenarios = useScenarios();
   const newScenarioAlert = useNewScenarioAlert();
-  const clientBriefing = useBriefing(serverData?.conflictDay ?? rtCount.conflictDay, 'general');
+  // Client fallback only when there is no server payload. Latest briefing by daily_briefings'
+  // own max day — never keyed to another table's day.
+  const clientBriefing = useLatestBriefing(serverData ? null : 'general');
   const clientMarket = useMarketData();
 
+  // Calendar day (DAY LOCK) — both sources are calendar-derived now.
   const conflictDay = serverData?.conflictDay ?? rtCount.conflictDay;
   const articleCount = serverData?.articleCount ?? rtCount.articleCount;
   const lastUpdate = rtCount.lastUpdate;
   const live = serverData ? true : rtCount.live;
   const articles = serverData?.articles?.length ? serverData.articles : clientArticles.articles;
   const scenarios = serverData?.scenarios?.length ? serverData.scenarios : clientScenarios.scenarios;
-  const topFindingLoading = !serverData?.topFindingLead && clientBriefing.loading;
-  const topFindingText = briefingLeadToPlainText(serverData?.topFindingLead ?? clientBriefing.briefing?.lead);
-  const marketMetrics = serverData?.marketMetrics?.length ? serverData.marketMetrics : clientMarket.metrics;
-  const marketLoading = !serverData?.marketMetrics?.length && clientMarket.loading;
+  const topFindingLoading = !serverData && clientBriefing.loading;
+  const topFindingText = briefingLeadToPlainText(
+    serverData ? serverData.topFindingLead : clientBriefing.briefing?.lead
+  );
+  const briefingDay = serverData ? serverData.briefingDay : clientBriefing.briefing?.conflict_day ?? null;
+  const useServerMarkets = !!serverData?.marketMetrics?.length;
+  const marketMetrics = useServerMarkets ? serverData!.marketMetrics : clientMarket.metrics;
+  const marketLoading = !useServerMarkets && clientMarket.loading;
+  const marketDay = useServerMarkets ? serverData!.marketDay : clientMarket.latestDay;
+  const scenariosDay = maxConflictDay(scenarios);
+  const briefingsAreCurrent = briefingDay != null && briefingDay === conflictDay;
 
   const scenarioChartData =
     scenarios.length > 0
@@ -149,12 +165,15 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           <div className="flex items-center gap-2 mb-2">
             <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
                            fontFamily: 'IBM Plex Mono', letterSpacing: '2px' }}>
-              ◆ DAY {conflictDay ?? '—'} TOP FINDING
+              ◆ DAY {briefingDay ?? '—'} TOP FINDING
             </span>
           </div>
+          {!topFindingLoading && (
+            <DataAsOf section="GENERAL BRIEFING" latestDay={briefingDay} currentDay={conflictDay} className="mb-2" />
+          )}
           <p className="font-body text-sm leading-relaxed min-h-[3.5rem]"
              style={{ color: 'var(--text-secondary)' }}>
-            {topFindingLoading && conflictDay != null && (
+            {topFindingLoading && (
               <span style={{ color: 'var(--text-muted)' }}>Loading latest synthesis…</span>
             )}
             {!topFindingLoading && topFindingText && (
@@ -162,17 +181,14 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                 {topFindingText.length > 520 ? `${topFindingText.slice(0, 520).trim()}…` : topFindingText}
               </>
             )}
-            {!topFindingLoading && !topFindingText && conflictDay != null && (
+            {!topFindingLoading && !topFindingText && (
               <span style={{ color: 'var(--text-muted)' }}>
-                No general briefing for day {conflictDay} yet. Open briefings to view or generate the latest
-                synthesis.
+                No general briefing available for Day {conflictDay}. Open briefings to view the latest
+                available synthesis.
               </span>
             )}
-            {conflictDay == null && !topFindingLoading && (
-              <span style={{ color: 'var(--text-muted)' }}>Resolving conflict day…</span>
-            )}
           </p>
-          <Link href={`/briefings/${conflictDay ?? 1}/general`}
+          <Link href={`/briefings/${briefingDay ?? conflictDay}/general`}
                 className="font-mono text-xs mt-2 inline-block"
                 style={{ color: 'var(--accent-gold)' }}>
             READ FULL BRIEF →
@@ -180,6 +196,9 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
         </div>
 
         {/* ── KEY METRICS ROW ─────────────────────────────────────── */}
+        {!marketLoading && marketMetrics.length > 0 && (
+          <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={conflictDay} className="mb-2" />
+        )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {marketLoading && (
             <div className="col-span-full font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -218,7 +237,9 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           <div className="flex items-center justify-between mb-3">
             <span className="font-mono text-xs uppercase"
                   style={{ color: 'var(--accent-gold)', letterSpacing: '2px' }}>
-              ◆ TODAY&apos;S BRIEFINGS — DAY {conflictDay ?? '—'}
+              {briefingsAreCurrent
+                ? <>◆ TODAY&apos;S BRIEFINGS — DAY {conflictDay}</>
+                : <>◆ LATEST BRIEFINGS — DAY {briefingDay ?? '—'}</>}
             </span>
             <Link href="/briefings" className="font-mono text-xs"
                   style={{ color: 'var(--text-muted)' }}>
@@ -235,7 +256,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               { type: 'business', label: 'BUSINESS', emoji: '◈' },
             ].map(({ type, label, emoji }) => (
               <Link key={type}
-                    href={`/briefings/${conflictDay ?? 1}/${type}`}
+                    href={`/briefings/${briefingDay ?? conflictDay}/${type}`}
                     className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
                     style={{ borderColor: 'var(--border)',
                              background: 'var(--bg-card)',
@@ -307,6 +328,9 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
             <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
               SCENARIO PROBABILITY
             </h2>
+            {scenarioChartData.length > 0 && (
+              <DataAsOf section="SCENARIOS" latestDay={scenariosDay} currentDay={conflictDay} className="mb-3" />
+            )}
             {scenarioChartData.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (

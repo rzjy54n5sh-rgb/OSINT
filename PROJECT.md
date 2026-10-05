@@ -98,9 +98,28 @@ TypeScript interfaces live in **`types/supabase.ts`**. Table names and shapes us
 
 ### Conflict day
 
-- **Source of truth:** Latest `conflict_day` from `nai_scores` (max value).
-- **Hooks:** `useConflictDay()` returns that value (or `null` until loaded). Used by War Room, Countries, Feed (filter), etc.
-- **Fallback in UI:** When `conflictDay` is null, many pages use a default (e.g. `10`) so the UI doesn’t break.
+- **Source of truth (current day):** the UTC calendar — DAY LOCK, identical to CLAUDE.md rule 1:
+  `DAY = (today_utc − 2026-02-28).days + 1` (2026-02-28 = Day 1; 2026-10-05 = Day 220).
+  Implemented once in `lib/conflict-calendar.ts` → `currentConflictDay()`, and re-exported via
+  `lib/constants.ts` (`getConflictDay`), `utils/supabase/server.ts` (`getConflictDay`, no DB read),
+  `hooks/useConflictDay.ts` and `hooks/useRealtimeCount.ts`. The current day is **never** derived from
+  any table's `MAX(conflict_day)`.
+- **Per-section data day:** a section that shows "latest" data maxes over its **own** table
+  (`getLatestDayFor(table)` in `utils/supabase/server.ts`, or `maxConflictDay(rows)` client-side) —
+  briefings over `daily_briefings`, markets over `market_data`, NAI over `nai_scores`, scenarios over
+  `scenario_probabilities`, social over `social_trends`. No section borrows another table's day.
+- **Degraded state:** every such section renders `components/ui/DataAsOf.tsx`. When its own latest day ≠
+  the calendar day it shows `Latest available: Day N (date) — no data for Day <today>`; when current it
+  shows `AS OF DAY N · CURRENT`. Frozen sections (NAI, scenarios) therefore always show their as-of day.
+- **Exception — `country_reports`:** UNIQUE on `country_code` alone, i.e. one current snapshot per
+  country, not a time series. Its single `conflict_day` is the snapshot stamp, not staleness.
+- **Resolved contradiction (2026-10-05):** this section previously said "Source of truth: Latest
+  `conflict_day` from `nai_scores` (max value)", which contradicted CLAUDE.md rule 1 ("NEVER use DB
+  max+1"). When `nai_scores` froze at Day 35 (field semantics under dispute; writes paused) while
+  `daily_briefings`/`market_data` advanced to Day 220, every reader of the nai_scores max (header, War
+  Room, Feed, home realtime count, digest email, KV snapshot) froze at Day 35 and hid current briefings
+  and markets. **The calendar rule (CLAUDE.md rule 1) won**: the current day must not depend on whether
+  any single pipeline stage wrote rows; per-section freshness is reported, not used to define "today".
 
 ---
 
@@ -144,8 +163,8 @@ OSINT/
 │   ├── PulseDot.tsx              # Live indicator dot
 │   └── (others as needed)
 ├── hooks/
-│   ├── useRealtimeCount.ts       # articles count + nai_scores latest conflict_day; sets live/lastUpdate
-│   ├── useConflictDay.ts         # Latest conflict_day from nai_scores
+│   ├── useRealtimeCount.ts       # articles count + calendar conflict day; sets live/lastUpdate
+│   ├── useConflictDay.ts         # Calendar conflict day (DAY LOCK) — no DB read
 │   ├── useArticles.ts            # articles with filters (region, sentiment, source_type, conflict_day), pagination
 │   ├── useScenarios.ts           # scenario_probabilities, all rows, order conflict_day asc
 │   ├── useNaiScores.ts           # nai_scores for one conflict_day
@@ -178,10 +197,10 @@ OSINT/
 
 | Route | Data source | Hooks / API | Notes |
 |-------|-------------|-------------|--------|
-| **/** | articles (count), nai_scores (conflict_day), scenario_probabilities | useRealtimeCount, useArticles, useScenarios | Dashboard with quick links to all sections |
+| **/** | articles (count), daily_briefings (latest general), market_data (latest day), scenario_probabilities | useRealtimeCount, useArticles, useScenarios, useLatestBriefing, useMarketData | Dashboard; calendar day + per-section DataAsOf labels |
 | **/feed** | articles | useArticles (region, sentiment, conflict_day), useConflictDay | Filterable feed; conflict day in UI |
 | **/nai** | nai_scores, country_reports | useNaiScores(conflictDay), createClient() for selected country report | Map + sidebar; click country loads report |
-| **/countries** | nai_scores | useConflictDay, useNaiScores(CONFLICT_DAY) | Grid of countries → /countries/[slug] |
+| **/countries** | nai_scores | server: getLatestDayFor('nai_scores') → scores at NAI's own latest day + DataAsOf | Grid of countries → /countries/[slug] |
 | **/countries/[slug]** | country_reports | createClient().from('country_reports').eq('country_code').eq('conflict_day') | Single country report |
 | **/scenarios** | scenario_probabilities | useScenarios | Line chart A/B/C/D over days |
 | **/disinfo** | disinfo_claims | createClient(), local state | List of claims + verdicts |
@@ -240,7 +259,7 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
    Next.js app loads; all Supabase reads go through `createClient()` (anon key). Pages and hooks call `.from('articles')`, `.from('nai_scores')`, etc.
 
 3. **Conflict day**  
-   Read from `nai_scores` (max `conflict_day`). Used for filtering and labelling across Feed, War Room, Countries, Timeline, etc.
+   UTC calendar (DAY LOCK, see §3 "Conflict day"). Each section's own latest day is compared against it and labelled via `DataAsOf`.
 
 4. **Media Room**  
    Photos and clips avoid CORS by calling Next.js API routes (`/api/flickr`, `/api/youtube-rss`); Live TV optionally uses `/api/youtube-live` when `YOUTUBE_API_KEY` is set.

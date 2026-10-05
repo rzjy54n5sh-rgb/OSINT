@@ -3,14 +3,20 @@
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import type { MarketData } from '@/types/supabase';
+import { DataAsOf } from '@/components/ui/DataAsOf';
+import { maxConflictDay } from '@/lib/conflict-calendar';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface MarketsClientProps {
+  /** Rows in ascending conflict_day order. */
   initialData: MarketData[];
+  /** Calendar day (DAY LOCK). */
+  currentDay: number;
 }
 
-export default function MarketsClient({ initialData }: MarketsClientProps) {
+export default function MarketsClient({ initialData, currentDay }: MarketsClientProps) {
   const data = initialData;
+  const marketDay = maxConflictDay(data);
 
   const byIndicator = data.reduce<Record<string, MarketData[]>>((acc, row) => {
     const k = row.indicator ?? 'OTHER';
@@ -32,6 +38,9 @@ export default function MarketsClient({ initialData }: MarketsClientProps) {
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         KEY INDICATORS — TREND BY CONFLICT DAY
       </p>
+      {data.length > 0 && (
+        <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={currentDay} className="-mt-4 mb-8" />
+      )}
       {Object.keys(byIndicator).length === 0 && (
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
       )}
@@ -53,6 +62,18 @@ export default function MarketsClient({ initialData }: MarketsClientProps) {
                 )}
                 <div className="flex gap-4 font-mono text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
                   <span>VALUE: {rows[rows.length - 1]?.value ?? '—'}</span>
+                  <span
+                    style={{
+                      color:
+                        rows[rows.length - 1]?.conflict_day === currentDay
+                          ? 'var(--text-muted)'
+                          : 'var(--accent-orange)',
+                    }}
+                    translate="no"
+                  >
+                    DAY {rows[rows.length - 1]?.conflict_day ?? '—'}
+                    {rows[rows.length - 1]?.conflict_day !== currentDay ? ` · NO DATA FOR DAY ${currentDay}` : ''}
+                  </span>
                   {rows[rows.length - 1]?.change_pct != null && (
                     <span style={{ color: (rows[rows.length - 1].change_pct as number) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                       {rows[rows.length - 1].change_pct}%
