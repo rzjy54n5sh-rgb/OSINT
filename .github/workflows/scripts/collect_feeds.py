@@ -44,6 +44,7 @@ BATCH_SIZE = 50          # rows per Supabase upsert
 MAX_WORKERS = 10         # parallel feed fetches
 ARTICLE_LIMIT = 15       # max articles per feed per run
 SUMMARY_MAX_LEN = 300    # chars — keep Supabase lean
+MAX_ITEM_AGE = datetime.timedelta(days=7)  # older feed items are not news for an hourly collector
 
 TG_HEADERS = {
     "User-Agent": (
@@ -58,9 +59,66 @@ TG_HEADERS = {
 # HELPERS
 # ─────────────────────────────────────────────
 
+def utc_now() -> datetime.datetime:
+    """Current UTC time as a naive datetime (the convention used for every stored timestamp)."""
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+def to_utc_naive(dt: datetime.datetime) -> datetime.datetime:
+    """Convert an aware datetime to naive UTC. A naive datetime is taken to be UTC already.
+
+    The old code did dt.replace(tzinfo=None), which kept the feed's LOCAL wall-clock
+    time and relabelled it as UTC (NDTV +05:30 items landed on the next conflict day).
+    """
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return dt
+
+def entry_published_utc(entry) -> datetime.datetime | None:
+    """Publish time of a feedparser entry in naive UTC, or None if it has no usable date.
+
+    feedparser's *_parsed fields are already normalised to UTC. They are None for
+    RFC-822 dates without a zone, so fall back to dateutil and treat naive as UTC.
+    """
+    parsed = entry.get("published_parsed") or entry.get("updated_parsed")
+    if parsed:
+        return datetime.datetime(*parsed[:6])
+    pub_str = entry.get("published", "") or entry.get("updated", "")
+    if not pub_str:
+        return None
+    try:
+        return to_utc_naive(dateparser.parse(pub_str))
+    except Exception:
+        return None
+
+def normalise_pub_dt(pub_dt: datetime.datetime | None,
+                     now: datetime.datetime) -> datetime.datetime | None:
+    """Return the UTC publish time to store, or None to drop the item.
+
+    - no usable date        -> fetch time (a true upper bound; previous behaviour)
+    - claims the future     -> clamped to fetch time (never stamp a later day)
+    - older than 7 days     -> None (stale: Xinhua 2017, JPost 2025 were stamped Day 1)
+    Rows are written with resolution=ignore-duplicates, so a wrong value is never
+    corrected by a later run — it has to be right at write time.
+    """
+    if pub_dt is None:
+        return now
+    if pub_dt > now:
+        return now
+    if pub_dt < now - MAX_ITEM_AGE:
+        return None
+    return pub_dt
+
 def conflict_day(dt=None):
-    d = (dt.date() if dt else datetime.date.today())
-    return max(1, (d - CONFLICT_START).days + 1)
+    """Conflict day of a naive-UTC datetime: (UTC date - 2026-02-28).days + 1.
+
+    Never later than today's UTC conflict day; None (never Day 1) before the conflict.
+    """
+    today = utc_now().date()
+    d = dt.date() if dt else today
+    n = (d - CONFLICT_START).days + 1
+    if n < 1:
+        return None
+    return min(n, (today - CONFLICT_START).days + 1)
 
 def url_to_id(url: str) -> str:
     """Stable UUID-v4-like from URL hash — prevents duplicates."""
@@ -166,6 +224,7 @@ def fetch_source(source: dict) -> list[dict]:
     except Exception as e:
         return []
 
+    now = utc_now()
     articles = []
     for entry in entries:
         title = entry.get("title", "").strip()
@@ -183,14 +242,11 @@ def fetch_source(source: dict) -> list[dict]:
         if not is_social and not is_relevant(title, raw_summary):
             continue
 
-        # Parse date
-        pub_str = entry.get("published", "") or entry.get("updated", "")
-        try:
-            pub_dt = dateparser.parse(pub_str) if pub_str else datetime.datetime.utcnow()
-            if pub_dt and pub_dt.tzinfo:
-                pub_dt = pub_dt.replace(tzinfo=None)
-        except Exception:
-            pub_dt = datetime.datetime.utcnow()
+        # Parse date in UTC; drop stale items, clamp future ones to fetch time
+        pub_dt = normalise_pub_dt(entry_published_utc(entry), now)
+        day = conflict_day(pub_dt) if pub_dt else None
+        if day is None:
+            continue
 
         summary = truncate(raw_summary, SUMMARY_MAX_LEN)
 
@@ -202,8 +258,8 @@ def fetch_source(source: dict) -> list[dict]:
             "source_name": source["source_name"],
             "source_type": source.get("source_type", "unknown"),
             "published_at": pub_dt.isoformat(),
-            "fetched_at": datetime.datetime.utcnow().isoformat(),
-            "conflict_day": conflict_day(pub_dt),
+            "fetched_at": now.isoformat(),
+            "conflict_day": day,
             "region": source.get("region"),
             "country": source.get("country"),
             "lat": source.get("lat"),
@@ -254,12 +310,11 @@ def scrape_telegram_channel(channel: dict, max_posts: int = 20) -> list[dict]:
                     pub_dt = datetime.datetime.fromisoformat(
                         time_el["datetime"].replace("Z", "+00:00")
                     )
-                    if pub_dt.tzinfo:
-                        pub_dt = pub_dt.replace(tzinfo=None)
+                    pub_dt = to_utc_naive(pub_dt)
                 except Exception:
-                    pub_dt = datetime.datetime.utcnow()
+                    pub_dt = None
             else:
-                pub_dt = datetime.datetime.utcnow()
+                pub_dt = None
 
             msg_url_el = msg.select_one(".tgme_widget_message_date")
             article_url = msg_url_el["href"] if msg_url_el and msg_url_el.get("href") else url
@@ -289,8 +344,12 @@ def collect_telegram_sources(max_posts_per_channel: int = 15) -> list[dict]:
             continue
         print(f"  Fetching @{ch['handle']}...")
         posts = scrape_telegram_channel(ch, max_posts_per_channel)
+        now = utc_now()
         for p in posts:
-            pub_dt = p["published_at"]
+            pub_dt = normalise_pub_dt(p["published_at"], now)
+            day = conflict_day(pub_dt) if pub_dt else None
+            if day is None:
+                continue
             title = p["title"]
             summary = p.get("summary") or ""
             row = {
@@ -301,8 +360,8 @@ def collect_telegram_sources(max_posts_per_channel: int = 15) -> list[dict]:
                 "source_name": p["source_name"],
                 "source_type": p["source_type"],
                 "published_at": pub_dt.isoformat(),
-                "fetched_at": datetime.datetime.utcnow().isoformat(),
-                "conflict_day": conflict_day(pub_dt),
+                "fetched_at": now.isoformat(),
+                "conflict_day": day,
                 "region": p.get("region"),
                 "country": p.get("country"),
                 "lat": None,
