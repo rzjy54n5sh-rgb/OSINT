@@ -325,18 +325,33 @@ def collect_telegram_sources(max_posts_per_channel: int = 15) -> list[dict]:
 # ─────────────────────────────────────────────
 
 def upsert_batch(articles: list[dict]) -> int:
+    """Insert a batch, split by key signature.
+
+    PostgREST rejects a bulk insert with PGRST102 ("All object keys must match")
+    when objects in one array carry different keys. RSS and Telegram rows are
+    built with different key sets, so mixed batches were rejected whole — the
+    reason the articles table stayed at 0 rows while this job reported green.
+    Grouping by signature (rather than padding with nulls) keeps column
+    defaults such as fetched_at intact.
+    """
     if not articles:
         return 0
-    resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/articles",
-        headers={**HEADERS, "Prefer": "resolution=ignore-duplicates,return=minimal"},
-        json=articles,
-        timeout=30,
-    )
-    if resp.status_code not in (200, 201):
-        print(f"  ⚠ Supabase upsert error {resp.status_code}: {resp.text[:200]}")
-        return 0
-    return len(articles)
+    groups: dict[tuple, list[dict]] = {}
+    for a in articles:
+        groups.setdefault(tuple(sorted(a.keys())), []).append(a)
+    written = 0
+    for rows in groups.values():
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/articles",
+            headers={**HEADERS, "Prefer": "resolution=ignore-duplicates,return=minimal"},
+            json=rows,
+            timeout=30,
+        )
+        if resp.status_code not in (200, 201):
+            print(f"  ⚠ Supabase upsert error {resp.status_code}: {resp.text[:200]}")
+            continue
+        written += len(rows)
+    return written
 
 
 # ─────────────────────────────────────────────
@@ -390,6 +405,10 @@ def main():
 
     # Print per-source summary
     print(f"\n[collect_feeds] ✓ {total_inserted} articles upserted to Supabase")
+    if unique_articles and total_inserted == 0:
+        # Fail loudly: a green run that wrote nothing hid this bug for months.
+        print("[collect_feeds] ✗ articles were collected but none were written")
+        sys.exit(1)
     print("\nPer-source breakdown:")
     for name, count in sorted(source_stats.items(), key=lambda x: -x[1]):
         print(f"  {count:3d}  {name}")
