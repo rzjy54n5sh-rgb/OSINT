@@ -81,3 +81,45 @@ export function useBriefing(day: number | null, type: string) {
 
   return { briefing, loading, error };
 }
+
+/**
+ * Latest briefing of a type by daily_briefings' OWN max conflict_day.
+ * Callers must label the result against the calendar day (DataAsOf) — it may be older than today.
+ * Pass type = null to skip the request.
+ */
+export function useLatestBriefing(type: string | null) {
+  const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [loading, setLoading] = useState(type != null);
+
+  useEffect(() => {
+    if (!type) {
+      setBriefing(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    setLoading(true);
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('daily_briefings')
+          .select('*')
+          .eq('report_type', type)
+          .order('conflict_day', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled) setBriefing((data as Briefing) ?? null);
+      } catch {
+        if (!cancelled) setBriefing(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [type]);
+
+  return { briefing, loading };
+}

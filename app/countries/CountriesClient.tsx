@@ -7,14 +7,18 @@ import { CountryFlag } from '@/components/CountryFlag';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
 import { PageBriefing } from '@/components/PageBriefing';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
+import { DataAsOf } from '@/components/ui/DataAsOf';
 import type { NaiScore } from '@/types/supabase';
 
 interface CountriesClientProps {
   initialScores: NaiScore[];
-  conflictDay: number;
+  /** MAX(conflict_day) of nai_scores — the day the scores below belong to. */
+  naiDay: number | null;
+  /** Calendar day (DAY LOCK). */
+  currentDay: number;
 }
 
-export default function CountriesClient({ initialScores, conflictDay }: CountriesClientProps) {
+export default function CountriesClient({ initialScores, naiDay, currentDay }: CountriesClientProps) {
   const scores = initialScores;
 
   return (
@@ -27,9 +31,10 @@ export default function CountriesClient({ initialScores, conflictDay }: Countrie
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         COUNTRY INTELLIGENCE
       </h1>
-      <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY {conflictDay} — NAI BY COUNTRY
+      <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+        CONFLICT DAY {currentDay} — NAI BY COUNTRY (NAI AS OF DAY {naiDay ?? '—'})
       </p>
+      <DataAsOf section="NAI" latestDay={naiDay} currentDay={currentDay} className="mb-8" />
       {scores.length === 0 && (
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
       )}

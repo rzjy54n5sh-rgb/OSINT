@@ -1,36 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { currentConflictDay } from '@/lib/conflict-calendar';
 
 /**
- * Returns the latest conflict_day from Supabase (nai_scores).
- * Used so the platform shows the current day after pipeline updates.
+ * Current conflict day — DAY LOCK (CLAUDE.md rule 1): pure UTC calendar.
+ *
+ * This hook previously returned MAX(conflict_day) from nai_scores. nai_scores is
+ * written by one pipeline stage and can be frozen for weeks (it was frozen at
+ * Day 35 while daily_briefings and market_data advanced to Day 220), which froze
+ * the header, the War Room and the Feed at Day 35. The day is now a pure function
+ * of the calendar; sections that need "latest day with data" max over their OWN
+ * table and label stale data (see components/ui/DataAsOf.tsx).
  */
-export function useConflictDay(): number | null {
-  const [conflictDay, setConflictDay] = useState<number | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const supabase = createClient();
-    void (async () => {
-      try {
-        const { data } = await supabase
-          .from('nai_scores')
-          .select('conflict_day')
-          .order('conflict_day', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (cancelled) return;
-        if (data?.conflict_day != null) setConflictDay(data.conflict_day);
-      } catch {
-        if (!cancelled) setConflictDay(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return conflictDay;
+export function useConflictDay(): number {
+  return currentConflictDay();
 }

@@ -101,7 +101,11 @@ def build_records(day):
     # Exchange rates
     rates = fetch_exchange_rates()
     key_pairs = {
-        "IRR": ("USD/IRR", "Exchange rate - Sanction proxy"),
+        # USD/IRR deliberately omitted: exchangerate-api's IRR is an unlabelled
+        # aggregator figure (~1.48M on Day 220) that diverges ~45% from the sourced
+        # open-market rate the Claude daily task writes (Bonbast, cross-checked).
+        # The nightly market_data dedup keeps the newest row per indicator/day,
+        # so writing it here silently overwrote the sourced rate every night.
         "SAR": ("USD/SAR", "Saudi Riyal"),
         "AED": ("USD/AED", "UAE Dirham"),
         "IQD": ("USD/IQD", "Iraqi Dinar"),

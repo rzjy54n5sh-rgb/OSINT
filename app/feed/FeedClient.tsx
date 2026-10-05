@@ -11,6 +11,7 @@ import { GLOSSARY } from '@/lib/glossary';
 import { PageBriefing } from '@/components/PageBriefing';
 import { ReactionBar } from '@/components/ReactionBar';
 import { useConflictDay } from '@/hooks/useConflictDay';
+import { DataAsOf } from '@/components/ui/DataAsOf';
 import type { Article } from '@/types/supabase';
 
 type SentimentFilter = string | null;
@@ -82,6 +83,14 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
       <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
         CONFLICT DAY {conflictDay ?? maxConflictDay ?? '\u2014'} \u2014 FILTER BY REGION, SENTIMENT, SOURCE
       </p>
+      {!hasActiveFilters && articles.length > 0 && (
+        <DataAsOf
+          section="FEED"
+          latestDay={articles[0]?.conflict_day ?? null}
+          currentDay={maxConflictDay ?? undefined}
+          className="mb-6"
+        />
+      )}
 
       <div className="flex flex-wrap gap-3 mb-6 font-mono text-xs">
         <select

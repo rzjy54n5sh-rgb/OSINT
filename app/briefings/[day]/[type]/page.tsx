@@ -1,4 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import BriefingReader from './BriefingReader';
 
@@ -22,8 +23,8 @@ export default async function BriefingReaderPage({ params }: PageProps) {
   if (error || !data) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <a href="/briefings" className="font-mono text-xs mb-6 inline-block"
-           style={{ color: 'var(--accent-gold)' }}>← BRIEFINGS</a>
+        <Link href="/briefings" className="font-mono text-xs mb-6 inline-block"
+           style={{ color: 'var(--accent-gold)' }}>← BRIEFINGS</Link>
         <p className="redacted py-12">NO BRIEFING AVAILABLE — DAY {day} / {type.toUpperCase()}</p>
       </div>
     );

@@ -4,6 +4,8 @@ import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { getConflictDay } from '@/lib/constants';
 import { ScenariosClient } from '@/components/scenarios/ScenariosClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
+import { DataAsOf } from '@/components/ui/DataAsOf';
+import { maxConflictDay } from '@/lib/conflict-calendar';
 import type { ScenarioProbability } from '@/types/supabase';
 
 export default async function ScenariosPage() {
@@ -24,15 +26,24 @@ export default async function ScenariosPage() {
     .order('conflict_day', { ascending: true });
 
   const history = (scenarioHistory ?? []) as ScenarioProbability[];
-  const targetDay = getConflictDay();
-  const rowForDay = history.find((r) => r.conflict_day === targetDay);
+  // currentDay = calendar (DAY LOCK). The scenario row shown is the calendar day's row if it
+  // exists, otherwise scenario_probabilities' OWN latest row — which is labelled below via
+  // DataAsOf so a frozen scenario row can never read as today's probabilities.
+  const currentDay = getConflictDay();
+  const rowForDay = history.find((r) => r.conflict_day === currentDay);
   const serverLatest: ScenarioProbability | null =
     rowForDay ?? (history.length > 0 ? history[history.length - 1]! : null);
+  const latestScenarioDay = maxConflictDay(history);
 
   return (
     <ScenariosClient
       hasDetailAccess={hasDetailAccess}
-      conflictDayBadge={<ConflictDayBadge />}
+      conflictDayBadge={
+        <>
+          <ConflictDayBadge />
+          <DataAsOf section="SCENARIOS" latestDay={latestScenarioDay} currentDay={currentDay} className="mt-2" />
+        </>
+      }
       scenarioHistory={history}
       serverLatest={serverLatest}
     />

@@ -18,6 +18,26 @@ export interface DigestData {
   brentPrice: number;
   topHeadlines: Array<{ title: string; source: string }>;
   tier: "free" | "informed" | "professional";
+  /**
+   * Own-table latest day for each section (conflictDay is the calendar day).
+   * Any section whose day differs from conflictDay is labelled "Latest available: Day N".
+   */
+  asOf?: {
+    scenarios: number | null;
+    nai: number | null;
+    brent: number | null;
+  };
+}
+
+/** Degraded-state note for a section whose own latest day is not the calendar day. */
+function asOfNote(day: number | null | undefined, currentDay: number): string {
+  if (day === undefined) return "";
+  if (day === currentDay) return "";
+  const text =
+    day == null
+      ? `No data available — no data for Day ${currentDay}`
+      : `Latest available: Day ${day} — no data for Day ${currentDay}`;
+  return `<div style="color:#F39C12;font-size:10px;margin-top:4px;text-transform:uppercase;">⚠ ${text}</div>`;
 }
 
 function defaultSite(): string {
@@ -70,11 +90,19 @@ export function dailyDigestTemplate(
 ): { subject: string; html: string } {
   const base = siteUrl ?? defaultSite();
   const maxPct = Math.max(data.scenarioA, data.scenarioB, data.scenarioC, data.scenarioD);
-  const subject = `Day ${data.conflictDay} — ${data.leadScenario} leads at ${maxPct}% · Brent $${data.brentPrice}`;
+  const cd = data.conflictDay;
+  const scStale = data.asOf !== undefined && data.asOf.scenarios !== cd;
+  const brentStale = data.asOf !== undefined && data.asOf.brent !== cd;
+  const subject =
+    `Day ${cd} — ${data.leadScenario} leads at ${maxPct}%` +
+    (scStale ? ` (scenarios as of Day ${data.asOf!.scenarios ?? "—"})` : "") +
+    (data.asOf?.brent === null
+      ? " · Brent n/a"
+      : ` · Brent $${data.brentPrice}` + (brentStale ? ` (Day ${data.asOf!.brent})` : ""));
 
   const biggestMoveHtml = data.biggestMove
     ? `<tr><td style="padding:12px;border-bottom:1px solid #1C3A5E;">
-        <strong style="color:#E8C547;">◆ BIGGEST MOVE</strong><br/>
+        <strong style="color:#E8C547;">◆ BIGGEST MOVE${data.asOf?.nai != null ? ` — NAI DAY ${data.asOf.nai}` : ""}</strong>${asOfNote(data.asOf?.nai, cd)}<br/>
         <span style="color:#ffffff;">${esc(data.biggestMove.countryName)}:
           ${data.biggestMove.delta > 0 ? "↑" : "↓"}${Math.abs(data.biggestMove.delta)} pts
           → ${data.biggestMove.newScore}
@@ -118,7 +146,7 @@ export function dailyDigestTemplate(
         </td></tr>
 
         <tr><td style="padding:16px;background:#0D1B2A;">
-          <div style="color:#6C7A8A;font-size:11px;margin-bottom:8px;">SCENARIO PROBABILITIES</div>
+          <div style="color:#6C7A8A;font-size:11px;margin-bottom:8px;">SCENARIO PROBABILITIES${data.asOf?.scenarios != null ? ` — AS OF DAY ${data.asOf.scenarios}` : ""}</div>${asOfNote(data.asOf?.scenarios, cd)}
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr>
               ${scenarioRowHtml(data)}
@@ -131,13 +159,13 @@ export function dailyDigestTemplate(
             ${biggestMoveHtml}
             <tr><td style="padding:12px;border-bottom:1px solid #1C3A5E;">
               <strong style="color:#D97706;">◆ BRENT CRUDE</strong>
-              <span style="color:#ffffff;margin-left:8px;">$${data.brentPrice}/bbl</span>
+              <span style="color:#ffffff;margin-left:8px;">$${data.brentPrice}/bbl</span>${asOfNote(data.asOf?.brent, cd)}
             </td></tr>
           </table>
         </td></tr>
 
         <tr><td style="padding:12px;background:#0D1B2A;">
-          <div style="color:#6C7A8A;font-size:11px;margin-bottom:8px;">TODAY'S KEY ARTICLES</div>
+          <div style="color:#6C7A8A;font-size:11px;margin-bottom:8px;">LATEST KEY ARTICLES</div>
           <table width="100%" cellpadding="0" cellspacing="0">${headlinesHtml}</table>
         </td></tr>
 

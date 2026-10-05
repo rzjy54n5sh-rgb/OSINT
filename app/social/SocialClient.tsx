@@ -5,6 +5,8 @@ import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { formatEngagement } from '@/lib/utils';
 import type { SocialTrend } from '@/types/supabase';
+import { DataAsOf } from '@/components/ui/DataAsOf';
+import { maxConflictDay } from '@/lib/conflict-calendar';
 
 interface SocialClientProps {
   initialTrends: SocialTrend[];
@@ -35,6 +37,9 @@ export default function SocialClient({ initialTrends }: SocialClientProps) {
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         REGIONAL BREAKDOWN — PLATFORM — SENTIMENT
       </p>
+      {trends.length > 0 && (
+        <DataAsOf section="SOCIAL" latestDay={maxConflictDay(trends)} className="-mt-6 mb-8" />
+      )}
       {trends.length === 0 && (
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
       )}

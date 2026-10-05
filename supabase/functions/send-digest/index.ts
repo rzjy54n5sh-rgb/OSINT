@@ -101,6 +101,13 @@ async function sendResendEmail(
   return { ok: true };
 }
 
+/** DAY LOCK: (today_utc − 2026-02-28).days + 1. Mirrors lib/conflict-calendar.ts currentConflictDay(). */
+function calendarConflictDay(now: Date = new Date()): number {
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const days = Math.floor((todayUtc - Date.UTC(2026, 1, 28)) / 86_400_000) + 1;
+  return Math.max(1, days);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405);
@@ -124,26 +131,15 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: scErr.message }, 500);
     }
 
-    let conflictDay = (scenarioRow?.conflict_day as number | undefined) ?? 0;
-    if (!conflictDay || conflictDay < 1) {
-      const { data: latestNai } = await supabase
-        .from("nai_scores")
-        .select("conflict_day")
-        .order("conflict_day", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      conflictDay = (latestNai?.conflict_day as number | undefined) ?? 1;
-    }
+    // DAY LOCK (CLAUDE.md rule 1): the digest's day is the UTC calendar day. It was
+    // previously MAX(scenario_probabilities.conflict_day) (fallback MAX(nai_scores)), so
+    // while those tables were frozen every digest went out as "Day 35" with Day-35 Brent
+    // and Day-35 headlines. Each section now uses its OWN latest day and is labelled
+    // in the email when that day is not today (DigestData.asOf).
+    const conflictDay = calendarConflictDay();
 
-    let scRow = scenarioRow;
-    if (!scRow || (scRow.conflict_day as number) !== conflictDay) {
-      const { data: dayMatch } = await supabase
-        .from("scenario_probabilities")
-        .select("conflict_day, scenario_a, scenario_b, scenario_c, scenario_d")
-        .eq("conflict_day", conflictDay)
-        .maybeSingle();
-      if (dayMatch) scRow = dayMatch;
-    }
+    const scRow = scenarioRow;
+    const scenariosDay = (scRow?.conflict_day as number | undefined) ?? null;
 
     const scenarioA = pct(scRow?.scenario_a);
     const scenarioB = pct(scRow?.scenario_b);
@@ -153,13 +149,21 @@ Deno.serve(async (req: Request) => {
     const maxIdx = vals.indexOf(Math.max(...vals));
     const leadScenario = LEAD_LABELS[maxIdx] ?? "A — Ceasefire";
 
-    const prevDay = conflictDay > 1 ? conflictDay - 1 : null;
+    // NAI: nai_scores' OWN latest day (may be frozen) vs the day before it.
+    const { data: latestNaiRow } = await supabase
+      .from("nai_scores")
+      .select("conflict_day")
+      .order("conflict_day", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const naiDay = (latestNaiRow?.conflict_day as number | undefined) ?? null;
+    const prevDay = naiDay != null && naiDay > 1 ? naiDay - 1 : null;
     let biggestMove: DigestData["biggestMove"] = null;
-    if (prevDay != null && conflictDay > 0) {
+    if (prevDay != null && naiDay != null) {
       const { data: naiRows, error: naiErr } = await supabase
         .from("nai_scores")
         .select("country_code, conflict_day, expressed_score, category")
-        .in("conflict_day", [conflictDay, prevDay]);
+        .in("conflict_day", [naiDay, prevDay]);
       if (!naiErr && naiRows?.length) {
         const yesterdayMap = new Map<string, { score: number; category: string }>();
         for (const r of naiRows) {
@@ -172,7 +176,7 @@ Deno.serve(async (req: Request) => {
         }
         let best: { code: string; delta: number; newScore: number; category: string } | null = null;
         for (const r of naiRows) {
-          if (r.conflict_day !== conflictDay) continue;
+          if (r.conflict_day !== naiDay) continue;
           const code = r.country_code as string;
           const newScore = Number(r.expressed_score);
           const prev = yesterdayMap.get(code);
@@ -200,25 +204,26 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Brent: market_data's OWN latest Brent row (not "row at another table's day").
     let brentPrice = 0;
+    let brentDay: number | null = null;
     const { data: brentRows } = await supabase
       .from("market_data")
-      .select("value, indicator")
-      .eq("conflict_day", conflictDay)
+      .select("value, indicator, conflict_day")
+      .ilike("indicator", "%brent%")
+      .order("conflict_day", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(40);
-    const brent = brentRows?.find(
-      (r) =>
-        String(r.indicator).toLowerCase().includes("brent")
-    );
+      .limit(1);
+    const brent = brentRows?.[0];
     if (brent?.value != null) {
       brentPrice = Math.round(Number(brent.value) * 100) / 100;
+      brentDay = (brent.conflict_day as number | undefined) ?? null;
     }
 
+    // Headlines: newest articles by publish time (articles advance independently of NAI).
     const { data: headlineRows } = await supabase
       .from("articles")
       .select("title, source_name")
-      .eq("conflict_day", conflictDay)
       .order("published_at", { ascending: false })
       .limit(3);
 
@@ -237,8 +242,9 @@ Deno.serve(async (req: Request) => {
     });
 
     const baseDigest: Omit<DigestData, "tier"> = {
-      conflictDay: conflictDay || 1,
+      conflictDay,
       date: dateStr,
+      asOf: { scenarios: scenariosDay, nai: naiDay, brent: brentDay },
       scenarioA,
       scenarioB,
       scenarioC,
@@ -306,7 +312,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const { error: logErr } = await supabase.from("digest_sends").insert({
-      conflict_day: conflictDay || null,
+      conflict_day: conflictDay,
       recipient_count: recipients.length,
       success_count: successCount,
       error_count: errorCount,

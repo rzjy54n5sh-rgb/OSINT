@@ -1,18 +1,14 @@
-/** Calendar start of conflict-day counter (matches pipeline: 2026-02-28). */
-export const CONFLICT_START = '2026-02-28';
+import { currentConflictDay, formatConflictDayDate } from '@/lib/conflict-calendar';
 
-function conflictDayFromUtcCalendar(d: Date): number {
-  const nowUTC = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-  const startUTC = Date.UTC(2026, 1, 28); // Feb 28 — month 0-indexed
-  const days = Math.floor((nowUTC - startUTC) / (1000 * 60 * 60 * 24)) + 1;
-  return Math.max(1, days);
-}
+/** Calendar start of conflict-day counter (matches pipeline DAY LOCK: 2026-02-28 = Day 1). */
+export const CONFLICT_START = '2026-02-28';
 
 /**
  * Conflict day index: UTC calendar days since Feb 28 2026 inclusive (Feb 28 = Day 1).
+ * DAY LOCK — never derived from any table's MAX(conflict_day). See lib/conflict-calendar.ts.
  */
 export function getConflictDayNumber(d = new Date()): number {
-  return conflictDayFromUtcCalendar(d);
+  return currentConflictDay(d);
 }
 
 /**
@@ -20,14 +16,10 @@ export function getConflictDayNumber(d = new Date()): number {
  * Mar 21 2026 UTC → Day 22; Feb 28 2026 UTC → Day 1.
  */
 export function getConflictDay(): number {
-  return conflictDayFromUtcCalendar(new Date());
+  return currentConflictDay(new Date());
 }
 
+/** Today's UTC date (the calendar date of the current conflict day). */
 export function getFormattedConflictDate(): string {
-  return new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return formatConflictDayDate(currentConflictDay(new Date()));
 }
