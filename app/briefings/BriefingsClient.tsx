@@ -17,9 +17,11 @@ interface BriefingMeta {
   quality: string;
   source: string;
   generated_at: string;
+  period_start_day?: number | null;
+  period_end_day?: number | null;
 }
 
-const REPORT_ORDER = ['general', 'egypt', 'uae', 'eschatology', 'business'];
+const REPORT_ORDER = ['general', 'general_weekly', 'egypt', 'uae', 'eschatology', 'business'];
 
 const REPORT_META: Record<string, {
   label: string;
@@ -28,11 +30,23 @@ const REPORT_META: Record<string, {
   readTime: string;
 }> = {
   general: { label: 'GENERAL INTELLIGENCE BRIEF', emoji: '\u25C6', color: 'var(--accent-gold)', readTime: '30\u201345 min' },
+  general_weekly: { label: 'WEEKLY GENERAL DIGEST', emoji: '\u25C7', color: 'var(--accent-gold)', readTime: '20\u201330 min' },
   egypt:   { label: 'EGYPT COUNTRY BRIEF',          emoji: '\uD83C\uDDEA\uD83C\uDDEC', color: '#10b981', readTime: '15\u201320 min' },
   uae:     { label: 'UAE COUNTRY BRIEF',             emoji: '\uD83C\uDDE6\uD83C\uDDEA', color: '#3b82f6', readTime: '12\u201318 min' },
   eschatology: { label: 'ESCHATOLOGY & GEOPOLITICS', emoji: '\u25CE', color: '#a855f7', readTime: '10\u201315 min' },
   business: { label: 'BUSINESS OPPORTUNITIES',       emoji: '\u25C8', color: '#f59e0b', readTime: '10\u201315 min' },
 };
+
+/** "Days 36\u201342" for a weekly digest. Uses period_start_day/period_end_day when the row has them
+ *  (added by the report-registry migration); falls back to the legacy
+ *  "Retrospective Digest - Days a-b" title; returns null when neither is available. */
+function periodLabel(b: { title?: string | null; period_start_day?: number | null; period_end_day?: number | null }): string | null {
+  if (b.period_start_day != null && b.period_end_day != null) {
+    return `Days ${b.period_start_day}\u2013${b.period_end_day}`;
+  }
+  const m = /Days\s+(\d+)\s*[-\u2013]\s*(\d+)/.exec(b.title ?? '');
+  return m ? `Days ${m[1]}\u2013${m[2]}` : null;
+}
 
 function dayLabel(day: number): string {
   const date = new Date(2026, 1, 28); // Feb 28, 2026 = Day 1
@@ -159,7 +173,7 @@ export default function BriefingsClient({
       {/* Report grid — 2 cols on mobile, 3 on desktop */}
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          {REPORT_ORDER.map((type, i) => {
+          {REPORT_ORDER.filter(type => type !== 'general_weekly' || byType[type]).map((type, i) => {
             const b = byType[type];
             const meta = REPORT_META[type];
             return (
@@ -181,6 +195,11 @@ export default function BriefingsClient({
                                 style={{ color: meta.color }}>
                             {meta.label}
                           </span>
+                          {type === 'general_weekly' && periodLabel(b) && (
+                            <span className="font-mono text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                              {periodLabel(b)}
+                            </span>
+                          )}
                         </div>
                         <QualityBadge quality={b.quality} />
                       </div>
@@ -228,38 +247,6 @@ export default function BriefingsClient({
               </motion.div>
             );
           })}
-
-          {/* + Generate custom country card */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: 0.35 }}
-          >
-            <Link href="/briefings/generate">
-              <OsintCard className="block h-full hover:border-border-bright active:scale-[0.98] transition-transform border-dashed"
-                         style={{ minHeight: '180px' }}>
-                <span className="font-mono text-xs uppercase"
-                      style={{ color: 'var(--text-muted)' }}>
-                  + ANY COUNTRY REPORT
-                </span>
-                <p className="font-body text-xs mt-3 leading-relaxed"
-                   style={{ color: 'var(--text-muted)' }}>
-                  Generate an intelligence brief for any country using your Anthropic API key. Reports are saved to the platform for all users.
-                </p>
-                <div className="flex items-center justify-between mt-4 pt-3"
-                     style={{ borderTop: '1px solid var(--border)' }}>
-                  <span className="font-mono text-xs"
-                        style={{ color: 'var(--text-muted)' }}>
-                    ~$0.04 per report
-                  </span>
-                  <span className="font-mono text-xs"
-                        style={{ color: 'var(--accent-gold)' }}>
-                    GENERATE {'\u2192'}
-                  </span>
-                </div>
-              </OsintCard>
-            </Link>
-          </motion.div>
         </div>
       )}
     </div>

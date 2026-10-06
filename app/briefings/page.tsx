@@ -1,7 +1,7 @@
 import { createClient, getConflictDay } from '@/utils/supabase/server';
 import BriefingsClient from './BriefingsClient';
 
-const REPORT_ORDER = ['general', 'egypt', 'uae', 'eschatology', 'business'];
+const REPORT_ORDER = ['general', 'general_weekly', 'egypt', 'uae', 'eschatology', 'business'];
 
 export default async function BriefingsPage() {
   const supabase = await createClient();

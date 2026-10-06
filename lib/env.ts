@@ -19,7 +19,7 @@ function warnIfNoServiceKeyInProduction(isDev: boolean): void {
     (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim() !== '');
   if (!has) {
     console.error(
-      '[env] Optional but recommended in production: set SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) for admin routes and /api/generate-briefing.'
+      '[env] Optional but recommended in production: set SUPABASE_SERVICE_KEY (or SUPABASE_SERVICE_ROLE_KEY) for admin routes.'
     );
   }
 }

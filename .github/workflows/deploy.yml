@@ -24,7 +24,7 @@ jobs:
             echo "Add them in repo Settings → Secrets and variables → Actions, then re-run."
             exit 1
           fi
-          [ -z "$SUPABASE_SERVICE_KEY" ] && echo "::warning::SUPABASE_SERVICE_KEY not set — /api/generate-briefing will fail until added (and in Cloudflare Pages env)."
+          [ -z "$SUPABASE_SERVICE_KEY" ] && echo "::warning::SUPABASE_SERVICE_KEY not set — admin routes will fail until added (and in Cloudflare env)."
           echo "Required secrets present."
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

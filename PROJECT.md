@@ -62,7 +62,7 @@ Authoritative detail lives in **`CLAUDE.md`** ("Operating Model", "Hard Bans", "
 
 | Variable | Where used | Purpose |
 |----------|-------------|---------|
-| **`SUPABASE_SERVICE_KEY`** | **Preferred** in GitHub Actions, `wrangler.toml`, `middleware.ts`, `utils/supabase/admin.ts`, `app/api/generate-briefing/route.ts` | Same JWT as Supabase Dashboard **service_role** |
+| **`SUPABASE_SERVICE_KEY`** | **Preferred** in GitHub Actions, `wrangler.toml`, `middleware.ts`, `utils/supabase/admin.ts` | Same JWT as Supabase Dashboard **service_role** |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Accepted alias** — same value; middleware/admin resolve **either** name via `lib/env/service-key.ts` | Supabase CLI / dashboard naming |
 
 ### Pipelines (Python on GitHub Actions)

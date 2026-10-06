@@ -42,6 +42,8 @@ interface Briefing {
   source: string;
   quality: string;
   generated_at: string;
+  period_start_day?: number | null;
+  period_end_day?: number | null;
 }
 
 const PERSPECTIVE_COLORS: Record<string, string> = {
@@ -64,6 +66,7 @@ const PERSPECTIVE_LABELS: Record<string, string> = {
 
 const TYPE_LABELS: Record<string, string> = {
   general:     'GENERAL INTELLIGENCE BRIEF',
+  general_weekly: 'WEEKLY GENERAL DIGEST',
   egypt:       'EGYPT COUNTRY BRIEF',
   uae:         'UAE COUNTRY BRIEF',
   eschatology: 'ESCHATOLOGY & GEOPOLITICS',
@@ -176,6 +179,9 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
           <span className="font-mono text-xs text-center truncate"
                 style={{ color: 'var(--text-muted)' }}>
             DAY {day} · {TYPE_LABELS[type] ?? type.toUpperCase()}
+            {type === 'general_weekly' && briefing.period_start_day != null && briefing.period_end_day != null
+              ? ` · DAYS ${briefing.period_start_day}\u2013${briefing.period_end_day}`
+              : ''}
           </span>
           <div className="flex items-center gap-2 shrink-0">
             <span className="font-mono"
