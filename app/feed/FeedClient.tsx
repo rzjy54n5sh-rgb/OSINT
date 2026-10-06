@@ -74,7 +74,7 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
     <div className="max-w-4xl mx-auto px-4 py-8">
       <PageBriefing
         title="LIVE INTELLIGENCE FEED"
-        description="Every article here was collected automatically from verified public RSS feeds across wire services, broadcasters, official government feeds, and military communications. Nothing is written or editorialized by this platform \u2014 each item links directly to its original source."
+        description="Articles are collected automatically from verified public RSS feeds across wire services, broadcasters, official government feeds, and military communications. Earlier days (before October 2026) are partly a reconstructed index of headlines and links from The GDELT Project, marked as retrospective. Nothing is written or editorialized by this platform \u2014 each item links directly to its original source."
         note="Use the filters below to narrow by region, sentiment framing, or conflict day. Sentiment labels describe the article\u2019s narrative framing, not our assessment of its accuracy."
       />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
