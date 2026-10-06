@@ -1,0 +1,104 @@
+# One-off backfill of the lost news-link index (conflict Days 1-220) from GDELT 2.0 GKG files.
+# - Writes to: articles (Supabase) ONLY when dry_run is unchecked. Never deletes or updates rows
+#   (Prefer: resolution=ignore-duplicates on the URL-derived id).
+# - No AI / model API. Data: The GDELT Project (https://www.gdeltproject.org/), credited on /feed.
+# - Manual only (no schedule). Each shard = a range of days in its own job; shards run at most 3 at a
+#   time with 4 downloads each, to stay polite to data.gdeltproject.org.
+# - Measured in a dev container: 60-90 s per day with the translation feed (1.0-1.5 GB downloaded),
+#   ~25 s English-only. Runner speed is unmeasured: 10-day shards are sized for <= 40 min each.
+name: Backfill GDELT News Index (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_day:
+        description: 'First conflict day (1 = 2026-02-28)'
+        required: true
+        default: '1'
+      end_day:
+        description: 'Last conflict day (220 = 2026-10-05; today is refused)'
+        required: true
+        default: '220'
+      dry_run:
+        description: 'Dry run: report per-day counts, write nothing'
+        type: boolean
+        default: true
+      translation:
+        description: 'Include the machine-translated (non-English) feed, capped at 100 rows/day'
+        type: boolean
+        default: true
+      days_per_shard:
+        description: 'Days per job'
+        required: true
+        default: '10'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-gdelt-index
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Plan shards
+        id: plan
+        env:
+          START_DAY: ${{ inputs.start_day }}
+          END_DAY: ${{ inputs.end_day }}
+          DAYS_PER_SHARD: ${{ inputs.days_per_shard }}
+        run: |
+          matrix=$(python .github/workflows/scripts/backfill_gdelt_index.py \
+            --start-day "$START_DAY" --end-day "$END_DAY" --plan "$DAYS_PER_SHARD")
+          echo "$matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  backfill:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    name: days ${{ matrix.start }}-${{ matrix.end }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Backfill shard (stdlib only, no pip install)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          TRANSLATION: ${{ inputs.translation }}
+          SHARD_START: ${{ matrix.start }}
+          SHARD_END: ${{ matrix.end }}
+        run: |
+          args=(--start-day "$SHARD_START" --end-day "$SHARD_END" --workers 4
+                --dump-jsonl "selected-days-$SHARD_START-$SHARD_END.jsonl")
+          [ "$DRY_RUN" = "true" ] || args+=(--write)
+          [ "$TRANSLATION" = "true" ] || args+=(--no-translation)
+          python .github/workflows/scripts/backfill_gdelt_index.py "${args[@]}"
+      - name: Upload selected rows for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdelt-selected-days-${{ matrix.start }}-${{ matrix.end }}
+          path: selected-days-*.jsonl
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::${{ github.workflow }} shard ${{ matrix.start }}-${{ matrix.end }} FAILED — check logs at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

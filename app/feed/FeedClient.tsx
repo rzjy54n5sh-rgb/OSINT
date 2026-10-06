@@ -185,6 +185,19 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
           ))}
         </ul>
       )}
+
+      <footer className="mt-10 pt-4 border-t font-mono text-xs" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
+        News index partly reconstructed from{' '}
+        <a
+          href="https://www.gdeltproject.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          The GDELT Project (gdeltproject.org)
+        </a>
+      </footer>
     </div>
   );
 }
