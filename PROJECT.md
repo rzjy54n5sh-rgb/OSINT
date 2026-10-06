@@ -4,8 +4,16 @@
 
 ### Git / branch policy
 
-- **Push only to `main`** unless explicitly instructed otherwise. Do not push to feature branches or other remotes unless the user asks for it.
-- Prefer merging other branches (e.g. `cursor/*`) into `main` and then pushing `main`; do not push those branches.
+- **Claude owns the repo** (since 2026-10-05; Cursor is no longer used). Changes land on a branch and reach `main` through a pull request that **Omar merges** (as with PR #4). Do not push to `main` directly or merge your own PR unless Omar says so.
+- Do not push to other remotes unless Omar asks.
+
+### Operating model (effective 2026-10-05)
+
+Authoritative detail lives in **`CLAUDE.md`** ("Operating Model", "Hard Bans", "Gotchas") — not duplicated here.
+
+- Claude owns repo, workflows, deploy, schema and content. No Cursor.
+- No metered AI API in automation. Agent-based analysis = the Claude scheduled task "MENA Intel Desk — daily build" (06:51 Cairo, subscription). The five Anthropic-API workflows are retired to `.github/workflows-retired/` (its `README.md` has the run history: ~$100 burned, 247 of ~320 runs failed).
+- GitHub Actions (free, public repo): Collect Feeds (hourly), Collect Market Data (30 min), Collect Social Trends (12 h), Collect Disinfo Claims (daily), Deploy (push to `main`). Production E2E and Run DB Migration are manual-only / disabled.
 
 ---
 
@@ -37,7 +45,7 @@
 
 ## 2. Environment Variables
 
-**Canonical list for humans and AI:** also keep **`CURSOR.md`** in sync when names change. Do not invent parallel names (especially no extra `window.*` globals).
+**Canonical list for humans and AI:** also keep **`CURSOR.md`** (legacy filename; the env-name companion to this file) in sync when names change. Do not invent parallel names (especially no extra `window.*` globals).
 
 ### Public / browser (Next.js + Cloudflare Worker)
 
@@ -73,11 +81,12 @@ On Cloudflare/OpenNext, `app/layout.tsx` may inject **`window.__NEXT_PUBLIC_RUNT
 | Variable | Where used | Purpose |
 |----------|-------------|---------|
 | `YOUTUBE_API_KEY` | `app/api/youtube-live/route.ts` | Optional Live TV |
-| **Secrets (GitHub Actions)** | Workflows | **Deploy:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_SERVICE_KEY` (for worker/API). **Pipelines:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. |
+| **Secrets (GitHub Actions)** | Workflows | **Deploy:** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_SERVICE_KEY` (for worker/API), optional `YOUTUBE_API_KEY`. **Collectors:** `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, plus `CLOUDFLARE_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`, `CLOUDFLARE_API_TOKEN` for the KV warm step. |
+| **`ANTHROPIC_API_KEY`, `PERPLEXITY_API_KEY`** | **Not used by any active workflow** (grep of `.github/workflows/*.yml`, 2026-10-06; only `.github/workflows-retired/` references them) | **Recommendation to the operator (not done):** delete both repo secrets and revoke the Anthropic API key. Caveat: the `admin-agent` Edge Function reads its own `ANTHROPIC_API_KEY` Supabase function secret (admin chat; returns 503 without it), so revoking the key disables that feature. |
 
 **Note:** `NEXT_PUBLIC_*` are available at build time and on the Worker as `process.env`. The browser bundle may still need the **`__NEXT_PUBLIC_RUNTIME__`** bridge when inlining is incomplete. Local dev: `.env.local`. If public Supabase vars are missing, the app can load with empty data; service routes need `SUPABASE_SERVICE_KEY` or `SUPABASE_SERVICE_ROLE_KEY`.
 
-**Pipeline failure alerts:** When any of the data pipeline workflows (collect-articles, collect-markets, collect-social, collect-disinfo, daily-analysis) fails, a GitHub Issue is created with label `pipeline-failure`. Create this label once in the repo: go to `github.com/<owner>/<repo>/labels` and create a label named `pipeline-failure` with color `#E84040`.
+**Pipeline failure alerts:** the four collector workflows (`collect-articles.yml`, `collect-markets.yml`, `collect-social.yml`, `collect-disinfo.yml`) run a `Notify on failure` step that only emits a `::error::` annotation — **no GitHub Issue is created** and nothing is emailed (the earlier text here claimed a `pipeline-failure` issue; no workflow in the repo does that). A failure is visible only as a red run in the Actions tab, which is why collectors must exit non-zero on a silent no-write (see `CLAUDE.md` Gotchas).
 
 ---
 
@@ -87,12 +96,14 @@ TypeScript interfaces live in **`types/supabase.ts`**. Table names and shapes us
 
 | Table | Purpose | Key columns (see types for full shape) |
 |-------|---------|----------------------------------------|
-| **articles** | OSINT news/feed items from RSS pipelines | `id`, `title`, `url`, `source_name`, `source_type`, `published_at`, `fetched_at`, `conflict_day`, `region`, `country`, `sentiment`, `tags`, `content_json` |
-| **nai_scores** | Narrative Alignment Index per country per day | `id`, `country_code`, `conflict_day`, `expressed_score`, `latent_score`, `gap_size`, `category` |
-| **scenario_probabilities** | Scenario A/B/C/D probabilities per conflict day | `id`, `conflict_day`, `scenario_a`, `scenario_b`, `scenario_c`, `scenario_d` |
+| **articles** | OSINT news/feed items from RSS pipelines | `id`, `title`, `summary`, `url`, `source_name`, `source_type`, `published_at`, `fetched_at`, `conflict_day`, `region`, `country` (a REGION label, not a country code), `lat`, `lng`, `sentiment`, `confidence_score`, `tags`, `content_json` |
+| **nai_scores** | Narrative Alignment Index per country per day. **FROZEN at Day 35** pending an operator ruling on expressed/latent (no automated writes) | `id`, `country_code`, `conflict_day`, `expressed_score`, `latent_score`, `gap_size`, `category` |
+| **scenario_probabilities** | Scenario A–D probabilities per conflict day (+ independent sub-branch E); frozen at Day 35 like `nai_scores`; AI agent never writes it | `id`, `conflict_day`, `scenario_a`, `scenario_b`, `scenario_c`, `scenario_d`, `scenario_e`, `updated_at` |
+| **daily_briefings** | **Where reports live** — general / country / other briefing types read by `app/page.tsx`, `app/briefings/page.tsx`, `app/briefings/[day]/[type]/page.tsx` | `conflict_day`, `report_type`, `country_code`, `title`, `lead`, `sections`, `cover_stats`, `source_ids`, `source`, `quality`, `generated_at` (as used in code; no migration defines it — full shape: verify live) |
+| **detected_scenarios** | Candidate scenarios from detection; require admin approval (migration `006_scenario_detection.sql`) | `conflict_day`, `label`, `title`, `description_en`, `status` (candidate/approved/rejected/superseded), `detected_by`, … `UNIQUE (conflict_day, label)` |
 | *(scenario_probs no longer used)* | War Room uses only **scenario_probabilities** for both current row and history (same columns). | — |
 | **country_reports** | Per-country intel reports (elite network, risks, etc.) | `id`, `country_code`, `country_name`, `nai_score`, `nai_category`, `content_json`, `conflict_day` |
-| **market_data** | Economic/conflict-sensitive indicators | `id`, `indicator`, `value`, `change_pct`, `unit`, `source`, `conflict_day`. **Note:** War Room also orders by `created_at`; add to type if your schema has it. |
+| **market_data** | Economic/conflict-sensitive indicators. Two writers with disjoint indicator sets — see `CLAUDE.md` Gotchas | `id`, `indicator`, `value`, `change_pct`, `unit`, `source`, `conflict_day`, `created_at` |
 | **social_trends** | Social media trends by region/platform | `id`, `region`, `country`, `platform`, `trend`, `sentiment`, `engagement_estimate`, `conflict_day` |
 | **disinfo_claims** | Disinformation claims and verdicts | `id`, `claim_text`, `verdict`, `source_url`, `debunk_url`, `spread_estimate`, `published_at` |
 
@@ -175,11 +186,13 @@ OSINT/
 ├── types/
 │   └── supabase.ts               # Article, NaiScore, ScenarioProbability, CountryReport, DisinfoClaim, MarketData, SocialTrend
 ├── .github/workflows/
-│   ├── collect-articles.yml      # Triggers collect_feeds.py (or collect_articles.py) every 30 min
-│   ├── collect-markets.yml       # collect_markets.py every 15 min
-│   ├── collect-social.yml       # collect_social.py every 6 h
-│   ├── collect-disinfo.yml      # collect_disinfo.py daily
+│   ├── collect-articles.yml      # Collect Feeds: collect_feeds.py hourly (+ KV warm)
+│   ├── collect-markets.yml       # Collect Market Data: collect_markets.py every 30 min (+ KV warm)
+│   ├── collect-social.yml       # Collect Social Trends: collect_social.py every 12 h (+ KV warm)
+│   ├── collect-disinfo.yml      # Collect Disinfo Claims: collect_disinfo.py daily 06:00 UTC
 │   ├── deploy.yml                # On push main: npm install, build:cf, wrangler deploy
+│   ├── prod-e2e.yml              # Production E2E — manual-only / disabled
+│   ├── run-migration.yml         # Run DB Migration — manual-only / disabled
 │   └── scripts/
 │       ├── requirements.txt      # feedparser, requests, python-dateutil, pytrends, urllib3
 │       ├── sources_registry.py   # RSS sources + source_type (wire, broadcast, official, military, elite, etc.)
@@ -187,7 +200,9 @@ OSINT/
 │       ├── collect_articles.py   # (if different from collect_feeds.py)
 │       ├── collect_markets.py    # Writes market_data
 │       ├── collect_social.py     # Writes social_trends
-│       └── collect_disinfo.py    # Writes disinfo_claims
+│       ├── collect_disinfo.py    # Writes disinfo_claims
+│       └── (daily_analysis.py, stage1-4, detect_scenarios.py, collect_*_analysis — retired pipeline, reference only)
+├── .github/workflows-retired/    # Five retired Anthropic-API workflows + README.md (run history). Never move back.
 └── PROJECT.md                    # Main project file (reference + setup)
 ```
 
@@ -242,7 +257,7 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
 
 ## 8. Key Variables & Conventions
 
-- **CONFLICT_DAY** (or `conflictDay`): From `useConflictDay()` or latest from `nai_scores`. Default in UI often `10` when null.
+- **CONFLICT_DAY** (or `conflictDay`): From `useConflictDay()` — the calendar DAY LOCK, no DB read (§3). Per-section "latest data" days come from each section's own table, never from `nai_scores`.
 - **Article filters:** `region`, `sentiment`, `source_type`, `conflict_day` (see `UseArticlesFilters` in `useArticles.ts`).
 - **source_type (from pipelines):** wire, broadcast, regional, official, military, elite, financial, think_tank (see `sources_registry.py`).
 - **Country codes:** Uppercase in many places (e.g. IR, IL, IQ, YE, SA, AE, LB, EG, TR, RU). `countries/[slug]` uses lowercase in URL; query uses `.toUpperCase()` where needed.
@@ -253,7 +268,7 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
 ## 9. Data Flow Summary
 
 1. **Pipelines (GitHub Actions)**  
-   Python scripts run on schedule; they use `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` to insert/update **articles**, **market_data**, **social_trends**, **disinfo_claims**. NAI and scenario data are assumed to be populated by other processes or the same repo’s scripts.
+   Python collectors run on schedule; they use `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` to insert/update **articles**, **market_data** (collector-owned indicators), **social_trends**, **disinfo_claims**. No AI runs in GitHub Actions. The Claude scheduled task "MENA Intel Desk — daily build" (06:51 Cairo) writes **daily_briefings**, **market_data** for the indicators no feed covers (USD/EGP, open-market USD/IRR, Hormuz/Bab al-Mandeb traffic), **country_reports** narrative (PATCH by `country_code`) and **detected_scenarios** candidates. **nai_scores** and **scenario_probabilities** are frozen at Day 35 — nothing writes them until the operator rules on NAI semantics (`CLAUDE.md`, Hard Bans).
 
 2. **Browser**  
    Next.js app loads; all Supabase reads go through `createClient()` (anon key). Pages and hooks call `.from('articles')`, `.from('nai_scores')`, etc.
@@ -274,7 +289,7 @@ Fonts (from layout): `--font-bebas`, `--font-mono`, `--font-dm`.
 - **New Supabase table:** Add interface in `types/supabase.ts`, then use `createClient().from('table_name')` in a page or hook. If RLS is enabled, ensure anon policy allows read.
 - **New page:** Add `app/<name>/page.tsx` and a link in `CommandHeader`’s `NAV_LINKS` and/or home `QUICK_LINKS`.
 - **New API route:** Add `app/api/<name>/route.ts`; use server-only env (e.g. keys) here, not `NEXT_PUBLIC_*`.
-- **New pipeline:** Add a Python script under `.github/workflows/scripts/` and a workflow that runs it with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`.
+- **New pipeline:** Add a Python script under `.github/workflows/scripts/` and a workflow that runs it with `SUPABASE_URL` and `SUPABASE_SERVICE_KEY`. It must not call a paid model API; insert grouped by key signature (PGRST102), fetch with `requests(timeout=…)`, convert timestamps to UTC before `conflict_day`, and exit non-zero if it collected rows but wrote none (`CLAUDE.md` Gotchas).
 - **Market data:** If your `market_data` table has `created_at`, add it to the `MarketData` type and keep ordering by `created_at` where needed (e.g. War Room).
 
 ---
@@ -286,29 +301,23 @@ Complete step-by-step guide. Follow in order. All steps are one-time setup.
 ### Overview of what this does
 
 ```
-Before:
-  User visits site → Worker hits Supabase on every request
-  GitHub Actions running every 15-30 min → burning free minutes fast
-  No automated analysis → manual Claude sessions required
-
-After:
-  User visits site → Worker reads Cloudflare KV (global edge, <10ms)
-  GitHub Actions running every 30-60 min → well within free tier forever
-  Daily cron at 6am → Claude auto-updates all 20 country reports + NAI scores
-  Supabase only hit by pipeline writers, not users
+Now (2026-10-06):
+  User visits site → pages read Supabase directly (no code reads Cloudflare KV — see below)
+  GitHub Actions collectors every 30 min / hourly / 12 h / daily → free (public repo)
+  Claude scheduled task, daily 06:51 Cairo, on subscription → briefings, Claude-owned market
+  indicators, country_reports narrative, scenario candidates (NOT nai_scores — frozen at Day 35)
+  No metered AI API anywhere in automation
 ```
 
-### Step 1 — Supabase Cleanup Jobs (5 minutes)
+**KV note (verified by grep, 2026-10-06):** `warm_kv_cache.py` writes snapshots to Cloudflare KV after each collector run, but no code in `app/`, `lib/`, `components/`, `hooks/`, `utils/` or `middleware.ts` reads them, and `wrangler.jsonc` declares no `kv_namespaces`. The snapshot is write-only. It is 3 PUTs per run × ~74 runs/day ≈ 220 writes/day against the 1,000/day free cap — fine, but it is cost without benefit until a reader exists (candidate for removal).
 
-1. Go to: https://supabase.com/dashboard/project/qmaszkkyukgiludcakjg
-2. Click **Database → Extensions**
-3. Search for `pg_cron` and **enable it**
-4. Go to **SQL Editor → New Query**
-5. Paste the entire contents of `docs/8_supabase_cron_cleanup.sql`
-6. Click **Run**
-7. Verify with: `SELECT jobid, jobname, schedule FROM cron.job;`
+### Step 1 — Supabase retention (**DO NOT run `docs/8_supabase_cron_cleanup.sql`**)
 
-**What this does:** Deletes articles >90 days old, deduplicates market data rows, cleans old social trends. Keeps you under 500MB free tier indefinitely.
+This step used to say "paste the entire contents of `docs/8_supabase_cron_cleanup.sql` and Run". **Do not.** Its `cleanup-old-articles` job (delete articles older than 90 days) deleted **24,757 articles between June and September 2026 while collection was off**. The free tier has no backups, so the Mar–Aug article history is unrecoverable. The file is kept only as a record, with its statements commented out and a DO NOT RUN header.
+
+**Retention policy (replaces it):** never delete rows. When the database passes ~350 MB (free limit 500 MB), strip `summary` and `tags` on OLD rows only; keep the row, title, url, source, timestamps and `conflict_day`.
+
+**Market-data dedup:** a nightly pg_cron job keeps one row per `indicator` + `conflict_day`. It was written to keep a RANDOM row (it compared UUIDs, not time) and is being fixed to keep the newest by `created_at` for closed days. Check the live job body with `SELECT jobid, jobname, schedule, command FROM cron.job;` before trusting it. Writers must also never share an indicator name (`CLAUDE.md` Gotchas).
 
 ### Step 2 — Create Cloudflare KV Namespace (3 minutes)
 
@@ -341,24 +350,26 @@ Go to: https://github.com/rzjy54n5sh-rgb/OSINT/settings/secrets/actions
 
 You should also have: `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
 
-**Add these if you use KV + daily analysis:**
+**Add this for the collectors' KV warm step:**
 
 | Secret Name | Value / Where to get it |
 |---|---|
 | `CF_KV_NAMESPACE_ID` | The KV namespace ID from Step 2, e.g. `5ff576b8a0c44c7fa45618584829df04` (or run `npx wrangler kv namespace list` and copy the `id` for OSINT_CACHE) |
-| `ANTHROPIC_API_KEY` | https://console.anthropic.com/keys — create a key; needed for **Daily Claude Analysis** workflow only |
+
+**Do not add `ANTHROPIC_API_KEY` or `PERPLEXITY_API_KEY`.** No active workflow uses them and no automation may call a metered model API. Recommendation to the operator (not done): delete both repo secrets and revoke the Anthropic API key (note: this also disables the `admin-agent` Edge Function, which has its own `ANTHROPIC_API_KEY` function secret).
 
 ### Step 5 — Scripts and workflows (already in repo)
 
 The following are already in place:
 
 - `.github/workflows/scripts/warm_kv_cache.py`
-- `.github/workflows/scripts/daily_analysis.py`
-- `.github/workflows/daily-analysis.yml`
 - `.github/workflows/collect-articles.yml` (with KV warming, every 60 min)
 - `.github/workflows/collect-markets.yml` (with KV warming, every 30 min)
 - `.github/workflows/collect-social.yml` (with KV warming, every 12 hours)
-- `docs/8_supabase_cron_cleanup.sql` (for Step 1)
+- `.github/workflows/collect-disinfo.yml` (daily)
+- `.github/workflows/deploy.yml` (on push to `main`)
+
+`daily_analysis.py` and `daily-analysis.yml` are **retired** (see `.github/workflows-retired/README.md`). `docs/8_supabase_cron_cleanup.sql` is **DO NOT RUN** (Step 1).
 
 ### Step 6 — Deploy to Cloudflare (2 minutes)
 
@@ -367,46 +378,43 @@ npm run build
 npx wrangler deploy
 ```
 
-### Step 7 — Test the Daily Analysis (optional but recommended)
+### Step 7 — Verify the collectors and the daily build
 
-After adding the ANTHROPIC_API_KEY secret:
-
-1. Go to: https://github.com/rzjy54n5sh-rgb/OSINT/actions
-2. Click **Daily Claude Analysis**
-3. Click **Run workflow** → **Run workflow**
-4. Watch the logs — should complete in ~3 minutes
-5. Check your site — all 20 countries should show today's date
+1. Go to: https://github.com/rzjy54n5sh-rgb/OSINT/actions — the four `Collect …` workflows and `Deploy` should be green. A red run is the only failure signal (no issue/email is sent).
+2. Check the site: Home, Briefings and Markets should read `AS OF DAY <today> · CURRENT` once the Claude daily build (06:51 Cairo) has run; Feed should show articles stamped with the current day.
+3. NAI / Scenarios / Countries will read `Latest available: Day 35` until the NAI ruling — that is the correct, honest label, not a bug.
 
 ### Result — Free Tier Budget After Optimization
 
 | Service | Free Limit | Your Usage After |
 |---|---|---|
-| GitHub Actions minutes | 2,000/month (private) | ~800/month ✅ |
-| Supabase DB storage | 500MB | <100MB with cleanup ✅ |
-| Supabase bandwidth | 2GB/month | <100MB (KV handles users) ✅ |
+| GitHub Actions minutes | Free for public repos (2,000/month if it were private) | Collectors only; no AI workflows ✅ |
+| Supabase DB storage | 500MB | Policy: never delete; strip `summary`/`tags` on old rows past ~350MB (check live size) |
+| Supabase bandwidth | 2GB/month | Unmeasured — pages read Supabase directly (KV is write-only); verify live |
 | Cloudflare Workers | 100K req/day | ~500/day ✅ |
-| Cloudflare KV reads | 100K/day | ~500/day ✅ |
-| Cloudflare KV writes | 1K/day | ~50/day ✅ |
+| Cloudflare KV reads | 100K/day | 0 (nothing reads KV) |
+| Cloudflare KV writes | 1K/day | ~220/day (3 PUTs × ~74 collector runs) ✅ |
+| AI APIs | n/a | $0 — none in automation (Claude scheduled task is on subscription) |
 
-**All free. Forever.**
+Stay on free tiers; flag any limit or cost risk before building. The one metered-cost lesson: ~$100 of Anthropic credit was burned by the retired workflows.
 
-### How the Daily Analysis Works (after setup)
+### Daily Build — Contract
+
+The task's prompt is managed from Omar's Claude session, not from this repo; this is the contract it must satisfy.
 
 ```
-Every day at 06:00 UTC (automatically):
-  1. GitHub Actions starts daily_analysis.py
-  2. Script reads: last 24h articles + markets + social from Supabase
-  3. Sends to Claude API with yesterday's NAI baseline
-  4. Claude returns JSON with 20 NAI scores + 20 country reports + scenarios
-  5. Script writes everything back to Supabase
-  6. warm_kv_cache.py pushes fresh snapshot to Cloudflare KV
-  7. Site shows updated Day N data by 06:05 UTC
+Every day at 06:51 Cairo (Claude scheduled task "MENA Intel Desk — daily build", subscription):
+  1. Claude reads the last 24h of articles / markets / social from Supabase
+  2. Idempotency check first: is today already done? If so, stop
+  3. Validate before writing; real sourced data only, each item stamped with source, date/time, geolocation
+  4. Writes daily_briefings, market_data (USD/EGP, open-market USD/IRR, Hormuz/Bab al-Mandeb only),
+     country_reports narrative (PATCH by country_code, never country_name), detected_scenarios candidates
+  5. NEVER writes nai_scores (frozen at Day 35), scenario_probabilities, or any disinformation table
 ```
 
-You only need to manually trigger me for:
-- Deep-dive reports / DOCX exports
-- Something unusual that needs human judgment
-- Adding new countries or changing scoring methodology
+The old flow (GitHub Actions 06:00 UTC → `daily_analysis.py` → metered Claude API → 20 NAI scores + 20 country reports + scenarios) is retired; it ran twice daily, paid before validating, and failed 247 of ~320 runs.
+
+Claude still needs to be triggered manually for: deep-dive reports / DOCX exports, anything needing human judgment, adding new countries, and changing scoring methodology (the latter requires the NAI ruling first).
 
 ### Troubleshooting — Live site shows zero data (articles: 0, conflict day: —)
 
