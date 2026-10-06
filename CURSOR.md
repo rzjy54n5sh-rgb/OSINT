@@ -10,7 +10,7 @@ Use this file with **`PROJECT.md`** as the only sources for environment variable
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public anon key (preferred for browser client) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Optional alternative public key (if your project uses it) |
 | `NEXT_PUBLIC_SITE_URL` | Canonical site URL (metadata, redirects) |
-| `SUPABASE_SERVICE_KEY` | **Preferred** service_role JWT for server admin (`middleware`, `utils/supabase/admin.ts`, `/api/generate-briefing`) |
+| `SUPABASE_SERVICE_KEY` | **Preferred** service_role JWT for server admin (`middleware`, `utils/supabase/admin.ts`) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Accepted alias** — same value as Dashboard “service_role”; read after `SUPABASE_SERVICE_KEY` |
 | `SUPABASE_URL` | Used by **Python pipelines** (GitHub Actions), not always the same as Next’s `NEXT_PUBLIC_SUPABASE_URL` (often identical value) |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | Deploy / Workers |
@@ -25,5 +25,5 @@ Use this file with **`PROJECT.md`** as the only sources for environment variable
 ## Rules for edits
 
 1. Never add a second pattern like `window.__SOME_OTHER_SUPABASE__` — extend `__NEXT_PUBLIC_RUNTIME__` only.
-2. Never rename `SUPABASE_SERVICE_KEY` in workflows without updating `middleware`, `admin.ts`, `generate-briefing`, and `PROJECT.md`.
+2. Never rename `SUPABASE_SERVICE_KEY` in workflows without updating `middleware`, `admin.ts`, and `PROJECT.md`.
 3. After `wrangler types`, if `SUPABASE_SERVICE_KEY` drops out of `cloudflare-env.d.ts`, re-add it to `Cloudflare.Env` / `ProcessEnv` pick list or restore from git — see `PROJECT.md`.
