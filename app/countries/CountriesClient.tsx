@@ -9,6 +9,7 @@ import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
 import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
+import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NAI_V2_EMPTY_TEXT, NAI_V2_SCALE_TEXT, formatBand, type NaiV2View } from '@/lib/nai-v2';
 
 interface CountriesClientProps {
@@ -71,6 +72,9 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
                       <span>LATENT {formatBand(s.latent_low, s.latent_high)}</span>
                     </GlossaryTooltip>
                   </p>
+                  <div className="mt-1">
+                    <NaiPostureLabel expressed={s.expressed_score} />
+                  </div>
                 </Link>
                 <div className="mt-2">
                   <NaiV2Evidence row={s} compact />

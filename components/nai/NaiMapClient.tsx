@@ -16,8 +16,14 @@ import { PageShareCard } from '@/components/PageShareCard';
 import { useI18n } from '@/components/I18nProvider';
 import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
 import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
+import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NaiArchiveToggle } from '@/components/nai/NaiArchiveToggle';
 import {
+  NAI_POSTURE_COLOR,
+  NAI_POSTURE_HEADING,
+  NAI_POSTURE_LABELS,
+  NAI_POSTURE_LEGEND_TEXT,
+  NAI_POSTURE_NOTE,
   NAI_V2_ARCHIVE_NOTE,
   NAI_V2_CATEGORY_DEFS,
   NAI_V2_COLOR,
@@ -27,6 +33,7 @@ import {
   NAI_V2_SCALE_TEXT,
   formatBand,
   formatGap,
+  postureColor,
   type NaiV2View,
 } from '@/lib/nai-v2';
 
@@ -55,6 +62,9 @@ type NaiMapClientProps = {
 
 function markerColor(r: NaiV2View): string {
   if (r.categoryLocked || r.category === null) return NAI_V2_LOCKED_COLOR;
+  // UNSCORABLE (latent evidence insufficient): colour by the official posture (derived from E)
+  // instead of flat grey. Any other category keeps its category colour. No E => stays grey.
+  if (r.category === 'UNSCORABLE') return postureColor(r.expressed_score) ?? NAI_V2_COLOR.UNSCORABLE;
   return NAI_V2_COLOR[r.category];
 }
 
@@ -75,6 +85,7 @@ function NaiV2Legend() {
       ))}
       <br />
       Thresholds 10/20/30 and the midpoint 50 are conventions, not empirical findings. {NAI_V2_ARCHIVE_NOTE}
+      <br />• <strong>{NAI_POSTURE_HEADING}</strong>: {NAI_POSTURE_NOTE}
     </>
   );
 }
@@ -207,6 +218,18 @@ export function NaiMapClient({
               />
               LOCKED (tier)
             </span>
+            <span className="mt-1" style={{ color: 'var(--text-muted)' }} data-testid="nai-posture-legend">
+              {NAI_POSTURE_LEGEND_TEXT}
+            </span>
+            {NAI_POSTURE_LABELS.map((l) => (
+              <span key={l} className="inline-flex items-center gap-1" translate="no">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full border"
+                  style={{ background: NAI_POSTURE_COLOR[l], borderColor: '#8A9BB5' }}
+                />
+                {l}
+              </span>
+            ))}
           </div>
         </div>
         <aside
@@ -275,6 +298,7 @@ export function NaiMapClient({
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center" style={{ color: 'var(--text-muted)' }}>
                     <span translate="no">EXP {r.expressed_score ?? '—'}</span>
+                    <NaiPostureLabel expressed={r.expressed_score} />
                     <span className="hidden sm:inline-flex items-center gap-1">
                       <span className="text-[11px] uppercase tracking-wide">ΔEXP</span>
                       {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
@@ -327,6 +351,14 @@ export function NaiMapClient({
                 <dl className="font-mono text-xs mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1" style={{ color: 'var(--text-secondary)' }}>
                   <dt style={{ color: 'var(--text-muted)' }}>EXPRESSED</dt>
                   <dd translate="no">{selected.expressed_score ?? '— (no evidence)'}</dd>
+                  {selected.expressed_score !== null && (
+                    <>
+                      <dt style={{ color: 'var(--text-muted)' }}>{NAI_POSTURE_HEADING.toUpperCase()}</dt>
+                      <dd>
+                        <NaiPostureLabel expressed={selected.expressed_score} hideHeading />
+                      </dd>
+                    </>
+                  )}
                   {selected.expressed_basis && (
                     <>
                       <dt style={{ color: 'var(--text-muted)' }}>BASIS</dt>
