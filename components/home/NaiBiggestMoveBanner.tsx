@@ -1,42 +1,60 @@
-import { getNaiScores } from '@/lib/api/nai';
-import { getConflictDay, getSessionToken } from '@/utils/supabase/server';
+import { createClient, getConflictDay } from '@/utils/supabase/server';
 import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
+import { NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange } from '@/lib/nai-v2';
 
 /**
- * Server-rendered: largest |Δ expressed| vs previous NAI day (api-nai `delta`).
+ * Server-rendered: largest |Δ expressed| in nai_scores_v2 (War Posture) between its latest day
+ * and the previous War Posture day present. Reads ONLY nai_scores_v2 — legacy nai_scores
+ * (Days 1-35, retired method) is never presented as current.
  *
- * Asks api-nai for its own latest day (no `day` param → MAX(nai_scores.conflict_day)
- * inside the Edge Function) instead of passing the calendar day, which would return
- * nothing while nai_scores is frozen. The move is only called "TODAY" when the NAI
- * day equals the calendar day; otherwise its as-of day is stated explicitly.
+ * The move is only called "TODAY" when the v2 day equals the calendar day; otherwise its
+ * as-of day is stated explicitly. With no v2 rows it shows the honest empty state.
  */
 export async function NaiBiggestMoveBanner() {
-  const currentDay = await getConflictDay();
-  const token = await getSessionToken();
-  let res: Awaited<ReturnType<typeof getNaiScores>>;
-  try {
-    res = await getNaiScores(undefined, token ?? undefined);
-  } catch {
-    return null;
+  const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
+  const { latestDay: naiDay } = await getNaiV2DayRange(supabase);
+
+  if (naiDay == null) {
+    return (
+      <div
+        className="border border-white/10 px-4 py-3 font-mono text-xs mb-4 rounded-sm uppercase"
+        style={{ color: 'var(--text-muted)' }}
+        data-testid="nai-biggest-move"
+        data-freshness="empty"
+      >
+        ◆ NAI WAR POSTURE — {NAI_V2_EMPTY_TEXT}
+      </div>
+    );
   }
 
-  const rows = res?.data ?? [];
-  const naiDay =
-    typeof res?.conflictDay === 'number' && res.conflictDay > 0
-      ? res.conflictDay
-      : (rows[0]?.conflict_day ?? null);
-  const withDelta = rows.filter((r) => r.delta !== null && r.delta !== undefined);
-  if (withDelta.length === 0) return null;
-
-  const biggest = [...withDelta].sort(
-    (a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0),
-  )[0];
-  const d = biggest.delta ?? 0;
-  if (Math.abs(d) < 5) return null;
-
-  const cat = biggest.category ?? '—';
+  // Expressed score only: it is visible to every tier, so no gated field is exposed here.
+  const rows = await getNaiV2Day(supabase, naiDay, { latent: false, gap: false });
+  const withDelta = rows.filter((r) => r.delta !== null);
   const fresh = sectionFreshness(naiDay, currentDay);
   const isToday = fresh.status === 'current';
+  const staleNote = !isToday && (
+    <div className="text-xs mt-1 uppercase" style={{ color: 'var(--accent-orange)' }} translate="no">
+      ⚠ NAI — Latest available: Day {naiDay} ({formatConflictDayShort(naiDay)}) — no data for Day {currentDay}
+    </div>
+  );
+
+  if (withDelta.length === 0) {
+    return (
+      <div
+        className="border border-white/10 px-4 py-3 font-mono text-xs mb-4 rounded-sm"
+        style={{ color: 'var(--text-muted)' }}
+        data-testid="nai-biggest-move"
+        data-freshness={fresh.status}
+      >
+        ◆ NAI WAR POSTURE — DAY {naiDay}: {rows.length} countries scored; no earlier War Posture day to compare yet.
+        {staleNote}
+      </div>
+    );
+  }
+
+  const biggest = [...withDelta].sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))[0];
+  const d = biggest.delta ?? 0;
+  if (Math.abs(d) < 5) return null;
 
   return (
     <div
@@ -45,25 +63,20 @@ export async function NaiBiggestMoveBanner() {
       data-freshness={fresh.status}
     >
       <span className="text-[#E8C547]">
-        {isToday ? '◆ BIGGEST MOVE TODAY:' : `◆ BIGGEST NAI MOVE — DAY ${naiDay ?? '—'}:`}
+        {isToday ? '◆ BIGGEST WAR POSTURE MOVE TODAY:' : `◆ BIGGEST WAR POSTURE MOVE — DAY ${naiDay}:`}
       </span>
       <span className="text-white ml-2">
         <span translate="no">{biggest.country_code}</span>{' '}
         <span translate="no">
           {d > 0 ? '↑' : '↓'}
-          {Math.abs(d)} points
+          {Math.abs(d)} points {d > 0 ? 'toward continuing hostilities' : 'toward ceasefire'}
         </span>
         <span translate="no">
           {' '}
-          · {isToday ? 'Now' : 'Score'} {biggest.expressed_score} [{cat}]
+          · Expressed {biggest.expressed_score} (vs Day {biggest.prevDay})
         </span>
       </span>
-      {!isToday && (
-        <div className="text-xs mt-1 uppercase" style={{ color: 'var(--accent-orange)' }} translate="no">
-          ⚠ NAI — Latest available: Day {naiDay ?? '—'}
-          {naiDay != null ? ` (${formatConflictDayShort(naiDay)})` : ''} — no data for Day {currentDay}
-        </div>
-      )}
+      {staleNote}
     </div>
   );
 }

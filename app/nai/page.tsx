@@ -1,12 +1,11 @@
 import { Suspense } from 'react';
 import { createClient } from '@/utils/supabase/server';
-import { getUser, getSessionToken, getConflictDay, getLatestDayFor } from '@/utils/supabase/server';
+import { getUser, getConflictDay } from '@/utils/supabase/server';
 import { DataAsOf } from '@/components/ui/DataAsOf';
-import { getNaiScores } from '@/lib/api/nai';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiMapClient } from '@/components/nai/NaiMapClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
-import type { NaiScore } from '@/types';
+import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
 
 export default async function NaiMapPage({
   searchParams,
@@ -15,18 +14,15 @@ export default async function NaiMapPage({
 }) {
   const params = await searchParams;
   const dayParam = params.day ? parseInt(params.day, 10) : null;
-  // currentDay = calendar (DAY LOCK). latestNaiDay = nai_scores' OWN max day — the newest
-  // day that actually has NAI rows. Defaulting to the calendar day would render an empty
-  // map while nai_scores is frozen; defaulting to the NAI day is labelled via DataAsOf.
-  const [currentDay, latestNaiDay] = await Promise.all([getConflictDay(), getLatestDayFor('nai_scores')]);
-  const latestDay = latestNaiDay ?? currentDay;
-  const conflictDay = Number.isFinite(dayParam) && dayParam != null ? dayParam : latestDay;
 
-  const [user, token, supabase] = await Promise.all([
-    getUser(),
-    getSessionToken(),
-    createClient(),
-  ]);
+  const [user, supabase, currentDay] = await Promise.all([getUser(), createClient(), getConflictDay()]);
+
+  // currentDay = calendar (DAY LOCK). latestDay = nai_scores_v2's OWN max day for the
+  // war-posture-v1 method. Legacy nai_scores (Days 1-35, retired method) is NEVER used here
+  // as a fallback: if v2 has no rows the page shows the honest empty state.
+  const { firstDay, latestDay } = await getNaiV2DayRange(supabase);
+  const conflictDay =
+    dayParam != null && Number.isFinite(dayParam) && dayParam > 0 ? dayParam : (latestDay ?? currentDay);
 
   const { data: tierRows } = await supabase
     .from('tier_features')
@@ -35,13 +31,9 @@ export default async function NaiMapPage({
   const hasLatentAccess = tierHasFeature(user?.tier, 'nai_latent_score', flags);
   const hasGapAccess = tierHasFeature(user?.tier, 'nai_gap_analysis', flags);
 
-  let scores: NaiScore[] = [];
-  try {
-    const res = await getNaiScores(conflictDay, token ?? undefined);
-    scores = (res?.data ?? []) as NaiScore[];
-  } catch {
-    scores = [];
-  }
+  // Tier gating is applied here, server-side, so locked fields never reach the client payload.
+  const rows: NaiV2View[] =
+    latestDay != null ? await getNaiV2Day(supabase, conflictDay, { latent: hasLatentAccess, gap: hasGapAccess }) : [];
 
   return (
     <Suspense
@@ -52,16 +44,17 @@ export default async function NaiMapPage({
       }
     >
       <NaiMapClient
-        scores={scores}
+        rows={rows}
         conflictDay={conflictDay}
         latestDay={latestDay}
+        firstDay={firstDay}
         hasLatentAccess={hasLatentAccess}
         hasGapAccess={hasGapAccess}
         conflictDayBadge={
           <>
             <ConflictDayBadge />
-            <DataAsOf section="NAI" latestDay={latestNaiDay} currentDay={currentDay} className="mt-2" />
-            {conflictDay !== latestDay && (
+            <DataAsOf section="NAI WAR POSTURE" latestDay={latestDay} currentDay={currentDay} className="mt-2" />
+            {latestDay != null && conflictDay !== latestDay && (
               <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
                 VIEWING HISTORICAL NAI — DAY {conflictDay}
               </p>
