@@ -1,26 +1,16 @@
-import { createClient, getConflictDay, getLatestDayFor } from '@/utils/supabase/server';
-import type { NaiScore } from '@/types/supabase';
+import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
 import CountriesClient from './CountriesClient';
 
 export default async function CountriesPage() {
-  // currentDay = calendar (DAY LOCK); naiDay = nai_scores' OWN latest day.
-  // Querying nai_scores at the calendar day returns nothing while NAI is frozen, so the
-  // grid shows the latest NAI day and labels it against the calendar day.
-  const [supabase, currentDay, naiDay] = await Promise.all([
-    createClient(),
-    getConflictDay(),
-    getLatestDayFor('nai_scores'),
-  ]);
+  // currentDay = calendar (DAY LOCK); naiDay = nai_scores_v2's OWN latest day (War Posture).
+  // Legacy nai_scores (Days 1-35, retired method) is never shown here as current NAI.
+  const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
+  const { latestDay: naiDay } = await getNaiV2DayRange(supabase);
 
-  let scores: NaiScore[] = [];
-  if (naiDay != null) {
-    const { data } = await supabase
-      .from('nai_scores')
-      .select('*')
-      .eq('conflict_day', naiDay)
-      .order('expressed_score', { ascending: false });
-    scores = (data as NaiScore[]) ?? [];
-  }
+  // This page has historically shown expressed, latent and category to every tier; that
+  // visibility is kept unchanged (paywall parity with /nai is a separate decision).
+  const scores: NaiV2View[] = naiDay != null ? await getNaiV2Day(supabase, naiDay, { latent: true, gap: true }) : [];
 
   return <CountriesClient initialScores={scores} naiDay={naiDay} currentDay={currentDay} />;
 }
