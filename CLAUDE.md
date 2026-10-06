@@ -84,13 +84,14 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 
 ## Hard Bans for the AI Agent (the Claude daily-build task and any automation)
 - NEVER write `scenario_probabilities` or any disinformation tracker (`disinfo_claims` belongs to the `collect-disinfo.yml` collector only) — structural neutrality
-- NEVER write `nai_scores`: FROZEN at Day 35 pending an operator ruling on what "expressed" and "latent" mean. A decision memo recommends a NEW `nai_scores_v2` table rather than relabelling old rows. No writes, no backfills, no relabelling until Omar rules
+- NEVER write legacy `nai_scores` (Days 1–35): ARCHIVED, read-only, on a different (US-referenced) axis — never relabel, copy or extend it
+- `nai_scores_v2` (War Posture, ruled 2026-10-06) MAY be written, but only rows that pass the No-Invented-Claim gate below; the DB rejects any score without a source feeding it (CHECK constraints). Latent is a BAND, NULL when there is no admissible evidence — never a guessed point
 - NEVER write `country_reports.country_name` from automation. A retired writer (`daily_analysis.py`) overwrote all 20 names with ISO codes; corrected 2026-10-06. Automation PATCHes by country_code and omits country_name from the payload
 - No paid model API calls from automation (see Operating Model)
 
 ## Critical Rules — NEVER Violate
 1. **DAY LOCK:** `DAY = (datetime.date.today() - datetime.date(2026, 2, 28)).days + 1` (UTC; 2026-10-05 = Day 220, 2026-10-06 = Day 221). NEVER derive the current day from DB max/max+1. This rule WON over the old PROJECT.md "max(nai_scores)" rule. Each section reads its OWN table's latest day and shows a `DataAsOf` label (see PROJECT.md §3)
-2. **No fabrication:** Real sources only, never invented or seeded data. Every `content_json` field must cite a real DB article. If none: "No sourced data for Day X."
+2. **No invented claim — operator order, 2026-10-06: "dont accept any invented claim".** Every number, date, quote and attribution must trace to a page that was actually opened and states it. Before publishing: open every cited URL and confirm the claim is on the page; check quotes verbatim against the raw page text (a summariser alone is not a safe gate — it misread poll figures on 2026-10-06); fix `published_at` to the page. Anything that cannot be confirmed is REMOVED, or replaced with exactly "No sourced data available for Day N." A score left with no supporting source becomes NULL. Never raise confidence after removing evidence
 3. **Validate before write:** schema violations must `sys.exit(1)` before any DB write — and before any paid call whose output the validation could discard
 4. **No global Supabase clients** — Cloudflare Workers throws "Cannot perform I/O on behalf of a different request"; create new client per request
 5. **CVE-2025-29927:** Every admin Server Component must independently verify auth (4-line block: getUser → redirect if not found → check admin_users → redirect if not active)
@@ -105,12 +106,15 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - **PostgREST bulk insert:** a mixed-key array fails with PGRST102 "All object keys must match". Group rows by key signature and insert each group; NEVER pad missing keys with null (null overrides column defaults)
 - **Silent collectors:** a collector that prints an error and exits 0 hides failure for months (articles sat at 0). Exit non-zero whenever it collected rows but wrote none
 - **feedparser:** `feedparser.parse(url)` has no network timeout. Fetch with `requests.get(url, timeout=…)` and parse the bytes
-- **market_data writers must never share an indicator name.** Collector owns Brent, WTI, Gold, NatGas, S&P, Dow, XLE, USO, VIX, EUR-USD, USD-SAR, USD-AED, USD-IQD. Claude task owns USD/EGP, open-market USD/IRR, Hormuz/Bab al-Mandeb traffic. A nightly pg_cron dedup keeps one row per indicator + conflict_day; it previously kept a RANDOM row (compared UUIDs) and is being fixed to keep the newest by `created_at` for closed days — until that lands, do not rely on which duplicate survives
+- **market_data writers must never share an indicator name.** Collector owns Brent, WTI, Gold, NatGas, S&P, Dow, XLE, USO, VIX, EUR-USD, USD-SAR, USD-AED, USD-IQD. Claude task owns USD/EGP, open-market USD/IRR, Hormuz/Bab al-Mandeb traffic. A nightly pg_cron dedup (`deduplicate-market-data`, 02:30 UTC) keeps one row per indicator + conflict_day — FIXED 2026-10-06 to keep the newest by `created_at`, closed days only (it previously kept a RANDOM row by comparing UUIDs, so pre-Oct-6 market history is random intraday snapshots, not closes)
 - **Paid before validated:** a paid model call must never precede validation that can discard its output. The idempotency check ("is today already done?") comes BEFORE any paid call. (This is how ~$100 vanished.)
 - **PostgREST 1000-row cap:** the Supabase default caps responses at 1000 rows. "All rows ascending" queries silently drop the NEWEST data. Order descending, filter by day, or paginate
 - **`articles.country` is a region label**, not a country code — never join it to country_code
 - **Timestamps → UTC first:** convert feed timestamps to UTC before computing `conflict_day`. Non-UTC outlets were stamped a day ahead
 - **RLS policy names prove nothing:** policies named `service_role_*` granted ALL to PUBLIC on `user_events` / `user_notes`. Check the `roles` column in `pg_policies`, never the name
+- **Party sources are never evidence of public opinion.** State media, official agencies and state-owned pollsters (e.g. VCIOM) are valid for what a government SAYS (expressed), never for a population's position (latent) or for facts
+- **Al Jazeera labelling:** party_source = true only where it reports on Qatar, Egypt or the UAE (DECISION-002 conflict of interest); otherwise Tier 2, not party. The National, WAM, SPA, TASS, Xinhua, IRNA, Tasnim, PressTV, Al-Ahram = party/state
+- **Supabase MCP destructive-statement confirmation may never reach the operator** (cancelled 3× on 2026-10-06). Do not loop on it. Ask the operator; with his explicit approval, apply through the Mac's direct DB connection (`~/mid_backfill/conn.py`, credentials read at runtime, never printed), in ONE transaction with per-statement row-count checks and a read-back
 - **Never run `docs/8_supabase_cron_cleanup.sql`.** Its `cleanup-old-articles` job deleted 24,757 articles between June and September 2026 while collection was off; free tier has no backups, so the Mar–Aug article history is unrecoverable. Retention policy: never delete rows — when the DB passes ~350 MB, strip `summary`/`tags` on OLD rows only
 
 ## Structural Neutrality Rules (Architectural — Non-Negotiable)
@@ -139,20 +143,21 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - Local: `.env.local` (NEVER commit — in .gitignore)
 - GitHub Actions secrets that active workflows reference (grep of `.github/workflows/*.yml`, 2026-10-06): `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CF_KV_NAMESPACE_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `YOUTUBE_API_KEY` (deploy, optional); `prod-e2e.yml` (manual) also reads `SUPABASE_SERVICE_ROLE_KEY`
 - `ANTHROPIC_API_KEY` and `PERPLEXITY_API_KEY` are NOT needed by automation — no active workflow references either (grep-verified); only `.github/workflows-retired/*.yml` do. `RESEND_API_KEY` / `ADMIN_EMAIL` likewise appear only in the retired `daily_pipeline.yml`
-- **Recommendation to the operator (NOT done — Claude cannot delete secrets):** delete the `ANTHROPIC_API_KEY` and `PERPLEXITY_API_KEY` repo secrets, and revoke the Anthropic API key in the Anthropic console. Caveat: the `admin-agent` Edge Function reads its own `ANTHROPIC_API_KEY` Supabase function secret (admin chat only; returns 503 "AI not configured" without it) — revoking the key disables that feature unless it is repointed or removed. `/briefings/generate` uses the visitor's own key, not ours
+- **`ANTHROPIC_API_KEY` repo secret DELETED 2026-10-06** (operator order; verified by before/after `gh secret list`). `PERPLEXITY_API_KEY` was never a repo secret (404). Still open: revoke the key itself in the Anthropic console. Caveat: the `admin-agent` Edge Function reads its own `ANTHROPIC_API_KEY` Supabase function secret (admin chat only; returns 503 "AI not configured" without it) — revoking the key disables that feature unless it is repointed or removed. `/briefings/generate` uses the visitor's own key, not ours
 - wrangler.jsonc: `services` binding `WORKER_SELF_REFERENCE` → `"service": "mena-intel-desk"` (NOT a vars string, NOT a pages.dev URL)
 
 ## Current Status (2026-10-06)
 - **Platform recovered and live at Day 220–221** (PR #4 merged 2026-10-05; deploys working again after being broken since April). Home, Briefings, Markets show "AS OF DAY 220 · CURRENT"
-- **NAI / Scenarios / Countries show Day 35** — frozen, honestly labelled by `DataAsOf`. Unfreezing waits on the NAI ruling
+- **NAI moved to War Posture (`nai_scores_v2`) — series starts Day 221.** 20 rows written 2026-10-06 after source-by-source verification (81 sources: 78 supported, 3 narrowed, 0 invented). 19 of 20 categories are UNSCORABLE (latent bands missing or too wide) — the sourced expressed score is the signal; the UI shows it with the grey category. Scenarios stay at Day 35 (human-authorised writes only)
+- **Security hardened 2026-10-06:** public ALL on user_events/user_notes closed; users can update only 5 profile columns; unapproved scenarios / inactive alerts no longer public; anon-insert tables length-bounded; SECURITY DEFINER functions locked down
 - **0 subscribers** (users: 2 at last count — verify live)
-- **NAI ruling pending** (Open Operator Rulings)
 - **articles history Mar–Aug is lost** — the 90-day cleanup job deleted 24,757 rows Jun–Sep 2026 while collection was off; no backups on the free tier. Collection is running again; do not describe the pre-recovery history as complete
 - Stack: Next.js 15.2.9 (DO NOT upgrade to 16 — opennextjs-cloudflare prefetch-hints bug); wrangler pinned to 3.99.0 via overrides in package.json
 - Current conflict day: calculated fresh each time — do NOT hardcode
 
 ## Open Operator Rulings (Claude does not decide these)
-- **NAI semantics:** what do `expressed` / `latent` mean (aligned with what? what evidence measures latent? exhaustive non-overlapping category rules computed in code?). Memo recommends `nai_scores_v2` over relabelling. Until ruled, `nai_scores` stays frozen
+- **RESOLVED 2026-10-06 — NAI = War Posture (C2).** E (0–100) = the government's official position on continuing hostilities: 0 immediate unconditional ceasefire · 25 conditional de-escalation · 50 ambivalent · 75 continued pressure · 100 continue/escalate. Same question for every state; no belligerent is the reference (DECISION-001). L = same scale for population + non-government elites, as a band from admissible evidence only (polls, ACLED/protest reporting, opposition votes, independent elite op-eds). Category = DB function `nai_c2_category(E, lo, hi)` (thresholds 10/20/30, midpoint 50 — conventions, not data); UNSCORABLE unless the whole band yields one category. Memo: project doc `claude/nai-decision-memo-2026-10-06.md`
+- **Open:** whether to add a deterministic E-only posture label so the map is not 19/20 grey; whether reading `scenario_probabilities` for context counts as "touching" it; F4 cleanup of 177 keyword-bot disinfo verdicts + 559 invented reach figures (disinfo table is outside the AI agent's write scope)
 
 ## DO NOT Touch (unless Omar explicitly asks)
 - `/collaboration/` folder — notes, not code
