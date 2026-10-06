@@ -1,6 +1,6 @@
 import { createClient, getConflictDay } from '@/utils/supabase/server';
 import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
-import { NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange } from '@/lib/nai-v2';
+import { NAI_POSTURE_HEADING, NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange, postureLabel } from '@/lib/nai-v2';
 
 /**
  * Server-rendered: largest |Δ expressed| in nai_scores_v2 (War Posture) between its latest day
@@ -73,7 +73,10 @@ export async function NaiBiggestMoveBanner() {
         </span>
         <span translate="no">
           {' '}
-          · Expressed {biggest.expressed_score} (vs Day {biggest.prevDay})
+          · Expressed {biggest.expressed_score}
+          {postureLabel(biggest.expressed_score) !== null &&
+            ` · ${NAI_POSTURE_HEADING}: ${postureLabel(biggest.expressed_score)}`}
+          {' '}(vs Day {biggest.prevDay})
         </span>
       </span>
       {staleNote}

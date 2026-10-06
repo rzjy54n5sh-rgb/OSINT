@@ -54,6 +54,57 @@ export const NAI_V2_CATEGORY_DEFS: { category: NaiCategoryV2; text: string }[] =
 export const NAI_V2_ARCHIVE_NOTE =
   'Archived Days 1–35 used a different, retired definition and are not comparable.';
 
+/**
+ * POSTURE LABEL (official) — a display convention derived ONLY from the expressed score E.
+ *
+ * The cut-points below (25 / 50 / 75) and the four wordings are CONVENTIONS chosen by the operator
+ * on 2026-10-06. They are not empirical findings and not a statistical classification.
+ * This label is ADDITIONAL to the NAI category (which stays generated in Postgres and is never
+ * recomputed or replaced here): it describes the official narrative only and says nothing about
+ * society or the gap. It exists so the map is not flat grey when the latent band is missing.
+ *
+ *   E  0–24  Ceasefire-seeking
+ *   E 25–49  De-escalatory
+ *   E 50–74  Conditional pressure
+ *   E 75–100 Escalatory
+ *
+ * NULL / non-finite / out-of-range (<0 or >100) E => no label.
+ */
+export const NAI_POSTURE_LABELS = ['Ceasefire-seeking', 'De-escalatory', 'Conditional pressure', 'Escalatory'] as const;
+export type PostureLabel = (typeof NAI_POSTURE_LABELS)[number];
+
+/** Exclusive upper bound of each label's E range, in NAI_POSTURE_LABELS order (last = 100 inclusive). */
+export const NAI_POSTURE_CUTS = [25, 50, 75] as const;
+
+/** UI heading for the label. Always shown with this name so it is never confused with the NAI category. */
+export const NAI_POSTURE_HEADING = 'Posture (official)';
+export const NAI_POSTURE_NOTE =
+  'Posture (official) is a display convention derived only from the expressed score (0–24 Ceasefire-seeking, 25–49 De-escalatory, 50–74 Conditional pressure, 75–100 Escalatory). The cut-points are operator conventions (2026-10-06), not empirical findings. It is separate from the NAI category.';
+export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture (latent evidence insufficient)';
+
+/**
+ * Single-hue (violet) ramp, light -> dark = ceasefire-seeking -> escalatory. Deliberately not in the
+ * category palette (green/blue/yellow/orange/red/grey). Contrast vs the dark UI surfaces
+ * (#070A0F legend / #0C1018 panel): 11.4, 7.4, 4.6, 3.4 : 1; map dots also carry the existing #8A9BB5 stroke.
+ */
+export const NAI_POSTURE_COLOR: Record<PostureLabel, string> = {
+  'Ceasefire-seeking': '#CBBBFF',
+  'De-escalatory': '#A98CF8',
+  'Conditional pressure': '#8A5FEA',
+  Escalatory: '#7048DC',
+};
+
+export function postureLabel(e: number | null | undefined): PostureLabel | null {
+  if (typeof e !== 'number' || !Number.isFinite(e) || e < 0 || e > 100) return null;
+  const i = NAI_POSTURE_CUTS.findIndex((cut) => e < cut);
+  return NAI_POSTURE_LABELS[i === -1 ? NAI_POSTURE_LABELS.length - 1 : i];
+}
+
+export function postureColor(e: number | null | undefined): string | null {
+  const l = postureLabel(e);
+  return l === null ? null : NAI_POSTURE_COLOR[l];
+}
+
 const CATEGORIES: readonly NaiCategoryV2[] = ['ALIGNED', 'STABLE', 'TENSION', 'FRACTURE', 'INVERSION', 'UNSCORABLE'];
 export function isNaiCategoryV2(x: unknown): x is NaiCategoryV2 {
   return typeof x === 'string' && (CATEGORIES as readonly string[]).includes(x);
