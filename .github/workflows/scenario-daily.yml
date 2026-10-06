@@ -1,0 +1,76 @@
+# Daily scenario probabilities (method market-anchored-v1) into the scenario registry.
+# Deterministic: public Polymarket Gamma + Kalshi v2 endpoints -> fixed rule -> scenario_runs /
+# scenario_daily -> rpc scenario_publish_run -> rpc scenario_lifecycle_tick. NO model / AI API.
+# Never writes scenario_probabilities (derived by the registry's sync trigger).
+# Runs at 05:20 UTC, before the 06:51 Cairo Claude daily-build task.
+name: Scenario Daily (market-anchored-v1)
+
+on:
+  schedule:
+    - cron: '20 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run: fetch + compute + print what would be written; write nothing'
+        type: boolean
+        default: false
+
+concurrency:
+  group: scenario-daily
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scenario:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      SCRIPT: .github/workflows/scripts/scenario_daily.py
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Unit tests (method parity with Day 221 + guards)
+        working-directory: .github/workflows/scripts
+        run: python -m unittest tests.test_scenario_daily
+
+      - name: Name the evidence artifact (DAY LOCK, UTC)
+        id: name
+        run: |
+          DAY=$(python -c "import datetime as d; print((d.datetime.now(d.timezone.utc).date() - d.date(2026, 2, 28)).days + 1)")
+          echo "day=$DAY" >> "$GITHUB_OUTPUT"
+          echo "artifact=scenario-evidence-day-${DAY}-run${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch raw market JSON (Polymarket Gamma, Kalshi v2)
+        run: python "$SCRIPT" fetch --out evidence
+
+      # Uploaded BEFORE any database write, so the artifact named in evidence_ref exists.
+      - name: Upload raw market evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.artifact }}
+          path: evidence/
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Compute and publish (or dry run)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+        run: |
+          ARGS=(run --evidence evidence --artifact-name "${{ steps.name.outputs.artifact }}" --day "${{ steps.name.outputs.day }}")
+          if [ "$DRY_RUN" = "true" ]; then ARGS+=(--dry-run); fi
+          python "$SCRIPT" "${ARGS[@]}"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::${{ github.workflow }} FAILED — check logs at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
