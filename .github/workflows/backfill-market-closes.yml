@@ -1,0 +1,70 @@
+# One-off, manual-only backfill of true DAILY CLOSES into market_data for conflict Days 1..220.
+# - workflow_dispatch ONLY (no schedule). dry_run defaults to true: it fetches + prints a coverage
+#   table and 5 sample rows and writes nothing. Re-run with dry_run=false to insert.
+# - Writes to: market_data (Supabase) only. No AI/model API. Free sources only (Yahoo chart
+#   endpoint, fawazahmed0 currency-api on jsdelivr, FRED CSV for the cross-check).
+# - Idempotent: rows whose source contains "daily close" already in the DB are skipped.
+# - The nightly pg_cron dedup keeps the NEWEST row per (indicator, conflict_day) on closed days,
+#   so the backfilled closes replace the older random intraday snapshots automatically.
+name: Backfill Market Daily Closes
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_day:
+        description: 'First conflict day to backfill (Day 1 = 2026-02-28)'
+        required: false
+        default: '1'
+        type: string
+      end_day:
+        description: 'Last conflict day to backfill (clamped to yesterday; today and later are never written)'
+        required: false
+        default: '220'
+        type: string
+      dry_run:
+        description: 'Dry run: print coverage + samples, write nothing'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: backfill-market-closes
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install "requests>=2.31.0"
+
+      - name: Unit tests (network mocked)
+        run: python -m unittest discover -s .github/workflows/scripts/tests -p "test_backfill_market_closes.py" -v
+
+      - name: Backfill daily closes
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          START_DAY: ${{ inputs.start_day }}
+          END_DAY: ${{ inputs.end_day }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          python .github/workflows/scripts/backfill_market_closes.py \
+            --start-day "$START_DAY" --end-day "$END_DAY" --dry-run "$DRY_RUN"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::${{ github.workflow }} FAILED — check logs at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
