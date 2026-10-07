@@ -25,6 +25,7 @@ source_perspective values (for neutrality tracking):
 """
 
 import os
+import re
 
 RSSHUB_BASE = os.environ.get("RSSHUB_BASE", "https://rsshub.app")
 
@@ -256,6 +257,84 @@ INDIA = [
     {"url": telegram_rss("MEAIndia"),                                                                 "source_name": "India MEA (Telegram)",  "source_type": "official",   "region": "S.Asia", "country": "India", "lat": 28.614, "lng": 77.210},
 ]
 
+# ─────────────────────────────────────────────
+# HORN OF AFRICA & RED SEA — theatre added 2026-10-07 (ruling by Omar)
+# Ethiopia's 2026 offensive vs TPLF/Fano/OLA, the Ethiopia-Eritrea rupture, the
+# Egypt-Eritrea-Somalia-Sudan "Red Sea for coastal states" declaration (New Alamein 2026-10-04).
+#
+# Every URL below was fetched from the build container on 2026-10-07 and returned a parseable
+# feed with items dated within the last ~3 weeks (see the PR for the per-feed check). Feeds that
+# failed (Cloudflare / SiteGround captcha, 404, hijacked domain) are NOT listed here.
+#
+# Flags (same convention as the other groups, DECISION-002):
+#   source_tier 2 + party_source False  -> independent / specialist outlet, use with attribution
+#   source_tier 3 + party_source True   -> state / ruling-party-affiliated: valid for what a
+#                                          government SAYS, never as evidence of fact or of
+#                                          public opinion; label as party source on every citation
+#   "domain_scope": "feed"              -> the feed is one country slice of a multi-country site
+#                                          (ReliefWeb); backfill_gdelt_index must not stamp every
+#                                          article of that domain with this feed's country
+#   "fetch": "requests"                 -> fetched with requests (20 s timeout) instead of
+#                                          feedparser's timeout-less fetch, so one slow African
+#                                          host cannot stall the hourly job
+# region is the article label 'Horn of Africa' (articles.country holds REGION-style labels, see
+# CLAUDE.md); `country` is the covered country's name, which lib/utils.countryCodeFromValue maps.
+# ─────────────────────────────────────────────
+HORN_REGION = "Horn of Africa"
+_HORN_FETCH = {"fetch": "requests"}
+
+HORN_OF_AFRICA = [
+    # ── Ethiopia ──
+    {"url": "https://www.ethiopia-insight.com/feed/",                  "source_name": "Ethiopia Insight",      "source_type": "think_tank", "region": HORN_REGION, "country": "Ethiopia", "lat": 9.030, "lng": 38.740,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent Ethiopia-focused analysis and commentary site; pieces are signed and carry the authors' views. Use with attribution.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://www.fanamc.com/english/feed/",                    "source_name": "Fana Media Corporation (Ethiopia)", "source_type": "state_media", "region": HORN_REGION, "country": "Ethiopia", "lat": 9.030, "lng": 38.740,
+     "source_tier": 3, "language": "en", "party_source": True, "bias_profile": "Ethiopian state-affiliated broadcaster (operator ruling 2026-10-07: party source). Use for the Ethiopian government's stated positions only; never as an independent source or for facts on the war. Label as party source on every citation.", "requires_attribution": True, **_HORN_FETCH},
+    # ── Eritrea ──
+    {"url": "https://awate.com/feed/",                                 "source_name": "Awate (Eritrea diaspora)", "source_type": "regional", "region": HORN_REGION, "country": "Eritrea", "lat": 15.323, "lng": 38.925,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "US-based Eritrean diaspora site, editorially critical of the Eritrean government (Wikipedia, Awate). Partisan against the government: not a neutral baseline; pair with official Eritrean framing, which no working feed provides (Shabait is captcha-blocked).", "requires_attribution": True, **_HORN_FETCH},
+    # ── Sudan ──
+    {"url": "https://www.dabangasudan.org/en/feed",                    "source_name": "Radio Dabanga (EN)",    "source_type": "regional",   "region": HORN_REGION, "country": "Sudan", "lat": 15.500, "lng": 32.560,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Netherlands-based Sudan-focused outlet, independent of the Sudanese government (Wikipedia, Radio Dabanga). Use with attribution.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://www.dabangasudan.org/ar/feed",                    "source_name": "Radio Dabanga (AR)",    "source_type": "regional",   "region": HORN_REGION, "country": "Sudan", "lat": 15.500, "lng": 32.560, "source_perspective": "arabic",
+     "source_tier": 2, "language": "ar", "party_source": False, "bias_profile": "Arabic edition of Radio Dabanga (see English entry).", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://sudantribune.net/feed",                           "source_name": "Sudan Tribune (AR)",    "source_type": "regional",   "region": HORN_REGION, "country": "Sudan", "lat": 15.500, "lng": 32.560, "source_perspective": "arabic",
+     "source_tier": 2, "language": "ar", "party_source": False, "bias_profile": "Arabic edition of Sudan Tribune, a Paris-based outlet run by independent journalists; MBFC notes reliance on unattributed sources, so corroborate. (The English feed is Cloudflare-blocked.)", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://www.sudanspost.com/feed/",                        "source_name": "Sudans Post (South Sudan)", "source_type": "regional", "region": HORN_REGION, "country": "South Sudan", "lat": 4.859, "lng": 31.571,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "South Sudan outlet (NOT Sudan). Items only enter when they match a Horn keyword other than 'South Sudan'.", "requires_attribution": True, **_HORN_FETCH},
+    # ── Somalia / Somaliland ──
+    {"url": "https://www.somaliguardian.com/feed/",                    "source_name": "Somali Guardian",       "source_type": "regional",   "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent Somali news site; ownership not disclosed and often critical of the federal government (MBFC). Use with attribution.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://hiiraan.com/news.xml",                            "source_name": "Hiiraan Online",        "source_type": "regional",   "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Somali news portal. Use with attribution.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://hornobserver.com/assets/rss.php?cid=1",           "source_name": "Horn Observer",         "source_type": "regional",   "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Horn of Africa news site; this is its cid=1 feed (items seen are Somalia-focused). Ownership not verified.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://sonna.so/en/rss.xml",                             "source_name": "SONNA (Somali National News Agency)", "source_type": "wire", "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318,
+     "source_tier": 3, "language": "en", "party_source": True, "bias_profile": "Somali federal government news agency. Use for the federal government's stated positions only; never as an independent source. Label as party source on every citation.", "requires_attribution": True, **_HORN_FETCH},
+    # ── Regional / international ──
+    {"url": "https://www.africanews.com/feed/rss",                     "source_name": "Africanews",            "source_type": "broadcast",  "region": "Africa", "country": None, "lat": None, "lng": None,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Pan-African news channel; whole-Africa feed, so only keyword-matching items are kept.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://www.crisisgroup.org/rss/9",                       "source_name": "Crisis Group - Horn of Africa", "source_type": "think_tank", "region": HORN_REGION, "country": None, "lat": None, "lng": None,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent conflict-prevention NGO; analysis, not breaking news. Its RSS pubDate is non-standard ('Friday, September 18, 2026 - 15:17').", "requires_attribution": False, **_HORN_FETCH},
+    {"url": "https://www.crisisgroup.org/rss/116",                     "source_name": "Crisis Group - Ethiopia", "source_type": "think_tank", "region": HORN_REGION, "country": "Ethiopia", "lat": 9.030, "lng": 38.740,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent conflict-prevention NGO (see Horn of Africa entry).", "requires_attribution": False, **_HORN_FETCH},
+    {"url": "https://www.crisisgroup.org/rss/10",                      "source_name": "Crisis Group - Eritrea", "source_type": "think_tank", "region": HORN_REGION, "country": "Eritrea", "lat": 15.323, "lng": 38.925,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent conflict-prevention NGO (see Horn of Africa entry).", "requires_attribution": False, **_HORN_FETCH},
+    {"url": "https://www.crisisgroup.org/rss/12",                      "source_name": "Crisis Group - Somalia", "source_type": "think_tank", "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent conflict-prevention NGO (see Horn of Africa entry).", "requires_attribution": False, **_HORN_FETCH},
+    {"url": "https://www.crisisgroup.org/rss/14",                      "source_name": "Crisis Group - Sudan",  "source_type": "think_tank", "region": HORN_REGION, "country": "Sudan", "lat": 15.500, "lng": 32.560,
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "Independent conflict-prevention NGO (see Horn of Africa entry).", "requires_attribution": False, **_HORN_FETCH},
+    {"url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/eth", "source_name": "ReliefWeb - Ethiopia", "source_type": "official", "region": HORN_REGION, "country": "Ethiopia", "lat": 9.030, "lng": 38.740, "source_perspective": "neutral", "domain_scope": "feed",
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "UN OCHA humanitarian reporting service; republishes UN/NGO/government documents, each with its own author. Humanitarian, not political, framing.", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/eri", "source_name": "ReliefWeb - Eritrea", "source_type": "official", "region": HORN_REGION, "country": "Eritrea", "lat": 15.323, "lng": 38.925, "source_perspective": "neutral", "domain_scope": "feed",
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "UN OCHA humanitarian reporting service (see Ethiopia entry).", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/sdn", "source_name": "ReliefWeb - Sudan", "source_type": "official", "region": HORN_REGION, "country": "Sudan", "lat": 15.500, "lng": 32.560, "source_perspective": "neutral", "domain_scope": "feed",
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "UN OCHA humanitarian reporting service (see Ethiopia entry).", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/som", "source_name": "ReliefWeb - Somalia", "source_type": "official", "region": HORN_REGION, "country": "Somalia", "lat": 2.046, "lng": 45.318, "source_perspective": "neutral", "domain_scope": "feed",
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "UN OCHA humanitarian reporting service (see Ethiopia entry).", "requires_attribution": True, **_HORN_FETCH},
+    {"url": "https://reliefweb.int/updates/rss.xml?legacy-river=country/dji", "source_name": "ReliefWeb - Djibouti", "source_type": "official", "region": HORN_REGION, "country": "Djibouti", "lat": 11.588, "lng": 43.145, "source_perspective": "neutral", "domain_scope": "feed",
+     "source_tier": 2, "language": "en", "party_source": False, "bias_profile": "UN OCHA humanitarian reporting service (see Ethiopia entry).", "requires_attribution": True, **_HORN_FETCH},
+]
+
 # ── TELEGRAM CHANNELS (scraped via t.me/s/{handle}, no RSS) ─────────
 # party_source=True = requires independent corroboration before CONFIRMED in disinformation_tracker.
 TELEGRAM_CHANNELS = [
@@ -353,8 +432,11 @@ ALL_SOURCES = (
     INTERNATIONAL + USA + IRAN + ISRAEL + SAUDI + UAE + KUWAIT_OMAN_BAHRAIN + QATAR
     + IRAQ + YEMEN + LEBANON + TURKEY + EGYPT + JORDAN + SYRIA
     + RUSSIA + CHINA + PAKISTAN + INDIA + CONFLICT_MONITORS
-    + CHINESE_RSS_SOURCES
+    + CHINESE_RSS_SOURCES + HORN_OF_AFRICA
 )
+
+# Named feed groups, for `collect_feeds.py --group NAME`.
+FEED_GROUPS = {"horn": HORN_OF_AFRICA}
 
 # Nitter RSS instances for Twitter/X feed fallover (collect_feeds.py)
 NITTER_INSTANCES = [
@@ -378,6 +460,101 @@ CONFLICT_KEYWORDS = [
     "nuclear", "enrichment", "ballistic",
     "world war", "regional war",
 ]
+
+# ── HORN OF AFRICA & RED SEA keywords (theatre added 2026-10-07) ─────────────────────────
+# Two lists, because a handful of the requested terms are ordinary words or names elsewhere:
+#   afar   "watched from afar"            fano   Italian city / surname     isaias  a given name (and a 2020 storm)
+#   rsf    Reporters Without Borders      burhan a common given name        somali  Somali diaspora crime/sport stories
+#   عصب    "nerve" (medical)              البرهان  "the proof"
+# HORN_KEYWORDS are unambiguous: they are appended to CONFLICT_KEYWORDS and admit an item on
+# their own. HORN_AMBIGUOUS_KEYWORDS are NOT in CONFLICT_KEYWORDS: they only count when the
+# geography is already established (collect_feeds: the feed is a Horn-of-Africa feed;
+# backfill_gdelt_index: GDELT tags a Horn country as a location - same rule as LOOSE_KEYWORDS).
+# Matching is whole-word everywhere new (collect_feeds.is_relevant keeps its legacy substring
+# test for the legacy keywords above only). Arabic terms accept the usual one-letter proclitics
+# (و ف ب ل ك and ال), e.g. والسودان, للسودان, بإثيوبيا.
+HORN_KEYWORDS = [
+    "ethiopia", "ethiopian", "eritrea", "eritrean", "tigray", "tigrayan", "tplf",
+    "abiy", "assab", "massawa", "djibouti", "djiboutian", "somaliland", "berbera", "somalia",
+    "al-shabaab", "al shabaab", "al-shabab", "al shabab",
+    "sudan", "sudanese", "port sudan", "rapid support forces", "rapid support force",
+    "horn of africa", "red sea access",
+    "isaias afwerki", "oromo liberation army", "tigray people's liberation front",
+    "amhara", "mekelle", "addis ababa", "khartoum", "mogadishu", "asmara",
+    # Arabic (the Arabic names of the countries and places above)
+    "إثيوبيا", "اثيوبيا", "أثيوبيا", "إريتريا", "اريتريا", "أريتريا",
+    "إثيوبي", "اثيوبي", "إريتري", "اريتري",
+    "تيغراي", "تيجراي", "الصومال", "السودان", "جيبوتي",
+    "أبي أحمد", "ابي احمد", "الدعم السريع", "عبد الفتاح البرهان",
+    "أرض الصومال", "ارض الصومال", "الخرطوم", "مقديشو", "أسمرة", "اسمرة", "بورتسودان",
+]
+HORN_AMBIGUOUS_KEYWORDS = [
+    "fano", "isaias", "afar", "rsf", "burhan", "somali",
+    "عصب", "البرهان",
+]
+CONFLICT_KEYWORDS = CONFLICT_KEYWORDS + HORN_KEYWORDS
+
+# Phrases removed from the text BEFORE the Horn keywords are tested.
+#   "South Sudan" is a different country (GDELT FIPS OD, not SU) whose stories would otherwise all
+#   match "sudan" (Sudans Post is a South Sudan outlet). "from afar" is the English idiom.
+HORN_TEXT_EXCLUSIONS = ["south sudan", "south sudanese", "southern sudan", "from afar", "جنوب السودان", "جنوب سودان"]
+
+# ── Whole-word keyword matching helpers (shared by collect_feeds and backfill_gdelt_index) ──
+_ARABIC_CHARS = re.compile("[\u0600-\u06FF]")
+# One-letter Arabic proclitics (and / so / with / to / like) with or without the article; "لل" is
+# ل + ال fused, e.g. للسودان "to Sudan".
+_AR_PROCLITICS = ("", "ال", "و", "وال", "ف", "فال", "ب", "بال", "ل", "لل", "ولل", "ك", "كال")
+# Latin endings tolerated after a keyword: iran -> iranian, houthi -> houthis, eritrea -> eritrean
+LATIN_SUFFIX = r"(?:s|es|i|is|ian|ians|n|'s|’s)?"
+# Arabic ending for the nisba / plural: سودان -> سوداني, السودانيين
+_AR_SUFFIX = "(?:ي|ين|يين|ون|ية)?"
+
+
+def keyword_regex(words) -> "re.Pattern":
+    """Compile a whole-word, case-insensitive pattern for `words`.
+
+    Latin keywords: word boundaries on both sides, an optional plural/demonym ending, spaces and
+    hyphens inside a phrase interchangeable. Arabic keywords: word boundaries plus the optional
+    proclitics above (a leading ال in the keyword is treated as the article, not part of the stem).
+    """
+    latin, arabic = [], []
+    for kw in sorted({w.strip().lower() for w in words if w and w.strip()}, key=lambda w: (-len(w), w)):
+        if _ARABIC_CHARS.search(kw):
+            stem = kw[2:] if kw.startswith("ال") and len(kw.split()[0]) > 3 else kw
+            arabic.append(r"\s+".join(re.escape(p) for p in stem.split()))
+        else:
+            latin.append(r"[\s\-]+".join(re.escape(p) for p in kw.split()))
+    parts = []
+    if latin:
+        parts.append("(?:" + "|".join(latin) + ")" + LATIN_SUFFIX)
+    if arabic:
+        parts.append("(?:" + "|".join(re.escape(p) for p in sorted(_AR_PROCLITICS, key=len, reverse=True)) + ")"
+                     + "(?:" + "|".join(arabic) + ")" + _AR_SUFFIX)
+    if not parts:
+        return re.compile(r"(?!x)x")  # matches nothing
+    return re.compile(r"(?<!\w)(?:" + "|".join(parts) + r")(?!\w)", re.I)
+
+
+def _exclusion_alt(phrase: str) -> str:
+    body = re.escape(phrase)
+    return body + (_AR_SUFFIX if _ARABIC_CHARS.search(phrase) else "")
+
+
+_HORN_EXCLUSION_RE = re.compile(
+    "|".join(r"(?<!\w)" + _exclusion_alt(x) + r"(?!\w)" for x in sorted(HORN_TEXT_EXCLUSIONS, key=len, reverse=True)),
+    re.I)
+
+
+# WordPress feeds append "The post <title> appeared first on <Site name>." to every summary, so a
+# site called "Sudans Post" would make every one of its items match "sudan".
+_FEED_BOILERPLATE_RE = re.compile(r"the post\b.*?\bappeared first on\b[^.\n]*\.?", re.I | re.S)
+
+
+def strip_horn_exclusions(text: str) -> str:
+    """Remove text that contains a Horn keyword without being about the Horn: the phrases in
+    HORN_TEXT_EXCLUSIONS ('South Sudan', 'from afar') and WordPress 'appeared first on <site>' tails."""
+    return _HORN_EXCLUSION_RE.sub(" ", _FEED_BOILERPLATE_RE.sub(" ", text or ""))
+
 
 if __name__ == "__main__":
     print(f"Total sources: {len(ALL_SOURCES)}")

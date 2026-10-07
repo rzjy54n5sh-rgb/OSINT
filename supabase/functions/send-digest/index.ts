@@ -24,6 +24,12 @@ const COUNTRY_NAMES: Record<string, string> = {
   KW: "Kuwait",
   IN: "India",
   PK: "Pakistan",
+  // Horn of Africa & Red Sea theatre (ruling 2026-10-07)
+  ET: "Ethiopia",
+  ER: "Eritrea",
+  SD: "Sudan",
+  SO: "Somalia",
+  DJ: "Djibouti",
 };
 
 const LEAD_LABELS = [

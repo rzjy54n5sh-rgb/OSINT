@@ -431,6 +431,156 @@ class ShardExitCodes(unittest.TestCase):
             self.assertNotEqual(bf.main(["--start-day", "16", "--end-day", "16"]), 0)
 
 
+def synth(domain, title, fips=None, themes="", minute=0, lang="en", slug=""):
+    """A parsed GKG record built from a real fixture row with title / outlet / location replaced."""
+    import re
+    line = EN_1200[0].split("\t")
+    line[3] = domain
+    line[4] = f"https://{domain}/a/{slug or abs(hash((domain, title))) % 10**8}"
+    line[1] = f"20260315{12:02d}{minute:02d}00"
+    line[8] = themes
+    line[9] = "".join(f"1#{c}#{c}#{c}#0#0#{c};" for c in (fips or [])).rstrip(";")
+    line[26] = re.sub(r"<PAGE_TITLE>.*?</PAGE_TITLE>", f"<PAGE_TITLE>{title}</PAGE_TITLE>", line[26])
+    line[26] = re.sub(r"<PAGE_PRECISEPUBTIMESTAMP>\d+</PAGE_PRECISEPUBTIMESTAMP>", "", line[26])
+    return bf.parse_gkg_line("\t".join(line), lang)
+
+
+class HornOfAfrica(unittest.TestCase):
+    """Horn of Africa & Red Sea theatre (ruling 2026-10-07)."""
+
+    def test_new_countries_are_regional_locations_in_gdelts_fips_codes(self):
+        # GDELT uses FIPS 10-4: Sudan is SU (not the ISO code SD); South Sudan (OD) is NOT in scope
+        self.assertEqual(bf.HORN_FIPS, {"ET", "ER", "SU", "SO", "DJ"})
+        self.assertTrue(bf.HORN_FIPS <= bf.REGIONAL_FIPS)
+        self.assertNotIn("OD", bf.REGIONAL_FIPS)
+        self.assertNotIn("SD", bf.REGIONAL_FIPS)
+        # the original theatre is untouched
+        for c in ("IR", "IS", "SA", "AE", "IZ", "LE", "YM", "EG"):
+            self.assertIn(c, bf.REGIONAL_FIPS)
+
+    def test_new_keywords_are_whole_word_hits(self):
+        for t in ("Ethiopian troops enter Tigray", "TPLF and Fano form alliance, Abiy says", "Eritrean army near Assab",
+                  "Massawa port closed", "Djibouti hosts talks", "Somaliland, Berbera and Ethiopia sea deal",
+                  "Al-Shabaab fighters killed", "Port Sudan airport hit by drones", "Rapid Support Forces advance",
+                  "Horn of Africa summit", "Abiy demands Red Sea access", "Sudanese army statement"):
+            self.assertEqual(bf.keyword_hit(t), "strong", t)
+
+    def test_arabic_keywords_with_proclitics(self):
+        for t in ("اتفاق في السودان", "وفد للسودان", "زيارة إلى إثيوبيا", "وفي إريتريا", "مقاتلو تيغراي",
+                  "ميناء عصب", "الصومال يرفض", "اجتماع في جيبوتي", "قوات الدعم السريع", "بإثيوبيا"):
+            self.assertIsNotNone(bf.keyword_hit(t), t)
+        self.assertIsNone(bf.keyword_hit("مباراة كرة القدم"))
+
+    def test_ambiguous_horn_words_are_loose(self):
+        for t in ("Fano militia ambush", "Afar region flood", "Isaias statement", "RSF drones strike El Fasher",
+                  "Burhan rejects truce", "Somali forces advance"):
+            self.assertEqual(bf.keyword_hit(t), "loose", t)
+        self.assertIsNone(bf.keyword_hit("Reporters Without Borders"))
+        self.assertIsNone(bf.keyword_hit("Fanout cache design"))
+        self.assertIsNone(bf.keyword_hit("Watched it from afar"))
+
+    def test_ambiguous_words_need_a_horn_location(self):
+        title = "RSF says drones struck El Fasher"
+        self.assertFalse(bf.in_scope(synth("example.com", "RSF annual press freedom index published", ["FR"]), REGISTRY))
+        self.assertFalse(bf.in_scope(synth("example.com", title, []), REGISTRY))
+        self.assertTrue(bf.in_scope(synth("example.com", title, ["SU"]), REGISTRY))
+        self.assertTrue(bf.in_scope(synth("example.com", "Fano fighters ambush convoy", ["ET"]), REGISTRY))
+        self.assertFalse(bf.in_scope(synth("example.com", "Fano festival opens", ["IT"]), REGISTRY))
+
+    def test_south_sudan_is_not_sudan(self):
+        self.assertIsNone(bf.keyword_hit("South Sudan elections: Kenya backs December vote"))
+        self.assertEqual(bf.keyword_hit("Sudan and South Sudan agree on oil transit"), "strong")
+        self.assertIsNone(bf.keyword_hit("جنوب السودان يعلن موعد الانتخابات"))
+        # location alone: OD (South Sudan) is out of scope, SU (Sudan) is in
+        self.assertFalse(bf.in_scope(synth("example.com", "Floods displace thousands in Bor", ["OD"], "TAX_FNCACT;MILITARY"), REGISTRY))
+        self.assertTrue(bf.in_scope(synth("example.com", "Fighting displaces thousands near El Obeid", ["SU"], "ARMEDCONFLICT"), REGISTRY))
+
+    def test_location_plus_conflict_theme_admits_a_horn_story_without_a_keyword(self):
+        self.assertTrue(bf.in_scope(synth("example.com", "Clashes erupt in the highlands, officials say", ["ET"], "ARMEDCONFLICT"), REGISTRY))
+        self.assertFalse(bf.in_scope(synth("example.com", "Coffee prices rise in the highlands, traders say", ["ET"], "ECON_COFFEE"), REGISTRY))
+
+    def test_loose_legacy_keyword_with_a_horn_location(self):
+        self.assertTrue(bf.in_scope(synth("example.com", "Ceasefire talks resume as sides trade blame", ["SU"]), REGISTRY))
+        self.assertFalse(bf.in_scope(synth("example.com", "Ceasefire talks resume as sides trade blame", ["KN"]), REGISTRY))
+
+    def test_tags_name_the_horn_countries(self):
+        rec = synth("example.com", "Border clash", ["ET", "ER", "SU", "SO", "DJ"])
+        self.assertEqual(bf.tags_for(rec), ["Djibouti", "Eritrea", "Ethiopia", "Somalia", "Sudan"])
+
+    def test_horn_tags_never_push_original_tags_out_of_the_six(self):
+        rec = synth("example.com", "UAE intercepts missiles", ["IR", "IZ", "LE", "AE", "YM", "SA", "ER", "ET", "SU"])
+        self.assertEqual(bf.tags_for(rec), ["Iran", "Iraq", "Lebanon", "Saudi Arabia", "UAE", "Yemen"])
+        rec2 = synth("example.com", "Red Sea shipping", ["IR", "AE", "YM", "ER"])
+        self.assertEqual(bf.tags_for(rec2), ["Iran", "UAE", "Yemen", "Eritrea"])
+
+    def test_outlet_origin_for_horn_tlds_and_registry(self):
+        self.assertEqual(bf.outlet_origin("example.et", REGISTRY), ("Horn of Africa", "Ethiopia"))
+        self.assertEqual(bf.outlet_origin("something.com.sd", {}), ("Horn of Africa", "Sudan"))
+        self.assertEqual(bf.outlet_origin("example.dj", REGISTRY), ("Horn of Africa", "Djibouti"))
+        self.assertEqual(bf.registered_domain("ena.gov.et"), "ena.gov.et")
+        meta = REGISTRY["hiiraan.com"]
+        self.assertEqual((meta["region"], meta["country"]), ("Horn of Africa", "Somalia"))
+
+    def test_fana_old_domain_is_an_alias_and_reliefweb_is_not_domain_labelled(self):
+        self.assertIn("fanamc.com", REGISTRY)
+        self.assertIn("fanabc.com", REGISTRY)
+        # ReliefWeb is one site for every country: its per-country feeds must not label the whole domain
+        self.assertNotIn("reliefweb.int", REGISTRY)
+
+    def test_existing_registry_domains_unchanged(self):
+        self.assertEqual(REGISTRY["jpost.com"]["country"], "Israel")
+        self.assertEqual(REGISTRY["crisisgroup.org"]["region"], "Global")  # the original ICG entry still wins
+
+    # ── per-day caps and the Horn share ──
+    def flood(self, n_horn, n_iran, cap):
+        cands = [synth(f"horn{i}.com", f"Tigray front update number {i} from Mekelle", ["ET"], minute=i % 50)
+                 for i in range(n_horn)]
+        cands += [synth(f"iran{i}.com", f"Iran strikes update number {i} in Tehran", ["IR"], minute=i % 50)
+                  for i in range(n_iran)]
+        return bf.select_for_day(cands, REGISTRY, cap=cap)
+
+    def test_horn_rows_cannot_crowd_out_the_iran_theatre(self):
+        sel = self.flood(n_horn=60, n_iran=60, cap=40)
+        self.assertEqual(len(sel), 40)
+        self.assertEqual(sum(1 for s in sel if bf.is_horn_rec(s.rec)), 10)  # ceil(0.25 * 40)
+        self.assertEqual(sum(1 for s in sel if not bf.is_horn_rec(s.rec)), 30)
+
+    def test_unused_room_goes_to_horn_so_the_cap_is_still_filled_never_exceeded(self):
+        sel = self.flood(n_horn=60, n_iran=5, cap=40)
+        self.assertEqual(len(sel), 40)
+        self.assertEqual(sum(1 for s in sel if not bf.is_horn_rec(s.rec)), 5)
+        self.assertEqual(len(self.flood(n_horn=3, n_iran=3, cap=40)), 6)
+
+    def test_quota_off_and_no_horn_rows_give_the_plain_ranking(self):
+        cands = [synth(f"horn{i}.com", f"Tigray front update number {i} from Mekelle", ["ET"], minute=i) for i in range(30)]
+        cands += [synth(f"iran{i}.com", f"Iran strikes update number {i} in Tehran", ["IR"], minute=i) for i in range(30)]
+        plain = bf.select_for_day(cands, REGISTRY, cap=20, horn_share=1.0)
+        quota = bf.select_for_day(cands, REGISTRY, cap=20)
+        self.assertGreater(sum(1 for s in plain if bf.is_horn_rec(s.rec)), 5)
+        self.assertEqual(sum(1 for s in quota if bf.is_horn_rec(s.rec)), 5)
+        only_iran = [c for c in cands if not bf.is_horn_rec(c)]
+        self.assertEqual([s.rid for s in bf.select_for_day(only_iran, REGISTRY, cap=20)],
+                         [s.rid for s in bf.select_for_day(only_iran, REGISTRY, cap=20, horn_share=1.0)])
+
+    def test_quota_is_deterministic(self):
+        a = [s.rid for s in self.flood(60, 60, 40)]
+        b = [s.rid for s in self.flood(60, 60, 40)]
+        self.assertEqual(a, b)
+
+    def test_a_title_naming_both_theatres_counts_as_iran(self):
+        rec = synth("example.com", "Iran arms Sudan army, Tehran confirms", ["IR", "SU"])
+        self.assertFalse(bf.is_horn_rec(rec))
+        self.assertTrue(bf.is_horn_rec(synth("example.com", "Tigray front update", ["ET"])))
+        self.assertTrue(bf.is_horn_rec(synth("example.com", "Clashes in the highlands", ["ET"], "ARMEDCONFLICT")))
+
+    def test_process_day_respects_caps_and_cli_validates_share(self):
+        res = bf.process_day(16, opts(en_cap=10, nonen_cap=4), fetch=make_fetch())
+        self.assertLessEqual(len(res.rows), 14)
+        with mock.patch.object(bf, "utc_today", return_value=TODAY), mock.patch("sys.stdout", new_callable=io.StringIO):
+            self.assertEqual(bf.main(["--start-day", "16", "--end-day", "16", "--horn-share", "0"]), 2)
+            self.assertEqual(bf.main(["--start-day", "16", "--end-day", "16", "--horn-share", "1.5"]), 2)
+
+
 class ShardPlan(unittest.TestCase):
     def test_plan_covers_range_once(self):
         plan = bf.shard_plan(1, 220, 8)

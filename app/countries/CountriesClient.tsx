@@ -11,6 +11,7 @@ import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
 import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
 import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NAI_V2_EMPTY_TEXT, NAI_V2_SCALE_TEXT, formatBand, type NaiV2View } from '@/lib/nai-v2';
+import { NO_SOURCED_DATA_TEXT, TRACKED_COUNTRY_CODES } from '@/lib/countries';
 
 interface CountriesClientProps {
   initialScores: NaiV2View[];
@@ -22,13 +23,15 @@ interface CountriesClientProps {
 
 export default function CountriesClient({ initialScores, naiDay, currentDay }: CountriesClientProps) {
   const scores = initialScores;
+  // Tracked countries (25) the War Posture series has no row for yet: listed, never scored.
+  const unscored = scores.length === 0 ? [] : TRACKED_COUNTRY_CODES.filter((c) => !scores.some((s) => s.country_code === c));
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
         title="COUNTRY INTELLIGENCE REPORTS"
         description="Per-country analysis covering NAI War Posture scores, elite network mapping, key risk factors, and stabilizing forces. Reports are generated daily by automated analysis of the preceding 24 hours of collected intelligence. Click any country to view its full report."
-        note="Reports reflect open-source data only. Countries with thin source coverage (Turkey, Russia, Pakistan) should be read with greater uncertainty than those with stronger coverage (Iran, Israel, Egypt, UAE)."
+        note="Reports reflect open-source data only. Countries with thin source coverage (Turkey, Russia, Pakistan) should be read with greater uncertainty than those with stronger coverage (Iran, Israel, Egypt, UAE). The five Horn of Africa & Red Sea countries (Ethiopia, Eritrea, Sudan, Somalia, Djibouti; added 2026-10-07) show 'No sourced data' until the daily build has scored them."
       />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         COUNTRY INTELLIGENCE
@@ -81,6 +84,16 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
                 </div>
               </OsintCard>
             </motion.div>
+          ))}
+          {unscored.map((code) => (
+            <OsintCard key={`nodata-${code}`} className="block hover:border-border-bright">
+              <Link href={`/countries/${code.toLowerCase()}`} className="block" data-testid={`country-nodata-${code}`}>
+                <CountryFlag code={code} />
+                <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+                  {NO_SOURCED_DATA_TEXT}
+                </p>
+              </Link>
+            </OsintCard>
           ))}
         </div>
       )}

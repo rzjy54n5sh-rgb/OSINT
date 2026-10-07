@@ -31,6 +31,8 @@ export const NAI_V2_COLOR: Record<NaiCategoryV2, string> = {
 };
 /** Marker colour when the viewer's tier cannot see the category (distinct from UNSCORABLE grey). */
 export const NAI_V2_LOCKED_COLOR = '#1A2233';
+/** Marker colour for a tracked country with no nai_scores_v2 row for the day (distinct from both). */
+export const NAI_V2_NODATA_COLOR = '#2E3A4E';
 
 export const NAI_V2_SCALE_TEXT =
   '0 = demands immediate ceasefire · 50 = conditional or ambivalent · 100 = backs continuing or escalating military action (by any party)';
