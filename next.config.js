@@ -13,10 +13,6 @@ const CSP_HEADER =
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // ISR pages answer with `s-maxage=<revalidate>, stale-while-revalidate=<expireTime - revalidate>`.
-  // Next's default expireTime is 1 year; 1 day bounds how stale an idle page can be served once
-  // by the edge cache before it is re-rendered. (Caching key only; no header config here.)
-  expireTime: 86400,
   outputFileTracingRoot: path.join(__dirname, './'),
   // Inline at build so client bundle has Supabase URL/key (CI: set via .env.production or workflow env)
   env: {
@@ -46,6 +42,10 @@ const nextConfig = {
       { protocol: 'https', hostname: 't2.gstatic.com' },
     ],
   },
+  // ISR pages answer with `s-maxage=<revalidate>, stale-while-revalidate=<expireTime - revalidate>`.
+  // Next's default expireTime is 1 year; 1 day bounds how stale an idle page can be served once
+  // by the edge cache before it is re-rendered. (Caching key only; no header config here.)
+  expireTime: 86400,
 };
 
 module.exports = nextConfig;
