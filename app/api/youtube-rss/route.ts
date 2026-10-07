@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAllowedYouTubeChannelId } from '@/lib/youtube-channels';
 
 /**
  * Server-side proxy for YouTube channel RSS (avoids CORS and unreliable third-party proxies).
  * GET /api/youtube-rss?channelId=UCNye-wNBqNL5ZzHSJj3l8Bg
+ * Only channel ids in lib/youtube-channels.ts are accepted.
  */
 export async function GET(request: NextRequest) {
   const channelId = request.nextUrl.searchParams.get('channelId');
   if (!channelId) {
     return NextResponse.json({ error: 'channelId required' }, { status: 400 });
   }
-  const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+  if (!isAllowedYouTubeChannelId(channelId)) {
+    return NextResponse.json({ error: 'channelId not allowed' }, { status: 400 });
+  }
+  const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
   try {
     const res = await fetch(rssUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; OSINT/1)' },

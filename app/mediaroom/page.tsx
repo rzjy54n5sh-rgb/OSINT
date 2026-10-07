@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/client';
 import { PageBriefing } from '@/components/PageBriefing';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { countryQueryValues } from '@/lib/utils';
+import { YOUTUBE_CHANNELS as YT } from '@/lib/youtube-channels';
 
 // ── Constants ──
 
@@ -67,24 +68,18 @@ const COUNTRY_PHOTO_TAGS: Record<string, string> = {
 };
 
 const LIVE_CHANNELS = [
-  { id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
-  { id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
-  { id: 'UC16niRr50-MSBwiO3YDb3RA', name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
-  { id: 'UCgzRCbi9cEmWeeuquHqtpCw', name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
-  { id: 'UCoMdktPbSTixAyNGwb-UYkQ', name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
-  { id: 'UCknLrEdhRCp1aegoMqRaCZg', name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
-  { id: 'UC7fWeaHhqgM4Ry-RMpM2YYw', name: 'TRT World', flag: '🇹🇷', bias: 'Turkish', color: '#E05252' },
-  { id: 'UCzMJf7Q6c0l_jy4bB7n2xTw', name: 'i24 News', flag: '🇮🇱', bias: 'Israeli', color: '#4EC98A' },
+  { id: YT.ALJAZEERA_EN.id, name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
+  { id: YT.FRANCE24_EN.id, name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
+  { id: YT.BBC_NEWS.id, name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
+  { id: YT.CNN.id, name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
+  { id: YT.SKY_NEWS.id, name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
+  { id: YT.DW_NEWS.id, name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
+  { id: YT.TRT_WORLD.id, name: 'TRT World', flag: '🇹🇷', bias: 'Turkish', color: '#E05252' },
+  { id: YT.I24NEWS_EN.id, name: 'i24 News', flag: '🇮🇱', bias: 'Israeli', color: '#4EC98A' },
 ];
 
-const CLIP_CHANNEL_IDS = [
-  'UCNye-wNBqNL5ZzHSJj3l8Bg',
-  'UCQfwfsi5VrQ8yKZ-UWmAEFg',
-  'UC16niRr50-MSBwiO3YDb3RA',
-  'UCupvZG-5ko_eiXAupbDfxWw',
-  'UC7fWeaHhqgM4Ry-RMpM2YYw',
-  'UCzMJf7Q6c0l_jy4bB7n2xTw',
-];
+const CLIP_CHANNELS = [YT.ALJAZEERA_EN, YT.FRANCE24_EN, YT.BBC_NEWS, YT.CNN, YT.TRT_WORLD, YT.I24NEWS_EN];
+const CLIP_CHANNEL_IDS = CLIP_CHANNELS.map((c) => c.id);
 
 /** [STATIC CONFIG — editorial assessment, update manually as needed] */
 const ACCENT_GOLD = 'var(--accent-gold)';
@@ -216,14 +211,7 @@ async function fetchFlickrPhotos(tags: string): Promise<Photo[]> {
 
 async function fetchYouTubeClips(): Promise<Clip[]> {
   const all: Clip[] = [];
-  const channelNames: Record<string, string> = {
-    'UCNye-wNBqNL5ZzHSJj3l8Bg': 'Al Jazeera English',
-    'UCQfwfsi5VrQ8yKZ-UWmAEFg': 'France 24',
-    'UC16niRr50-MSBwiO3YDb3RA': 'BBC News',
-    'UCupvZG-5ko_eiXAupbDfxWw': 'CNN',
-    'UC7fWeaHhqgM4Ry-RMpM2YYw': 'TRT World',
-    'UCzMJf7Q6c0l_jy4bB7n2xTw': 'i24 News',
-  };
+  const channelNames: Record<string, string> = Object.fromEntries(CLIP_CHANNELS.map((c) => [c.id, c.name]));
   for (const channelId of CLIP_CHANNEL_IDS) {
     try {
       const res = await fetch(`/api/youtube-rss?channelId=${encodeURIComponent(channelId)}`);

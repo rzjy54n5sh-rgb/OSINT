@@ -218,7 +218,9 @@ export function NaiMapClient({
       </div>
       <div className="flex flex-col sm:flex-row" style={{ minHeight: 'calc(100vh - 44px)' }}>
         <div className="w-full flex-1 relative" style={{ minHeight: '40vh' }}>
-          <div className="absolute inset-0" ref={mapContainer} />
+          {/* Inline position: maplibre-gl.css sets `.maplibregl-map { position: relative }`, which overrides the
+              Tailwind `absolute` class and collapses the map to 0px height (map rendered but invisible). */}
+          <div className="absolute inset-0" style={{ position: 'absolute' }} ref={mapContainer} />
           <div
             className="absolute left-2 bottom-2 z-10 font-mono text-[10px] p-2 rounded-sm flex flex-col gap-0.5"
             style={{ background: 'rgba(7,10,15,0.85)', color: 'var(--text-secondary)' }}

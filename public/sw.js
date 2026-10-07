@@ -1,5 +1,5 @@
 /** Bump when fetch strategy changes so old cache-first JS bundles are dropped (fixes stale Supabase client / zero articles). */
-const CACHE_NAME = 'mena-intel-v6';
+const CACHE_NAME = 'mena-intel-v7';
 
 // Assets to cache immediately on install
 const PRECACHE = [
@@ -43,6 +43,15 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Cross-origin requests (map tiles, YouTube, Stripe, Supabase, analytics) and
+  // non-GET requests go straight to the browser: the page CSP then governs them.
+  // Proxying them here made them subject to this worker's own CSP instead
+  // (v6 was served with the old public/_headers CSP, which did not allow
+  // demotiles.maplibre.org) and tried to cache.put() POSTs.
+  if (url.origin !== self.location.origin || request.method !== 'GET') {
+    return;
+  }
 
   // Always go network for Supabase, API routes, and external resources
   if (
