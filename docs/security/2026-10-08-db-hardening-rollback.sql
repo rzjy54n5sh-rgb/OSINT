@@ -3,6 +3,9 @@
 -- NOT reverted (harmless, intentionally kept): CHECK constraints that were already present NOT VALID on live
 -- and got VALIDATED (subscribers_len_chk, contact_inquiries_len_chk, disputes_len_chk); the pre-existing
 -- subscribers_email_lower_key index.
+-- Carries its own BEGIN/COMMIT so it cannot half-apply under autocommit:
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f docs/security/2026-10-08-db-hardening-rollback.sql
+BEGIN;
 SET LOCAL lock_timeout = '10s';
 
 -- 1. RPCs / helpers
@@ -53,3 +56,7 @@ GRANT SELECT,UPDATE,USAGE ON public.report_type_events_id_seq,public.scenario_li
 -- 6. Default privileges back to Supabase's
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';  -- delivered at COMMIT
+
+COMMIT;

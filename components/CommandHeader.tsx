@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { useDataFreshness } from '@/hooks/useDataFreshness';
+import { resolveViewerProfile } from '@/hooks/useViewerTier';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { GLOSSARY } from '@/lib/glossary';
 import { GlobeMenu } from '@/components/GlobeMenu';
@@ -81,18 +82,17 @@ export function CommandHeader() {
         setIsAdmin(false);
         return;
       }
-      const [tierRes, adminRes] = await Promise.all([
-        supabase.from('users').select('tier').eq('id', session.user.id).maybeSingle(),
-        supabase.from('admin_users').select('id').eq('user_id', session.user.id).eq('is_active', true).maybeSingle(),
-      ]);
-      setUserTier((tierRes.data?.tier as UserTier) ?? null);
-      setIsAdmin(!!adminRes.data);
+      // Shared with useViewerTier: one users + admin_users lookup per page, not one per consumer.
+      const { profileTier, isAdmin: admin } = await resolveViewerProfile(supabase, session.user.id);
+      setUserTier(profileTier);
+      setIsAdmin(admin);
     };
     load();
     // Never await Supabase calls inside onAuthStateChange: auth-js runs the callback while holding
     // its auth lock, and load() -> getSession() waits for that same lock (deadlock: with a stored
     // session every later Supabase call on the page hung). Defer to the next tick instead.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'INITIAL_SESSION') return; // the eager load() above already covers it
       setTimeout(() => void load(), 0);
     });
     return () => subscription.unsubscribe();

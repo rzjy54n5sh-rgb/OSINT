@@ -21,8 +21,16 @@
 -- service_role and postgres are not touched by any statement below (verified by tests/).
 -- The app code changes this requires are listed in README.md §3 and MUST ship together with (or
 -- before) this migration — otherwise /nai, /countries, /, /warroom, /analytics lose War Posture data.
--- Idempotent: safe to re-run. Rollback: README.md §6.
+-- Idempotent: safe to re-run. Rollback: docs/security/2026-10-08-db-hardening-rollback.sql.
+--
+-- ONE TRANSACTION: the file carries its own BEGIN/COMMIT, so plain `psql -f` or an autocommit driver
+-- cannot half-apply it (a failure after the §3 REVOKE but before the RPCs exist would blank War
+-- Posture: the app gets 42501, not PGRST202, and does not fall back). Recommended:
+--   psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261008090000_security_hardening.sql
+-- (Under `psql --single-transaction` / a wrapping tool the inner BEGIN only raises a WARNING.)
 -- =====================================================================================================
+
+BEGIN;
 
 SET LOCAL lock_timeout = '10s';
 
@@ -108,7 +116,8 @@ GRANT SELECT (id, country_code, country_name, nai_score, nai_category, conflict_
 
 -- Viewer tier, exactly as utils/supabase/server.ts getUser() + lib/tier.ts tierHasFeature() compute it:
 -- no session -> free; active admin_users row -> professional; else users.tier (missing profile -> free).
--- A request made with the service_role key is treated as professional.
+-- A request made with the service_role key is treated as professional. Any JWT whose role claim is not
+-- 'authenticated' is free. viewer_has_feature fails closed: an unknown / NULL tier gets nothing.
 -- Internal helpers: SECURITY INVOKER, not executable by the API roles (only the definer RPCs call them).
 CREATE OR REPLACE FUNCTION public.viewer_tier()
 RETURNS public.user_tier
@@ -117,6 +126,9 @@ SET search_path = ''
 AS $fn$
   SELECT CASE
     WHEN auth.role() = 'service_role' THEN 'professional'::public.user_tier
+    -- only an 'authenticated' JWT may carry a paid tier: a signed token with a sub but no / another
+    -- role claim runs as anon in PostgREST and must get the anonymous (free) view.
+    WHEN auth.role() IS DISTINCT FROM 'authenticated' THEN 'free'::public.user_tier
     WHEN auth.uid() IS NULL THEN 'free'::public.user_tier
     WHEN NOT EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid()) THEN 'free'::public.user_tier
     WHEN EXISTS (SELECT 1 FROM public.admin_users a WHERE a.user_id = auth.uid() AND a.is_active) THEN 'professional'::public.user_tier
@@ -133,7 +145,8 @@ AS $fn$
     SELECT CASE public.viewer_tier()
              WHEN 'free'::public.user_tier     THEN f.free_access
              WHEN 'informed'::public.user_tier THEN f.informed_access
-             ELSE f.pro_access
+             WHEN 'professional'::public.user_tier THEN f.pro_access
+             ELSE false  -- unknown / NULL tier: fail closed
            END
       FROM public.tier_features f
      WHERE f.feature_key = p_feature), false)
@@ -372,4 +385,7 @@ BEGIN
 END $post$;
 
 -- PostgREST: pick up the new RPCs immediately (Supabase also reloads on DDL via its event trigger).
+-- NOTIFY is delivered when the transaction commits.
 NOTIFY pgrst, 'reload schema';
+
+COMMIT;

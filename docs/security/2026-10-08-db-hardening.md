@@ -11,7 +11,7 @@
 |---|---|---|
 | 1 | `anon` and `authenticated` lose INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER and MAINTAIN on every public table and view, and every sequence privilege (UPDATE on the identity sequences allowed `setval`). | Audit 2026-10-07 P1 #1 |
 | 2 | Sensitive tables (`payments`, `admin_audit_log`, `pipeline_runs`, `social_analysis`, `strategic_assessments`, `user_events`, `user_notes`, `intel_alerts`, `report_type_events`, two internal views) get no grant at all. `users`, `admin_users`, `api_keys` and `subscriptions` keep only what the app reads (own row through RLS; `api_keys.key_hash` hidden). | P1 #1 |
-| 3 | **Paid columns.** `nai_scores_v2` (`latent_low`, `latent_high`, `latent_basis`, `gap`, `gap_size`, `category`, `sources`) and `country_reports.content_json` are no longer readable by the API roles. They are served by two `SECURITY DEFINER` RPCs that recompute the caller's tier in SQL: `viewer_nai_v2(p_day, p_country, p_limit, p_ascending, p_method)` and `viewer_country_report(p_code)`. No JWT = free tier. | verify_phase2 F5: one `curl` with the public key returned every paid War Posture value |
+| 3 | **Paid columns.** `nai_scores_v2` (`latent_low`, `latent_high`, `latent_basis`, `gap`, `gap_size`, `category`, `sources`) and `country_reports.content_json` are no longer readable by the API roles. They are served by two `SECURITY DEFINER` RPCs that recompute the caller's tier in SQL: `viewer_nai_v2(p_day, p_country, p_limit, p_ascending, p_method)` and `viewer_country_report(p_code)`. No JWT = free tier; a JWT whose `role` claim is not `authenticated` = free tier (even with a `sub`); an unknown / NULL tier gets no paid feature (fails closed). | verify_phase2 F5: one `curl` with the public key returned every paid War Posture value |
 | 4 | `report_documents`: only the 8 catalog columns `v_briefing_catalog` needs (no `storage_path`, `sha256`, …). | P2 #8 |
 | 5 | `get_admin_role(uuid)` / `admin_has_permission(...)` are no longer executable by signed-in users (a free user could ask "what role does uuid X have"). The three RLS policies that used them are rewritten or dropped. | P2 #9, advisor 0029 |
 | 6 | `subscribers`, `contact_inquiries`, `disputes`: column-limited INSERT, shape CHECKs, `unique(lower(email))`; INSERT policies cover `anon` and `authenticated` (signed-in visitors' forms were rejected before). | P2 #10 |
@@ -43,13 +43,18 @@ Every read that touched a paid column calls the RPC first and falls back to the 
 | `utils/supabase/server.ts`, `utils/supabase/middleware.ts`, `app/(platform)/account/page.tsx` | Explicit column lists instead of `select('*')` on `users` / `subscriptions` (`lib/user-profile.ts`), so a follow-up migration can hide admin-only columns of a user's own row. |
 | `AccountClient.tsx` | Removed the "Daily conflict digest" toggle: it wrote `users.email_digest`, which does not exist live (migration `010_email_digest` never applied), so it always failed. |
 | `components/CommandHeader.tsx`, `hooks/useViewerTier.ts` | `onAuthStateChange` work deferred with `setTimeout`. auth-js runs the callback while holding its auth lock and the callback awaited `getSession()` → deadlock: with a stored session **every** browser Supabase call on the page hung, so signed-in visitors never unlocked anything client-side. Reproduced on the live site before this change (session cookie present → 0 Supabase requests, lock held forever). |
+| `components/ReactionBar.tsx`, `components/disinfo/DisinfoDisputeForm.tsx`, `lib/dispute-url.ts` | The new `disputes_content_chk` requires `https?://` URLs. Both dispute forms now add `https://` when no scheme was typed, reject other schemes / malformed links client-side with a message, send `article_url` only when it passes the CHECK (else NULL), and show the insert error instead of a false "submitted". |
+| `lib/tier.ts` | `tierHasFeature` fails closed: only `professional` gets `pro_access`; anonymous / unknown tier values get the free tier. Mirrors `viewer_has_feature` (`ELSE false`). |
+| `hooks/useViewerTier.ts`, `components/CommandHeader.tsx` | One shared `users` + `admin_users` lookup per page (`resolveViewerProfile`), and the duplicate `INITIAL_SESSION` reload is skipped: signed-in /warroom made 12 tier requests, now 2. |
 | `supabase/functions/stripe-webhook` | Returns **503** (and logs) instead of 200 when `STRIPE_WEBHOOK_SECRET` / `STRIPE_SECRET_KEY` is unset, so Stripe retries instead of dropping the event. Signature check unchanged. Not deployed by merging. |
 
 ## Deploy order
 
 1. **Merge and deploy the app PR** (Deploy workflow on push to `main`). With the RPCs absent every read takes the table fallback, so the site renders exactly as before — except `/warroom`, which now locks paid fields for non-entitled visitors (ruling 2026-10-07).
 2. **Deploy the `stripe-webhook` Edge Function** (`supabase functions deploy stripe-webhook`) when convenient; independent of the migration.
-3. **Apply the migration** as `postgres` in one transaction (Supabase SQL editor or the operator's direct connection; see CLAUDE.md "Supabase MCP destructive-statement confirmation" gotcha). It prints a NOTICE for any CHECK left `NOT VALID`; live had 0 violating rows on 2026-10-07.
+3. **Apply the migration** as `postgres`. The file carries its own `BEGIN; … COMMIT;`, so it is all-or-nothing even under autocommit:
+   `psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261008090000_security_hardening.sql`
+   (SQL editor: paste the whole file as one batch. Under `--single-transaction` or a tool that wraps its own transaction, the inner `BEGIN` only raises a WARNING.) See CLAUDE.md "Supabase MCP destructive-statement confirmation" gotcha for the operator's direct connection. It prints a NOTICE for any CHECK left `NOT VALID`; live had 0 violating rows on 2026-10-07.
 4. **Purge / wait out the ISR cache** (pages revalidate within 15 min; nothing breaks in between because the old HTML already held only free values).
 5. **Verify** with the publishable key (no JWT):
    - `GET /rest/v1/nai_scores_v2?select=latent_low,gap,category&limit=1` → `401/42501`
@@ -61,7 +66,7 @@ Every read that touched a paid column calls the RPC first and falls back to the 
 
 ## Rollback
 
-Run `docs/security/2026-10-08-db-hardening-rollback.sql` as `postgres` in one transaction. On the replica it restored the exact pre-migration ACL fingerprint and test results. Kept on purpose: CHECKs that were already present (`NOT VALID`) and got validated, and the pre-existing `subscribers_email_lower_key` index. Rolling back the database alone is safe once this app PR is deployed: the RPCs disappear and the app falls back to the table reads automatically.
+Run `docs/security/2026-10-08-db-hardening-rollback.sql` as `postgres` (`psql "$DB_URL" -v ON_ERROR_STOP=1 -f …`; it carries its own `BEGIN; … COMMIT;`). On the replica it restored the exact pre-migration ACL fingerprint and test results. Kept on purpose: CHECKs that were already present (`NOT VALID`) and got validated, and the pre-existing `subscribers_email_lower_key` index. Rolling back the database alone is safe once this app PR is deployed: the RPCs disappear and the app falls back to the table reads automatically.
 
 The rollback restores a privilege **snapshot of 2026-10-07**; tables created after that date need their grants re-checked.
 
