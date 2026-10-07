@@ -14,6 +14,7 @@ import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
 import { parseNarrative } from '@/lib/country-narrative';
 import { getNaiV2CountryLatest } from '@/lib/nai-v2';
+import { getViewerCountryReport, narrativeUnlocked } from '@/lib/country-report';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,22 +44,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
     gap: tierHasFeature(user?.tier, 'nai_gap_analysis', flags),
   };
 
+  // viewer_country_report re-derives the tier from the session JWT in SQL; the narrative is shown
+  // only when that AND the app's own tier check agree. Pre-migration: old table read (content_json
+  // selected only when hasAccess).
   const [reportRes, posture] = await Promise.all([
-    hasAccess
-      ? supabase
-          .from('country_reports')
-          .select('content_json')
-          .eq('country_code', code)
-          .order('conflict_day', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
+    hasAccess ? getViewerCountryReport(supabase, code, { withContent: true }) : Promise.resolve({ data: null }),
     getNaiV2CountryLatest(supabase, code, postureAccess),
   ]);
-  const report = reportRes.data as { content_json: unknown } | null;
-  const narrative = hasAccess && report ? parseNarrative(report.content_json) : null;
+  const report = reportRes.data;
+  const narrative = narrativeUnlocked(hasAccess, report) ? parseNarrative(report!.content_json) : null;
+  // If the database (RPC) refuses the narrative, report it as locked rather than as an empty unlock.
+  const effectiveAccess = hasAccess && report?.has_access !== false;
   return NextResponse.json(
-    { hasAccess, narrative, posture, postureAccess },
+    { hasAccess: effectiveAccess, narrative, posture, postureAccess },
     { headers: PRIVATE },
   );
 }

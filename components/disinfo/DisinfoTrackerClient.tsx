@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
@@ -31,7 +32,10 @@ type ClaimRow = {
   /** Alias for spread_estimate from server map */
   spread?: string | number | null;
   spread_estimate?: string | number | null;
+  published_at?: string | null;
   created_at?: string;
+  /** scope_status = 'unreviewed' (shown only when the visitor opts in). */
+  unreviewed?: boolean;
 };
 
 type DisinfoTrackerClientProps = {
@@ -39,6 +43,8 @@ type DisinfoTrackerClientProps = {
   hasFullAccess: boolean;
   total: number;
   showing: number;
+  /** true when the list also includes claims whose scope has not been reviewed yet. */
+  includeUnreviewed?: boolean;
   conflictDayBadge?: ReactNode;
 };
 
@@ -47,6 +53,7 @@ export function DisinfoTrackerClient({
   hasFullAccess,
   total,
   showing,
+  includeUnreviewed = false,
   conflictDayBadge,
 }: DisinfoTrackerClientProps) {
   /** Badge styles: DEBUNKED / CONTESTED / CONFIRMED / UNVERIFIED (+ legacy DB verdicts). */
@@ -80,6 +87,23 @@ export function DisinfoTrackerClient({
           </span>
         )}
       </p>
+      <div className="flex flex-wrap items-center gap-3 mb-6 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+        <span>
+          {includeUnreviewed
+            ? 'Showing in-scope and not-yet-reviewed claims.'
+            : 'Showing claims reviewed as in scope for the tracked conflicts.'}
+        </span>
+        <Link
+          prefetch={false}
+          href={includeUnreviewed ? '/disinfo' : '/disinfo?scope=all'}
+          className="px-2 py-0.5 border rounded-sm"
+          style={{ color: 'var(--accent-gold)', borderColor: 'var(--border)' }}
+          aria-pressed={includeUnreviewed}
+          data-testid="disinfo-scope-toggle"
+        >
+          {includeUnreviewed ? 'Hide unreviewed' : 'Include unreviewed'}
+        </Link>
+      </div>
       {claims.length === 0 && (
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
       )}
@@ -110,6 +134,16 @@ export function DisinfoTrackerClient({
                       {c.verdict ?? c.status ?? 'UNVERIFIED'}
                     </span>
                   </GlossaryTooltip>
+                  {c.unreviewed && (
+                    <span
+                      className="font-mono text-xs px-2 py-0.5 border rounded-sm"
+                      style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}
+                      title="Scope not reviewed yet: this claim may fall outside the tracked theatres"
+                      translate="no"
+                    >
+                      SCOPE UNREVIEWED
+                    </span>
+                  )}
                   {(c.spread ?? c.spread_estimate) != null && (
                     <span
                       className="font-mono text-xs px-2 py-0.5 border rounded-sm"

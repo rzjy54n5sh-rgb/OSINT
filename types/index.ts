@@ -20,8 +20,7 @@ export interface User {
   preferred_currency: 'usd' | 'aed' | 'egp';
   auth_provider: string;
   is_suspended: boolean;
-  /** Daily conflict digest (07:00 UTC); default true when column present */
-  email_digest?: boolean;
+  timezone?: string | null;
   last_seen_at?: string;
   created_at: string;
   updated_at: string;

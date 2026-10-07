@@ -8,6 +8,7 @@ import type { NextRequest } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import type { User as AppUser } from '@/types';
 import { applySecurityHeaders } from '@/lib/security-headers';
+import { USER_PROFILE_COLUMNS } from '@/lib/user-profile';
 
 export async function updateSession(request: NextRequest): Promise<{
   supabaseResponse: NextResponse;
@@ -51,7 +52,7 @@ export async function updateSession(request: NextRequest): Promise<{
 
   const { data: profile } = await supabase
     .from('users')
-    .select('*')
+    .select(USER_PROFILE_COLUMNS)
     .eq('id', authUser.id)
     .maybeSingle();
   const user = profile ? (profile as unknown as AppUser) : null;

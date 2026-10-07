@@ -48,7 +48,11 @@ export function useViewerTier(): UserTier | null | undefined {
     void load();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => void load());
+    } = supabase.auth.onAuthStateChange(() => {
+      // Deferred: auth-js invokes this callback while holding its auth lock, and load() calls
+      // getSession(), which waits for that lock (deadlock with a stored session).
+      setTimeout(() => void load(), 0);
+    });
     return () => {
       cancelled = true;
       subscription.unsubscribe();

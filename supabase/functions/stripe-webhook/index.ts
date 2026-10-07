@@ -75,7 +75,12 @@ Deno.serve(async (req: Request) => {
   const body = await req.text();
   const sig = req.headers.get("stripe-signature") || "";
   if (!webhookSecret || !stripe) {
-    return jsonResponse({ received: true });
+    // Never acknowledge (200) an event that was not verified or processed: Stripe would mark it
+    // delivered and never retry it. 503 makes Stripe retry once the secrets are configured.
+    console.error(
+      `[stripe-webhook] not configured — refusing event (STRIPE_WEBHOOK_SECRET ${webhookSecret ? "set" : "MISSING"}, STRIPE_SECRET_KEY ${stripe ? "set" : "MISSING"})`,
+    );
+    return jsonResponse({ error: "Webhook not configured" }, 503, origin);
   }
 
   let event: Stripe.Event;

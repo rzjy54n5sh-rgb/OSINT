@@ -34,6 +34,7 @@ function createMockClient(): SupabaseClient {
   const noopSub = { unsubscribe: () => {} };
   return {
     from: () => chain,
+    rpc: () => chain,
     auth: {
       getSession: () => Promise.resolve({ data: { session: null }, error: null }),
       onAuthStateChange: () => ({ data: { subscription: noopSub } }),

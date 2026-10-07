@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
-import { NAI_V2_METHOD, NAI_V2_TABLE } from '@/lib/nai-v2';
+import { NAI_V2_METHOD, NAI_V2_RPC, NAI_V2_TABLE } from '@/lib/nai-v2';
+import { rpcWithFallback } from '@/lib/supabase/rpc-fallback';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
 import AnalyticsClient, { type PostureRow, type ScenarioDayRow } from './AnalyticsClient';
 
@@ -23,12 +24,21 @@ export default async function AnalyticsPage() {
     supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
     // War Posture only (nai_scores_v2, current method). Legacy nai_scores (Days 1-35) is a retired,
     // non-comparable axis and is never plotted here.
-    supabase
-      .from(NAI_V2_TABLE)
-      .select('country_code, conflict_day, expressed_score, latent_low, latent_high, gap')
-      .eq('method_version', NAI_V2_METHOD)
-      .order('conflict_day', { ascending: true })
-      .limit(1000),
+    // viewer_nai_v2 redacts latent/gap for the session's tier in SQL (the direct column read is
+    // denied after migration 20261008090000); the old table read runs only while the RPC is missing.
+    rpcWithFallback<Record<string, unknown>[]>(
+      () =>
+        supabase
+          .rpc(NAI_V2_RPC, { p_ascending: true, p_limit: 1000, p_method: NAI_V2_METHOD })
+          .select('country_code, conflict_day, expressed_score, latent_low, latent_high, gap'),
+      () =>
+        supabase
+          .from(NAI_V2_TABLE)
+          .select('country_code, conflict_day, expressed_score, latent_low, latent_high, gap')
+          .eq('method_version', NAI_V2_METHOD)
+          .order('conflict_day', { ascending: true })
+          .limit(1000),
+    ),
     getScenarioRegistryView(supabase),
   ]);
   const flags = buildTierFlags(tierRows ?? []);

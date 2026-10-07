@@ -29,8 +29,6 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
   const [portalLoading, setPortalLoading] = useState(false);
   const [newKeyModal, setNewKeyModal] = useState<{ key: string; keyId: string; keyPrefix: string } | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
-  const [emailDigest, setEmailDigest] = useState(user.email_digest !== false);
-  const [digestSaving, setDigestSaving] = useState(false);
 
   const supabase = createClient();
   const activeKeys = apiKeys.filter((k) => !k.is_revoked);
@@ -90,21 +88,6 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push('/');
-    router.refresh();
-  };
-
-  const handleEmailDigestChange = async (enabled: boolean) => {
-    setEmailDigest(enabled);
-    setDigestSaving(true);
-    const { error } = await supabase
-      .from('users')
-      .update({ email_digest: enabled, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
-    setDigestSaving(false);
-    if (error) {
-      setEmailDigest(!enabled);
-      return;
-    }
     router.refresh();
   };
 
@@ -242,33 +225,9 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
         </div>
       </OsintCard>
 
-      <OsintCard>
-        <h2 className="font-mono text-xs uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
-          Notifications
-        </h2>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>
-              Daily conflict digest
-            </p>
-            <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Receive a daily briefing at 07:00 UTC with scenario updates
-            </p>
-          </div>
-          <label className="inline-flex items-center gap-3 cursor-pointer shrink-0 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-[var(--accent-gold)]"
-              checked={emailDigest}
-              disabled={digestSaving}
-              onChange={(e) => handleEmailDigestChange(e.target.checked)}
-              aria-label="Daily conflict digest"
-            />
-            <span>{digestSaving ? 'Saving…' : emailDigest ? 'Enabled' : 'Disabled'}</span>
-          </label>
-        </div>
-      </OsintCard>
-
+      {/* The "Daily conflict digest" toggle was removed (2026-10-08): it wrote users.email_digest,
+          a column that does not exist live (migration 010_email_digest was never applied), so every
+          toggle failed and was silently reverted. Restore it with that column + a users UPDATE grant. */}
       {user.tier === 'professional' && (
         <OsintCard>
           <h2 className="font-mono text-xs uppercase mb-4" style={{ color: 'var(--text-muted)' }}>

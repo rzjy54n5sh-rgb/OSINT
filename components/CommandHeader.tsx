@@ -89,7 +89,12 @@ export function CommandHeader() {
       setIsAdmin(!!adminRes.data);
     };
     load();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(load);
+    // Never await Supabase calls inside onAuthStateChange: auth-js runs the callback while holding
+    // its auth lock, and load() -> getSession() waits for that same lock (deadlock: with a stored
+    // session every later Supabase call on the page hung). Defer to the next tick instead.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      setTimeout(() => void load(), 0);
+    });
     return () => subscription.unsubscribe();
   }, []);
 

@@ -26,10 +26,24 @@ type DisinfoClaimDbRow = {
   source_url: string | null;
   debunk_url: string | null;
   spread_estimate: string | null;
+  published_at: string | null;
   created_at: string;
+  scope_status: string;
 };
 
-export default async function DisinfoPage() {
+/**
+ * disinfo_claims.scope_status (applied live 2026-10-07): 'in_scope' | 'out_of_scope' | 'unreviewed'.
+ * Default view = in_scope only; `?scope=all` also includes unreviewed claims (labelled as such).
+ * out_of_scope is never shown.
+ */
+export default async function DisinfoPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string | string[] }>;
+}) {
+  const sp = await searchParams;
+  const includeUnreviewed = (Array.isArray(sp.scope) ? sp.scope[0] : sp.scope) === 'all';
+  const scopes = includeUnreviewed ? ['in_scope', 'unreviewed'] : ['in_scope'];
   const [user, supabase] = await Promise.all([getUser(), createClient()]);
 
   const { data: tierRows } = await supabase
@@ -42,7 +56,11 @@ export default async function DisinfoPage() {
   const { data, count } = await supabase
     .from('disinfo_claims')
     // debunk_url included for DEBUNK link in UI (not in minimal spec but present in DB)
-    .select('id, claim_text, verdict, source_url, debunk_url, spread_estimate, created_at', { count: 'exact' })
+    .select('id, claim_text, verdict, source_url, debunk_url, spread_estimate, published_at, created_at, scope_status', {
+      count: 'exact',
+    })
+    .in('scope_status', scopes)
+    .order('published_at', { ascending: false, nullsFirst: false })
     .order('created_at', { ascending: false })
     .limit(isFreeUser ? 5 : 200);
 
@@ -60,7 +78,9 @@ export default async function DisinfoPage() {
       spread: row.spread_estimate,
       debunk_url: row.debunk_url ?? undefined,
       spread_estimate: row.spread_estimate,
+      published_at: row.published_at,
       created_at: row.created_at,
+      unreviewed: row.scope_status === 'unreviewed',
     };
   });
 
@@ -70,6 +90,7 @@ export default async function DisinfoPage() {
       hasFullAccess={hasFullAccess}
       total={total}
       showing={mapped.length}
+      includeUnreviewed={includeUnreviewed}
       conflictDayBadge={<ConflictDayBadge />}
     />
   );

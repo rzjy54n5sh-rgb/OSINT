@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useConflictDay } from '@/hooks/useConflictDay';
@@ -15,8 +15,12 @@ import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
 import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { TRACKED_COUNTRY_CODES, NO_SOURCED_DATA_TEXT } from '@/lib/countries';
-import { getNaiV2Day, getNaiV2DayRange, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
-import { parseNarrative } from '@/lib/country-narrative';
+import { getNaiV2DayResult, getNaiV2DayRange, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
+import { parseNarrative, type CountryNarrative } from '@/lib/country-narrative';
+import { getViewerCountryReports, type ViewerCountryReport } from '@/lib/country-report';
+import type { ReadVia } from '@/lib/supabase/rpc-fallback';
+import { useViewerTier } from '@/hooks/useViewerTier';
+import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import {
   deltaWithinMethod,
   getScenarioRegistryView,
@@ -35,13 +39,17 @@ const COUNTRY_EMOJI: Record<string, string> = {
   ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
 };
 
-/** Only identity + the narrative keys the daily build maintains are read from country_reports. */
-interface CountryRow {
-  country_code: string;
-  country_name: string | null;
-  conflict_day: number | null;
-  content_json: unknown;
-}
+/**
+ * Identity + (only when the viewer's tier unlocks it) the narrative, from viewer_country_report.
+ * Operator ruling 2026-10-07: paid War Posture / country-report details are locked everywhere for
+ * visitors who are not entitled — /warroom included. This page runs in the browser, so it never
+ * reads a paid column directly: the RPCs redact for the session's JWT, and before migration
+ * 20261008090000 (RPC missing) it reads identity columns only and unlocks through /api/viewer/*.
+ */
+type CountryRow = ViewerCountryReport;
+
+/** How long a /api/viewer/nai result is reused (pre-migration fallback only; NAI changes daily). */
+const VIEWER_NAI_TTL_MS = 10 * 60_000;
 
 /** Sparkline over ONE method's days only (callers never pass mixed methods). */
 function buildPoints(values: (number | null)[], w: number, h: number): string {
@@ -128,13 +136,34 @@ export default function WarRoomPage() {
   const [tickerArticles, setTickerArticles] = useState<Article[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // 'rpc' = viewer_country_report answered (narrative already gated by the session's JWT);
+  // 'table' = pre-migration: identity columns only, a signed-in visitor unlocks via /api/viewer/country.
+  const [reportsVia, setReportsVia] = useState<ReadVia>('rpc');
+  const [unlockedNarrative, setUnlockedNarrative] = useState<Record<string, { hasAccess: boolean; narrative: CountryNarrative | null }>>({});
+  const viewerNaiCache = useRef<{ at: number; day: number; rows: NaiV2View[] } | null>(null);
+  const viewerTier = useViewerTier();
+
+  /** Pre-migration fallback: War Posture rows gated server-side for the session (anonymous = free). */
+  const loadViewerNai = async (day: number): Promise<NaiV2View[]> => {
+    const c = viewerNaiCache.current;
+    if (c && c.day === day && Date.now() - c.at < VIEWER_NAI_TTL_MS) return c.rows;
+    try {
+      const r = await fetch('/api/viewer/nai', { credentials: 'same-origin', cache: 'no-store' });
+      const j = r.ok ? ((await r.json()) as { rows?: NaiV2View[]; conflictDay?: number }) : null;
+      const rows = j?.rows ?? [];
+      viewerNaiCache.current = { at: Date.now(), day, rows };
+      return rows;
+    } catch {
+      return c?.rows ?? [];
+    }
+  };
 
   const fetchAll = async () => {
     const supabase = createClient();
     setFetchError(null);
     try {
       const [
-        { data: reports, error: reportsErr },
+        { data: reports, error: reportsErr, via: reportsVia_ },
         { data: articlesData, error: articlesErr },
         { count: totalCount },
         { data: marketRows, error: marketErr },
@@ -144,19 +173,34 @@ export default function WarRoomPage() {
         naiRange,
         reg,
       ] = await Promise.all([
-        supabase.from('country_reports').select('country_code, country_name, conflict_day, content_json'),
+        getViewerCountryReports(supabase),
         supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
         supabase.from('articles').select('*', { count: 'exact', head: true }),
         supabase.from('market_data').select('*').order('created_at', { ascending: false }).limit(200),
         supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }).limit(200),
-        supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
+        // In-scope claims only (scope_status, 2026-10-07); out_of_scope is never shown.
+        supabase
+          .from('disinfo_claims')
+          .select('*')
+          .eq('scope_status', 'in_scope')
+          .order('published_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(5),
         supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
         // War Posture (nai_scores_v2) — the same scale /nai and /countries show. Legacy nai_scores is never read.
         getNaiV2DayRange(supabase),
         // Scenario registry: names, measurement state, method-stamped probabilities.
         getScenarioRegistryView(supabase),
       ]);
-      const wp = naiRange.latestDay != null ? await getNaiV2Day(supabase, naiRange.latestDay, { latent: true, gap: true }) : [];
+      // {latent:true, gap:true} = no extra app-side restriction: viewer_nai_v2 redacts for the session's
+      // JWT and toNaiV2View honours its latent_access / gap_access. If the RPC is missing (before the
+      // migration) the table is NOT read from the browser; the server route gates by tier instead.
+      let wp: NaiV2View[] = [];
+      if (naiRange.latestDay != null) {
+        const res = await getNaiV2DayResult(supabase, naiRange.latestDay, { latent: true, gap: true }, { tableFallback: false });
+        wp = res.rows;
+        if (res.via === 'missing') wp = await loadViewerNai(naiRange.latestDay);
+      }
 
       const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? disinfoErr?.message ?? reg.error;
       if (errMsg) {
@@ -166,6 +210,7 @@ export default function WarRoomPage() {
       }
 
       setCountryReports((reports as CountryRow[]) ?? []);
+      setReportsVia(reportsVia_);
       setTotalArticleCount(totalCount ?? 0);
 
       const arts = (articlesData as Article[]) ?? [];
@@ -204,6 +249,24 @@ export default function WarRoomPage() {
     }
   };
 
+  // Pre-migration only: a signed-in visitor may unlock the active country's narrative through the
+  // server route, which re-checks the tier from the session. Anonymous visitors make no request.
+  useEffect(() => {
+    if (reportsVia === 'rpc' || viewerTier == null) return;
+    if (activeCountry in unlockedNarrative) return;
+    let cancelled = false;
+    fetch(`/api/viewer/country/${encodeURIComponent(activeCountry)}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ hasAccess?: boolean; narrative?: CountryNarrative | null }>) : null))
+      .then((j) => {
+        if (!cancelled)
+          setUnlockedNarrative((m) => ({ ...m, [activeCountry]: { hasAccess: !!j?.hasAccess, narrative: j?.narrative ?? null } }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [reportsVia, viewerTier, activeCountry, unlockedNarrative]);
+
   useEffect(() => {
     if (CONFLICT_DAY == null) return;
     fetchAll();
@@ -220,7 +283,18 @@ export default function WarRoomPage() {
   const activeReport = reportFor(activeCountry);
   const activeName = activeReport?.country_name ?? activeCountry;
   // Only the maintained narrative keys (assessment/key_risks/stabilizers/sources/…); legacy keys ignored.
-  const narrative = parseNarrative(activeReport?.content_json ?? null);
+  // RPC mode: content_json is present only when the session's tier unlocks it. Fallback mode: the
+  // narrative comes only from /api/viewer/country (re-checked server-side).
+  const narrative =
+    reportsVia === 'rpc'
+      ? activeReport?.has_access
+        ? parseNarrative(activeReport.content_json ?? null)
+        : null
+      : (unlockedNarrative[activeCountry]?.narrative ?? null);
+  const narrativeLocked =
+    activeReport != null && (reportsVia === 'rpc' ? activeReport.has_access === false : !unlockedNarrative[activeCountry]?.hasAccess);
+  const narrativeTier: 'informed' | 'professional' =
+    activeCountry === 'EG' || activeCountry === 'AE' ? 'informed' : 'professional';
   const keyRisks = narrative?.key_risks ?? [];
   const stabilizers = narrative?.stabilizers ?? [];
 
@@ -563,16 +637,18 @@ export default function WarRoomPage() {
                   </div>
                   <div style={{ textAlign: 'center', padding: '0 12px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
                     <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>GAP</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, lineHeight: 1, color: 'var(--text-primary)' }}>{formatGap(posture.gap)}</div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>E − band midpoint</div>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, lineHeight: 1, color: 'var(--text-primary)' }} data-locked={posture.gapLocked ? 'gap' : undefined}>
+                      {posture.gapLocked ? '◆' : formatGap(posture.gap)}
+                    </div>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>{posture.gapLocked ? 'Informed tier' : 'E − band midpoint'}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
                     <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--text-primary)', lineHeight: 1 }}>
-                      {posture.latent_low === null ? '—' : formatBand(posture.latent_low, posture.latent_high)}
+                      {posture.latentLocked ? '◆' : posture.latent_low === null ? '—' : formatBand(posture.latent_low, posture.latent_high)}
                     </div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>
-                      {posture.latent_low === null ? 'No admissible evidence' : 'Society (band)'}
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }} data-locked={posture.latentLocked ? 'latent' : undefined}>
+                      {posture.latentLocked ? 'Informed tier' : posture.latent_low === null ? 'No admissible evidence' : 'Society (band)'}
                     </div>
                   </div>
                 </div>
@@ -711,10 +787,15 @@ export default function WarRoomPage() {
                   ▸ KEY RISKS{activeReport?.conflict_day != null && narrative ? ` · DAY ${activeReport.conflict_day}` : ''}
                 </div>
                 <hr className="data-rule" />
-                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
+                {narrativeLocked && (
+                  <div style={{ marginTop: 8 }} data-locked="narrative">
+                    <PaywallOverlay requiredTier={narrativeTier} featureName="Country report" compact />
+                  </div>
+                )}
+                {narrativeLocked ? null : keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
-                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
+                {narrativeLocked ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// LOCKED'}</p> : stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
               </div>
               <div style={{ overflowY: 'auto', padding: 12 }}>
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>

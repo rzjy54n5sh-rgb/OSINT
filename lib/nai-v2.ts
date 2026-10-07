@@ -11,10 +11,17 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiCategoryV2, NaiScoreV2, NaiSourceV2 } from '@/types/supabase';
+import { rpcWithFallback, type ReadVia } from '@/lib/supabase/rpc-fallback';
 
 export const NAI_V2_TABLE = 'nai_scores_v2';
 export const NAI_V2_METHOD = 'war-posture-v1';
 export const NAI_V2_START_DAY = 221;
+/**
+ * Tier-gated read of nai_scores_v2 (migration 20261008090000_security_hardening). It returns the
+ * paid columns (latent band, gap, category, L sources) only when the CALLER's JWT has the feature,
+ * plus latent_access / gap_access / hidden_latent_source_count. Anonymous = free tier.
+ */
+export const NAI_V2_RPC = 'viewer_nai_v2';
 
 export const NAI_V2_EMPTY_TEXT = `War Posture index starts Day ${NAI_V2_START_DAY} — no scored rows yet`;
 /**
@@ -149,6 +156,8 @@ export interface NaiV2View {
   latentEvidence: LatentEvidence;
   gap: number | null;
   gap_size: number | null;
+  /** true = the viewer's tier cannot see gap / gap_size (they are null), as opposed to "no gap". */
+  gapLocked: boolean;
   /** UNSCORABLE is always disclosed (it is a data-quality statement, not premium content). */
   category: NaiCategoryV2 | null;
   categoryLocked: boolean;
@@ -180,36 +189,45 @@ export function toNaiV2View(
   access: { latent: boolean; gap: boolean },
   prev?: { day: number; expressed: number | null } | null,
 ): NaiV2View {
-  const category = isNaiCategoryV2(row.category) ? row.category : 'UNSCORABLE';
+  // Effective access = what the caller's tier allows AND what the database actually returned.
+  // viewer_nai_v2 reports latent_access / gap_access for the calling JWT; a pre-migration table
+  // read has neither flag, so only the tier check applies (undefined !== false).
+  const latent = access.latent && row.latent_access !== false;
+  const gap = access.gap && row.gap_access !== false;
+  // Use the RAW category: the RPC returns null for a locked category, which must stay locked and
+  // never fall back to UNSCORABLE. UNSCORABLE itself is always disclosed (data-quality statement).
+  const rawCategory = isNaiCategoryV2(row.category) ? row.category : null;
+  const category: NaiCategoryV2 | null = gap ? (rawCategory ?? 'UNSCORABLE') : rawCategory === 'UNSCORABLE' ? 'UNSCORABLE' : null;
   const sources = cleanSources(row.sources);
   const lSources = sources.filter((s) => s.feeds === 'L');
   const e = toNum(row.expressed_score);
   const pe = prev ? toNum(prev.expressed) : null;
-  const categoryVisible = access.gap || category === 'UNSCORABLE';
   return {
     country_code: row.country_code,
     conflict_day: row.conflict_day,
     as_of: row.as_of,
     expressed_score: e,
     expressed_basis: row.expressed_basis ?? null,
-    latent_low: access.latent ? toNum(row.latent_low) : null,
-    latent_high: access.latent ? toNum(row.latent_high) : null,
-    latent_basis: access.latent ? (row.latent_basis ?? null) : null,
-    latentLocked: !access.latent,
-    latentEvidence: !access.latent ? 'locked' : toNum(row.latent_low) === null ? 'none' : 'band',
-    gap: access.gap ? toNum(row.gap) : null,
-    gap_size: access.gap ? toNum(row.gap_size) : null,
-    category: categoryVisible ? category : null,
-    categoryLocked: !categoryVisible,
+    latent_low: latent ? toNum(row.latent_low) : null,
+    latent_high: latent ? toNum(row.latent_high) : null,
+    latent_basis: latent ? (row.latent_basis ?? null) : null,
+    latentLocked: !latent,
+    latentEvidence: !latent ? 'locked' : toNum(row.latent_low) === null ? 'none' : 'band',
+    gap: gap ? toNum(row.gap) : null,
+    gap_size: gap ? toNum(row.gap_size) : null,
+    gapLocked: !gap,
+    category,
+    categoryLocked: category === null,
     confidence: row.confidence,
-    sources: access.latent ? sources : sources.filter((s) => s.feeds !== 'L'),
-    hiddenLatentSourceCount: access.latent ? 0 : lSources.length,
+    sources: latent ? sources : sources.filter((s) => s.feeds !== 'L'),
+    // The RPC has already removed L sources for a locked viewer and reports how many it removed.
+    hiddenLatentSourceCount: latent ? 0 : (row.hidden_latent_source_count ?? lSources.length),
     delta: e !== null && pe !== null ? e - pe : null,
     prevDay: prev ? prev.day : null,
   };
 }
 
-type Sb = Pick<SupabaseClient, 'from'>;
+type Sb = Pick<SupabaseClient, 'from' | 'rpc'>;
 
 /** First and latest conflict_day present in nai_scores_v2 for the current method (null = no rows). */
 export async function getNaiV2DayRange(supabase: Sb): Promise<{ firstDay: number | null; latestDay: number | null }> {
@@ -235,20 +253,29 @@ export async function getNaiV2DayRange(supabase: Sb): Promise<{ firstDay: number
 /**
  * Rows for one conflict day plus each country's E delta vs the previous War Posture day present
  * (max day < `day`). Never reads legacy nai_scores.
+ *
+ * Paid fields come from the viewer_nai_v2 RPC, redacted for the CALLER's JWT (a cookie-less public
+ * client = anonymous = free tier). Before migration 20261008090000 the RPC does not exist and the
+ * old table read runs instead; `access` then does the redaction. `tableFallback: false` returns
+ * `via: 'missing'` instead of reading the table (for browser callers that must not receive paid
+ * columns, see /warroom).
  */
-export async function getNaiV2Day(
+export async function getNaiV2DayResult(
   supabase: Sb,
   day: number,
   access: { latent: boolean; gap: boolean },
-): Promise<NaiV2View[]> {
+  { tableFallback = true }: { tableFallback?: boolean } = {},
+): Promise<{ rows: NaiV2View[]; via: ReadVia }> {
   try {
     // The day's rows and the previous War Posture day are independent: one round trip, not two.
-    const [{ data, error }, { data: prevDayRow }] = await Promise.all([
-      supabase
-        .from(NAI_V2_TABLE)
-        .select('*')
-        .eq('method_version', NAI_V2_METHOD)
-        .eq('conflict_day', day),
+    const [dayRes, { data: prevDayRow }] = await Promise.all([
+      rpcWithFallback<NaiScoreV2[]>(
+        () => supabase.rpc(NAI_V2_RPC, { p_day: day, p_method: NAI_V2_METHOD }),
+        tableFallback
+          ? () => supabase.from(NAI_V2_TABLE).select('*').eq('method_version', NAI_V2_METHOD).eq('conflict_day', day)
+          : null,
+      ),
+      // Granted (free) columns only: works before and after the migration.
       supabase
         .from(NAI_V2_TABLE)
         .select('conflict_day')
@@ -258,8 +285,8 @@ export async function getNaiV2Day(
         .limit(1)
         .maybeSingle(),
     ]);
-    if (error || !data) return [];
-    const rows = data as NaiScoreV2[];
+    if (dayRes.error || !dayRes.data) return { rows: [], via: dayRes.via };
+    const rows = dayRes.data;
 
     const prevDay = (prevDayRow as { conflict_day?: number } | null)?.conflict_day ?? null;
     const prevMap = new Map<string, number | null>();
@@ -274,23 +301,35 @@ export async function getNaiV2Day(
       }
     }
 
-    return rows
-      .map((r) =>
-        toNaiV2View(
-          r,
-          access,
-          prevDay != null && prevMap.has(r.country_code) ? { day: prevDay, expressed: prevMap.get(r.country_code) ?? null } : null,
-        ),
-      )
-      .sort((a, b) => (b.expressed_score ?? -1) - (a.expressed_score ?? -1) || a.country_code.localeCompare(b.country_code));
+    return {
+      via: dayRes.via,
+      rows: rows
+        .map((r) =>
+          toNaiV2View(
+            r,
+            access,
+            prevDay != null && prevMap.has(r.country_code) ? { day: prevDay, expressed: prevMap.get(r.country_code) ?? null } : null,
+          ),
+        )
+        .sort((a, b) => (b.expressed_score ?? -1) - (a.expressed_score ?? -1) || a.country_code.localeCompare(b.country_code)),
+    };
   } catch {
-    return [];
+    return { rows: [], via: 'rpc' };
   }
+}
+
+export async function getNaiV2Day(
+  supabase: Sb,
+  day: number,
+  access: { latent: boolean; gap: boolean },
+): Promise<NaiV2View[]> {
+  return (await getNaiV2DayResult(supabase, day, access)).rows;
 }
 
 /**
  * Latest War Posture row for ONE country (current method), plus its E delta vs that country's
  * previous War Posture row. Never reads legacy nai_scores. Returns null when the country has no row.
+ * RPC first (paid fields redacted for the caller's JWT), table read before the migration.
  */
 export async function getNaiV2CountryLatest(
   supabase: Sb,
@@ -298,15 +337,21 @@ export async function getNaiV2CountryLatest(
   access: { latent: boolean; gap: boolean },
 ): Promise<NaiV2View | null> {
   try {
-    const { data, error } = await supabase
-      .from(NAI_V2_TABLE)
-      .select('*')
-      .eq('method_version', NAI_V2_METHOD)
-      .eq('country_code', countryCode.toUpperCase())
-      .order('conflict_day', { ascending: false })
-      .limit(2);
+    const code = countryCode.toUpperCase();
+    // RPC order: conflict_day DESC (p_ascending defaults to false).
+    const { data, error } = await rpcWithFallback<NaiScoreV2[]>(
+      () => supabase.rpc(NAI_V2_RPC, { p_country: code, p_limit: 2, p_method: NAI_V2_METHOD }),
+      () =>
+        supabase
+          .from(NAI_V2_TABLE)
+          .select('*')
+          .eq('method_version', NAI_V2_METHOD)
+          .eq('country_code', code)
+          .order('conflict_day', { ascending: false })
+          .limit(2),
+    );
     if (error || !data || data.length === 0) return null;
-    const [latest, prev] = data as NaiScoreV2[];
+    const [latest, prev] = data;
     return toNaiV2View(latest!, access, prev ? { day: prev.conflict_day, expressed: prev.expressed_score } : null);
   } catch {
     return null;
