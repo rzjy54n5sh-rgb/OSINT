@@ -1,10 +1,9 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { createClient } from '@/utils/supabase/server';
-import { getUser, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
-import { NaiMapClient } from '@/components/nai/NaiMapClient';
+import { NaiViewer } from '@/components/nai/NaiViewer';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
 
@@ -14,31 +13,34 @@ export const metadata: Metadata = {
     "Each tracked state's official war posture and its society's posture on one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), with sources.",
 };
 
-export default async function NaiMapPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ day?: string }>;
-}) {
-  const params = await searchParams;
-  const dayParam = params.day ? parseInt(params.day, 10) : null;
+/**
+ * ISR: War Posture rows are written at most once a day. This HTML is shared by the edge cache,
+ * so it is rendered for an ANONYMOUS visitor at the latest day: locked fields (latent band, gap,
+ * category per tier_features) are withheld here, server-side, exactly as before for a logged-out
+ * visitor. NaiViewer loads the signed-in visitor's tier view and any `?day=N` from
+ * /api/viewer/nai after hydration (reading searchParams/cookies here would make the page
+ * dynamic and uncacheable).
+ */
+export const revalidate = 900;
 
-  const [user, supabase, currentDay] = await Promise.all([getUser(), createClient(), getConflictDay()]);
+export default async function NaiMapPage() {
+  const supabase = createPublicClient();
+  const currentDay = await getConflictDay();
 
   // currentDay = calendar (DAY LOCK). latestDay = nai_scores_v2's OWN max day for the
   // war-posture-v1 method. Legacy nai_scores (Days 1-35, retired method) is NEVER used here
   // as a fallback: if v2 has no rows the page shows the honest empty state.
-  const { firstDay, latestDay } = await getNaiV2DayRange(supabase);
-  const conflictDay =
-    dayParam != null && Number.isFinite(dayParam) && dayParam > 0 ? dayParam : (latestDay ?? currentDay);
+  const [{ firstDay, latestDay }, { data: tierRows }] = await Promise.all([
+    getNaiV2DayRange(supabase),
+    supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
+  ]);
+  const conflictDay = latestDay ?? currentDay;
 
-  const { data: tierRows } = await supabase
-    .from('tier_features')
-    .select('feature_key, free_access, informed_access, pro_access');
   const flags = buildTierFlags(tierRows ?? []);
-  const hasLatentAccess = tierHasFeature(user?.tier, 'nai_latent_score', flags);
-  const hasGapAccess = tierHasFeature(user?.tier, 'nai_gap_analysis', flags);
+  // Anonymous-visitor access only: this page is cached and served to everyone.
+  const hasLatentAccess = tierHasFeature(null, 'nai_latent_score', flags);
+  const hasGapAccess = tierHasFeature(null, 'nai_gap_analysis', flags);
 
-  // Tier gating is applied here, server-side, so locked fields never reach the client payload.
   const rows: NaiV2View[] =
     latestDay != null ? await getNaiV2Day(supabase, conflictDay, { latent: hasLatentAccess, gap: hasGapAccess }) : [];
 
@@ -50,22 +52,15 @@ export default async function NaiMapPage({
         </p>
       }
     >
-      <NaiMapClient
-        rows={rows}
-        conflictDay={conflictDay}
+      <NaiViewer
+        initial={{ rows, conflictDay, hasLatentAccess, hasGapAccess }}
         latestDay={latestDay}
         firstDay={firstDay}
-        hasLatentAccess={hasLatentAccess}
-        hasGapAccess={hasGapAccess}
+        tierFlags={flags}
         conflictDayBadge={
           <>
             <ConflictDayBadge />
             <DataAsOf section="NAI WAR POSTURE" latestDay={latestDay} currentDay={currentDay} className="mt-2" />
-            {latestDay != null && conflictDay !== latestDay && (
-              <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
-                VIEWING HISTORICAL NAI — DAY {conflictDay}
-              </p>
-            )}
           </>
         }
       />

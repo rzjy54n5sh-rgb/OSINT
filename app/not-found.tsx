@@ -30,7 +30,7 @@ export default function NotFound() {
           This intelligence brief does not exist or has been moved. The source you requested returned no signal.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link
+          <Link prefetch={false}
             href="/"
             style={{
               fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px',
@@ -40,7 +40,7 @@ export default function NotFound() {
           >
             ← RETURN TO DASHBOARD
           </Link>
-          <Link
+          <Link prefetch={false}
             href="/warroom"
             style={{
               fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px',

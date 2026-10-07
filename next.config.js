@@ -21,6 +21,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 't2.gstatic.com' },
     ],
   },
+  // ISR pages answer with `s-maxage=<revalidate>, stale-while-revalidate=<expireTime - revalidate>`
+  // (Next always emits the SWR part). NOTE: Cloudflare (Workers Cache) does NOT serve stale when
+  // s-maxage is present — after s-maxage expires the next request waits for a fresh render — so the
+  // SWR value has no effect at the edge. expireTime only bounds it (default 1 year) for any other
+  // shared cache. (Caching key only; no header config here.)
+  expireTime: 86400,
 };
 
 module.exports = nextConfig;

@@ -1,10 +1,13 @@
-import { createClient } from '@/utils/supabase/server';
+import { createPublicClient } from '@/utils/supabase/server';
 import { parseEngagementEstimate } from '@/lib/utils';
 import type { SocialTrend } from '@/types/supabase';
 import SocialClient from './SocialClient';
 
+/** ISR: social trends are collected every 12 h. */
+export const revalidate = 900;
+
 export default async function SocialPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
 
   const { data, error } = await supabase
     .from('social_trends')

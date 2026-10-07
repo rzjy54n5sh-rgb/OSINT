@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
@@ -12,6 +13,8 @@ import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
 import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NAI_V2_EMPTY_TEXT, NAI_V2_SCALE_TEXT, formatBand, type NaiV2View } from '@/lib/nai-v2';
 import { NO_SOURCED_DATA_TEXT, TRACKED_COUNTRY_CODES } from '@/lib/countries';
+import { useViewerTier } from '@/hooks/useViewerTier';
+import { tierHasFeature, type TierFlags } from '@/lib/tier';
 
 interface CountriesClientProps {
   initialScores: NaiV2View[];
@@ -19,10 +22,41 @@ interface CountriesClientProps {
   naiDay: number | null;
   /** Calendar day (DAY LOCK). */
   currentDay: number;
+  /** tier_features flags (public config) — decide whether the visitor's tier unlocks more. */
+  tierFlags: TierFlags;
+  /** Access the server-rendered (shared, edge-cached) scores were built with: anonymous. */
+  anonAccess: { latent: boolean; gap: boolean };
 }
 
-export default function CountriesClient({ initialScores, naiDay, currentDay }: CountriesClientProps) {
-  const scores = initialScores;
+/**
+ * Ruling 2026-10-07 (Omar): the latent band, gap and category are informed-tier features on the
+ * list too. The page HTML is cached and built at ANONYMOUS access; a signed-in visitor whose tier
+ * unlocks them gets their rows from /api/viewer/nai (session re-checked server-side, private)
+ * after hydration — the same pattern as /nai and /countries/[slug].
+ */
+export default function CountriesClient({ initialScores, naiDay, currentDay, tierFlags, anonAccess }: CountriesClientProps) {
+  const tier = useViewerTier();
+  const [scores, setScores] = useState<NaiV2View[]>(initialScores);
+  const t = tier ?? null;
+  const unlocksMore =
+    tier != null &&
+    naiDay != null &&
+    ((!anonAccess.latent && tierHasFeature(t, 'nai_latent_score', tierFlags)) ||
+      (!anonAccess.gap && tierHasFeature(t, 'nai_gap_analysis', tierFlags)));
+
+  useEffect(() => {
+    if (!unlocksMore) return;
+    let cancelled = false;
+    fetch(`/api/viewer/nai?day=${naiDay}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ rows?: NaiV2View[] } | null>) : null))
+      .then((j) => {
+        if (!cancelled && j && Array.isArray(j.rows) && j.rows.length > 0) setScores(j.rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [unlocksMore, naiDay]);
   // Tracked countries (25) the War Posture series has no row for yet: listed, never scored.
   const unscored = scores.length === 0 ? [] : TRACKED_COUNTRY_CODES.filter((c) => !scores.some((s) => s.country_code === c));
 
@@ -55,7 +89,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
               transition={{ duration: 0.3, delay: i * 0.05 }}
             >
               <OsintCard className="block hover:border-border-bright">
-                <Link href={`/countries/${s.country_code.toLowerCase()}`} className="block">
+                <Link prefetch={false} href={`/countries/${s.country_code.toLowerCase()}`} className="block">
                   <CountryFlag code={s.country_code} />
                   <div className="mt-2">
                     <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} latentEvidence={s.latentEvidence} expressed={s.expressed_score} />
@@ -72,7 +106,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
                       term="LATENT"
                       definition="Population and non-government elites on the same scale, stored as a low–high band. Empty when there is no evidence."
                     >
-                      <span>LATENT {formatBand(s.latent_low, s.latent_high)}</span>
+                      <span>LATENT {s.latentLocked ? 'Informed tier' : formatBand(s.latent_low, s.latent_high)}</span>
                     </GlossaryTooltip>
                   </p>
                   <div className="mt-1">
@@ -87,7 +121,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
           ))}
           {unscored.map((code) => (
             <OsintCard key={`nodata-${code}`} className="block hover:border-border-bright">
-              <Link href={`/countries/${code.toLowerCase()}`} className="block" data-testid={`country-nodata-${code}`}>
+              <Link prefetch={false} href={`/countries/${code.toLowerCase()}`} className="block" data-testid={`country-nodata-${code}`}>
                 <CountryFlag code={code} />
                 <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
                   {NO_SOURCED_DATA_TEXT}

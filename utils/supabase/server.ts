@@ -3,10 +3,31 @@
  * Uses createServerClient from @supabase/ssr. Memoized per request via React.cache().
  */
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import type { User } from '@/types';
 import { currentConflictDay } from '@/lib/conflict-calendar';
+
+/**
+ * Cookie-less anon client for PUBLIC, cacheable (ISR) pages. It never reads the request's
+ * cookies, so (a) Next.js can keep the route static/ISR instead of forcing it dynamic, and
+ * (b) the rendered HTML is identical for every visitor — it can be shared by the edge cache
+ * without leaking any user's tier or session. Anything tier-dependent must be loaded after
+ * hydration through an authenticated, `private` route (see app/api/viewer/*).
+ *
+ * Still one client per request (React.cache is request-scoped) — never a module-level global
+ * (Workers: "Cannot perform I/O on behalf of a different request").
+ */
+export const createPublicClient = cache(() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const anonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
+  return createSupabaseJsClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+});
 
 export const createClient = cache(async () => {
   const cookieStore = await cookies();

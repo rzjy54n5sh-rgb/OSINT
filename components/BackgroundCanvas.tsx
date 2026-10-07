@@ -73,17 +73,27 @@ export function BackgroundCanvas() {
     scene.add(blips);
 
     // ── Animation loop ──
-    let frame: number;
+    // Decorative only, so it is capped at ~30 fps and stops while the tab is hidden (it used to
+    // run at full frame rate forever: ~1 s of main-thread time per 9 s idle in the audit).
+    // Movement is scaled by elapsed time so the drift speed is unchanged at the lower frame rate.
+    let frame = 0;
     let t = 0;
+    let last = 0;
+    const FRAME_MS = 1000 / 30;
 
-    const animate = () => {
+    const animate = (now: number) => {
       frame = requestAnimationFrame(animate);
-      t += 0.001;
+      if (document.hidden) return;
+      const elapsed = last === 0 ? FRAME_MS : now - last;
+      if (elapsed < FRAME_MS) return;
+      last = now;
+      const k = Math.min(elapsed / (1000 / 60), 4); // the original step was tuned for 60 fps
+      t += 0.001 * k;
 
       const pos = geo.attributes.position.array as Float32Array;
       for (let i = 0; i < COUNT; i++) {
-        pos[i * 3]     += velocities[i * 3];
-        pos[i * 3 + 1] += velocities[i * 3 + 1];
+        pos[i * 3]     += velocities[i * 3] * k;
+        pos[i * 3 + 1] += velocities[i * 3 + 1] * k;
         // Wrap edges
         if (pos[i * 3]     >  100) pos[i * 3]     = -100;
         if (pos[i * 3]     < -100) pos[i * 3]     =  100;
@@ -93,15 +103,15 @@ export function BackgroundCanvas() {
       geo.attributes.position.needsUpdate = true;
 
       // Very slow rotation
-      points.rotation.z += 0.00025;
-      blips.rotation.z  -= 0.00012;
+      points.rotation.z += 0.00025 * k;
+      blips.rotation.z  -= 0.00012 * k;
 
       // Pulse gold blips opacity
       blipMat.opacity = 0.1 + Math.sin(t * 2) * 0.07;
 
       renderer.render(scene, camera);
     };
-    animate();
+    frame = requestAnimationFrame(animate);
 
     const onResize = () => {
       camera.aspect = window.innerWidth / window.innerHeight;

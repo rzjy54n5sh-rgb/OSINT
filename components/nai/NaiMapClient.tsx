@@ -3,7 +3,6 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { TimelineScrubber } from '@/components/TimelineScrubber';
@@ -105,8 +104,6 @@ export function NaiMapClient({
   conflictDayBadge,
 }: NaiMapClientProps) {
   const { t } = useI18n();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -120,9 +117,12 @@ export function NaiMapClient({
   const hasData = latestDay != null;
 
   const setConflictDay = (day: number) => {
-    const next = new URLSearchParams(searchParams.toString());
+    // /nai is a cached page that always renders the latest day; a historical day is loaded by
+    // NaiViewer from /api/viewer/nai. pushState (synced with useSearchParams by Next.js) keeps
+    // the URL shareable without re-requesting the page.
+    const next = new URLSearchParams(window.location.search);
     next.set('day', String(day));
-    router.push(`/nai?${next.toString()}`);
+    window.history.pushState(null, '', `/nai?${next.toString()}`);
   };
 
   useEffect(() => {
@@ -415,7 +415,7 @@ export function NaiMapClient({
               No sourced data available for Day {conflictDay}. No score or category is shown rather than a guessed one.
             </p>
             <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-              <Link href={`/countries/${selectedNoData.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
+              <Link prefetch={false} href={`/countries/${selectedNoData.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
                 View country page →
               </Link>
             </p>
@@ -471,7 +471,7 @@ export function NaiMapClient({
                   <NaiV2Evidence row={selected} />
                 </div>
                 <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-                  <Link href={`/countries/${selected.country_code.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
+                  <Link prefetch={false} href={`/countries/${selected.country_code.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
                     View full report →
                   </Link>
                 </p>

@@ -1,7 +1,10 @@
-import { createClient } from '@/utils/supabase/server';
+import { createPublicClient } from '@/utils/supabase/server';
 import { OsintCard } from '@/components/OsintCard';
 import { SourcesTable } from '@/components/sources/SourcesTable';
 import { SourcesTierMethodology } from '@/components/sources/SourcesTierMethodology';
+
+/** ISR: the source registry changes rarely; no per-visitor content. */
+export const revalidate = 3600;
 
 export const metadata = {
   title: 'Source Universe · MENA Intel Desk',
@@ -49,7 +52,7 @@ function typeLabel(row: SourceRow): string {
 }
 
 export default async function SourcesPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: raw, error } = await supabase
     .from('article_sources')
     .select(

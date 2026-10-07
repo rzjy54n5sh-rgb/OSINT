@@ -254,7 +254,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       <p className="font-mono text-[11px] mt-6" style={{ color: 'var(--text-muted)' }}>
         Full method, floors and retirement rule:{' '}
-        <Link href="/methodology" style={{ color: 'var(--accent-gold)' }}>
+        <Link prefetch={false} href="/methodology" style={{ color: 'var(--accent-gold)' }}>
           Methodology →
         </Link>
       </p>

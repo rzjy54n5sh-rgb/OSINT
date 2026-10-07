@@ -9,7 +9,7 @@ import { isAllowedYouTubeChannelId } from '@/lib/youtube-channels';
 export async function GET(request: NextRequest) {
   const channelId = request.nextUrl.searchParams.get('channelId');
   if (!channelId) {
-    return NextResponse.json({ error: 'channelId required' }, { status: 400 });
+    return NextResponse.json({ error: 'channelId required' }, { status: 400, headers: NO_STORE });
   }
   if (!isAllowedYouTubeChannelId(channelId)) {
     return NextResponse.json({ error: 'channelId not allowed' }, { status: 400 });
@@ -21,14 +21,21 @@ export async function GET(request: NextRequest) {
       next: { revalidate: 300 },
     });
     if (!res.ok) {
-      return NextResponse.json({ error: 'YouTube RSS fetch failed' }, { status: res.status });
+      return NextResponse.json({ error: 'YouTube RSS fetch failed' }, { status: res.status, headers: NO_STORE });
     }
     const xml = await res.text();
     return new NextResponse(xml, {
-      headers: { 'Content-Type': 'application/xml' },
+      headers: {
+        'Content-Type': 'application/xml',
+        // Public, visitor-agnostic: the edge cache may answer repeat calls without the Worker.
+        'Cache-Control': 'public, max-age=0, s-maxage=300',
+      },
     });
   } catch (e) {
     console.error('[api/youtube-rss]', e);
-    return NextResponse.json({ error: 'YouTube RSS proxy error' }, { status: 502 });
+    return NextResponse.json({ error: 'YouTube RSS proxy error' }, { status: 502, headers: NO_STORE });
   }
 }
+
+/** Error responses must not be cached by the edge (non-200 defaults can reach minutes). */
+const NO_STORE = { 'Cache-Control': 'no-store' };

@@ -145,7 +145,7 @@ function WarPosturePanel({ posture, countryDay }: { posture: NaiV2View | null; c
       </div>
       <p className="font-mono text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
         {NAI_V2_ARCHIVE_NOTE}{' '}
-        <Link href="/methodology" style={{ color: 'var(--accent-gold)' }}>
+        <Link prefetch={false} href="/methodology" style={{ color: 'var(--accent-gold)' }}>
           How War Posture is scored →
         </Link>
       </p>
@@ -165,7 +165,7 @@ export function CountryReportClient({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <Link href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
+      <Link prefetch={false} href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
         ← COUNTRIES
       </Link>
 

@@ -121,7 +121,7 @@ export function CommandHeader() {
         }}
       >
         {/* Logo */}
-        <Link
+        <Link prefetch={false}
           href="/"
           style={{
             display: 'flex',
@@ -257,7 +257,7 @@ export function CommandHeader() {
                   {group.links.map(({ href, labelKey, isWarRoom }) => {
                     const active = pathname === href;
                     return (
-                      <Link
+                      <Link prefetch={false}
                         key={href}
                         href={href}
                         className={`desktop-nav-mega__link${active ? ' desktop-nav-mega__link--active' : ''}${isWarRoom ? ' desktop-nav-mega__link--war' : ''}`}
@@ -310,7 +310,7 @@ export function CommandHeader() {
                   </div>
                 )}
                 {showGuestAuth && (
-                  <Link
+                  <Link prefetch={false}
                     href="/login"
                     className={`desktop-nav-mega__link${pathname === '/login' ? ' desktop-nav-mega__link--active' : ''}`}
                   >
@@ -318,18 +318,18 @@ export function CommandHeader() {
                   </Link>
                 )}
                 {loggedIn && (
-                  <Link
+                  <Link prefetch={false}
                     href="/account"
                     className={`desktop-nav-mega__link${pathname === '/account' ? ' desktop-nav-mega__link--active' : ''}`}
                   >
                     {t('account')}
                   </Link>
                 )}
-                <Link href="/pricing" className={`desktop-nav-mega__link${pathname === '/pricing' ? ' desktop-nav-mega__link--active' : ''}`}>
+                <Link prefetch={false} href="/pricing" className={`desktop-nav-mega__link${pathname === '/pricing' ? ' desktop-nav-mega__link--active' : ''}`}>
                   {t('pricing')}
                 </Link>
                 {isAdmin && (
-                  <Link href="/admin" className={`desktop-nav-mega__link${pathname.startsWith('/admin') ? ' desktop-nav-mega__link--active' : ''}`} style={{ color: 'var(--accent-gold)' }}>
+                  <Link prefetch={false} href="/admin" className={`desktop-nav-mega__link${pathname.startsWith('/admin') ? ' desktop-nav-mega__link--active' : ''}`} style={{ color: 'var(--accent-gold)' }}>
                     {t('admin')}
                   </Link>
                 )}
@@ -394,7 +394,7 @@ export function CommandHeader() {
                   {t(group.groupLabelKey)}
                 </div>
                 {group.links.map(({ href, labelKey, isWarRoom }) => (
-                  <Link
+                  <Link prefetch={false}
                     key={href}
                     href={href}
                     className="header-link"
@@ -444,20 +444,20 @@ export function CommandHeader() {
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
               {showGuestAuth && (
-                <Link href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
+                <Link prefetch={false} href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                   {t('login')}
                 </Link>
               )}
               {loggedIn && (
-                <Link href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
+                <Link prefetch={false} href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                   {t('account')}
                 </Link>
               )}
-              <Link href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
+              <Link prefetch={false} href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
                 {t('pricing')}
               </Link>
               {isAdmin && (
-                <Link href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11, color: 'var(--accent-gold)' }}>
+                <Link prefetch={false} href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11, color: 'var(--accent-gold)' }}>
                   {t('admin')}
                 </Link>
               )}

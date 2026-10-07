@@ -19,8 +19,8 @@
 - **Retired:** five Anthropic-API workflows (`daily-analysis`, `daily_pipeline`, `disinfo-analysis`, `social-analysis`, `strategic-analysis`) live in `.github/workflows-retired/` — never move them back. Its `README.md` has the run history: ~$100 burned, 247 of ~320 runs failed, `daily_analysis.py` scheduled twice daily with no short-circuit.
 
 ## Stack
-- **Frontend:** Next.js 15.2.9 + React 19.2.4 + TypeScript + Tailwind CSS
-- **Hosting:** Cloudflare Workers via @opennextjs/cloudflare 1.17.1 + wrangler 3.99.0
+- **Frontend:** Next.js 15.5.27 + React 19.2.4 + TypeScript + Tailwind CSS
+- **Hosting:** Cloudflare Workers via @opennextjs/cloudflare 1.17.1 + wrangler 4.76.0 (pinned via overrides). Public pages are ISR (`export const revalidate`) and served from **Workers Cache** (`wrangler.jsonc` → `cache.enabled`); they must never read cookies — use `createPublicClient()` and resolve anything per-visitor after hydration via `/api/viewer/*` (see PR perf/caching-next155)
 - **DB:** Supabase PostgreSQL (PostgREST via direct HTTP)
 - **Payments:** Stripe | **Email:** Resend | **Analytics:** Plausible
 - **Collectors (no AI, GitHub Actions, free — public repo):** Collect Feeds (hourly), Collect Market Data (every 30 min), Collect Social Trends (every 12 h), Collect Disinfo Claims (daily 06:00 UTC), Deploy (on push to `main`). Manual-only / disabled: Production E2E, Run DB Migration.
@@ -154,7 +154,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - **Security hardened 2026-10-06:** public ALL on user_events/user_notes closed; users can update only 5 profile columns; unapproved scenarios / inactive alerts no longer public; anon-insert tables length-bounded; SECURITY DEFINER functions locked down
 - **0 subscribers** (users: 2 at last count — verify live)
 - **articles history Mar–Aug is lost** — the 90-day cleanup job deleted 24,757 rows Jun–Sep 2026 while collection was off; no backups on the free tier. Collection is running again; do not describe the pre-recovery history as complete
-- Stack: Next.js 15.2.9 (DO NOT upgrade to 16 — opennextjs-cloudflare prefetch-hints bug); wrangler pinned to 3.99.0 via overrides in package.json
+- Stack: Next.js 15.5.27 (DO NOT upgrade to 16 — opennextjs-cloudflare prefetch-hints bug); wrangler pinned to 4.76.0 via overrides in package.json
 - Current conflict day: calculated fresh each time — do NOT hardcode
 
 ## Rulings 2026-10-06 (dynamic model — operator rulings, do not re-open)

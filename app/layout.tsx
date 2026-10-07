@@ -1,10 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { cookies } from 'next/headers';
 import { Bebas_Neue, IBM_Plex_Mono, DM_Sans, Noto_Sans_Arabic } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { validateEnv } from '@/lib/env';
-import { BackgroundCanvas } from '@/components/BackgroundCanvas';
+import { BackgroundCanvasLazy } from '@/components/BackgroundCanvasLazy';
 import { CommandHeader } from '@/components/CommandHeader';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -75,10 +74,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const lang: Lang = cookieStore.get('lang')?.value === 'ar' ? 'ar' : 'en';
-  const isRtl = lang === 'ar';
+/**
+ * Applies the `lang` cookie (set by LanguageToggle) to <html lang/dir> before first paint, and
+ * the TranslationBanner dismissal flag (localStorage).
+ * The layout deliberately does NOT read cookies on the server: a cookie read makes every route
+ * dynamic (`private, no-store`), which is what kept every page from being cached. The server
+ * HTML is always the English/LTR document; this runs before paint and I18nProvider switches the
+ * UI strings after hydration.
+ */
+const LANG_BOOT_SCRIPT =
+  "try{var d=document.documentElement;if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" +
+  // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
+  "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Server-rendered default. The visitor's language preference is applied client-side (above);
+  // suppressHydrationWarning on <html>/<body> covers the lang/dir/class attributes that the boot
+  // script and I18nProvider change (attributes of those two elements only, not their children).
+  const lang: Lang = 'en';
 
   /**
    * Prefer Worker `process.env`, fall back to build-inlined `env.client.generated.ts`
@@ -110,11 +123,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang={lang}
-      dir={isRtl ? 'rtl' : 'ltr'}
+      dir="ltr"
       translate="yes"
+      suppressHydrationWarning
       className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
     >
       <head>
+        <script dangerouslySetInnerHTML={{ __html: LANG_BOOT_SCRIPT }} />
         {runtimeSupabaseUrl && hasInjectableKey ? (
           <script
             // Same values as NEXT_PUBLIC_* env vars; keys on the object = exact env names.
@@ -136,10 +151,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
       </head>
       <body
-        className={`min-h-screen overflow-x-hidden ${dmSans.className} ${lang === 'ar' ? 'font-arabic-ui' : ''}`}
+        className={`min-h-screen overflow-x-hidden ${dmSans.className}`}
+        suppressHydrationWarning
       >
         <TranslationBanner />
-        <BackgroundCanvas />
+        <BackgroundCanvasLazy />
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
             <CommandHeader />
