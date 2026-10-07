@@ -1,98 +1,71 @@
-/** Bump when fetch strategy changes so old cache-first JS bundles are dropped (fixes stale Supabase client / zero articles). */
-const CACHE_NAME = 'mena-intel-v7';
+/**
+ * Bump CACHE_NAME whenever the caching rules change: `activate` deletes every
+ * other cache, so entries stored under older rules are purged.
+ * v8: never store private / no-store / error responses or account, admin,
+ *     auth, API and RSC requests (v6/v7 stored every same-origin GET,
+ *     including signed-in /account HTML), and no install-time precache.
+ */
+const CACHE_NAME = 'mena-intel-v8';
 
-// Assets to cache immediately on install
-const PRECACHE = [
-  '/',
-  '/feed',
-  '/warroom',
-  '/nai',
-  '/countries',
-  '/scenarios',
-  '/markets',
-  '/disinfo',
-  '/social',
-  '/timeline',
-  '/analytics',
-  '/mediaroom',
-];
+// No install-time precache: the pages are dynamic (and mostly no-store), and
+// each precached URL is an extra counted Worker request on every install.
+// Pages are cached on visit when their response allows it (see isCacheable).
 
-// Install — precache shell pages
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
-  );
+// Same-origin paths that must never touch Cache Storage (per-user / auth / API).
+const PRIVATE_PATH = /^\/(account|admin|auth|api|login|forgot-password|reset-password)(\/|$)/;
+
+function isBypassRequest(request, url) {
+  if (url.origin !== self.location.origin || request.method !== 'GET') return true;
+  if (PRIVATE_PATH.test(url.pathname)) return true;
+  // React Server Component payloads / router prefetches (per-navigation, may be user-specific)
+  if (url.searchParams.has('_rsc')) return true;
+  if (request.headers.get('RSC') === '1' || request.headers.has('Next-Router-Prefetch')) return true;
+  return false;
+}
+
+function isCacheable(response) {
+  if (!response || !response.ok || response.type !== 'basic') return false;
+  if (response.redirected) return false;
+  const cc = (response.headers.get('Cache-Control') || '').toLowerCase();
+  if (cc.includes('no-store') || cc.includes('private')) return false;
+  return true;
+}
+
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
-// Activate — delete old caches
+// Activate — delete every cache except the current one
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
-      )
-    )
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch — network-first for API/Supabase and for /_next/static (hashed filenames; cache-first caused stale app JS after deploy)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Cross-origin requests (map tiles, YouTube, Stripe, Supabase, analytics) and
-  // non-GET requests go straight to the browser: the page CSP then governs them.
-  // Proxying them here made them subject to this worker's own CSP instead
-  // (v6 was served with the old public/_headers CSP, which did not allow
-  // demotiles.maplibre.org) and tried to cache.put() POSTs.
-  if (url.origin !== self.location.origin || request.method !== 'GET') {
-    return;
-  }
+  // Cross-origin (map tiles, YouTube, Stripe, Supabase, analytics), non-GET,
+  // private paths and RSC requests go straight to the browser: not cached, and
+  // the page CSP (not this worker's own CSP) governs cross-origin fetches.
+  if (isBypassRequest(request, url)) return;
 
-  // Always go network for Supabase, API routes, and external resources
-  if (
-    url.hostname.includes('supabase.co') ||
-    url.pathname.startsWith('/api/') ||
-    url.hostname.includes('youtube') ||
-    url.hostname.includes('flickr') ||
-    url.hostname.includes('googleapis')
-  ) {
-    return; // default browser fetch
-  }
-
-  // Network-first for build assets + PWA shell (avoid serving outdated JS after deploy)
-  if (
-    url.pathname.startsWith('/_next/static/') ||
-    url.pathname.startsWith('/icons/') ||
-    url.pathname === '/manifest.json'
-  ) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(request))
-    );
-    return;
-  }
-
-  // Network-first for HTML pages — fall back to cache when offline
+  // Network-first for everything else (hashed build assets, icons, public
+  // pages); store only responses that allow it; fall back to cache offline.
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        if (isCacheable(response)) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone)).catch(() => {});
+        }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() => caches.match(request).then((hit) => hit || Response.error()))
   );
 });
 
