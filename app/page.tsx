@@ -6,8 +6,8 @@ import type { Article, ScenarioProbability } from '@/types/supabase';
 
 /**
  * ISR: public, tier-agnostic data (collectors run every 30 min – 6 h, briefs daily). The HTML is
- * served with `s-maxage=300, stale-while-revalidate` so the edge cache answers repeat visits
- * without running the Worker (Cloudflare 1102 under load). Nothing here depends on the visitor.
+ * served with `s-maxage=300` (Next also appends stale-while-revalidate, which Cloudflare ignores
+ * when s-maxage is present) so the edge cache answers repeat visits without running the Worker (Cloudflare 1102 under load). Nothing here depends on the visitor.
  */
 export const revalidate = 300;
 

@@ -8,6 +8,8 @@
   // Cache-Control the Worker returns (s-maxage on ISR pages; `private, no-store` on everything
   // that reads cookies), without running the Worker. Concurrent misses for one URL are collapsed
   // into a single Worker run. No KV/R2 involved. Requires wrangler >= 4.69.
+  // Cloudflare ignores the stale-while-revalidate that Next appends when s-maxage is present: an
+  // expired page is re-rendered on the next request (that request waits), never served stale.
   // FREE-PLAN NOTE: with this on, static-asset requests also count toward the 100,000
   // requests/day Workers Free limit (see PR body). Set to false to roll back.
   "cache": {

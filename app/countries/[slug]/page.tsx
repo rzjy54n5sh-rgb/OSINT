@@ -11,8 +11,9 @@ import { getNaiV2CountryLatest } from '@/lib/nai-v2';
 
 /**
  * ISR, rendered on first request per slug. The HTML is what an ANONYMOUS visitor sees (summary,
- * War Posture, no paid narrative) and is shared by the edge cache; a signed-in visitor whose
- * tier unlocks the narrative gets it after hydration from /api/viewer/country/[code].
+ * War Posture expressed score only, no paid narrative, no latent band / gap / category) and is
+ * shared by the edge cache; a signed-in visitor whose tier unlocks more gets it after hydration
+ * from /api/viewer/country/[code].
  */
 export const revalidate = 900;
 
@@ -71,8 +72,21 @@ export default async function CountryReportPage({
   // Only the columns the page renders. country_reports.nai_score / nai_category are the RETIRED
   // US-referenced scale and are deliberately not selected: the score shown is War Posture
   // (nai_scores_v2), the same one /nai and /countries show.
-  const [{ data: tierRows }, { data: report, error }, posture] = await Promise.all([
-    supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
+  // tier_features first (one small row set): the War Posture row must be built at ANONYMOUS access,
+  // because this HTML is shared by the edge cache (latent band / gap / category are informed-tier
+  // features). The full view for a signed-in visitor comes from /api/viewer/country/[code].
+  const { data: tierRows } = await supabase
+    .from('tier_features')
+    .select('feature_key, free_access, informed_access, pro_access');
+  const flags = buildTierFlags(tierRows ?? []);
+  // Access as an ANONYMOUS visitor (tier null) — the only view this shared HTML may contain.
+  const hasAccess = tierHasFeature(null, featureKey, flags);
+  const anonPostureAccess = {
+    latent: tierHasFeature(null, 'nai_latent_score', flags),
+    gap: tierHasFeature(null, 'nai_gap_analysis', flags),
+  };
+
+  const [{ data: report, error }, posture] = await Promise.all([
     supabase
       .from('country_reports')
       .select('country_code, country_name, conflict_day, updated_at, content_json')
@@ -80,14 +94,8 @@ export default async function CountryReportPage({
       .order('conflict_day', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // Same visibility as the /countries list (expressed, latent band and category for every tier),
-    // so the detail page can never contradict the list it is opened from.
-    countryCode ? getNaiV2CountryLatest(supabase, countryCode, { latent: true, gap: true }) : Promise.resolve(null),
+    countryCode ? getNaiV2CountryLatest(supabase, countryCode, anonPostureAccess) : Promise.resolve(null),
   ]);
-
-  const flags = buildTierFlags(tierRows ?? []);
-  // Access as an ANONYMOUS visitor (tier null) — the only view this shared HTML may contain.
-  const hasAccess = tierHasFeature(null, featureKey, flags);
 
   if (error) {
     return (
@@ -134,6 +142,7 @@ export default async function CountryReportPage({
       requiredTier={requiredTier}
       tierFlags={flags}
       anonHasAccess={hasAccess}
+      anonPostureAccess={anonPostureAccess}
       conflictDayBadge={<ConflictDayBadge />}
     />
   );

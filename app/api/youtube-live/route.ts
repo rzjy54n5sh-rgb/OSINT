@@ -14,12 +14,12 @@ export interface LiveChannelResult {
 export async function GET(request: NextRequest) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
-    return NextResponse.json([] as LiveChannelResult[]);
+    return NextResponse.json([] as LiveChannelResult[], { headers: EDGE_CACHE });
   }
   const idsParam = request.nextUrl.searchParams.get('ids');
   const channelIds = idsParam ? idsParam.split(',').map((s) => s.trim()).filter(Boolean) : [];
   if (channelIds.length === 0) {
-    return NextResponse.json([] as LiveChannelResult[]);
+    return NextResponse.json([] as LiveChannelResult[], { headers: EDGE_CACHE });
   }
 
   const results: LiveChannelResult[] = [];
@@ -43,5 +43,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(results, { headers: EDGE_CACHE });
 }
 
-/** Public, visitor-agnostic; also caps YouTube Data API quota use to ~1 lookup per minute per id set. */
-const EDGE_CACHE = { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=120' };
+/**
+ * Public, visitor-agnostic; also caps YouTube Data API quota use to ~1 lookup per minute per id
+ * set. Every 200 (including the empty early returns) carries it: without Cache-Control the Workers
+ * Cache default for a 200 is 2 h. No stale-while-revalidate: Cloudflare ignores it when s-maxage
+ * is present.
+ */
+const EDGE_CACHE = { 'Cache-Control': 'public, max-age=0, s-maxage=60' };

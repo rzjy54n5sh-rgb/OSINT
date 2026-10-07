@@ -7,11 +7,18 @@ import { tierHasFeature, type TierFlags } from '@/lib/tier';
 import type { NaiV2View } from '@/lib/nai-v2';
 import type { CountryNarrative } from '@/lib/country-narrative';
 
+type Unlocked = {
+  hasAccess: boolean;
+  narrative: CountryNarrative | null;
+  posture: NaiV2View | null;
+};
+
 /**
- * The page HTML is cached and rendered for an anonymous visitor (summary only, no narrative).
- * When the signed-in visitor's tier unlocks the narrative, it is fetched from
- * /api/viewer/country/[code], which re-checks the session server-side. Anonymous visitors make
- * no extra request.
+ * The page HTML is cached and rendered for an anonymous visitor: summary only, no narrative, and
+ * the War Posture row without the latent band / gap / category (informed-tier features). When the
+ * signed-in visitor's tier unlocks any of these, they are fetched from
+ * /api/viewer/country/[code], which re-checks the session server-side. Anonymous visitors make no
+ * extra request.
  */
 export function CountryReportGate({
   report,
@@ -20,6 +27,7 @@ export function CountryReportGate({
   requiredTier,
   tierFlags,
   anonHasAccess,
+  anonPostureAccess,
   conflictDayBadge,
 }: {
   report: CountryReportView;
@@ -28,19 +36,26 @@ export function CountryReportGate({
   requiredTier: 'informed' | 'professional';
   tierFlags: TierFlags;
   anonHasAccess: boolean;
+  anonPostureAccess: { latent: boolean; gap: boolean };
   conflictDayBadge?: ReactNode;
 }) {
   const tier = useViewerTier();
-  const [unlocked, setUnlocked] = useState<{ hasAccess: boolean; narrative: CountryNarrative | null } | null>(null);
-  const mayUnlock = !anonHasAccess && tier != null && tierHasFeature(tier, featureKey, tierFlags);
+  const [unlocked, setUnlocked] = useState<Unlocked | null>(null);
+  const t = tier ?? null;
+  const unlocksNarrative = !anonHasAccess && tierHasFeature(t, featureKey, tierFlags);
+  const unlocksPosture =
+    (!anonPostureAccess.latent && tierHasFeature(t, 'nai_latent_score', tierFlags)) ||
+    (!anonPostureAccess.gap && tierHasFeature(t, 'nai_gap_analysis', tierFlags));
+  const mayUnlock = tier != null && (unlocksNarrative || unlocksPosture);
 
   useEffect(() => {
     if (!mayUnlock) return;
     let cancelled = false;
     fetch(`/api/viewer/country/${encodeURIComponent(report.country_code)}`, { credentials: 'same-origin', cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<{ hasAccess?: boolean; narrative?: CountryNarrative | null } | null>) : null))
-      .then((j: { hasAccess?: boolean; narrative?: CountryNarrative | null } | null) => {
-        if (!cancelled && j?.hasAccess) setUnlocked({ hasAccess: true, narrative: j.narrative ?? null });
+      .then((r) => (r.ok ? (r.json() as Promise<Partial<Unlocked> | null>) : null))
+      .then((j) => {
+        if (cancelled || !j) return;
+        setUnlocked({ hasAccess: !!j.hasAccess, narrative: j.narrative ?? null, posture: j.posture ?? null });
       })
       .catch(() => {});
     return () => {
@@ -48,11 +63,11 @@ export function CountryReportGate({
     };
   }, [mayUnlock, report.country_code]);
 
-  const hasAccess = unlocked?.hasAccess ?? anonHasAccess;
+  const hasAccess = unlocked?.hasAccess || anonHasAccess;
   return (
     <CountryReportClient
-      report={unlocked ? { ...report, narrative: unlocked.narrative } : report}
-      posture={posture}
+      report={unlocked?.hasAccess ? { ...report, narrative: unlocked.narrative } : report}
+      posture={unlocked?.posture ?? posture}
       hasAccess={hasAccess}
       requiredTier={requiredTier}
       summaryOnly={!hasAccess}

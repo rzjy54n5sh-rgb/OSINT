@@ -1,15 +1,19 @@
 /**
- * Paid country-report narrative for the SIGNED-IN visitor, if their tier unlocks it.
+ * Tier-gated parts of /countries/[slug] for the SIGNED-IN visitor:
+ *  - the paid country-report narrative (country_report_* features), and
+ *  - the War Posture row with the latent band / gap / category when nai_latent_score /
+ *    nai_gap_analysis allow it.
  *
- * /countries/[slug] is a cached, tier-agnostic page (summary only, as an anonymous visitor
- * sees it). After hydration it calls this route when the visitor's tier may unlock the
- * narrative; the tier is re-checked here from the session cookie, so a client cannot unlock
- * content by claiming a tier. Per-user response: never stored by a shared cache.
+ * /countries/[slug] is a cached, tier-agnostic page built at ANONYMOUS access. After hydration
+ * it calls this route when the visitor's tier may unlock more; the tier is re-checked here from
+ * the session cookie, so a client cannot unlock content by claiming a tier. Per-user response:
+ * never stored by a shared cache.
  */
 import { NextResponse } from 'next/server';
 import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
 import { parseNarrative } from '@/lib/country-narrative';
+import { getNaiV2CountryLatest } from '@/lib/nai-v2';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,17 +38,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
     isEgypt ? 'country_report_egy' : isUae ? 'country_report_uae' : 'country_report_other',
     flags,
   );
-  if (!hasAccess) {
-    return NextResponse.json({ hasAccess: false, narrative: null }, { headers: PRIVATE });
-  }
+  const postureAccess = {
+    latent: tierHasFeature(user?.tier, 'nai_latent_score', flags),
+    gap: tierHasFeature(user?.tier, 'nai_gap_analysis', flags),
+  };
 
-  const { data: report } = await supabase
-    .from('country_reports')
-    .select('content_json')
-    .eq('country_code', code)
-    .order('conflict_day', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const narrative = report ? parseNarrative((report as { content_json: unknown }).content_json) : null;
-  return NextResponse.json({ hasAccess: true, narrative }, { headers: PRIVATE });
+  const [reportRes, posture] = await Promise.all([
+    hasAccess
+      ? supabase
+          .from('country_reports')
+          .select('content_json')
+          .eq('country_code', code)
+          .order('conflict_day', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    getNaiV2CountryLatest(supabase, code, postureAccess),
+  ]);
+  const report = reportRes.data as { content_json: unknown } | null;
+  const narrative = hasAccess && report ? parseNarrative(report.content_json) : null;
+  return NextResponse.json(
+    { hasAccess, narrative, posture, postureAccess },
+    { headers: PRIVATE },
+  );
 }
