@@ -2,45 +2,31 @@
 
 import { useCallback, useState } from 'react';
 import type { TooltipProps } from 'recharts';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import type { ScenarioChartRow } from '@/lib/scenario-registry';
 
-export interface ScenarioDay {
-  conflict_day: number;
-  scenario_a: number;
-  scenario_b: number;
-  scenario_c: number;
-  scenario_d: number;
+export interface ChartSeries {
+  code: string;
+  name: string;
+  color: string;
+  /** Dashed line (independent scenario, outside the 100). */
+  dashed?: boolean;
 }
 
 interface Props {
-  data: ScenarioDay[];
+  /** ONE method only. Callers split history with seriesByMethod(); methods are never joined. */
+  rows: ScenarioChartRow[];
+  series: ChartSeries[];
+  title: string;
+  /** Method label shown under the title (e.g. "market-anchored-v1"). */
+  methodLabel: string;
+  note?: string;
+  /** DOM id for the chart link. */
+  anchorId: string;
+  /** Share text for "Copy Day N data"; omitted for archived charts. */
+  shareText?: string;
+  height?: number;
 }
-
-const LINES = [
-  { key: 'scenario_a' as const, label: 'A: Ceasefire', color: '#1A7A4A' },
-  { key: 'scenario_b' as const, label: 'B: Prolonged', color: '#D97706' },
-  { key: 'scenario_c' as const, label: 'C: Cascade', color: '#C0392B' },
-  { key: 'scenario_d' as const, label: 'D: Escalation', color: '#6B21A8' },
-];
-
-const LEAD_NAMES: Record<string, string> = {
-  scenario_a: 'Scenario A (Managed Exit / Ceasefire)',
-  scenario_b: 'Scenario B (Prolonged War)',
-  scenario_c: 'Scenario C (Cascade / Dual Closure)',
-  scenario_d: 'Scenario D (Escalation Spiral)',
-};
-
-const DEFAULT_SITE = 'https://mena-intel-desk.mores-cohorts9x.workers.dev';
 
 function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
   if (!active || !payload?.length) return null;
@@ -57,171 +43,120 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
       <p style={{ color: '#E8C547', marginBottom: '8px' }}>DAY {label}</p>
       {payload.map((entry) => (
         <p key={String(entry.dataKey)} style={{ color: entry.color, margin: '2px 0' }}>
-          {entry.name}: <strong>{entry.value}%</strong>
+          {entry.name}: <strong>{entry.value == null ? 'unmeasured' : `${entry.value}%`}</strong>
         </p>
       ))}
     </div>
   );
 }
 
-function normalizeRow(d: ScenarioDay): ScenarioDay {
-  return {
-    conflict_day: d.conflict_day,
-    scenario_a: Math.round(Number(d.scenario_a)),
-    scenario_b: Math.round(Number(d.scenario_b)),
-    scenario_c: Math.round(Number(d.scenario_c)),
-    scenario_d: Math.round(Number(d.scenario_d)),
-  };
+async function copy(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function buildDataShareText(last: ScenarioDay): string {
-  const a = Math.round(Number(last.scenario_a));
-  const b = Math.round(Number(last.scenario_b));
-  const c = Math.round(Number(last.scenario_c));
-  const d = Math.round(Number(last.scenario_d));
-  const vals = [
-    { key: 'scenario_a', v: a },
-    { key: 'scenario_b', v: b },
-    { key: 'scenario_c', v: c },
-    { key: 'scenario_d', v: d },
-  ];
-  const lead = vals.reduce((x, y) => (y.v > x.v ? y : x));
-  const leadLabel = LEAD_NAMES[lead.key] ?? lead.key;
-  const site = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE;
-  return `Day ${last.conflict_day} | A:${a}% B:${b}% C:${c}% D:${d}% | ${leadLabel} leads\n   Source: MENA Intel Desk — ${site}`;
-}
-
-export function ScenarioHistoryChart({ data }: Props) {
-  const [copied, setCopied] = useState<'link' | 'data' | null>(null);
-
-  const rows = (data ?? []).map(normalizeRow).sort((x, y) => x.conflict_day - y.conflict_day);
-  if (!rows.length) return null;
-
-  const last = rows[rows.length - 1];
-  const bDominantDay = rows.find((d) => d.scenario_b >= 40)?.conflict_day;
-
-  const flash = useCallback((which: 'link' | 'data') => {
-    setCopied(which);
-    window.setTimeout(() => setCopied(null), 2000);
+export function ScenarioHistoryChart({ rows, series, title, methodLabel, note, anchorId, shareText, height = 300 }: Props) {
+  const [status, setStatus] = useState<string | null>(null);
+  const flash = useCallback((msg: string) => {
+    setStatus(msg);
+    window.setTimeout(() => setStatus(null), 2000);
   }, []);
 
-  const copyChartLink = () => {
-    const url = `${window.location.href.split('#')[0]}#scenario-history`;
-    void navigator.clipboard.writeText(url).then(() => flash('link'));
-  };
-
-  const copyDayData = () => {
-    void navigator.clipboard.writeText(buildDataShareText(last)).then(() => flash('data'));
-  };
+  if (!rows.length) return null;
+  const last = rows.at(-1)!;
+  // A one-day series cannot draw a line: show dots so a single point is still visible.
+  const showDots = rows.length < 4;
 
   return (
-    <div id="scenario-history" className="w-full min-w-0">
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="font-mono text-sm text-white/60 tracking-wider uppercase">
-          SCENARIO EVOLUTION — DAYS 1 TO {last.conflict_day}
-        </h3>
-        <span className="font-mono text-xs text-white/30">A+B+C+D = 100% each day</span>
-      </div>
-
-      <div className="w-full overflow-x-auto min-w-0 -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div
-          className="w-full min-w-[600px] sm:min-w-0 rounded-sm"
-          style={{ background: 'var(--bg-card, #0D1B2A)' }}
-        >
-          <div className="w-full h-[320px] min-h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={rows} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1C3A5E" />
-                <XAxis
-                  dataKey="conflict_day"
-                  stroke="#6C7A8A"
-                  tick={{ fill: '#6C7A8A', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
-                  label={{
-                    value: 'Conflict Day',
-                    position: 'insideBottom',
-                    offset: -2,
-                    fill: '#6C7A8A',
-                    fontSize: 11,
-                  }}
-                />
-                <YAxis
-                  stroke="#6C7A8A"
-                  tick={{ fill: '#6C7A8A', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
-                  tickFormatter={(v) => `${v}%`}
-                  domain={[0, 60]}
-                />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend
-                  wrapperStyle={{
-                    fontFamily: 'IBM Plex Mono',
-                    fontSize: '12px',
-                    color: '#6C7A8A',
-                  }}
-                />
-
-                {bDominantDay != null && (
-                  <ReferenceLine
-                    x={bDominantDay}
-                    stroke="#D97706"
-                    strokeDasharray="4 4"
-                    label={{
-                      value: 'B dominant',
-                      fill: '#D97706',
-                      fontSize: 12,
-                      position: 'top',
-                    }}
-                  />
-                )}
-
-                {LINES.map(({ key, label, color }) => (
-                  <Line
-                    key={key}
-                    type="monotone"
-                    dataKey={key}
-                    name={label}
-                    stroke={color}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4, strokeWidth: 0 }}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+    <div id={anchorId} className="w-full min-w-0">
+      <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
+        <div>
+          <h2 className="font-mono text-sm tracking-wider uppercase" style={{ color: 'var(--text-secondary)' }}>
+            {title}
+          </h2>
+          <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }} translate="no">
+            METHOD {methodLabel}
+          </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mt-4 justify-center sm:justify-start">
-        <button
-          type="button"
-          onClick={copyChartLink}
-          className="font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors"
-          style={{
-            borderColor: 'var(--border)',
-            color: 'var(--text-secondary)',
-            background: 'rgba(13, 27, 42, 0.6)',
-          }}
-        >
-          {copied === 'link' ? 'Copied!' : 'Copy chart link'}
-        </button>
-        <button
-          type="button"
-          onClick={copyDayData}
-          className="font-mono text-xs px-3 py-1.5 rounded-sm border transition-colors"
-          style={{
-            borderColor: 'var(--border)',
-            color: 'var(--text-secondary)',
-            background: 'rgba(13, 27, 42, 0.6)',
-          }}
-        >
-          {copied === 'data' ? 'Copied!' : `Copy Day ${last.conflict_day} data`}
-        </button>
+      <div className="w-full rounded-sm" style={{ background: 'var(--bg-card, #0D1B2A)', height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1C3A5E" />
+            <XAxis
+              dataKey="day"
+              type="number"
+              domain={['dataMin', 'dataMax']}
+              allowDecimals={false}
+              stroke="#8A9BB5"
+              tick={{ fill: '#8A9BB5', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
+              padding={{ left: 12, right: 12 }}
+            />
+            <YAxis
+              stroke="#8A9BB5"
+              tick={{ fill: '#8A9BB5', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
+              tickFormatter={(v) => `${v}%`}
+              domain={[0, 100]}
+              width={44}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono', fontSize: '12px', color: '#B8C4D0' }} />
+            {series.map((s) => (
+              <Line
+                key={s.code}
+                type="linear"
+                dataKey={s.code}
+                name={`${s.code}: ${s.name}`}
+                stroke={s.color}
+                strokeWidth={2}
+                strokeDasharray={s.dashed ? '4 3' : undefined}
+                dot={showDots ? { r: 3 } : false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                connectNulls={false}
+                isAnimationActive={false}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
       </div>
 
-      <p className="font-mono text-xs text-white/20 mt-2 text-center sm:text-left">
-        Probabilities reflect observable trigger conditions — not editorial positions. A includes Iran&apos;s stated
-        ceasefire condition (closure of US regional bases).
-      </p>
+      {note && (
+        <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          {note}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3 mt-3">
+        <button
+          type="button"
+          onClick={async () => {
+            const url = `${window.location.href.split('#')[0]}#${anchorId}`;
+            flash((await copy(url)) ? 'Link copied' : 'Copy failed — clipboard blocked');
+          }}
+          className="font-mono text-xs px-3 py-2 rounded-sm border min-h-[40px]"
+          style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+        >
+          Copy chart link
+        </button>
+        {shareText && (
+          <button
+            type="button"
+            onClick={async () => flash((await copy(shareText)) ? 'Data copied' : 'Copy failed — clipboard blocked')}
+            className="font-mono text-xs px-3 py-2 rounded-sm border min-h-[40px]"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+          >
+            Copy Day {last.day} data
+          </button>
+        )}
+        <span role="status" aria-live="polite" className="font-mono text-xs" style={{ color: 'var(--accent-gold)' }}>
+          {status ?? ''}
+        </span>
+      </div>
     </div>
   );
 }

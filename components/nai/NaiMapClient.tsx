@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { OsintCard } from '@/components/OsintCard';
 import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
@@ -18,6 +17,7 @@ import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
 import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
 import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NaiArchiveToggle } from '@/components/nai/NaiArchiveToggle';
+import { NaiDialog } from '@/components/nai/NaiDialog';
 import { CountryFlag } from '@/components/CountryFlag';
 import { NO_SOURCED_DATA_TEXT, TRACKED_COUNTRY_CODES } from '@/lib/countries';
 import {
@@ -208,7 +208,7 @@ export function NaiMapClient({
       <PageBriefing
         title={t('naiMapHeading')}
         description="War Posture NAI: each country's official narrative is scored 0–100 on one party-neutral question — the position on continuing hostilities (0 = demands immediate unconditional ceasefire, 50 = conditional or ambivalent, 100 = backs continuing or escalating military action, by any party). Society (population and non-government elites) is scored on the same scale as a band, or left empty when there is no evidence. The category shows whether government and society point the same way."
-        note="Every score cites its sources. Grey means insufficient evidence for the latent position — no category is guessed. Days 1–35 used a retired, non-comparable method and are only available under the archived toggle."
+        note="Every score cites its sources. UNSCORABLE (grey category) means no single category can be assigned: either there is no admissible evidence for society's position, or the latent band spans more than one category. No category is guessed; the map then colours the country by its official posture. Days 1–35 used a retired, non-comparable method and are only available under the archived toggle."
       />
       <div className="px-4 max-w-6xl mx-auto w-full">
         <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -313,16 +313,22 @@ export function NaiMapClient({
 
           <ul className="space-y-2">
             {rows.map((r) => (
-              <li key={`${r.country_code}-${r.conflict_day}`}>
+              <li
+                key={`${r.country_code}-${r.conflict_day}`}
+                className="font-mono text-xs border rounded-sm hover:border-border-bright transition-colors"
+                style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+              >
+                {/* Only the summary is the button; paywall links sit OUTSIDE it (no nested interactive). */}
                 <button
                   type="button"
                   onClick={() => setSelectedCode(r.country_code)}
-                  className="w-full text-left font-mono text-xs py-1.5 px-2 border rounded-sm hover:border-border-bright transition-colors"
-                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                  className="w-full text-left py-1.5 px-2 min-h-[44px]"
+                  aria-haspopup="dialog"
+                  aria-label={`Open War Posture details for ${r.country_code}`}
                 >
                   <div className="flex items-center gap-2 flex-wrap">
                     <span translate="no" style={{ color: 'var(--text-primary)' }}>{r.country_code}</span>
-                    <NaiV2CategoryBadge category={r.category} locked={r.categoryLocked} />
+                    <NaiV2CategoryBadge category={r.category} locked={r.categoryLocked} latentEvidence={r.latentEvidence} expressed={r.expressed_score} showUnscorableText={false} />
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 items-center" style={{ color: 'var(--text-muted)' }}>
                     <span translate="no">EXP {r.expressed_score ?? '—'}</span>
@@ -332,26 +338,37 @@ export function NaiMapClient({
                       {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
                       <span translate="no">{r.delta === null ? '—' : formatGap(r.delta)}</span>
                     </span>
-                    {hasLatentAccess ? (
-                      <span translate="no">LAT {formatBand(r.latent_low, r.latent_high)}</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="blur-sm select-none">—</span>
-                        <PaywallOverlay requiredTier="informed" featureName="NAI Latent Band" compact />
-                      </span>
-                    )}
-                    {hasGapAccess ? (
-                      <span translate="no">GAP {formatGap(r.gap)}</span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1">
-                        <span className="blur-sm select-none">—</span>
-                        <PaywallOverlay requiredTier="informed" featureName="NAI Gap Analysis" compact />
-                      </span>
-                    )}
-                    <span translate="no">CONF {r.confidence.toUpperCase()}</span>
-                    <span translate="no">{r.sources.length} SRC</span>
                   </div>
                 </button>
+                <div className="px-2 pb-1.5 flex flex-wrap gap-x-3 gap-y-1 items-center" style={{ color: 'var(--text-muted)' }}>
+                  {hasLatentAccess ? (
+                    <span translate="no">LAT {r.latent_low === null ? 'no admissible evidence' : formatBand(r.latent_low, r.latent_high)}</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="blur-sm select-none" aria-hidden="true">—</span>
+                      <PaywallOverlay requiredTier="informed" featureName="NAI Latent Band" compact />
+                    </span>
+                  )}
+                  {hasGapAccess ? (
+                    <span translate="no">GAP {formatGap(r.gap)}</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="blur-sm select-none" aria-hidden="true">—</span>
+                      <PaywallOverlay requiredTier="informed" featureName="NAI Gap Analysis" compact />
+                    </span>
+                  )}
+                  <span translate="no">CONF {r.confidence.toUpperCase()}</span>
+                  <span
+                    translate="no"
+                    title={
+                      r.hiddenLatentSourceCount > 0
+                        ? `${r.sources.length} expressed-score source(s) shown; ${r.hiddenLatentSourceCount} latent source(s) on Informed tier`
+                        : undefined
+                    }
+                  >
+                    {r.sources.length} SRC{r.hiddenLatentSourceCount > 0 ? ` (+${r.hiddenLatentSourceCount} latent, locked)` : ''}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
@@ -362,7 +379,8 @@ export function NaiMapClient({
                   <button
                     type="button"
                     onClick={() => setSelectedCode(code)}
-                    className="w-full text-left font-mono text-xs py-1.5 px-2 border rounded-sm hover:border-border-bright transition-colors"
+                    aria-haspopup="dialog"
+                    className="w-full text-left font-mono text-xs py-1.5 px-2 min-h-[44px] border rounded-sm hover:border-border-bright transition-colors"
                     style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
@@ -383,39 +401,35 @@ export function NaiMapClient({
           <NaiArchiveToggle />
         </aside>
         {selectedNoData && (
-          <div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedCode(null)}
+          <NaiDialog
+            title={
+              <>
+                <CountryFlag code={selectedNoData} /> · DAY {conflictDay}
+              </>
+            }
+            onClose={() => setSelectedCode(null)}
           >
-            <div onClick={(e) => e.stopPropagation()} className="max-w-lg w-full">
-              <OsintCard className="w-full">
-                <h3 className="font-display text-xl" style={{ color: 'var(--text-primary)' }} translate="no">
-                  <CountryFlag code={selectedNoData} /> · DAY {conflictDay}
-                </h3>
-                <p className="font-mono text-xs mt-3" style={{ color: 'var(--text-secondary)' }} data-testid="nai-nodata-detail">
-                  No sourced data available for Day {conflictDay}. No score or category is shown rather than a guessed one.
-                </p>
-                <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-                  <Link href={`/countries/${selectedNoData.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
-                    View country page →
-                  </Link>
-                </p>
-              </OsintCard>
-            </div>
-          </div>
+            <p className="font-mono text-xs mt-3" style={{ color: 'var(--text-secondary)' }} data-testid="nai-nodata-detail">
+              No sourced data available for Day {conflictDay}. No score or category is shown rather than a guessed one.
+            </p>
+            <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
+              <Link href={`/countries/${selectedNoData.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
+                View country page →
+              </Link>
+            </p>
+          </NaiDialog>
         )}
         {selected && (
-          <div
-            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-            onClick={() => setSelectedCode(null)}
+          <NaiDialog
+            title={
+              <>
+                {selected.country_code} · DAY {selected.conflict_day}
+              </>
+            }
+            onClose={() => setSelectedCode(null)}
           >
-            <div onClick={(e) => e.stopPropagation()} className="max-w-lg w-full max-h-[80vh] overflow-y-auto">
-              <OsintCard className="w-full">
-                <h3 className="font-display text-xl" style={{ color: 'var(--text-primary)' }} translate="no">
-                  {selected.country_code} · DAY {selected.conflict_day}
-                </h3>
                 <div className="mt-2">
-                  <NaiV2CategoryBadge category={selected.category} locked={selected.categoryLocked} />
+                  <NaiV2CategoryBadge category={selected.category} locked={selected.categoryLocked} latentEvidence={selected.latentEvidence} expressed={selected.expressed_score} />
                 </div>
                 <dl className="font-mono text-xs mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1" style={{ color: 'var(--text-secondary)' }}>
                   <dt style={{ color: 'var(--text-muted)' }}>EXPRESSED</dt>
@@ -439,7 +453,7 @@ export function NaiMapClient({
                     {selected.latentLocked
                       ? 'Informed tier'
                       : selected.latent_low === null
-                        ? '— (no evidence)'
+                        ? '— (no admissible evidence)'
                         : formatBand(selected.latent_low, selected.latent_high)}
                   </dd>
                   {selected.latent_basis && (
@@ -459,9 +473,7 @@ export function NaiMapClient({
                     View full report →
                   </Link>
                 </p>
-              </OsintCard>
-            </div>
-          </div>
+          </NaiDialog>
         )}
       </div>
     </div>

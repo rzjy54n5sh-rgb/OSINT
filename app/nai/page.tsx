@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { getUser, getConflictDay } from '@/utils/supabase/server';
 import { DataAsOf } from '@/components/ui/DataAsOf';
@@ -6,6 +7,12 @@ import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiMapClient } from '@/components/nai/NaiMapClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
+
+export const metadata: Metadata = {
+  title: 'War Posture Map (NAI) — MENA Intel Desk',
+  description:
+    "Each tracked state's official war posture and its society's posture on one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), with sources.",
+};
 
 export default async function NaiMapPage({
   searchParams,

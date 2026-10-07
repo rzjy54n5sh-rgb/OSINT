@@ -1,285 +1,263 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { SentimentBar } from '@/components/SentimentBar';
-import { GlossaryTooltip } from '@/components/GlossaryTooltip';
-import { PageShareButton, buildScenariosShareText } from '@/components/PageShareButton';
-import { ScenarioHistoryChart, type ScenarioDay } from '@/components/scenarios/ScenarioHistoryChart';
-import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
-import { useScenarios } from '@/hooks/useScenarios';
-import { GLOSSARY } from '@/lib/glossary';
-import { useI18n } from '@/components/I18nProvider';
-import type { UIStringKey } from '@/lib/i18n';
-import type { ScenarioProbability } from '@/types/supabase';
+import { PageShareButton } from '@/components/PageShareButton';
+import { ScenarioHistoryChart, type ChartSeries } from '@/components/scenarios/ScenarioHistoryChart';
+import { ScenarioMethodPanel } from '@/components/scenarios/ScenarioMethodPanel';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+  CURRENT_SCENARIO_METHOD,
+  deltaWithinMethod,
+  probabilityOn,
+  scenarioColor,
+  seriesByMethod,
+  unmeasuredFlag,
+  type RegistryScenario,
+  type ScenarioRegistryView,
+} from '@/lib/scenario-registry';
 
-/** Display names aligned with DB scenario keys (fallback if i18n missing). */
-const SCENARIO_DEFS: Record<'A' | 'B' | 'C' | 'D' | 'E', { name: string; desc: string }> = {
-  A: { name: 'Managed Exit', desc: 'Ceasefire via Xi-Trump / Iran-Oman channel' },
-  B: { name: 'Prolonged War', desc: 'Conflict continues 4+ weeks' },
-  C: { name: 'Cascade', desc: 'Hormuz + Red Sea dual closure' },
-  D: { name: 'Escalation Spiral', desc: 'Iran strikes Gulf oil → $150/bbl' },
-  E: { name: 'UAE Direct Strike', desc: 'UAE hits Iranian missile sites' },
-};
-
-const SCENARIO_META: Record<string, { name: string; description: string; color: string }> = {
-  A: {
-    name: 'Managed Exit',
-    color: 'var(--accent-green)',
-    description:
-      'Ceasefire within 2 weeks via: (a) Xi-Trump framework, OR (b) Iran-Oman back-channel — Iran\'s stated condition: closure/drawdown of US regional bases, OR (c) Gulf SWF $100B+ investment pressure on Trump. Probability declining after Kharg Island strike hardened both sides.',
-  },
-  B: {
-    name: 'Prolonged War',
-    color: 'var(--accent-gold)',
-    description:
-      'Conflict continues 4+ weeks without diplomatic breakthrough. No Xi-Trump summit outcome. Iran retaliates for Kharg within acceptable bounds. Most likely scenario. Egypt pound through 55/USD. US inflation rising toward 3%.',
-  },
-  C: {
-    name: 'Cascade / Dual Closure',
-    color: 'var(--accent-blue)',
-    description:
-      'Hormuz closure combines with Houthi Red Sea resumption. Near-total halt of regional maritime trade. Egypt enters IMF emergency program. Morgan Stanley $2.4B energy deficit for Egypt. Global food security crisis activates.',
-  },
-  D: {
-    name: 'Escalation Spiral',
-    color: 'var(--accent-red)',
-    description:
-      'Iran retaliates for Kharg by striking Gulf oil infrastructure (Aramco/ADNOC) → Trump executes threat to destroy Kharg oil terminals → JPMorgan $150/bbl scenario → US domestic inflation crisis → political pressure ends war faster than diplomacy.',
-  },
-  E: {
-    name: 'UAE Direct Strike',
-    color: '#a855f7',
-    description:
-      'Further context: Axios (2 sources, March 3) reported UAE "considering active defensive measures." Australia evacuation advisory and DIFC emptying signal rising pressure. Can overlap with Scenario D.',
-  },
-};
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://mena-intel-desk.mores-cohorts9x.workers.dev';
 
 type ScenariosClientProps = {
   hasDetailAccess: boolean;
-  /** Server-rendered conflict day strip (placed after page &lt;h1&gt;). */
+  registry: ScenarioRegistryView;
+  /** Calendar day (DAY LOCK). */
+  currentDay: number;
+  /** Server-rendered conflict day strip (placed after page <h1>). */
   conflictDayBadge?: ReactNode;
-  /** Full history for trend chart (server-fetched; includes scenario_e when present). */
-  scenarioHistory: ScenarioProbability[];
-  /** Latest row from server (correct conflict day or last available) when client fetch is empty. */
-  serverLatest: ScenarioProbability | null;
 };
 
-function scenarioEValue(row: { scenario_e?: number | null } | null): number | null {
-  if (!row) return null;
-  const v = row.scenario_e;
-  return typeof v === 'number' && !Number.isNaN(v) ? v : null;
+function unmeasuredHeadline(reason: string | null): string {
+  return reason && /quality floor/i.test(reason)
+    ? 'Unmeasured — no market meets the quality floor'
+    : 'Unmeasured — no qualifying market';
 }
 
-function scenarioChromeTitle(key: 'A' | 'B' | 'C' | 'D' | 'E', t: (k: UIStringKey) => string): string {
-  const m = { A: 'scenarioA', B: 'scenarioB', C: 'scenarioC', D: 'scenarioD', E: 'scenarioE' } as const;
-  const label = t(m[key]);
-  if (label && label.trim()) return label;
-  return SCENARIO_DEFS[key].name;
+function ScenarioCard({
+  s,
+  registry,
+  index,
+}: {
+  s: RegistryScenario;
+  registry: ScenarioRegistryView;
+  index: number;
+}) {
+  const day = registry.latestDay;
+  const p = probabilityOn(registry.history, s.code, day);
+  const color = scenarioColor(s.code, index);
+  const independent = s.group_code !== 'core';
+  const unmeasured = p === null || s.measurement_state === 'unmeasured';
+  const point = registry.history.find((x) => x.code === s.code && x.conflict_day === day);
+  const reason = unmeasured ? (unmeasuredFlag(registry.run, s.code) ?? point?.null_reason ?? null) : null;
+  const delta = deltaWithinMethod(registry.history, s.code, day);
+
+  return (
+    <OsintCard
+      className={independent ? 'border-2 border-dashed h-full' : 'h-full'}
+      style={independent ? { borderColor: `${color}80` } : undefined}
+    >
+      <article data-testid={`scenario-card-${s.code}`} data-measurement={unmeasured ? 'unmeasured' : 'measured'}>
+        <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
+          SCENARIO {s.code}
+          {s.status !== 'active' && <span className="ml-2" style={{ color: 'var(--accent-orange)' }}>· {s.status.toUpperCase()}</span>}
+        </p>
+        <h3 className="font-mono text-sm mb-2" style={{ color }} data-testid={`scenario-name-${s.code}`}>
+          {s.name_en}
+        </h3>
+        {unmeasured ? (
+          <>
+            <p className="font-display text-2xl" style={{ color: 'var(--text-secondary)' }} translate="no">
+              —
+            </p>
+            <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-primary)' }} data-testid={`scenario-unmeasured-${s.code}`}>
+              {unmeasuredHeadline(reason)}
+            </p>
+            {reason && (
+              <p className="font-mono text-[11px] mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                {reason}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="font-display text-2xl" style={{ color }} translate="no">
+              {p}%
+            </p>
+            <SentimentBar value={(p ?? 0) / 100} className="mt-2" />
+            <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
+              {delta
+                ? `${delta.delta > 0 ? '+' : ''}${delta.delta} pts since Day ${delta.sinceDay} (same method)`
+                : 'No earlier day under this method'}
+            </p>
+          </>
+        )}
+        <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }} data-testid={`scenario-def-${s.code}`}>
+          {s.definition_en}
+        </p>
+        {independent && (
+          <p className="font-mono text-[11px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
+            ◆ Independent — can overlap with the core set · not part of the 100
+          </p>
+        )}
+      </article>
+    </OsintCard>
+  );
 }
 
-export function ScenariosClient({
-  hasDetailAccess,
-  conflictDayBadge,
-  scenarioHistory,
-  serverLatest,
-}: ScenariosClientProps) {
-  const { t } = useI18n();
-  const { scenarios, loading, error } = useScenarios();
-  const clientLatest = scenarios.length > 0 ? scenarios[scenarios.length - 1] : null;
-  const latest = clientLatest ?? serverLatest;
-  const latestScenarioE = latest ? scenarioEValue(latest) : null;
-  const chartSource: ScenarioProbability[] =
-    scenarios.length > 0 ? scenarios : scenarioHistory;
-  const chartData = chartSource.map((s) => ({
-    day: s.conflict_day,
-    A: s.scenario_a,
-    B: s.scenario_b,
-    C: s.scenario_c,
-    D: s.scenario_d,
-    E: s.scenario_e ?? 0,
-  }));
+export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflictDayBadge }: ScenariosClientProps) {
+  const visible = registry.scenarios.filter((s) => s.status !== 'retired');
+  const retired = registry.scenarios.filter((s) => s.status === 'retired');
+  const core = visible.filter((s) => s.group_code === 'core');
+  const independent = visible.filter((s) => s.group_code !== 'core');
+  const day = registry.latestDay;
+
+  const methodSeries = seriesByMethod(registry.history);
+  const current = methodSeries.find((m) => m.method === (registry.latestMethod ?? CURRENT_SCENARIO_METHOD)) ?? null;
+  const archived = methodSeries.filter((m) => m !== current);
+  const methodDesc = (m: string) => registry.methods.find((x) => x.method_version === m)?.description ?? '';
+
+  const chartSeries = (codes: string[]): ChartSeries[] =>
+    registry.scenarios
+      .filter((s) => codes.includes(s.code))
+      .map((s, i) => ({ code: s.code, name: s.name_en, color: scenarioColor(s.code, i), dashed: s.group_code !== 'core' }));
+  const codesIn = (rows: { [k: string]: unknown }[]) =>
+    Array.from(new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== 'day'))));
+
+  const shareText =
+    day != null
+      ? `Day ${day} scenarios (${registry.latestMethod ?? ''}): ` +
+        visible
+          .map((s) => {
+            const p = probabilityOn(registry.history, s.code, day);
+            return `${s.code} ${s.name_en} ${p === null ? 'unmeasured' : `${p}%`}`;
+          })
+          .join(' · ') +
+        ` — ${SITE}/scenarios`
+      : '';
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
-        title="CONFLICT SCENARIO PROBABILITY TRACKER"
-        description="Five conflict scenarios are tracked daily. Scenarios A through D sum to 100%. Scenario E (UAE Direct Strike) is an independent sub-branch probability that can overlap with others. Scenarios are updated daily based on observable trigger conditions — not predictions."
-        note="Probabilities reflect observable trigger conditions from all parties' actions — not editorial positions. Scenario A includes Iran's stated ceasefire condition (closure/drawdown of US regional military bases) as a required pathway, not only a US-China diplomatic resolution. All parties' official framings are presented alongside independent analysis."
+        title="CONFLICT SCENARIO PROBABILITIES"
+        description="The scenarios, their names and definitions come from the scenario registry. The core set (A–D) is mutually exclusive over the method horizon and sums to 100; independent scenarios (E) can overlap and are not part of the 100. Each day's numbers are computed by the market-anchored method from public prediction-market prices, and the markets used are listed below with links."
+        note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs were not stored; they are shown only as a separate, archived series."
       />
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-4">
           <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
-            {t('scenarios')}
+            SCENARIOS
           </h1>
-          {latest && (
-            <PageShareButton
-              label="SHARE"
-              getCopyText={() =>
-                buildScenariosShareText(
-                  latest.scenario_a,
-                  latest.scenario_b,
-                  latest.scenario_c,
-                  latest.scenario_d,
-                  latest.conflict_day
-                )
-              }
-            />
-          )}
+          {day != null && <PageShareButton label="SHARE" getCopyText={() => shareText} />}
         </div>
         {conflictDayBadge}
+        {day != null && (
+          <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
+            DAY {day} · METHOD {registry.latestMethod}
+            {registry.run?.horizon_end ? ` · HORIZON ${registry.run.horizon_end}` : ''}
+            {day !== currentDay ? ` · CALENDAR DAY ${currentDay}` : ''}
+          </p>
+        )}
       </div>
-      {loading && !latest && (
-        <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
-          LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span>
-        </p>
-      )}
-      {error && !latest && (
-        <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
-          [DATA UNAVAILABLE]
+
+      {registry.error && (
+        <div className="font-mono text-xs py-4 border px-4 mb-6" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }} role="alert">
+          [DATA UNAVAILABLE] Scenario data could not be loaded just now. Please try again shortly.
         </div>
       )}
-      {latest && (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {(['A', 'B', 'C', 'D'] as const).map((key) => (
-              <OsintCard key={key}>
-                <GlossaryTooltip term={`SCENARIO_${key}`} definition={GLOSSARY[`SCENARIO_${key}` as keyof typeof GLOSSARY]}>
-                  <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-                    <span translate="no">SCENARIO {key}</span>
-                  </p>
-                </GlossaryTooltip>
-                <p className="font-mono text-sm mb-2" style={{ color: SCENARIO_META[key].color }}>
-                  &quot;{scenarioChromeTitle(key, t)}&quot;
-                </p>
-                <p className="font-display text-2xl" style={{ color: SCENARIO_META[key].color }}>
-                  <span translate="no">
-                    {latest[`scenario_${key.toLowerCase()}` as keyof typeof latest]}%
-                  </span>
-                </p>
-                <SentimentBar
-                  value={(latest[`scenario_${key.toLowerCase()}` as keyof typeof latest] as number) / 100}
-                  className="mt-2"
-                />
-                {hasDetailAccess && (
-                  <p className="font-body text-xs mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                    {SCENARIO_META[key].description || SCENARIO_DEFS[key].desc}
-                  </p>
-                )}
-              </OsintCard>
-            ))}
-            {/* Scenario E: full-width mobile, half row on md+ (cols 2–3), dashed — not part of A–D sum */}
-            <div className="col-span-2 md:col-span-2 md:col-start-2 w-full min-w-0">
-              <OsintCard
-                className="border-2 border-dashed border-purple-500/50 h-full"
-                style={{
-                  background: 'color-mix(in srgb, var(--bg-card) 50%, transparent)',
-                }}
-              >
-                <GlossaryTooltip term="SCENARIO_E" definition={GLOSSARY.SCENARIO_E}>
-                  <p className="font-mono text-xs uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
-                    SCENARIO E
-                  </p>
-                  <p className="font-mono text-sm mb-2" style={{ color: '#a855f7' }} translate="no">
-                    {scenarioChromeTitle('E', t)}
-                  </p>
-                </GlossaryTooltip>
-                <p className="font-display text-2xl mb-1" style={{ color: '#a855f7' }}>
-                  <span translate="no">
-                    {latestScenarioE != null ? `${latestScenarioE}%` : '—'}
-                  </span>
-                </p>
-                {latestScenarioE == null && (
-                  <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                    Sub-branch
-                  </p>
-                )}
-                {latestScenarioE != null && <SentimentBar value={latestScenarioE / 100} className="mt-2 mb-2" />}
-                <p className="font-body text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
-                  UAE conducts direct military strike on Iranian missile sites. Independent sub-branch — can overlap with
-                  Scenarios A through D. Probability reflects UAE&apos;s declared red lines being crossed.
-                </p>
-                {hasDetailAccess && (
-                  <p className="font-body text-xs mt-1 leading-relaxed border-t pt-2" style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}>
-                    {SCENARIO_META.E.description}
-                  </p>
-                )}
-                <p className="font-mono text-[11px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
-                  ◆ Independent sub-branch · Not included in A–D sum
-                </p>
-              </OsintCard>
-            </div>
-          </div>
 
-          {scenarioHistory.length > 0 && (
-            <div className="my-8 border-t border-white/10 pt-8">
-              <ScenarioHistoryChart data={scenarioHistory as ScenarioDay[]} />
-            </div>
-          )}
+      {!registry.error && visible.length === 0 && <p className="redacted py-12">NO INTEL AVAILABLE</p>}
 
-          <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
-            EVOLUTION ACROSS CONFLICT DAYS
+      {core.length > 0 && (
+        <section aria-label="Core scenarios" className="mb-4">
+          <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
+            CORE SET — {core.map((s) => s.code).join(' + ')} = 100% each day
           </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {core.map((s, i) => (
+              <ScenarioCard key={s.code} s={s} registry={registry} index={i} />
+            ))}
+          </div>
+        </section>
+      )}
+      {independent.length > 0 && (
+        <section aria-label="Independent scenarios" className="mb-8">
+          <p className="font-mono text-[11px] mb-2 mt-4" style={{ color: 'var(--text-muted)' }}>
+            INDEPENDENT — measured separately, can overlap with the core set
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {independent.map((s, i) => (
+              <ScenarioCard key={s.code} s={s} registry={registry} index={core.length + i} />
+            ))}
+          </div>
+        </section>
+      )}
+      {retired.length > 0 && (
+        <section aria-label="Retired scenarios" className="mb-8">
+          <h2 className="font-mono text-xs uppercase mb-2" style={{ color: 'var(--text-muted)' }}>Retired scenarios</h2>
+          <ul className="font-mono text-xs space-y-1" style={{ color: 'var(--text-secondary)' }}>
+            {retired.map((s) => (
+              <li key={s.code}>
+                {s.code} · {s.name_en} — retired Day {s.retired_day ?? '—'}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-          {hasDetailAccess ? (
-            <OsintCard className="scanlines">
-              <h2 className="font-display text-lg mb-4">PROBABILITY OVER TIME</h2>
-              {chartData.length === 0 ? (
-                <p className="redacted">NO INTEL AVAILABLE</p>
-              ) : (
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-                      <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
-                      <Tooltip
-                        contentStyle={{
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 2,
-                        }}
-                      />
-                      <Legend />
-                      <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={2} dot={false} name="A" />
-                      <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={2} dot={false} name="B" />
-                      <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={2} dot={false} name="C" />
-                      <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={2} dot={false} name="D" />
-                      <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={2} dot={false} name="E" strokeDasharray="4 2" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </OsintCard>
-          ) : (
+      {current && (
+        <section className="my-8 border-t pt-8" style={{ borderColor: 'var(--border)' }} aria-label="Scenario history">
+          <ScenarioHistoryChart
+            anchorId="scenario-history"
+            title={`Scenario probabilities — Day ${current.firstDay} to ${current.lastDay}`}
+            methodLabel={current.method}
+            rows={current.rows}
+            series={chartSeries(codesIn(current.rows))}
+            shareText={shareText}
+            note={`Only days computed by ${current.method} are drawn here. An unmeasured scenario is a gap, not zero.`}
+          />
+          {archived.length > 0 && (
             <div
-              className="font-mono text-sm py-4 px-4 rounded-sm border flex flex-wrap items-center justify-between gap-2"
-              style={{
-                background: 'rgba(232, 197, 71, 0.05)',
-                borderColor: '#E8C547',
-                color: '#E2E8F0',
-              }}
+              className="mt-6 px-3 py-2 border font-mono text-[11px] leading-relaxed"
+              style={{ borderColor: 'var(--accent-orange)', color: 'var(--text-secondary)' }}
+              data-testid="method-break"
             >
-              <span>
-                <span style={{ color: '#E8C547' }}>◆</span> Scenario analysis, trigger conditions and 14-day history
-              </span>
-              <PaywallOverlay requiredTier="informed" featureName="Scenario Analysis" compact />
+              ⚠ METHOD BREAK — the series above starts on Day {current.firstDay}. Earlier days were produced by a different
+              method and are not comparable; they are shown separately below and are never joined to the current line or used
+              for &quot;since&quot; deltas.
             </div>
           )}
-        </>
+          {archived.map((m) => (
+            <details key={m.method} className="mt-4" data-testid={`archived-${m.method}`}>
+              <summary className="font-mono text-xs cursor-pointer py-2" style={{ color: 'var(--text-secondary)' }}>
+                ARCHIVED — Days {m.firstDay}–{m.lastDay} · {m.method} (not comparable)
+              </summary>
+              <div className="mt-3">
+                <ScenarioHistoryChart
+                  anchorId={`scenario-history-${m.method}`}
+                  title={`Archived — Days ${m.firstDay} to ${m.lastDay}`}
+                  methodLabel={m.method}
+                  rows={m.rows}
+                  series={chartSeries(codesIn(m.rows))}
+                  note={methodDesc(m.method)}
+                  height={240}
+                />
+              </div>
+            </details>
+          ))}
+        </section>
       )}
-      {!latest && !loading && !error && (
-        <p className="redacted py-12">NO INTEL AVAILABLE</p>
-      )}
+
+      <ScenarioMethodPanel registry={registry} hasDetailAccess={hasDetailAccess} />
+
+      <p className="font-mono text-[11px] mt-6" style={{ color: 'var(--text-muted)' }}>
+        Full method, floors and retirement rule:{' '}
+        <Link href="/methodology" style={{ color: 'var(--accent-gold)' }}>
+          Methodology →
+        </Link>
+      </p>
     </div>
   );
 }
