@@ -5,6 +5,7 @@ const COUNTRY_EMOJI: Record<string, string> = {
   EG: '🇪🇬', JO: '🇯🇴', AE: '🇦🇪', QA: '🇶🇦', KW: '🇰🇼', BH: '🇧🇭',
   OM: '🇴🇲', IL: '🇮🇱', PS: '🇵🇸', TR: '🇹🇷', LY: '🇱🇾', SD: '🇸🇩',
   DZ: '🇩🇿', MA: '🇲🇦', TN: '🇹🇳', GB: '🇬🇧', IN: '🇮🇳', US: '🇺🇸', FR: '🇫🇷', DE: '🇩🇪', PK: '🇵🇰', CN: '🇨🇳', RU: '🇷🇺',
+  ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
 };
 
 export const COUNTRY_NAMES: Record<string, string> = {
@@ -13,6 +14,7 @@ export const COUNTRY_NAMES: Record<string, string> = {
   FR: 'France', EG: 'Egypt', DE: 'Germany', PK: 'Pakistan', LB: 'Lebanon',
   CN: 'China', IQ: 'Iraq', YE: 'Yemen', RU: 'Russia', IR: 'Iran',
   SY: 'Syria', OM: 'Oman', BH: 'Bahrain', PS: 'Palestine', LY: 'Libya', SD: 'Sudan', DZ: 'Algeria', MA: 'Morocco', TN: 'Tunisia',
+  ET: 'Ethiopia', ER: 'Eritrea', SO: 'Somalia', DJ: 'Djibouti',
 };
 
 type CountryFlagProps = {

@@ -14,10 +14,12 @@ const SLUG_TO_CODE: Record<string, string> = {
   oman: 'OM', palestine: 'PS', libya: 'LY', sudan: 'SD', algeria: 'DZ',
   morocco: 'MA', tunisia: 'TN', china: 'CN', usa: 'US', uk: 'GB',
   france: 'FR', germany: 'DE', india: 'IN', pakistan: 'PK',
+  ethiopia: 'ET', eritrea: 'ER', somalia: 'SO', djibouti: 'DJ',
   ir: 'IR', il: 'IL', iq: 'IQ', ye: 'YE', sa: 'SA', ae: 'AE', eg: 'EG',
   tr: 'TR', ru: 'RU', sy: 'SY', lb: 'LB', jo: 'JO', qa: 'QA', kw: 'KW',
   bh: 'BH', om: 'OM', ps: 'PS', ly: 'LY', sd: 'SD', dz: 'DZ', ma: 'MA',
   tn: 'TN', cn: 'CN', us: 'US', gb: 'GB', fr: 'FR', de: 'DE', in: 'IN', pk: 'PK',
+  et: 'ET', er: 'ER', so: 'SO', dj: 'DJ',
 };
 
 const T1_COUNTRIES = ['EGY', 'ARE', 'UAE'];

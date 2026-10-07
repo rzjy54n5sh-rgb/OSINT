@@ -19,6 +19,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
+import argparse
 import hashlib
 import datetime
 import time
@@ -28,7 +29,10 @@ import concurrent.futures
 from dateutil import parser as dateparser
 from bs4 import BeautifulSoup
 
-from sources_registry import ALL_SOURCES, CONFLICT_KEYWORDS, NITTER_INSTANCES, TELEGRAM_CHANNELS
+from sources_registry import (
+    ALL_SOURCES, CONFLICT_KEYWORDS, FEED_GROUPS, HORN_AMBIGUOUS_KEYWORDS, HORN_KEYWORDS, HORN_REGION,
+    NITTER_INSTANCES, TELEGRAM_CHANNELS, keyword_regex, strip_horn_exclusions,
+)
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -131,9 +135,29 @@ def truncate(text: str, max_len: int) -> str:
     text = text.strip()
     return text[:max_len] + "…" if len(text) > max_len else text
 
-def is_relevant(title: str, summary: str) -> bool:
+# Legacy keywords keep their historical plain-substring test (changing it would change what the
+# existing feeds admit). The Horn of Africa keywords are matched as WHOLE WORDS: a substring test
+# would let "afar", "fano" or "rsf" hit words that merely contain them.
+_HORN_SET = set(HORN_KEYWORDS)
+LEGACY_KEYWORDS = [kw for kw in CONFLICT_KEYWORDS if kw not in _HORN_SET]
+_HORN_RE = keyword_regex(HORN_KEYWORDS)
+_HORN_AMBIGUOUS_RE = keyword_regex(HORN_AMBIGUOUS_KEYWORDS)
+
+def is_horn_source(source: dict | None) -> bool:
+    """True for feeds that are themselves Horn-of-Africa coverage (the geography is then given)."""
+    return bool(source) and source.get("region") == HORN_REGION
+
+def is_relevant(title: str, summary: str, source: dict | None = None) -> bool:
     combined = (title + " " + (summary or "")).lower()
-    return any(kw in combined for kw in CONFLICT_KEYWORDS)
+    if any(kw in combined for kw in LEGACY_KEYWORDS):
+        return True
+    horn_text = strip_horn_exclusions(title + " " + (summary or ""))  # 'South Sudan', 'from afar'
+    if _HORN_RE.search(horn_text):
+        return True
+    # Ambiguous terms (Afar, Fano, RSF, Burhan, Somali, ...) only count once the geography is
+    # established, i.e. in a Horn-of-Africa feed - the analogue of backfill_gdelt_index's
+    # "loose keyword needs a regional location" rule.
+    return is_horn_source(source) and bool(_HORN_AMBIGUOUS_RE.search(horn_text))
 
 def classify_sentiment(title: str, summary: str) -> str:
     text = (title + " " + (summary or "")).lower()
@@ -146,6 +170,16 @@ def classify_sentiment(title: str, summary: str) -> str:
     if n > p: return "negative"
     if p > n: return "positive"
     return "neutral"
+
+HORN_TAG_RULES = [
+    (keyword_regex(["ethiopia", "ethiopian", "tigray", "tigrayan", "tplf", "abiy", "amhara", "mekelle",
+                    "addis ababa", "oromo liberation army", "tigray people's liberation front"]), "Ethiopia"),
+    (keyword_regex(["eritrea", "eritrean", "asmara", "massawa", "assab", "isaias afwerki"]), "Eritrea"),
+    (keyword_regex(["sudan", "sudanese", "khartoum", "port sudan", "rapid support forces", "rapid support force"]), "Sudan"),
+    (keyword_regex(["somalia", "somaliland", "mogadishu", "berbera", "al-shabaab", "al shabaab", "al-shabab", "al shabab"]), "Somalia"),
+    (keyword_regex(["djibouti", "djiboutian"]), "Djibouti"),
+    (keyword_regex(["horn of africa", "red sea access"]), "Horn of Africa"),
+]
 
 def extract_tags(title: str, summary: str) -> list:
     text = (title + " " + (summary or "")).lower()
@@ -168,6 +202,11 @@ def extract_tags(title: str, summary: str) -> list:
     found = set()
     for kw, tag in tag_map.items():
         if kw in text:
+            found.add(tag)
+    # Horn of Africa tags: whole-word, South Sudan stripped first (so it never tags "Sudan")
+    horn_text = strip_horn_exclusions(title + " " + (summary or ""))
+    for rx, tag in HORN_TAG_RULES:
+        if rx.search(horn_text):
             found.add(tag)
     return list(found)[:8]  # max 8 tags
 
@@ -207,21 +246,50 @@ def resolve_nitter_url(feed_url: str) -> str | None:
 # CORE FETCH
 # ─────────────────────────────────────────────
 
-def fetch_source(source: dict) -> list[dict]:
-    """Fetch one source, return list of article dicts ready for Supabase."""
+FEED_TIMEOUT = 20  # seconds, for sources fetched with "fetch": "requests"
+
+def parse_feed(url: str, source: dict):
+    """Parse one feed. Sources marked "fetch": "requests" are downloaded with requests and a
+    timeout, then parsed from bytes (feedparser.parse(url) has no network timeout, so one hung
+    host would stall the whole hourly run). All other sources keep the original behaviour."""
+    if source.get("fetch") == "requests":
+        # A browser User-Agent: Dabanga and Horn Observer reject python-requests' default
+        # (403/406) and ReliefWeb rejects feedparser's (403); all 20 Horn feeds accept this one.
+        headers = {"User-Agent": source.get("user_agent") or TG_HEADERS["User-Agent"]}
+        resp = requests.get(url, headers=headers, timeout=FEED_TIMEOUT)
+        resp.raise_for_status()
+        return feedparser.parse(resp.content)
+    return feedparser.parse(url)
+
+def fetch_source(source: dict, stats: dict | None = None) -> list[dict]:
+    """Fetch one source, return list of article dicts ready for Supabase.
+
+    `stats`, when given, is filled with {"raw": entries seen, "kept": rows returned, "error": str|None}
+    (used by `--dry-run`; the return value is unchanged).
+    """
     url = source["url"]
+    if stats is not None:
+        stats.update({"raw": 0, "kept": 0, "error": None})
 
     # Resolve Nitter failover
     resolved_url = resolve_nitter_url(url)
     if resolved_url is None:
+        if stats is not None:
+            stats["error"] = "nitter unavailable"
         return []  # Nitter completely down for this handle
 
     is_social = any(x in resolved_url for x in NITTER_INSTANCES + ["rsshub.app"])
 
     try:
-        d = feedparser.parse(resolved_url)
+        d = parse_feed(resolved_url, source)
         entries = d.entries[:ARTICLE_LIMIT]
+        if stats is not None:
+            stats["raw"] = len(entries)
+            if not entries:
+                stats["error"] = f"no entries (bozo: {d.get('bozo_exception')})"
     except Exception as e:
+        if stats is not None:
+            stats["error"] = f"{type(e).__name__}: {e}"[:160]
         return []
 
     now = utc_now()
@@ -239,7 +307,7 @@ def fetch_source(source: dict) -> list[dict]:
 
         # For social/elite sources: always include (they're already filtered by account)
         # For news sources: filter by conflict relevance
-        if not is_social and not is_relevant(title, raw_summary):
+        if not is_social and not is_relevant(title, raw_summary, source):
             continue
 
         # Parse date in UTC; drop stale items, clamp future ones to fetch time
@@ -271,6 +339,8 @@ def fetch_source(source: dict) -> list[dict]:
             row["source_perspective"] = source["source_perspective"]
         articles.append(row)
 
+    if stats is not None:
+        stats["kept"] = len(articles)
     return articles
 
 
@@ -417,16 +487,61 @@ def upsert_batch(articles: list[dict]) -> int:
 # MAIN
 # ─────────────────────────────────────────────
 
-def main():
+def run_dry(sources: list[dict]) -> int:
+    """`--dry-run`: fetch the given sources and print, per feed, the entries seen, the rows that
+    would be stored and 3 sample titles. Touches neither Supabase nor Telegram. Exit 1 when no
+    feed returned a row, so a broken group cannot look green."""
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+        futures = {}
+        for src in sources:
+            st: dict = {}
+            futures[ex.submit(fetch_source, src, st)] = (src, st)
+        for fut in concurrent.futures.as_completed(futures):
+            src, st = futures[fut]
+            try:
+                rows = fut.result()
+            except Exception as e:  # fetch_source swallows feed errors; this is a bug guard
+                rows, st["error"] = [], f"{type(e).__name__}: {e}"[:160]
+            results.append((src, st, rows))
+    order = {id(src): i for i, src in enumerate(sources)}
+    results.sort(key=lambda r: order[id(r[0])])
+
+    total = 0
+    print(f"\n[collect_feeds] DRY RUN - {len(sources)} feeds, nothing is written\n")
+    for src, st, rows in results:
+        total += len(rows)
+        status = f"error: {st['error']}" if st.get("error") else "ok"
+        print(f"{src['source_name']}  <{src['url']}>")
+        print(f"    entries seen {st.get('raw', 0):3d} | kept {len(rows):3d} | {status}")
+        for r in rows[:3]:
+            print(f"      - [Day {r['conflict_day']} {r['published_at'][:16]}] {r['title'][:110]}  tags={r['tags']}")
+    live = sum(1 for _, _, rows in results if rows)
+    print(f"\n[collect_feeds] DRY RUN: {total} rows from {live}/{len(sources)} feeds")
+    return 0 if total else 1
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Unified feed collector")
+    ap.add_argument("--group", choices=sorted(FEED_GROUPS),
+                    help="collect only this named feed group (default: every source + Telegram)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="fetch and print per-feed counts and sample titles; write nothing")
+    args = ap.parse_args(argv)
+    sources = FEED_GROUPS[args.group] if args.group else ALL_SOURCES
+
+    if args.dry_run:
+        return run_dry(sources)
+
     now = datetime.datetime.utcnow()
     print(f"[collect_feeds] Start — {now.isoformat()}Z")
-    print(f"[collect_feeds] {len(ALL_SOURCES)} sources registered")
+    print(f"[collect_feeds] {len(sources)} sources registered")
 
     # Parallel fetch (RSS + Nitter + Chinese RSS)
     all_articles = []
     source_stats = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = {ex.submit(fetch_source, src): src for src in ALL_SOURCES}
+        futures = {ex.submit(fetch_source, src): src for src in sources}
         for future in concurrent.futures.as_completed(futures):
             src = futures[future]
             try:
@@ -437,13 +552,14 @@ def main():
             except Exception as e:
                 print(f"  ✗ {src['source_name']}: {e}")
 
-    # Telegram channels (t.me/s scrape)
-    print("📱 Collecting Telegram sources...")
-    telegram_articles = collect_telegram_sources(max_posts_per_channel=15)
-    all_articles.extend(telegram_articles)
-    for a in telegram_articles:
-        source_stats[a["source_name"]] = source_stats.get(a["source_name"], 0) + 1
-    print(f"  Total with Telegram: {len(all_articles)} articles")
+    # Telegram channels (t.me/s scrape) - only in a full run, not for a named group
+    if args.group is None:
+        print("📱 Collecting Telegram sources...")
+        telegram_articles = collect_telegram_sources(max_posts_per_channel=15)
+        all_articles.extend(telegram_articles)
+        for a in telegram_articles:
+            source_stats[a["source_name"]] = source_stats.get(a["source_name"], 0) + 1
+        print(f"  Total with Telegram: {len(all_articles)} articles")
 
     # Deduplicate by ID (same article from multiple sources)
     seen = set()
@@ -477,4 +593,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

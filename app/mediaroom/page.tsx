@@ -19,6 +19,12 @@ const COUNTRIES = [
   { code: 'EG', label: 'EGY', flag: '🇪🇬' },
   { code: 'TR', label: 'TUR', flag: '🇹🇷' },
   { code: 'RU', label: 'RUS', flag: '🇷🇺' },
+  // Horn of Africa & Red Sea theatre (ruling 2026-10-07)
+  { code: 'ET', label: 'ETH', flag: '🇪🇹' },
+  { code: 'ER', label: 'ERI', flag: '🇪🇷' },
+  { code: 'SD', label: 'SDN', flag: '🇸🇩' },
+  { code: 'SO', label: 'SOM', flag: '🇸🇴' },
+  { code: 'DJ', label: 'DJI', flag: '🇩🇯' },
 ];
 
 const COUNTRY_KEYWORDS: Record<string, string[]> = {
@@ -33,6 +39,12 @@ const COUNTRY_KEYWORDS: Record<string, string[]> = {
   EG: ['egypt', 'cairo', 'sisi'],
   TR: ['turkey', 'erdogan', 'ankara', 'istanbul'],
   RU: ['russia', 'moscow', 'putin', 'ukraine'],
+  // substring match on clip titles: only terms that cannot sit inside another word
+  ET: ['ethiopia', 'addis ababa', 'tigray', 'tplf'],
+  ER: ['eritrea', 'asmara', 'massawa'],
+  SD: ['sudan', 'khartoum', 'rapid support forces'],
+  SO: ['somalia', 'mogadishu', 'somaliland', 'al-shabaab'],
+  DJ: ['djibouti'],
 };
 
 const COUNTRY_PHOTO_TAGS: Record<string, string> = {
@@ -47,6 +59,11 @@ const COUNTRY_PHOTO_TAGS: Record<string, string> = {
   EG: 'egypt,cairo',
   TR: 'turkey',
   RU: 'russia',
+  ET: 'ethiopia',
+  ER: 'eritrea',
+  SD: 'sudan',
+  SO: 'somalia',
+  DJ: 'djibouti',
 };
 
 const LIVE_CHANNELS = [

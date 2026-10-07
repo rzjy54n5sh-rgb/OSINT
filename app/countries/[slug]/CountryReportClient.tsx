@@ -235,7 +235,7 @@ export function CountryReportClient({
             </p>
             </div>
           )}
-          <p className="redacted">[FULL REPORT PENDING]</p>
+          <p className="redacted">No sourced data available yet — the daily build has not written this report.</p>
         </OsintCard>
       )}
     </div>

@@ -25,6 +25,7 @@ const COUNTRY_EMOJI: Record<string, string> = {
   TR: '🇹🇷', RU: '🇷🇺', SY: '🇸🇾', LB: '🇱🇧', JO: '🇯🇴', QA: '🇶🇦', KW: '🇰🇼',
   BH: '🇧🇭', OM: '🇴🇲', PS: '🇵🇸', LY: '🇱🇾', SD: '🇸🇩', DZ: '🇩🇿', MA: '🇲🇦',
   TN: '🇹🇳', CN: '🇨🇳', US: '🇺🇸', GB: '🇬🇧', FR: '🇫🇷', DE: '🇩🇪', IN: '🇮🇳', PK: '🇵🇰',
+  ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
 };
 
 interface ContentJson {
@@ -443,7 +444,9 @@ export default function WarRoomPage() {
             {uniqueCountries.map((code) => {
               const report = countryReports.find((r) => r.country_code.toUpperCase() === code);
               const naiRow = naiLatestMap[code];
-              const naiCategory = (naiRow?.category ?? report?.nai_category ?? 'STABLE').toUpperCase().replace(/\s+/g, '_');
+              // No score and no category => 'NONE' (no coloured dot); never default to STABLE.
+              const hasNai = (naiRow?.expressed_score ?? report?.nai_score) != null;
+              const naiCategory = (naiRow?.category ?? report?.nai_category ?? 'NONE').toUpperCase().replace(/\s+/g, '_');
               const isActive = activeCountry === code;
               const count = articleCountByCountry[code] ?? 0;
               const gapSize = naiRow?.gap_size ?? 0;
@@ -485,7 +488,9 @@ export default function WarRoomPage() {
                       {report?.country_name ?? code}
                     </div>
                     <div className="country-meta" style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
-                      NAI {(naiRow?.expressed_score ?? report?.nai_score ?? 0).toFixed(1)} · {naiRow?.category ?? report?.nai_category ?? '—'}
+                      {hasNai
+                        ? <>NAI {Number(naiRow?.expressed_score ?? report?.nai_score).toFixed(1)} · {naiRow?.category ?? report?.nai_category ?? '—'}</>
+                        : <>NAI — · No sourced data</>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
                       <GlossaryTooltip term="GAP" definition="Difference between expressed and latent scores. GAP &gt; 30 = critical divergence.">

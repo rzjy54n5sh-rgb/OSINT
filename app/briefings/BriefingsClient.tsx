@@ -21,7 +21,7 @@ interface BriefingMeta {
   period_end_day?: number | null;
 }
 
-const REPORT_ORDER = ['general', 'general_weekly', 'egypt', 'uae', 'eschatology', 'business'];
+const REPORT_ORDER = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'];
 
 const REPORT_META: Record<string, {
   label: string;
@@ -31,6 +31,7 @@ const REPORT_META: Record<string, {
 }> = {
   general: { label: 'GENERAL INTELLIGENCE BRIEF', emoji: '\u25C6', color: 'var(--accent-gold)', readTime: '30\u201345 min' },
   general_weekly: { label: 'WEEKLY GENERAL DIGEST', emoji: '\u25C7', color: 'var(--accent-gold)', readTime: '20\u201330 min' },
+  horn:    { label: 'HORN OF AFRICA & RED SEA',      emoji: '\u25CD', color: '#14b8a6', readTime: '12\u201318 min' },
   egypt:   { label: 'EGYPT COUNTRY BRIEF',          emoji: '\uD83C\uDDEA\uD83C\uDDEC', color: '#10b981', readTime: '15\u201320 min' },
   uae:     { label: 'UAE COUNTRY BRIEF',             emoji: '\uD83C\uDDE6\uD83C\uDDEA', color: '#3b82f6', readTime: '12\u201318 min' },
   eschatology: { label: 'ESCHATOLOGY & GEOPOLITICS', emoji: '\u25CE', color: '#a855f7', readTime: '10\u201315 min' },

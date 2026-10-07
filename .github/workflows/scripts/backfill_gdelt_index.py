@@ -26,6 +26,10 @@ keeps only rows whose published_at falls on D. A row therefore belongs to exactl
 and re-runs select the same rows (stable sort keys everywhere, independent of download order).
 
 Caps per conflict day (keeps the 500 MB free DB tier safe): <= 500 English + <= 100 non-English.
+Horn of Africa & Red Sea theatre (ruling 2026-10-07): ET, ER, SU (Sudan), SO, DJ are regional
+locations and the Horn keywords are in scope, but Horn rows may take at most HORN_SHARE (25%) of a
+day's cap, so the Iran-war rows are never crowded out of a capped day; unused room is filled by
+leftover Horn rows, so the cap itself never grows.
 Selection: in-scope rows from registry outlets first (one per normalised title), then other
 outlets, one row per normalised title, ranked by how many distinct outlets carried that title.
 
@@ -44,6 +48,7 @@ import hashlib
 import html
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -54,7 +59,10 @@ import urllib.request
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from sources_registry import ALL_SOURCES, CONFLICT_KEYWORDS, NITTER_INSTANCES  # noqa: E402
+from sources_registry import (  # noqa: E402
+    ALL_SOURCES, CONFLICT_KEYWORDS, HORN_AMBIGUOUS_KEYWORDS, HORN_KEYWORDS, NITTER_INSTANCES,
+    keyword_regex, strip_horn_exclusions,
+)
 
 CONFLICT_START = datetime.date(2026, 2, 28)
 GDELT_BASE = "https://data.gdeltproject.org/gdeltv2"
@@ -73,8 +81,13 @@ MIN_TITLE_LEN = 12
 # the 20 (US, RU, CN, GB, FR, DE, IN) appear in most world news and would admit everything.
 TRACKED_20_FIPS = {"IR", "US", "IS", "SA", "AE", "IZ", "LE", "YM", "JO", "EG",
                    "TU", "RS", "CH", "UK", "FR", "GM", "QA", "KU", "IN", "PK"}
+# Horn of Africa & Red Sea theatre (5 more tracked countries, 25 in all). GDELT uses FIPS 10-4,
+# where SUDAN IS "SU" (the ISO code SD is not a FIPS country) and South Sudan is "OD" - left out on
+# purpose, it is not one of the five.
+HORN_FIPS = {"ET", "ER", "SU", "SO", "DJ"}
 REGIONAL_FIPS = {"IR", "IS", "SA", "AE", "IZ", "LE", "YM", "JO", "EG", "TU", "QA", "KU", "PK",
-                 "SY", "BA", "MU", "GZ", "WE"}
+                 "SY", "BA", "MU", "GZ", "WE"} | HORN_FIPS
+HORN_SHARE = 0.25  # max fraction of a day's cap that Horn-of-Africa rows may take
 # GKG V2Themes tokens that mark conflict / security / energy-shock coverage (substring match).
 # KILL and REFUGEES were dropped after the live dry run: with a tracked-country mention they admit
 # floods, accidents and local crime (e.g. Punjab flood evacuations, a mountaineer's body).
@@ -86,23 +99,30 @@ CONFLICT_THEMES = ("ARMEDCONFLICT", "MILITARY", "TERROR", "CONFLICT_AND_VIOLENCE
 LOOSE_KEYWORDS = {"oil price", "crude oil", "brent", "wti", "strait", "tanker", "shipping lane",
                   "ceasefire", "escalation", "missile", "drone strike", "nuclear", "enrichment",
                   "ballistic", "world war", "regional war", "us navy", "us military", "pentagon"}
+# Horn terms that are ordinary words/names elsewhere (afar, fano, isaias, rsf, burhan, somali, عصب,
+# البرهان): loose too - they only count when GDELT tags a Horn/regional location.
+LOOSE_KEYWORDS |= {k.strip().lower() for k in HORN_AMBIGUOUS_KEYWORDS}
 
 # FIPS / theme -> tag, using the vocabulary collect_feeds.extract_tags already writes.
 FIPS_TAGS = {"IR": "Iran", "IS": "Israel", "YM": "Yemen", "LE": "Lebanon", "SA": "Saudi Arabia",
-             "AE": "UAE", "IZ": "Iraq", "RS": "Russia", "CH": "China", "US": "USA"}
+             "AE": "UAE", "IZ": "Iraq", "RS": "Russia", "CH": "China", "US": "USA",
+             "ET": "Ethiopia", "ER": "Eritrea", "SU": "Sudan", "SO": "Somalia", "DJ": "Djibouti"}
 THEME_TAGS = (("ECON_OILPRICE", "Energy"), ("NUCLEAR", "Nuclear"), ("WMD", "Nuclear"))
 
 SECOND_LEVEL = {"co.uk", "org.uk", "ac.uk", "gov.uk", "com.au", "co.in", "com.cn", "com.sa",
                 "net.sa", "org.sa", "gov.sa", "co.ae", "gov.ae", "net.kw", "com.kw", "com.bh",
                 "com.om", "com.qa", "com.lb", "com.jo", "com.iq", "com.ye", "com.sy", "com.eg",
                 "org.eg", "gov.eg", "com.pk", "com.tr", "org.tr", "gov.tr", "co.il", "org.il",
-                "gov.il", "co.ir", "ac.ir", "org.ir", "gov.ir", "com.ru", "com.tw", "co.jp"}
+                "gov.il", "co.ir", "ac.ir", "org.ir", "gov.ir", "com.ru", "com.tw", "co.jp",
+                "com.et", "gov.et", "org.et", "com.sd", "gov.sd", "com.so", "gov.so"}
 TLD_COUNTRY = {"ir": "Iran", "il": "Israel", "sa": "Saudi Arabia", "ae": "UAE", "kw": "Kuwait",
                "qa": "Qatar", "bh": "Bahrain", "om": "Oman", "iq": "Iraq", "ye": "Yemen",
                "lb": "Lebanon", "tr": "Turkey", "eg": "Egypt", "jo": "Jordan", "sy": "Syria",
-               "ru": "Russia", "cn": "China", "pk": "Pakistan", "in": "India"}
+               "ru": "Russia", "cn": "China", "pk": "Pakistan", "in": "India",
+               "et": "Ethiopia", "er": "Eritrea", "sd": "Sudan", "so": "Somalia", "dj": "Djibouti"}
 AGGREGATOR_HOSTS = {"rsshub.app", "t.me", "news.google.com", "feeds.feedburner.com"}
-DOMAIN_ALIASES = {"bbci.co.uk": ("bbc.co.uk", "bbc.com")}  # feed host != article host
+DOMAIN_ALIASES = {"bbci.co.uk": ("bbc.co.uk", "bbc.com"),  # feed host != article host
+                  "fanamc.com": ("fanamc.com", "fanabc.com")}  # Fana moved domains; fanabc.com redirects
 
 _TITLE_RE = re.compile(r"<PAGE_TITLE>(.*?)</PAGE_TITLE>", re.S)
 _PUB_RE = re.compile(r"<PAGE_PRECISEPUBTIMESTAMP>(\d{14})</PAGE_PRECISEPUBTIMESTAMP>")
@@ -154,18 +174,20 @@ def registered_domain(host: str) -> str:
 
 
 def _kw_pattern(words) -> re.Pattern:
-    alts = []
-    for kw in sorted(words, key=lambda w: (-len(w), w)):
-        body = r"[\s\-]+".join(re.escape(p) for p in kw.split())
-        alts.append(body)
-    # whole words, allowing plural / demonym endings: iran->iranian, israel->israeli, houthi->houthis
-    return re.compile(r"(?<!\w)(?:" + "|".join(alts) + r")(?:s|es|i|is|ian|ians|n|'s|’s)?(?!\w)",
-                      re.I)
+    """Whole words, allowing plural / demonym endings: iran->iranian, israel->israeli, houthi->houthis.
+    Shared with collect_feeds (sources_registry.keyword_regex), which also handles the Arabic
+    Horn keywords (one-letter proclitics such as و ب ل)."""
+    return keyword_regex(words)
 
 
-_KW = [k.strip().lower() for k in CONFLICT_KEYWORDS if k.strip()]
+_KW = [k.strip().lower() for k in list(CONFLICT_KEYWORDS) + list(HORN_AMBIGUOUS_KEYWORDS) if k.strip()]
 _STRONG_RE = _kw_pattern([k for k in _KW if k not in LOOSE_KEYWORDS])
 _LOOSE_RE = _kw_pattern([k for k in _KW if k in LOOSE_KEYWORDS])
+_HORN_SET = {k.strip().lower() for k in HORN_KEYWORDS}
+_HORN_RE = _kw_pattern(sorted(_HORN_SET))
+# Strong keywords of the Iran/Gulf theatre only (no Horn terms, no loose ones): a title that has
+# one of these is counted as that theatre, not as Horn, for the HORN_SHARE quota.
+_LEGACY_STRONG_RE = _kw_pattern([k for k in _KW if k not in LOOSE_KEYWORDS and k not in _HORN_SET])
 
 
 def keyword_hit(text: str) -> str | None:
@@ -173,11 +195,23 @@ def keyword_hit(text: str) -> str | None:
     plain substrings ('idf' matches 'midfielder', 'brent' matches 'Brentford')."""
     if not text:
         return None
+    text = strip_horn_exclusions(text)  # "South Sudan", "from afar", "appeared first on ..."
     if _STRONG_RE.search(text):
         return "strong"
     if _LOOSE_RE.search(text):
         return "loose"
     return None
+
+
+def is_horn_rec(rec: "Rec") -> bool:
+    """A Horn-of-Africa row for the HORN_SHARE quota: its title names the Horn (or GDELT locates it
+    only in the Horn) and it does not also name the Iran/Gulf theatre."""
+    text = strip_horn_exclusions(scope_text(rec))
+    if _LEGACY_STRONG_RE.search(text):
+        return False
+    if _HORN_RE.search(text):
+        return True
+    return bool(rec.fips & HORN_FIPS) and not (rec.fips & (REGIONAL_FIPS - HORN_FIPS))
 
 
 def normalise_title(title: str) -> str:
@@ -199,6 +233,8 @@ def url_slug_text(url: str) -> str:
 # ─────────────────────────────────────────────
 
 def _source_domains(src: dict) -> list[str]:
+    if src.get("domain_scope") == "feed":  # one country slice of a multi-country site (ReliefWeb)
+        return []
     url = src.get("url") or ""
     host = (urllib.parse.urlsplit(url).hostname or "").lower()
     if host == "news.google.com":
@@ -357,7 +393,8 @@ class Selected:
         return (-self.cluster, -self.relevance, self.rid)
 
 
-def select_for_day(recs, registry: dict, cap: int, strict_registry: bool = False) -> list:
+def select_for_day(recs, registry: dict, cap: int, strict_registry: bool = False,
+                   horn_share: float = HORN_SHARE) -> list:
     """Deterministic per-day pick of at most `cap` rows.
 
     1. Registry-outlet rows that hit a project keyword, one per normalised title (earliest wins).
@@ -367,6 +404,11 @@ def select_for_day(recs, registry: dict, cap: int, strict_registry: bool = False
        country) - one row per normalised title: titles with a keyword before body-only matches,
        then by how many distinct outlets carried the title.
     Ties: stronger keyword first, then the md5 id (stable, and spread evenly over the day).
+
+    Horn quota: at most ceil(horn_share * cap) Horn-of-Africa rows (is_horn_rec) are taken in the
+    ranking order above; the room they leave is given to the next-best non-Horn rows, and if there
+    are not enough of those, leftover Horn rows fill it (the cap is never exceeded). horn_share=1
+    switches the quota off. With no Horn row among the candidates the result is the plain ranking.
     """
     best: dict[str, Selected] = {}
     for rec in recs:
@@ -395,7 +437,8 @@ def select_for_day(recs, registry: dict, cap: int, strict_registry: bool = False
             seen_norm.add(s.norm)
             chosen.append(s)
     chosen.sort(key=lambda s: s.rank)
-    chosen = chosen[:cap]
+    chosen_full = chosen
+    chosen = chosen_full[:cap]
     taken = {s.norm for s in chosen}
 
     reps: dict[str, Selected] = {}
@@ -404,13 +447,39 @@ def select_for_day(recs, registry: dict, cap: int, strict_registry: bool = False
             reps[s.norm] = s
     # titles that name the conflict outrank wire copy that only mentions it in the body
     others = sorted(reps.values(), key=lambda s: (s.relevance == 0,) + s.rank)
-    return chosen + others[:max(0, cap - len(chosen))]
+    room = max(0, cap - len(chosen))
+    picked = chosen + others[:room]
+    if horn_share >= 1 or not any(is_horn_rec(s.rec) for s in picked):
+        return picked
+    # Horn quota. Candidates beyond the cap, in ranking order, are the substitutes.
+    max_horn = max(1, math.ceil(horn_share * cap))
+    out, skipped, n_horn = [], [], 0
+    for s in picked + chosen_full[cap:] + others[room:]:
+        if len(out) >= cap:
+            break
+        if is_horn_rec(s.rec):
+            if n_horn < max_horn:
+                out.append(s)
+                n_horn += 1
+            else:
+                skipped.append(s)
+        else:
+            out.append(s)
+    if len(out) < cap:
+        out += skipped[:cap - len(out)]
+    return out
+
+
+HORN_TAGS = {FIPS_TAGS[f] for f in HORN_FIPS}
 
 
 def tags_for(rec: Rec) -> list:
     tags = {FIPS_TAGS[f] for f in rec.fips if f in FIPS_TAGS}
     tags |= {tag for theme, tag in THEME_TAGS if theme in rec.themes}
-    return sorted(tags)[:6]
+    # Horn tags only take the slots the original tags leave free, so GDELT's location noise (a
+    # Red Sea story geocoded to Eritrea) can never push UAE / Yemen / ... out of the 6.
+    base = sorted(tags - HORN_TAGS)[:6]
+    return base + sorted(tags & HORN_TAGS)[:6 - len(base)]
 
 
 def build_row(s: Selected, day: int, registry: dict, fetched_at: str) -> dict:
@@ -520,6 +589,7 @@ class Options:
     workers: int = 4
     registry_unfiltered: bool = False
     strict_registry: bool = False
+    horn_share: float = HORN_SHARE
     today: datetime.date | None = None
 
 
@@ -607,8 +677,8 @@ def process_day(day: int, opts: Options, fetch=None, registry: dict | None = Non
         (en if feed == FEED_EN else tr).extend(res["cands"])
 
     fetched_at = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-    sel = (select_for_day(en, registry, opts.en_cap, opts.strict_registry)
-           + select_for_day(tr, registry, opts.nonen_cap, opts.strict_registry))
+    sel = (select_for_day(en, registry, opts.en_cap, opts.strict_registry, opts.horn_share)
+           + select_for_day(tr, registry, opts.nonen_cap, opts.strict_registry, opts.horn_share))
     rows = [build_row(s, day, registry, fetched_at) for s in sel]
 
     n_en = sum(1 for r in rows if r["content_json"]["lang"] == "eng")
@@ -674,6 +744,9 @@ def main(argv=None) -> int:
     ap.add_argument("--strict-registry-priority", action="store_true",
                     help="put every in-scope registry row ahead of other outlets, even rows admitted "
                          "only by location + theme (default: only registry rows with a keyword)")
+    ap.add_argument("--horn-share", type=float, default=HORN_SHARE, metavar="FRACTION",
+                    help="max fraction of each day's cap that Horn-of-Africa rows may take "
+                         f"(default {HORN_SHARE}; 1 = no quota)")
     ap.add_argument("--dump-jsonl", metavar="PATH",
                     help="also write every selected row to this JSONL file (review before --write)")
     ap.add_argument("--plan", type=int, metavar="DAYS_PER_SHARD",
@@ -689,6 +762,9 @@ def main(argv=None) -> int:
     if not (0 < a.en_cap <= EN_CAP and 0 <= a.nonen_cap <= NONEN_CAP):
         print(f"error: caps must be within 1..{EN_CAP} English and 0..{NONEN_CAP} non-English")
         return 2
+    if not (0 < a.horn_share <= 1):
+        print("error: --horn-share must be in (0, 1]")
+        return 2
     if a.plan:
         print(json.dumps({"include": shard_plan(a.start_day, a.end_day, a.plan)}))
         return 0
@@ -702,7 +778,7 @@ def main(argv=None) -> int:
     opts = Options(en_cap=a.en_cap, nonen_cap=a.nonen_cap, translation=not a.no_translation,
                    lookahead_hours=a.lookahead_hours, workers=a.workers,
                    registry_unfiltered=a.registry_unfiltered,
-                   strict_registry=a.strict_registry_priority, today=today)
+                   strict_registry=a.strict_registry_priority, horn_share=a.horn_share, today=today)
     registry = build_registry()
     mode = "WRITE" if a.write else "DRY RUN (nothing is written)"
     print(f"[backfill_gdelt_index] Days {a.start_day}-{a.end_day} | {mode} | translation="

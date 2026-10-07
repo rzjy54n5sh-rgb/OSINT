@@ -30,6 +30,11 @@ const COUNTRY_VARIANTS_BY_CODE: Record<string, string[]> = {
   DE: ['DE', 'DEU', 'Germany'],
   IN: ['IN', 'IND', 'India'],
   PK: ['PK', 'PAK', 'Pakistan'],
+  // Horn of Africa & Red Sea theatre (ruling 2026-10-07); SD (Sudan) is above
+  ET: ['ET', 'ETH', 'Ethiopia', 'Federal Democratic Republic of Ethiopia'],
+  ER: ['ER', 'ERI', 'Eritrea', 'State of Eritrea'],
+  SO: ['SO', 'SOM', 'Somalia', 'Federal Republic of Somalia'],
+  DJ: ['DJ', 'DJI', 'Djibouti', 'Republic of Djibouti'],
 };
 
 const COUNTRY_VALUE_TO_CODE: Record<string, string> = (() => {

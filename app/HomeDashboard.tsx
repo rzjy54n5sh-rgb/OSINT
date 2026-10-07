@@ -36,7 +36,7 @@ function briefingLeadToPlainText(lead: string | null | undefined): string {
 
 const QUICK_LINKS = [
   { href: '/feed', label: 'FEED', description: 'Live OSINT articles filtered by region, sentiment & source' },
-  { href: '/nai', label: 'NAI MAP', description: 'Narrative Alignment Index — 20 countries mapped & ranked' },
+  { href: '/nai', label: 'NAI MAP', description: 'Narrative Alignment Index — 25 countries mapped & ranked' },
   { href: '/countries', label: 'COUNTRIES', description: 'Per-country intelligence reports with elite network analysis' },
   { href: '/scenarios', label: 'SCENARIOS', description: 'Conflict scenario probability tracker across 10 days' },
   { href: '/disinfo', label: 'DISINFO', description: 'Active disinformation claims — verdict & spread estimate' },
@@ -250,6 +250,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                style={{ scrollbarWidth: 'none' }}>
             {[
               { type: 'general', label: 'GENERAL', emoji: '◆' },
+              { type: 'horn', label: 'HORN OF AFRICA', emoji: '◍' },
               { type: 'egypt', label: 'EGYPT', emoji: '🇪🇬' },
               { type: 'uae', label: 'UAE', emoji: '🇦🇪' },
               { type: 'eschatology', label: 'ESCHA\u200BTOLOGY', emoji: '◎' },

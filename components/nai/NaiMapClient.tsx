@@ -18,6 +18,8 @@ import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
 import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
 import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { NaiArchiveToggle } from '@/components/nai/NaiArchiveToggle';
+import { CountryFlag } from '@/components/CountryFlag';
+import { NO_SOURCED_DATA_TEXT, TRACKED_COUNTRY_CODES } from '@/lib/countries';
 import {
   NAI_POSTURE_COLOR,
   NAI_POSTURE_HEADING,
@@ -30,6 +32,7 @@ import {
   NAI_V2_DEFINITION,
   NAI_V2_EMPTY_TEXT,
   NAI_V2_LOCKED_COLOR,
+  NAI_V2_NODATA_COLOR,
   NAI_V2_SCALE_TEXT,
   formatBand,
   formatGap,
@@ -45,6 +48,8 @@ const COUNTRY_COORDS: Record<string, [number, number]> = {
   QA: [51.183, 25.354], KW: [47.481, 29.311], US: [-95.712, 37.090],
   GB: [-3.436, 55.378], FR: [2.349, 46.227], DE: [10.451, 51.166],
   CN: [104.195, 35.861], IN: [78.962, 20.594], PK: [69.345, 30.375],
+  // Horn of Africa & Red Sea theatre (ruling 2026-10-07)
+  ET: [40.490, 9.145], ER: [39.782, 15.179], SD: [30.218, 12.863], SO: [46.200, 5.152], DJ: [42.590, 11.825],
 };
 
 type NaiMapClientProps = {
@@ -106,6 +111,12 @@ export function NaiMapClient({
   const map = useRef<maplibregl.Map | null>(null);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const selected = useMemo(() => rows.find((r) => r.country_code === selectedCode) ?? null, [rows, selectedCode]);
+  // Tracked countries (25) with no War Posture row for this day: shown as "No sourced data", never scored.
+  const noData = useMemo(
+    () => (rows.length === 0 ? [] : TRACKED_COUNTRY_CODES.filter((c) => !rows.some((r) => r.country_code === c))),
+    [rows],
+  );
+  const selectedNoData = selectedCode != null && noData.includes(selectedCode) ? selectedCode : null;
   const hasData = latestDay != null;
 
   const setConflictDay = (day: number) => {
@@ -145,7 +156,7 @@ export function NaiMapClient({
       if (m.getLayer('nai-circles')) m.removeLayer('nai-circles');
       if (m.getSource('nai-points')) m.removeSource('nai-points');
       if (rows.length === 0) return;
-      const features = rows
+      const scored = rows
         .filter((r) => COUNTRY_COORDS[r.country_code])
         .map((r) => ({
           type: 'Feature' as const,
@@ -156,6 +167,14 @@ export function NaiMapClient({
             color: markerColor(r),
           },
         }));
+      const unscored = noData
+        .filter((c) => COUNTRY_COORDS[c])
+        .map((c) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: COUNTRY_COORDS[c] },
+          properties: { country_code: c, category: 'NODATA', color: NAI_V2_NODATA_COLOR },
+        }));
+      const features = [...scored, ...unscored];
       m.addSource('nai-points', { type: 'geojson', data: { type: 'FeatureCollection', features } });
       m.addLayer({
         id: 'nai-circles',
@@ -180,9 +199,9 @@ export function NaiMapClient({
       m.off('mouseenter', 'nai-circles', setPointer);
       m.off('mouseleave', 'nai-circles', clearPointer);
     };
-  }, [rows]);
+  }, [rows, noData]);
 
-  const shareSummary = `Track whether the official war posture of 20 tracked countries matches their societies' posture — one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), sources cited per country.`;
+  const shareSummary = `Track whether the official war posture of ${TRACKED_COUNTRY_CODES.length} tracked countries matches their societies' posture — one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), sources cited per country.`;
 
   return (
     <div>
@@ -218,6 +237,15 @@ export function NaiMapClient({
               />
               LOCKED (tier)
             </span>
+            {noData.length > 0 && (
+              <span className="inline-flex items-center gap-1" data-testid="nai-nodata-legend">
+                <span
+                  className="inline-block w-2.5 h-2.5 rounded-full border"
+                  style={{ background: NAI_V2_NODATA_COLOR, borderColor: '#8A9BB5' }}
+                />
+                {NO_SOURCED_DATA_TEXT.toUpperCase()}
+              </span>
+            )}
             <span className="mt-1" style={{ color: 'var(--text-muted)' }} data-testid="nai-posture-legend">
               {NAI_POSTURE_LEGEND_TEXT}
             </span>
@@ -327,6 +355,25 @@ export function NaiMapClient({
               </li>
             ))}
           </ul>
+          {noData.length > 0 && (
+            <ul className="space-y-2" data-testid="nai-nodata-list" aria-label="Tracked countries with no sourced data">
+              {noData.map((code) => (
+                <li key={`nodata-${code}`}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCode(code)}
+                    className="w-full text-left font-mono text-xs py-1.5 px-2 border rounded-sm hover:border-border-bright transition-colors"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CountryFlag code={code} />
+                      <span>{NO_SOURCED_DATA_TEXT}</span>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {rows.length > 0 && (
             <p className="mt-3 font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               ΔEXP = change in expressed score vs the previous War Posture day present
@@ -335,6 +382,28 @@ export function NaiMapClient({
           )}
           <NaiArchiveToggle />
         </aside>
+        {selectedNoData && (
+          <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+            onClick={() => setSelectedCode(null)}
+          >
+            <div onClick={(e) => e.stopPropagation()} className="max-w-lg w-full">
+              <OsintCard className="w-full">
+                <h3 className="font-display text-xl" style={{ color: 'var(--text-primary)' }} translate="no">
+                  <CountryFlag code={selectedNoData} /> · DAY {conflictDay}
+                </h3>
+                <p className="font-mono text-xs mt-3" style={{ color: 'var(--text-secondary)' }} data-testid="nai-nodata-detail">
+                  No sourced data available for Day {conflictDay}. No score or category is shown rather than a guessed one.
+                </p>
+                <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
+                  <Link href={`/countries/${selectedNoData.toLowerCase()}`} style={{ color: 'var(--accent-gold)' }}>
+                    View country page →
+                  </Link>
+                </p>
+              </OsintCard>
+            </div>
+          </div>
+        )}
         {selected && (
           <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"

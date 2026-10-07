@@ -67,6 +67,7 @@ const PERSPECTIVE_LABELS: Record<string, string> = {
 const TYPE_LABELS: Record<string, string> = {
   general:     'GENERAL INTELLIGENCE BRIEF',
   general_weekly: 'WEEKLY GENERAL DIGEST',
+  horn:        'HORN OF AFRICA & RED SEA',
   egypt:       'EGYPT COUNTRY BRIEF',
   uae:         'UAE COUNTRY BRIEF',
   eschatology: 'ESCHATOLOGY & GEOPOLITICS',
