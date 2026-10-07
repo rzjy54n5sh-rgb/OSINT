@@ -1,29 +1,68 @@
+import type { Metadata } from 'next';
 import { createClient, getConflictDay } from '@/utils/supabase/server';
-import type { MarketData } from '@/types/supabase';
 import MarketsClient from './MarketsClient';
+import { buildIndicatorViews, type HistoryRow } from './market-views';
+
+export const metadata: Metadata = {
+  title: 'Markets & Shipping Indicators — MENA Intel Desk',
+  description:
+    'Latest conflict-sensitive market and shipping indicators with units, collection times and sources; trend charts never join different units.',
+};
 
 const PAGE = 1000; // PostgREST max-rows on this project
-const MAX_PAGES = 6; // ~6,000 rows: the whole table today (~3,000) with headroom
+const PAGES = 4; // up to 4,000 rows in parallel (~2,600 today)
+const HISTORY_COLS = 'id, indicator, value, change_pct, unit, conflict_day, created_at, is_retrospective';
 
 export default async function MarketsPage() {
   const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
 
-  // Newest FIRST by created_at (id as a stable tie-break), paginated past the 1000-row cap so the
-  // charts keep their full history. Ordering by created_at — not conflict_day — means the first row
-  // seen per indicator is the latest collection, the same value the home tiles show (never an
-  // older same-day row).
-  const rows: MarketData[] = [];
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await supabase
-      .from('market_data')
-      .select('id, indicator, value, change_pct, unit, source, conflict_day, created_at, is_retrospective')
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .range(page * PAGE, page * PAGE + PAGE - 1);
-    if (error || !data) break;
-    rows.push(...(data as MarketData[]));
-    if (data.length < PAGE) break;
+  // Round trip 1 (all in parallel):
+  //  - history pages, NEWEST FIRST by created_at (id tie-break), WITHOUT the long `source` text;
+  //    the first row per indicator is its latest collection, the same value the home tiles show;
+  //  - the (indicator, day) keys of reconstructed daily-close backfill rows.
+  const [recon, ...pages] = await Promise.all([
+    supabase.from('market_data').select('indicator, conflict_day').ilike('source', '%daily close%').limit(PAGE * PAGES),
+    ...Array.from({ length: PAGES }, (_, p) =>
+      supabase
+        .from('market_data')
+        .select(HISTORY_COLS)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(p * PAGE, p * PAGE + PAGE - 1),
+    ),
+  ]);
+  const rows: HistoryRow[] = [];
+  for (const pg of pages) {
+    if (pg.error || !pg.data) break;
+    rows.push(...(pg.data as HistoryRow[]));
+    if (pg.data.length < PAGE) break;
+  }
+  if (rows.length >= PAGE * PAGES) {
+    console.warn(`[markets] history truncated at ${rows.length} rows; oldest days are not charted`);
+  }
+  const reconKeys = new Set(
+    ((recon.data ?? []) as { indicator: string | null; conflict_day: number | null }[]).map((r) => `${r.indicator}|${r.conflict_day}`),
+  );
+
+  // Round trip 2: `source` for the latest row of each indicator only (~25 rows).
+  const latestIds: string[] = [];
+  const seenIndicator = new Set<string>();
+  for (const r of rows) {
+    const k = r.indicator ?? 'OTHER';
+    if (!seenIndicator.has(k)) {
+      seenIndicator.add(k);
+      latestIds.push(r.id);
+    }
+  }
+  const sourceById = new Map<string, string | null>();
+  if (latestIds.length > 0) {
+    const { data } = await supabase.from('market_data').select('id, source').in('id', latestIds);
+    for (const r of (data ?? []) as { id: string; source: string | null }[]) sourceById.set(r.id, r.source);
   }
 
-  return <MarketsClient initialData={rows} currentDay={currentDay} />;
+  // Only the compact per-indicator views reach the client.
+  const views = buildIndicatorViews(rows, reconKeys, sourceById);
+  const marketDay = rows.reduce<number | null>((m, r) => (r.conflict_day != null && (m === null || r.conflict_day > m) ? r.conflict_day : m), null);
+
+  return <MarketsClient views={views} marketDay={marketDay} currentDay={currentDay} />;
 }

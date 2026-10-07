@@ -159,7 +159,11 @@ export default function WarRoomPage() {
       const wp = naiRange.latestDay != null ? await getNaiV2Day(supabase, naiRange.latestDay, { latent: true, gap: true }) : [];
 
       const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? disinfoErr?.message ?? reg.error;
-      if (errMsg) setFetchError(errMsg);
+      if (errMsg) {
+        // Raw DB error text goes to the console only; viewers see a neutral notice.
+        console.error('[warroom] data read failed:', errMsg);
+        setFetchError('unavailable');
+      }
 
       setCountryReports((reports as CountryRow[]) ?? []);
       setTotalArticleCount(totalCount ?? 0);
@@ -193,7 +197,8 @@ export default function WarRoomPage() {
       });
       setLastRefresh(new Date().toISOString().slice(11, 16) + ' UTC');
     } catch (e) {
-      setFetchError(e instanceof Error ? e.message : 'Failed to load war room data');
+      console.error('[warroom] data read failed:', e);
+      setFetchError('unavailable');
     } finally {
       setLoaded(true);
     }
@@ -301,7 +306,7 @@ export default function WarRoomPage() {
           }}
           role="alert"
         >
-          War room data error: {fetchError}.
+          Some War Room data could not be loaded just now. Panels show the last data available; the page retries every 60 seconds.
         </div>
       )}
       {breakingAlerts.length > 0 && (

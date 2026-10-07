@@ -2,41 +2,19 @@
 
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
-import type { MarketData } from '@/types/supabase';
 import { DataAsOf } from '@/components/ui/DataAsOf';
-import { maxConflictDay } from '@/lib/conflict-calendar';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { COLLECTOR_INDICATORS, type IndicatorView } from './market-views';
 
-type MarketRow = MarketData & { is_retrospective?: boolean | null };
+const COLLECTOR_LIST = COLLECTOR_INDICATORS.join(', ');
 
 interface MarketsClientProps {
-  /** Rows NEWEST FIRST by created_at (see page.tsx). */
-  initialData: MarketRow[];
+  /** Compact per-indicator views built on the server (see market-views.ts). */
+  views: IndicatorView[];
+  /** Latest conflict_day present in market_data. */
+  marketDay: number | null;
   /** Calendar day (DAY LOCK). */
   currentDay: number;
-}
-
-/** Written by collect-markets.yml (cron every 30 min). CLAUDE.md "market_data writers". */
-const COLLECTOR_INDICATORS = new Set([
-  'Brent Crude Oil',
-  'WTI Crude Oil',
-  'Gold',
-  'Natural Gas',
-  'S&P 500',
-  'Dow Jones',
-  'Energy ETF (XLE)',
-  'Oil ETF (USO)',
-  'VIX (Fear Index)',
-  'EUR/USD',
-  'USD/SAR',
-  'USD/AED',
-  'USD/IQD',
-]);
-const COLLECTOR_LIST = Array.from(COLLECTOR_INDICATORS).join(', ');
-
-/** Rows from the 2026-10 daily-close backfill (backfill_market_closes.py tags its source). */
-function isReconstructed(r: MarketRow): boolean {
-  return r.is_retrospective === true || /reconstructed backfill|daily close/i.test(r.source ?? '');
 }
 
 function fmtUtc(iso: string | null): string {
@@ -45,69 +23,16 @@ function fmtUtc(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? iso : `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-interface IndicatorView {
-  indicator: string;
-  latest: MarketRow;
-  /** One point per conflict_day (newest row of that day), SAME UNIT as the latest row only, ascending. */
-  series: { day: number; value: number; reconstructed: boolean }[];
-  /** Earlier rows in other units — never joined to the series. */
-  otherUnits: { unit: string; count: number; firstDay: number; lastDay: number }[];
-  cadence: string;
-}
-
-function buildViews(rows: MarketRow[]): IndicatorView[] {
-  const byIndicator = new Map<string, MarketRow[]>();
-  for (const r of rows) {
-    const k = r.indicator ?? 'OTHER';
-    const list = byIndicator.get(k) ?? [];
-    list.push(r);
-    byIndicator.set(k, list);
-  }
-  const views: IndicatorView[] = [];
-  for (const [indicator, list] of byIndicator) {
-    const latest = list[0]!; // newest created_at
-    const unit = latest.unit ?? '';
-    const perDay = new Map<number, { day: number; value: number; reconstructed: boolean }>();
-    const other = new Map<string, { unit: string; count: number; firstDay: number; lastDay: number }>();
-    for (const r of list) {
-      if (r.conflict_day == null || r.value == null) continue;
-      if ((r.unit ?? '') !== unit) {
-        const u = r.unit ?? '(no unit)';
-        const o = other.get(u) ?? { unit: u, count: 0, firstDay: r.conflict_day, lastDay: r.conflict_day };
-        o.count += 1;
-        o.firstDay = Math.min(o.firstDay, r.conflict_day);
-        o.lastDay = Math.max(o.lastDay, r.conflict_day);
-        other.set(u, o);
-        continue;
-      }
-      if (!perDay.has(r.conflict_day)) {
-        perDay.set(r.conflict_day, { day: r.conflict_day, value: Number(r.value), reconstructed: isReconstructed(r) });
-      }
-    }
-    const series = Array.from(perDay.values()).sort((a, b) => a.day - b.day);
-    const lastDay = latest.conflict_day ?? 0;
-    const cadence = COLLECTOR_INDICATORS.has(indicator)
-      ? 'Collector · scheduled every 30 min'
-      : lastDay <= 35
-        ? `Archived series · no longer collected (last Day ${lastDay})`
-        : 'Daily build · once a day, from the cited source';
-    views.push({ indicator, latest, series, otherUnits: Array.from(other.values()), cadence });
-  }
-  return views.sort((a, b) => a.indicator.localeCompare(b.indicator));
-}
-
-export default function MarketsClient({ initialData, currentDay }: MarketsClientProps) {
-  const data = initialData;
-  const marketDay = maxConflictDay(data);
-  const views = buildViews(data);
-  const current = views.filter((v) => (v.latest.conflict_day ?? 0) > 35);
-  const archived = views.filter((v) => (v.latest.conflict_day ?? 0) <= 35);
+export default function MarketsClient({ views, marketDay, currentDay }: MarketsClientProps) {
+  const current = views.filter((v) => !v.archived);
+  const archived = views.filter((v) => v.archived);
 
   const card = (v: IndicatorView) => {
     const { latest } = v;
-    const unit = latest.unit ?? '';
-    const recon = v.series.filter((p) => p.reconstructed).length;
-    const showDots = v.series.length < 6;
+    const unit = latest.unit;
+    const series = v.series.map(([day, value, r]) => ({ day, value, reconstructed: r === 1 }));
+    const recon = series.filter((p) => p.reconstructed).length;
+    const showDots = series.length < 6;
     return (
       <OsintCard key={v.indicator}>
         <article data-testid={`market-${v.indicator}`}>
@@ -137,7 +62,7 @@ export default function MarketsClient({ initialData, currentDay }: MarketsClient
           </div>
           <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }} translate="no">
             COLLECTED {fmtUtc(latest.created_at)} · {v.cadence}
-            {isReconstructed(latest) ? ' · RECONSTRUCTED' : ''}
+            {latest.reconstructed ? ' · RECONSTRUCTED' : ''}
           </p>
           {latest.source && (
             <details className="mb-3">
@@ -151,7 +76,7 @@ export default function MarketsClient({ initialData, currentDay }: MarketsClient
           )}
           <div className="h-32">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={v.series}>
+              <LineChart data={series}>
                 <XAxis
                   dataKey="day"
                   type="number"
@@ -207,7 +132,7 @@ export default function MarketsClient({ initialData, currentDay }: MarketsClient
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         KEY INDICATORS — LATEST VALUE AND TREND BY CONFLICT DAY
       </p>
-      {data.length > 0 && <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={currentDay} className="-mt-4 mb-8" />}
+      {views.length > 0 && <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={currentDay} className="-mt-4 mb-8" />}
       {views.length === 0 && <p className="redacted py-12">NO INTEL AVAILABLE</p>}
       {current.length > 0 && <div className="grid md:grid-cols-2 gap-6">{current.map(card)}</div>}
       {archived.length > 0 && (

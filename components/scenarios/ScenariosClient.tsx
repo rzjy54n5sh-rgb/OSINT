@@ -164,7 +164,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       {registry.error && (
         <div className="font-mono text-xs py-4 border px-4 mb-6" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }} role="alert">
-          [DATA UNAVAILABLE] {registry.error}
+          [DATA UNAVAILABLE] Scenario data could not be loaded just now. Please try again shortly.
         </div>
       )}
 

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
 import { createClient } from '@/utils/supabase/server';
 import { getUser } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
@@ -23,7 +25,20 @@ const SLUG_TO_CODE: Record<string, string> = {
   et: 'ET', er: 'ER', so: 'SO', dj: 'DJ',
 };
 
-const T1_COUNTRIES = ['EGY', 'ARE', 'UAE'];
+function codeForSlug(slug: string): string {
+  return slug ? (SLUG_TO_CODE[slug.toLowerCase()] ?? slug.toUpperCase().slice(0, 2)) : '';
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const code = codeForSlug(typeof slug === 'string' ? slug : '');
+  const name = TRACKED_COUNTRY_NAMES[code];
+  if (!name) return { title: 'Country not tracked — MENA Intel Desk' };
+  return {
+    title: `${name} — War Posture & Country Report — MENA Intel Desk`,
+    description: `${name}: latest War Posture (official and societal posture on one party-neutral scale) with cited sources, and the daily country report.`,
+  };
+}
 
 export default async function CountryReportPage({
   params,
@@ -32,7 +47,7 @@ export default async function CountryReportPage({
 }) {
   const { slug } = await params;
   const rawSlug = typeof slug === 'string' ? slug : '';
-  const countryCode = rawSlug ? (SLUG_TO_CODE[rawSlug.toLowerCase()] ?? rawSlug.toUpperCase().slice(0, 2)) : '';
+  const countryCode = codeForSlug(rawSlug);
 
   const [user, supabase] = await Promise.all([
     getUser(),

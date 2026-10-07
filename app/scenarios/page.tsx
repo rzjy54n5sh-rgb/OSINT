@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 import { getUser } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
@@ -6,6 +7,12 @@ import { ScenariosClient } from '@/components/scenarios/ScenariosClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
+
+export const metadata: Metadata = {
+  title: 'Scenario Probabilities — Market-Anchored — MENA Intel Desk',
+  description:
+    'Daily conflict scenario probabilities from the scenario registry, computed by market-anchored-v1 with every driving market, horizon and run flag shown.',
+};
 
 export default async function ScenariosPage() {
   const [user, supabase] = await Promise.all([getUser(), createClient()]);
@@ -16,6 +23,11 @@ export default async function ScenariosPage() {
     // scenario_daily (published rows, each stamped with its method); inputs/flags from scenario_runs.
     getScenarioRegistryView(supabase),
   ]);
+  if (registry.error) {
+    // Details stay in the server log; the client only gets a neutral flag (no raw DB error text).
+    console.error('[scenarios] registry read failed:', registry.error);
+    registry.error = 'unavailable';
+  }
   const flags = buildTierFlags(tierRows ?? []);
   const hasDetailAccess = tierHasFeature(user?.tier, 'scenario_detail', flags);
 

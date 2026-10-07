@@ -44,9 +44,19 @@ function sourceList(v: unknown): NarrativeSource[] {
   for (const s of v) {
     if (!s || typeof s !== 'object') continue;
     const o = s as Record<string, unknown>;
-    const url = str(o.url);
-    if (!url || !/^https?:\/\//i.test(url)) continue; // a source without a real link is not shown
-    out.push({ url, name: str(o.name) ?? new URL(url).hostname, published_at: str(o.published_at) });
+    const raw = str(o.url);
+    if (!raw) continue;
+    // A source without a real, parseable http(s) link is not shown. `new URL` throws on inputs
+    // that pass a prefix check (e.g. "https://", "http://exa mple.com"): never let one bad row
+    // take the whole page down.
+    let parsed: URL;
+    try {
+      parsed = new URL(raw.trim());
+    } catch {
+      continue;
+    }
+    if ((parsed.protocol !== 'https:' && parsed.protocol !== 'http:') || !parsed.hostname) continue;
+    out.push({ url: parsed.href, name: str(o.name) ?? parsed.hostname, published_at: str(o.published_at) });
   }
   return out;
 }

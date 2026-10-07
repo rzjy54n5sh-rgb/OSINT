@@ -1,10 +1,18 @@
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { EmailCapture } from '@/components/EmailCapture';
 import { createClient } from '@/utils/supabase/server';
 import { NAI_POSTURE_NOTE } from '@/lib/nai-v2';
 import { TRACKED_COUNTRY_CODES, HORN_COUNTRY_CODES } from '@/lib/countries';
+import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
+
+export const metadata: Metadata = {
+  title: 'Methodology — War Posture, Scenarios & Sources — MENA Intel Desk',
+  description:
+    'How War Posture is scored, how scenario probabilities are computed from prediction markets (market-anchored-v1), where the data comes from and how sources are labelled.',
+};
 
 /**
  * Methodology — the current truth only (rulings 2026-10-06 / 2026-10-07).
@@ -46,19 +54,13 @@ const Tag = ({ children, color = 'var(--accent-gold)' }: { children: ReactNode; 
   </span>
 );
 
-const COUNTRY_NAMES: Record<string, string> = {
-  IR: 'Iran', US: 'United States', IL: 'Israel', SA: 'Saudi Arabia', AE: 'United Arab Emirates', IQ: 'Iraq',
-  LB: 'Lebanon', YE: 'Yemen', JO: 'Jordan', EG: 'Egypt', TR: 'Türkiye', RU: 'Russia', CN: 'China',
-  GB: 'United Kingdom', FR: 'France', DE: 'Germany', QA: 'Qatar', KW: 'Kuwait', IN: 'India', PK: 'Pakistan',
-  ET: 'Ethiopia', ER: 'Eritrea', SD: 'Sudan', SO: 'Somalia', DJ: 'Djibouti',
-};
 
 type RegistryRow = { code: string; name_en: string; definition_en: string; status: string; group_code: string };
 
 function buildSections(scenarios: RegistryRow[]): Section[] {
-  const horn = HORN_COUNTRY_CODES.map((c) => COUNTRY_NAMES[c] ?? c).join(', ');
+  const horn = HORN_COUNTRY_CODES.map((c) => TRACKED_COUNTRY_NAMES[c] ?? c).join(', ');
   const original = TRACKED_COUNTRY_CODES.filter((c) => !(HORN_COUNTRY_CODES as readonly string[]).includes(c))
-    .map((c) => COUNTRY_NAMES[c] ?? c)
+    .map((c) => TRACKED_COUNTRY_NAMES[c] ?? c)
     .join(', ');
 
   return [

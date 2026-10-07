@@ -1,163 +1,75 @@
-'use client';
+import type { Metadata } from 'next';
+import { createClient, getUser } from '@/utils/supabase/server';
+import { buildTierFlags, tierHasFeature } from '@/lib/tier';
+import { NAI_V2_METHOD, NAI_V2_TABLE } from '@/lib/nai-v2';
+import { getScenarioRegistryView } from '@/lib/scenario-registry';
+import AnalyticsClient, { type PostureRow, type ScenarioDayRow } from './AnalyticsClient';
 
-import { useState } from 'react';
-import { OsintCard } from '@/components/OsintCard';
-import { PageBriefing } from '@/components/PageBriefing';
-import { useNaiScoresAll } from '@/hooks/useNaiScoresAll';
-import { useScenarios } from '@/hooks/useScenarios';
-import {
-  ScatterChart,
-  Scatter,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-} from 'recharts';
+export const metadata: Metadata = {
+  title: 'Analytics — War Posture & Scenario Explorer — MENA Intel Desk',
+  description:
+    'Plot War Posture (expressed, latent band midpoint, gap) and market-anchored scenario probabilities against each other. Current methods only; retired Days 1–35 series are excluded.',
+};
 
-type AxisOption = 'conflict_day' | 'expressed_score' | 'latent_score' | 'gap_size' | 'scenario_a' | 'scenario_b' | 'scenario_c' | 'scenario_d';
+const num = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+};
 
-const NAI_AXES: { value: AxisOption; label: string }[] = [
-  { value: 'conflict_day', label: 'Conflict Day' },
-  { value: 'expressed_score', label: 'NAI Expressed' },
-  { value: 'latent_score', label: 'NAI Latent' },
-  { value: 'gap_size', label: 'Gap Size' },
-];
+export default async function AnalyticsPage() {
+  const [user, supabase] = await Promise.all([getUser(), createClient()]);
+  const [{ data: tierRows }, { data: wp }, registry] = await Promise.all([
+    supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
+    // War Posture only (nai_scores_v2, current method). Legacy nai_scores (Days 1-35) is a retired,
+    // non-comparable axis and is never plotted here.
+    supabase
+      .from(NAI_V2_TABLE)
+      .select('country_code, conflict_day, expressed_score, latent_low, latent_high, gap')
+      .eq('method_version', NAI_V2_METHOD)
+      .order('conflict_day', { ascending: true })
+      .limit(1000),
+    getScenarioRegistryView(supabase),
+  ]);
+  const flags = buildTierFlags(tierRows ?? []);
+  const latentAccess = tierHasFeature(user?.tier, 'nai_latent_score', flags);
+  const gapAccess = tierHasFeature(user?.tier, 'nai_gap_analysis', flags);
 
-const SCENARIO_AXES = [
-  { value: 'scenario_a', label: 'Scenario A' },
-  { value: 'scenario_b', label: 'Scenario B' },
-  { value: 'scenario_c', label: 'Scenario C' },
-  { value: 'scenario_d', label: 'Scenario D' },
-];
+  // Tier-gated fields are nulled here, server-side, same as /nai.
+  const posture: PostureRow[] = ((wp ?? []) as Record<string, unknown>[]).map((r) => {
+    const lo = num(r.latent_low);
+    const hi = num(r.latent_high);
+    return {
+      country_code: String(r.country_code),
+      conflict_day: Number(r.conflict_day),
+      expressed_score: num(r.expressed_score),
+      latent_mid: latentAccess && lo !== null && hi !== null ? (lo + hi) / 2 : null,
+      gap: gapAccess ? num(r.gap) : null,
+    };
+  });
 
-export default function AnalyticsPage() {
-  const [xAxis, setXAxis] = useState<AxisOption>('conflict_day');
-  const [yAxis, setYAxis] = useState<AxisOption>('expressed_score');
-  const [chartType, setChartType] = useState<'scatter' | 'line'>('scatter');
-  const { scores } = useNaiScoresAll();
-  const { scenarios } = useScenarios();
-
-  const dataSource = xAxis.startsWith('scenario') || yAxis.startsWith('scenario') ? 'scenarios' : 'nai';
-  const scatterData =
-    dataSource === 'nai'
-      ? scores.map((s) => ({ x: s[xAxis as keyof typeof scores[0]], y: s[yAxis as keyof typeof scores[0]], name: s.country_code }))
-      : scenarios.map((s) => ({ x: s[xAxis as keyof typeof scenarios[0]], y: s[yAxis as keyof typeof scenarios[0]], day: s.conflict_day }));
-
-  const isConflictDayX = xAxis === 'conflict_day';
+  // Scenarios: only the latest published method (market-anchored-v1); legacy desk days excluded.
+  const method = registry.latestMethod;
+  const byDay = new Map<number, ScenarioDayRow>();
+  for (const p of registry.history) {
+    if (p.method_version !== method) continue;
+    const row = byDay.get(p.conflict_day) ?? { conflict_day: p.conflict_day };
+    row[`scenario_${p.code.toLowerCase()}`] = p.probability;
+    byDay.set(p.conflict_day, row);
+  }
+  const scenarioDays = Array.from(byDay.values()).sort((a, b) => a.conflict_day - b.conflict_day);
+  const scenarioCodes = registry.scenarios
+    .filter((s) => s.group_code === 'core' && s.status !== 'retired')
+    .map((s) => ({ code: s.code, name: s.name_en }));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="MIX AND MATCH ANALYTICS"
-        description="Build custom correlations across any combination of NAI dimensions and scenario probabilities. Designed for analysts who want to explore relationships in the data beyond the curated views on other pages."
-        note="Correlation is not causation. This tool surfaces patterns for investigation — not conclusions. If you find a relationship that appears significant, cross-reference it with the raw data before drawing an inference."
-      />
-      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
-        MIX & MATCH ANALYTICS
-      </h1>
-      <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
-        SELECT X / Y AXES — SCATTER OR LINE
-      </p>
-      <OsintCard className="mb-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
-          <label>
-            <span className="block mb-1" style={{ color: 'var(--text-muted)' }}>X AXIS</span>
-            <select
-              value={xAxis}
-              onChange={(e) => setXAxis(e.target.value as AxisOption)}
-              className="w-full bg-bg-primary border px-2 py-1.5 rounded-sm"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-            >
-              {NAI_AXES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-              {SCENARIO_AXES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="block mb-1" style={{ color: 'var(--text-muted)' }}>Y AXIS</span>
-            <select
-              value={yAxis}
-              onChange={(e) => setYAxis(e.target.value as AxisOption)}
-              className="w-full bg-bg-primary border px-2 py-1.5 rounded-sm"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-            >
-              {NAI_AXES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-              {SCENARIO_AXES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="block mb-1" style={{ color: 'var(--text-muted)' }}>CHART</span>
-            <select
-              value={chartType}
-              onChange={(e) => setChartType(e.target.value as 'scatter' | 'line')}
-              className="w-full bg-bg-primary border px-2 py-1.5 rounded-sm"
-              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-            >
-              <option value="scatter">Scatter</option>
-              <option value="line">Line</option>
-            </select>
-          </label>
-        </div>
-      </OsintCard>
-      <OsintCard className="scanlines">
-        {scatterData.length === 0 ? (
-          <p className="redacted py-12">NO INTEL AVAILABLE</p>
-        ) : chartType === 'scatter' ? (
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart>
-                <XAxis
-                  dataKey="x"
-                  name={xAxis}
-                  type={isConflictDayX ? 'number' : undefined}
-                  domain={isConflictDayX ? [1, 10] : undefined}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                />
-                <YAxis dataKey="y" name={yAxis} tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 2,
-                  }}
-                />
-                <Scatter data={scatterData} fill="var(--accent-gold)" name="Data" />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div className="h-96">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={scatterData}>
-                <XAxis
-                  dataKey="x"
-                  type={isConflictDayX ? 'number' : undefined}
-                  domain={isConflictDayX ? [1, 10] : undefined}
-                  tick={{ fill: 'var(--text-muted)', fontSize: 11 }}
-                />
-                <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 2,
-                  }}
-                />
-                <Line type="monotone" dataKey="y" stroke="var(--accent-gold)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </OsintCard>
-    </div>
+    <AnalyticsClient
+      posture={posture}
+      scenarioDays={scenarioDays}
+      scenarioCodes={scenarioCodes}
+      scenarioMethod={method}
+      latentAccess={latentAccess}
+      gapAccess={gapAccess}
+    />
   );
 }
