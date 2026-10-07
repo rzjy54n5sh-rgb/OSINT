@@ -1,6 +1,13 @@
 import { createClient, getConflictDay } from '@/utils/supabase/server';
 import type { Article } from '@/types/supabase';
+import type { Metadata } from 'next';
 import FeedClient from './FeedClient';
+
+export const metadata: Metadata = {
+  title: 'Live Intelligence Feed · MENA Intel Desk',
+  description:
+    'Open-source articles from wire services, broadcasters and official feeds, filterable by region, sentiment framing and conflict day. Each item links to its original source.',
+};
 
 export default async function FeedPage() {
   let initialArticles: Article[] = [];

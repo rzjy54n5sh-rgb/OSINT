@@ -1,5 +1,6 @@
 'use client';
 
+import { decodeHtmlEntities } from '@/lib/html-entities';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { AsciiHero } from '@/components/AsciiHero';
@@ -77,7 +78,8 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const conflictDay = serverData?.conflictDay ?? rtCount.conflictDay;
   const articleCount = serverData?.articleCount ?? rtCount.articleCount;
   const lastUpdate = rtCount.lastUpdate;
-  const live = serverData ? true : rtCount.live;
+  // LIVE reflects real ingestion freshness once measured (server payload alone proves nothing).
+  const live = rtCount.loaded ? rtCount.live : false;
   const articles = serverData?.articles?.length ? serverData.articles : clientArticles.articles;
   const scenarios = serverData?.scenarios?.length ? serverData.scenarios : clientScenarios.scenarios;
   const topFindingLoading = !serverData && clientBriefing.loading;
@@ -130,7 +132,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           <span>
             {t('lastUpdateLabel')} <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span>
           </span>
-          <span>{live ? '● LIVE' : '○ OFFLINE'}</span>
+          <span>{live ? '● LIVE' : '○ STANDBY'}</span>
         </div>
 
         {newScenarioAlert && (
@@ -311,7 +313,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                       sourceType={a.source_type}
                     />
                     <p className="font-body text-sm mt-1" style={{ color: 'var(--text-primary)' }}>
-                      {a.title}
+                      {decodeHtmlEntities(a.title)}
                     </p>
                     <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
                       CONFLICT DAY {a.conflict_day ?? '—'} — {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC

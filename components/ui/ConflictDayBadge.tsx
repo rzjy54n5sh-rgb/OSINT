@@ -2,6 +2,8 @@
 
 import { getConflictDay, getFormattedConflictDate } from '@/lib/constants';
 import { useI18n } from '@/components/I18nProvider';
+import { useDataFreshness } from '@/hooks/useDataFreshness';
+import { formatUtcStamp } from '@/lib/data-freshness';
 
 interface ConflictDayBadgeProps {
   className?: string;
@@ -12,7 +14,9 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
   const { t } = useI18n();
   const day = getConflictDay();
   const date = getFormattedConflictDate();
-  const utcTime = new Date().toISOString().slice(11, 16);
+  // Real newest article / brief timestamp from the DB (not the visitor's clock).
+  const { lastUpdateAt } = useDataFreshness();
+  const stamp = formatUtcStamp(lastUpdateAt).replace(/ UTC$/, '');
 
   return (
     <div
@@ -27,13 +31,13 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
         ·
       </span>
       <span className="text-white/60 min-w-0">{date}</span>
-      {showTime && (
+      {showTime && lastUpdateAt && (
         <>
           <span className="text-white/30 hidden sm:inline" aria-hidden>
             ·
           </span>
           <span className="text-white/40 whitespace-nowrap">
-            {t('updatedAt')} <span translate="no">{utcTime}</span> {t('utc')}
+            {t('updatedAt')} <span translate="no">{stamp}</span> {t('utc')}
           </span>
         </>
       )}

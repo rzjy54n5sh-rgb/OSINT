@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
@@ -55,6 +55,15 @@ function dayLabel(day: number): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+/** What exists for one conflict day (from daily_briefings' own rows). */
+export interface DayAvailability {
+  day: number;
+  types: string[];
+  /** For a general_weekly row: the period it digests. */
+  digestFrom: number | null;
+  digestTo: number | null;
+}
+
 interface BriefingsClientProps {
   initialBriefings: BriefingMeta[];
   /** Day initially displayed (calendar day, or latest available day when today has none). */
@@ -63,7 +72,8 @@ interface BriefingsClientProps {
   currentDay: number;
   /** MAX(conflict_day) of daily_briefings. */
   latestBriefingDay: number | null;
-  availableDays: number[];
+  /** Availability per day that has at least one brief. */
+  availability: DayAvailability[];
 }
 
 export default function BriefingsClient({
@@ -71,12 +81,23 @@ export default function BriefingsClient({
   conflictDay,
   currentDay,
   latestBriefingDay,
-  availableDays: initialAvailableDays,
+  availability,
 }: BriefingsClientProps) {
   const [selectedDay, setSelectedDay] = useState<number>(conflictDay);
   const [briefings, setBriefings] = useState<BriefingMeta[]>(initialBriefings);
-  const [availableDays] = useState<number[]>(initialAvailableDays);
   const [loading, setLoading] = useState(false);
+  const [gridOpen, setGridOpen] = useState(false);
+  const [dayInput, setDayInput] = useState<string>(String(conflictDay));
+
+  const availByDay = useMemo(() => new Map(availability.map((a) => [a.day, a])), [availability]);
+  const maxDay = Math.max(currentDay, latestBriefingDay ?? 0, 1);
+
+  function goToDay(raw: number) {
+    if (!Number.isFinite(raw)) return;
+    const d = Math.min(maxDay, Math.max(1, Math.trunc(raw)));
+    setSelectedDay(d);
+    setDayInput(String(d));
+  }
 
   // Re-fetch when user selects a different day than the initial one
   useEffect(() => {
@@ -92,7 +113,7 @@ export default function BriefingsClient({
       try {
         const { data, error } = await supabase
           .from('daily_briefings')
-          .select('conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at')
+          .select('conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at, period_start_day, period_end_day')
           .eq('conflict_day', selectedDay)
           .in('report_type', REPORT_ORDER);
         if (cancelled) return;
@@ -116,35 +137,85 @@ export default function BriefingsClient({
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
         title="DAILY INTELLIGENCE BRIEFINGS"
-        description="Five structured reports published each conflict day covering all parties, all regions, and all analytical dimensions. Reports are generated from verified open-source intelligence. Source citations are embedded — tap any footnote to view the originating article."
+        description="Structured reports for every conflict day from Day 1: a general brief plus Horn of Africa, Egypt, UAE, eschatology and business briefs (not every type exists for every day), and weekly digests that cover the days between full briefs. From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
         note="Reports marked PLATFORM are editorial-grade. Reports marked AUTO are generated from the platform's daily analysis database. Historical reports marked RECONSTRUCTED are regenerated from archived DB data."
       />
 
       {/* Section freshness: daily_briefings' own latest day vs calendar day */}
       <DataAsOf section="BRIEFINGS" latestDay={latestBriefingDay} currentDay={currentDay} className="mb-4" />
 
-      {/* Day navigator */}
-      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2"
-           style={{ scrollbarWidth: 'none' }}>
-        <span className="font-mono text-xs shrink-0"
-              style={{ color: 'var(--text-muted)' }}>DAY</span>
-        {availableDays.slice(0, 15).map(d => (
-          <button
-            key={d}
-            onClick={() => setSelectedDay(d)}
-            className="shrink-0 font-mono text-xs px-3 py-1.5 border transition-colors"
-            style={{
-              borderColor: d === selectedDay ? 'var(--accent-gold)' : 'var(--border)',
-              color: d === selectedDay ? 'var(--accent-gold)' : 'var(--text-muted)',
-              background: d === selectedDay ? 'rgba(232,197,71,0.08)' : 'transparent',
-              minWidth: '52px',
-              borderRadius: '2px',
-            }}
-          >
-            <div>{d}</div>
-            <div style={{ fontSize: '11px', opacity: 0.7 }}>{dayLabel(d)}</div>
+      {/* Day navigator — every day 1..today is reachable */}
+      <div className="mb-8">
+        <div className="flex flex-wrap items-center gap-2 mb-3 font-mono text-xs">
+          <button type="button" onClick={() => goToDay(selectedDay - 1)} disabled={selectedDay <= 1}
+                  aria-label="Previous day"
+                  className="px-3 py-1.5 border disabled:opacity-30"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)', borderRadius: 2 }}>
+            {'\u25C0'} PREV
           </button>
-        ))}
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => { e.preventDefault(); goToDay(Number(dayInput)); }}
+          >
+            <label htmlFor="briefing-day-input" style={{ color: 'var(--text-muted)' }}>DAY</label>
+            <input
+              id="briefing-day-input"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={maxDay}
+              value={dayInput}
+              onChange={(e) => setDayInput(e.target.value)}
+              className="w-20 px-2 py-1.5 border bg-transparent"
+              style={{ borderColor: 'var(--border)', color: 'var(--text-primary)', borderRadius: 2 }}
+            />
+            <button type="submit" className="px-3 py-1.5 border"
+                    style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)', borderRadius: 2 }}>
+              GO
+            </button>
+          </form>
+          <button type="button" onClick={() => goToDay(selectedDay + 1)} disabled={selectedDay >= maxDay}
+                  aria-label="Next day"
+                  className="px-3 py-1.5 border disabled:opacity-30"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)', borderRadius: 2 }}>
+            NEXT {'\u25B6'}
+          </button>
+          {latestBriefingDay != null && (
+            <button type="button" onClick={() => goToDay(latestBriefingDay)}
+                    className="px-3 py-1.5 border"
+                    style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)', borderRadius: 2 }}>
+              LATEST (DAY {latestBriefingDay})
+            </button>
+          )}
+          <button type="button" onClick={() => setGridOpen((v) => !v)} aria-expanded={gridOpen}
+                  className="px-3 py-1.5 border"
+                  style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)', borderRadius: 2 }}>
+            {gridOpen ? 'HIDE' : 'ALL'} DAYS 1{'\u2013'}{maxDay}
+          </button>
+        </div>
+
+        {/* Quick strip: the most recent days that have briefs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+          <span className="font-mono text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>RECENT</span>
+          {availability.slice(0, 15).map((a) => (
+            <DayChip key={a.day} d={a.day} selected={a.day === selectedDay} kind={chipKind(a)} onPick={goToDay} />
+          ))}
+        </div>
+
+        {gridOpen && (
+          <div className="mt-3 p-3 border" style={{ borderColor: 'var(--border)', borderRadius: 2 }}>
+            <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              <span style={{ color: 'var(--accent-gold)' }}>{'\u25A0'}</span> briefs{' '}
+              <span style={{ color: 'var(--accent-blue)' }}>{'\u25A0'}</span> weekly digest only{' '}
+              <span>{'\u25A1'}</span> nothing published (covered by a digest if one spans it)
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-72 overflow-y-auto" data-testid="briefing-day-grid">
+              {Array.from({ length: maxDay }, (_, i) => maxDay - i).map((d) => (
+                <DayChip key={d} d={d} selected={d === selectedDay} kind={chipKind(availByDay.get(d))} onPick={goToDay} compact />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Day header */}
@@ -164,6 +235,20 @@ export default function BriefingsClient({
           </span>
         )}
       </div>
+
+      {briefings.length === 0 && !loading && (() => {
+        const cover = availability.find(
+          (a) => a.digestFrom != null && a.digestTo != null && day >= a.digestFrom && day <= a.digestTo
+        );
+        return cover ? (
+          <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-secondary)' }}>
+            Day {day} is covered by the weekly digest for Days {cover.digestFrom}{'\u2013'}{cover.digestTo}:{' '}
+            <Link href={`/briefings/${cover.day}/general_weekly`} style={{ color: 'var(--accent-gold)' }}>
+              read the digest {'\u2192'}
+            </Link>
+          </p>
+        ) : null;
+      })()}
 
       {loading && (
         <p className="font-mono text-xs py-8" style={{ color: 'var(--text-muted)' }}>
@@ -251,6 +336,40 @@ export default function BriefingsClient({
         </div>
       )}
     </div>
+  );
+}
+
+type ChipKind = 'briefs' | 'digest' | 'none';
+
+function chipKind(a: DayAvailability | undefined): ChipKind {
+  if (!a || a.types.length === 0) return 'none';
+  return a.types.some((t) => t !== 'general_weekly') ? 'briefs' : 'digest';
+}
+
+function DayChip({
+  d, selected, kind, onPick, compact,
+}: { d: number; selected: boolean; kind: ChipKind; onPick: (d: number) => void; compact?: boolean }) {
+  const accent = kind === 'briefs' ? 'var(--accent-gold)' : kind === 'digest' ? 'var(--accent-blue)' : 'var(--text-muted)';
+  return (
+    <button
+      type="button"
+      onClick={() => onPick(d)}
+      aria-pressed={selected}
+      aria-label={`Day ${d}${kind === 'none' ? ' (no briefs)' : kind === 'digest' ? ' (weekly digest)' : ''}`}
+      className="shrink-0 font-mono text-xs border transition-colors"
+      style={{
+        borderColor: selected ? 'var(--accent-gold)' : kind === 'none' ? 'var(--border)' : accent,
+        color: selected ? 'var(--accent-gold)' : accent,
+        background: selected ? 'rgba(232,197,71,0.08)' : 'transparent',
+        opacity: kind === 'none' && !selected ? 0.55 : 1,
+        minWidth: compact ? '44px' : '52px',
+        padding: compact ? '4px 6px' : '6px 12px',
+        borderRadius: '2px',
+      }}
+    >
+      <div>{d}</div>
+      {!compact && <div style={{ fontSize: '11px', opacity: 0.7 }}>{dayLabel(d)}</div>}
+    </button>
   );
 }
 

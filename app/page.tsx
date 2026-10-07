@@ -2,7 +2,12 @@ import { createClient } from '@/utils/supabase/server';
 import { getConflictDay } from '@/utils/supabase/server';
 import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
+import type { Metadata } from 'next';
 import type { Article, ScenarioProbability } from '@/types/supabase';
+
+export const metadata: Metadata = {
+  title: 'MENA Intel Desk · Live US-Iran Conflict Dashboard',
+};
 
 export default async function Page() {
   const [supabase, conflictDay] = await Promise.all([
