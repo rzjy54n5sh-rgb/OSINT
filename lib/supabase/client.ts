@@ -41,7 +41,11 @@ function createMockClient(): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
+let browserClient: SupabaseClient | null = null;
+
+/** Browser client is a module singleton so only one GoTrueClient exists per page. */
 export function createClient(): SupabaseClient {
+  if (browserClient && typeof window !== 'undefined') return browserClient;
   const url = resolveSupabasePublicUrl();
   const anonKey = resolveSupabasePublicKey();
   if (!url || !anonKey) {
@@ -51,7 +55,9 @@ export function createClient(): SupabaseClient {
     return createMockClient();
   }
   try {
-    return createBrowserClient(url, anonKey, { isSingleton: false });
+    const client = createBrowserClient(url, anonKey);
+    if (typeof window !== 'undefined') browserClient = client;
+    return client;
   } catch (e) {
     if (typeof window !== 'undefined') {
       console.warn('@supabase/ssr: createBrowserClient failed, using no-op client.', e);

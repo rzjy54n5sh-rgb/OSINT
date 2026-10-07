@@ -21,7 +21,7 @@ export function useNewScenarioAlert() {
         .from('platform_alerts')
         .select('value')
         .eq('key', 'new_scenario_alert')
-        .single();
+        .maybeSingle();
       if (data?.value) {
         const parsed = data.value as ScenarioAlert;
         if (parsed.active) setAlert(parsed);

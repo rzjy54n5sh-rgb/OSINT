@@ -67,7 +67,7 @@ export function CommandHeader() {
   const pathname = usePathname();
   const { articleCount, lastUpdate, live } = useRealtimeCount();
   const conflictDay = useConflictDay();
-  const { lastNaiUpdate, stale } = useDataFreshness();
+  const { lastUpdateAt, stale, staleReasons } = useDataFreshness();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userTier, setUserTier] = useState<UserTier | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -215,15 +215,15 @@ export function CommandHeader() {
                 padding: '2px 8px',
                 animation: 'pulse 2s infinite',
               }}
-              title={lastNaiUpdate ? `NAI scores last updated: ${new Date(lastNaiUpdate).toLocaleString()}` : 'NAI scores last updated: unknown'}
+              title={staleReasons.join(' · ') || 'Data may be out of date'}
             >
               ⚠ DATA STALE
             </span>
           )}
-          {!stale && lastNaiUpdate && (
+          {!stale && lastUpdateAt && (
             <span
               style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}
-              title={`NAI scores last updated: ${new Date(lastNaiUpdate).toLocaleString()}`}
+              title={`Briefings, articles and scenarios are current. Newest item: ${new Date(lastUpdateAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
             >
               ◆ SYNCED
             </span>

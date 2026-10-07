@@ -1,6 +1,8 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 
 export type TimelineArticle = {
@@ -20,11 +22,79 @@ interface TimelineDayBlockProps {
   conflictDay: number;
   dateLabel: string;
   scenario: ScenarioSlice;
-  articles: TimelineArticle[];
+  /**
+   * Server-prefetched headlines. `null` = not prefetched: the block loads its own day (top 5,
+   * negative first, newest first) when it scrolls near the viewport. This avoids one giant
+   * query that PostgREST would silently cap at 1000 rows.
+   */
+  articles: TimelineArticle[] | null;
   locked: boolean;
 }
 
-export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles, locked }: TimelineDayBlockProps) {
+const TOP_N = 5;
+
+/**
+ * Top-N headlines for one day: negative-framed (newest first), then positive, then - for days
+ * whose articles carry no sentiment (reconstructed history) - the day's newest items.
+ */
+async function loadDayHeadlines(conflictDay: number): Promise<TimelineArticle[]> {
+  const supabase = createClient();
+  const out: TimelineArticle[] = [];
+  const passes: ((q: ReturnType<typeof base>) => ReturnType<typeof base>)[] = [
+    (q) => q.eq('sentiment', 'negative'),
+    (q) => q.eq('sentiment', 'positive'),
+    (q) => q.or('sentiment.is.null,sentiment.eq.neutral'),
+  ];
+  function base() {
+    return supabase
+      .from('articles')
+      .select('title, source_name, url')
+      .eq('conflict_day', conflictDay)
+      .order('published_at', { ascending: false });
+  }
+  // The three passes are independent: run them in parallel and keep every pass that succeeded
+  // (one statement timeout must not blank the whole day). Fail only if all passes failed.
+  const results = await Promise.all(passes.map((apply) => apply(base()).limit(TOP_N)));
+  if (results.every((r) => r.error)) throw results[0].error;
+  for (const { data, error } of results) {
+    if (error) continue;
+    for (const a of (data ?? []) as { title: string | null; source_name: string | null; url: string | null }[]) {
+      if (out.length < TOP_N) out.push({ title: a.title ?? '', source_name: a.source_name, url: a.url });
+    }
+  }
+  return out;
+}
+
+export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: prefetched, locked }: TimelineDayBlockProps) {
+  const ref = useRef<HTMLElement>(null);
+  const [loaded, setLoaded] = useState<TimelineArticle[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const articles = prefetched ?? loaded;
+
+  useEffect(() => {
+    if (prefetched !== null || locked || loaded !== null) return;
+    const el = ref.current;
+    if (!el) return;
+    let cancelled = false;
+    const start = () => {
+      loadDayHeadlines(conflictDay)
+        .then((r) => { if (!cancelled) setLoaded(r); })
+        .catch(() => { if (!cancelled) setFailed(true); });
+    };
+    if (typeof IntersectionObserver === 'undefined') {
+      start();
+      return () => { cancelled = true; };
+    }
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        io.disconnect();
+        start();
+      }
+    }, { rootMargin: '600px 0px' });
+    io.observe(el);
+    return () => { cancelled = true; io.disconnect(); };
+  }, [prefetched, locked, loaded, conflictDay]);
+
   const inner: ReactNode = (
     <>
       <div
@@ -41,17 +111,26 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles, l
       <div className="p-4 space-y-3">
         {scenario ? (
           <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            [Scenario: B {Math.round(Number(scenario.scenario_b))}% | A {Math.round(Number(scenario.scenario_a))}% | C{' '}
-            {Math.round(Number(scenario.scenario_c))}% | D {Math.round(Number(scenario.scenario_d))}%]
+            [Scenario, {scenarioMethodNote(scenarioMethodForDay(conflictDay))}: B {Math.round(Number(scenario.scenario_b))}% | A{' '}
+            {Math.round(Number(scenario.scenario_a))}% | C {Math.round(Number(scenario.scenario_c))}% | D{' '}
+            {Math.round(Number(scenario.scenario_d))}%]
           </p>
         ) : (
           <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
             [Scenario: no row for this day]
           </p>
         )}
-        {articles.length === 0 ? (
+        {locked ? (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-            No qualifying headline articles in the current sample for this day.
+            Headline articles for this day are available on the Informed plan.
+          </p>
+        ) : articles === null ? (
+          <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+            {failed ? 'Headlines could not be loaded for this day.' : 'Loading headlines\u2026'}
+          </p>
+        ) : articles.length === 0 ? (
+          <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+            No articles recorded for this day.
           </p>
         ) : (
           <ul className="space-y-2 list-none m-0 p-0">
@@ -82,6 +161,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles, l
 
   return (
     <article
+      ref={ref}
       id={`day-${conflictDay}`}
       className="rounded-sm border overflow-hidden scroll-mt-28 mb-6 relative"
       style={{ borderColor: 'var(--border)', background: 'var(--bg-card)' }}

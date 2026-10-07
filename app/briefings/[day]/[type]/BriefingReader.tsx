@@ -1,16 +1,28 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { NaiScoreBadge } from '@/components/NaiScoreBadge';
 import { createClient } from '@/lib/supabase/client';
+import { formatConflictDayDate } from '@/lib/conflict-calendar';
+import {
+  collectBriefSources,
+  hostOf,
+  paragraphSources,
+  perspectiveLabel,
+  safeHttpUrl,
+  sourceLookupKey,
+  type BriefSource,
+} from '@/lib/briefing-sources';
 import type { Article } from '@/types/supabase';
 
 interface Paragraph {
   text: string;
   source_ids?: string[];
+  /** Linked citations: [{name,url,published_at,tier,party_source}]. Absent on legacy briefs. */
+  sources?: unknown;
   perspective?: string;
 }
 
@@ -55,15 +67,6 @@ const PERSPECTIVE_COLORS: Record<string, string> = {
   both:       '#a855f7',
 };
 
-const PERSPECTIVE_LABELS: Record<string, string> = {
-  us_israel:  'US/ISRAEL',
-  iran_irgc:  'IRAN/IRGC',
-  gulf:       'GULF',
-  resistance: 'RESISTANCE',
-  neutral:    'NEUTRAL',
-  both:       'ALL PARTIES',
-};
-
 const TYPE_LABELS: Record<string, string> = {
   general:     'GENERAL INTELLIGENCE BRIEF',
   general_weekly: 'WEEKLY GENERAL DIGEST',
@@ -75,9 +78,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 function dayToDate(day: number): string {
-  const date = new Date(2026, 1, 28);
-  date.setDate(date.getDate() + day - 1);
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return formatConflictDayDate(day);
 }
 
 interface BriefingReaderProps {
@@ -159,7 +160,10 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
     setActiveSource({ articleId, article: data as Article | null, loading: false });
   }
 
-  const totalSections = briefing.sections.length;
+  const briefSources = useMemo(() => collectBriefSources(briefing.sections), [briefing.sections]);
+
+  const sections = Array.isArray(briefing.sections) ? briefing.sections : [];
+  const totalSections = sections.length;
   const sectionProgress = totalSections > 0
     ? Math.round((readSections.size / totalSections) * 100)
     : 0;
@@ -257,7 +261,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
                 </button>
               </div>
               <ul className="space-y-1">
-                {briefing.sections.map((s) => (
+                {sections.map((s) => (
                   <li key={s.id}>
                     <a href={`#${s.id}`}
                        onClick={() => setTocOpen(false)}
@@ -279,7 +283,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
 
       {/* Report sections */}
       <div ref={contentRef} className="space-y-8">
-        {briefing.sections.map((section) => (
+        {sections.map((section) => (
           <div key={section.id} id={section.id} data-section-id={section.id}>
             {/* Section heading */}
             <div className="flex items-center gap-3 mb-4 pb-2"
@@ -298,19 +302,28 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
 
             {/* Subsections */}
             <div className="space-y-6">
-              {section.subsections.map((sub) => (
+              {(Array.isArray(section.subsections) ? section.subsections : []).map((sub) => (
                 <SubsectionBlock
                   key={sub.id}
                   sub={sub}
                   activeSourceId={activeSource?.articleId ?? null}
                   activeArticle={activeSource}
                   onSourceTap={loadSource}
+                  indexByKey={briefSources.indexByKey}
                 />
               ))}
             </div>
           </div>
         ))}
       </div>
+
+      {type === 'business' && (
+        <p className="font-mono mt-8" style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+          Market and business content is analysis of public information, not investment advice.
+        </p>
+      )}
+
+      <SourcesList sources={briefSources.list} />
 
       {/* Bottom navigation */}
       <div className="flex items-center justify-between mt-10 pt-6"
@@ -334,11 +347,13 @@ function SubsectionBlock({
   activeSourceId,
   activeArticle,
   onSourceTap,
+  indexByKey,
 }: {
   sub: Subsection;
   activeSourceId: string | null;
   activeArticle: { articleId: string; article: Article | null; loading: boolean } | null;
   onSourceTap: (id: string) => void;
+  indexByKey: Map<string, BriefSource>;
 }) {
   return (
     <div className="pl-0 sm:pl-4"
@@ -365,13 +380,14 @@ function SubsectionBlock({
 
       {/* Paragraphs */}
       <div className="space-y-3">
-        {sub.paragraphs.map((para, pi) => (
+        {(Array.isArray(sub.paragraphs) ? sub.paragraphs : []).map((para, pi) => (
           <ParagraphBlock
             key={pi}
             para={para}
             activeSourceId={activeSourceId}
             activeArticle={activeArticle}
             onSourceTap={onSourceTap}
+            indexByKey={indexByKey}
           />
         ))}
       </div>
@@ -384,25 +400,29 @@ function ParagraphBlock({
   activeSourceId,
   activeArticle,
   onSourceTap,
+  indexByKey,
 }: {
   para: Paragraph;
   activeSourceId: string | null;
   activeArticle: { articleId: string; article: Article | null; loading: boolean } | null;
   onSourceTap: (id: string) => void;
+  indexByKey: Map<string, BriefSource>;
 }) {
+  const linked = paragraphSources(para.sources);
   const hasSources = para.source_ids && para.source_ids.length > 0;
   const perspColor = PERSPECTIVE_COLORS[para.perspective ?? 'neutral'] ?? 'var(--text-muted)';
-  const perspLabel = PERSPECTIVE_LABELS[para.perspective ?? 'neutral'];
+  const perspLabel = perspectiveLabel(para.perspective);
 
   return (
     <div>
-      {/* Perspective badge */}
-      {para.perspective && para.perspective !== 'neutral' && (
+      {/* Perspective tag */}
+      {para.perspective && para.perspective !== 'neutral' && perspLabel && (
         <div className="mb-1">
           <span className="font-mono"
-                style={{ fontSize: '11px', letterSpacing: '1px',
-                         color: perspColor, opacity: 0.8 }}>
-            [{perspLabel}]
+                title="Which party's framing this paragraph reports"
+                style={{ fontSize: '11px', letterSpacing: '1px', color: perspColor,
+                         border: `1px solid ${perspColor}`, padding: '0 5px', borderRadius: '2px' }}>
+            {perspLabel}
           </span>
         </div>
       )}
@@ -431,6 +451,33 @@ function ParagraphBlock({
           </button>
         ))}
       </p>
+
+      {/* Linked citations (stored per paragraph) */}
+      {linked.length > 0 && (
+        <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 font-mono list-none p-0" style={{ fontSize: '11px' }}
+            aria-label="Sources for this paragraph">
+          {linked.map((src, i) => {
+            const key = sourceLookupKey(src);
+            const entry = key ? indexByKey.get(key) : undefined;
+            const url = safeHttpUrl(src.url);
+            const label = (typeof src.name === 'string' ? src.name.trim() : '') || hostOf(src.url) || 'Source';
+            return (
+              <li key={`${key ?? 'x'}-${i}`} className="inline-flex items-baseline gap-1">
+                {entry && <span style={{ color: 'var(--text-muted)' }}>[{entry.n}]</span>}
+                {url ? (
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                     style={{ color: 'var(--accent-blue)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                    {label} ↗
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                )}
+                {src.party_source && <PartyMarker />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {/* Source expansion — inline below paragraph */}
       {hasSources && para.source_ids!.map((sid) => (
@@ -489,5 +536,64 @@ function ParagraphBlock({
         ) : null
       ))}
     </div>
+  );
+}
+
+function PartyMarker() {
+  return (
+    <span className="font-mono"
+          title="State or party-affiliated outlet: reports that party's own position, not independent verification"
+          style={{ fontSize: '10px', letterSpacing: '0.5px', color: 'var(--accent-orange)',
+                   border: '1px solid var(--accent-orange)', padding: '0 4px', borderRadius: '2px' }}>
+      STATE/PARTY SOURCE
+    </span>
+  );
+}
+
+function SourcesList({ sources }: { sources: BriefSource[] }) {
+  return (
+    <section id="sources" className="mt-10 pt-6" style={{ borderTop: '1px solid var(--border)' }}
+             aria-labelledby="sources-heading">
+      <h2 id="sources-heading" className="font-display text-lg mb-1" style={{ color: 'var(--accent-gold)' }}>
+        SOURCES{sources.length > 0 ? ` (${sources.length})` : ''}
+      </h2>
+      {sources.length === 0 ? (
+        <p className="font-mono text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          No source citations are recorded for this brief. Briefs published before Day 221, and reconstructed
+          weekly digests, predate per-paragraph sourcing.
+        </p>
+      ) : (
+        <>
+          <p className="font-mono mb-4 leading-relaxed" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            Every source cited in this brief, deduplicated by link. Numbers match the [n] markers under each paragraph.
+            Sources flagged STATE/PARTY report a party&apos;s own position and are not independent verification.
+          </p>
+          <ol className="space-y-2 list-none p-0">
+            {sources.map((src) => (
+              <li key={src.key} id={`src-${src.n}`} className="font-mono text-xs flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span style={{ color: 'var(--text-muted)', minWidth: '2.2em' }}>[{src.n}]</span>
+                {src.url ? (
+                  <a href={src.url} target="_blank" rel="noopener noreferrer"
+                     style={{ color: 'var(--accent-blue)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                    {src.name} ↗
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--text-secondary)' }}>{src.name}</span>
+                )}
+                {src.party_source && <PartyMarker />}
+                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                  {[
+                    src.url ? hostOf(src.url) : null,
+                    src.tier != null ? `tier ${src.tier}` : null,
+                    typeof src.published_at === 'string' && src.published_at ? src.published_at.slice(0, 10) : null,
+                    `cited in ${src.cited} paragraph${src.cited === 1 ? '' : 's'}`,
+                  ].filter(Boolean).join(' · ')}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+    </section>
   );
 }

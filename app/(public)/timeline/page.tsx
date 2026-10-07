@@ -1,6 +1,6 @@
 import { getUser } from '@/utils/supabase/server';
 import { createClient } from '@/utils/supabase/server';
-import { formatConflictDayDate } from '@/lib/conflict-calendar';
+import { currentConflictDay, formatConflictDayDate } from '@/lib/conflict-calendar';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { TimelineDayNav } from '@/components/timeline/TimelineDayNav';
 import { TimelineDayBlock, type TimelineArticle } from '@/components/timeline/TimelineDayBlock';
@@ -14,10 +14,7 @@ export const metadata = {
 type ArticleRow = {
   title: string;
   source_name: string | null;
-  country: string | null;
-  sentiment: string | null;
   conflict_day: number;
-  published_at: string | null;
   url: string | null;
 };
 
@@ -29,72 +26,57 @@ type ScenarioRow = {
   scenario_d: number;
 };
 
-function sentimentRank(s: string | null): number {
-  if (s === 'negative') return 2;
-  if (s === 'positive') return 1;
-  return 0;
-}
-
-function groupTopArticlesPerDay(rows: ArticleRow[], topN: number): Map<number, TimelineArticle[]> {
-  const byDay = new Map<number, ArticleRow[]>();
-  for (const r of rows) {
-    const d = r.conflict_day;
-    if (d == null || !Number.isFinite(d)) continue;
-    if (!byDay.has(d)) byDay.set(d, []);
-    byDay.get(d)!.push(r);
-  }
-  const out = new Map<number, TimelineArticle[]>();
-  for (const [d, list] of byDay) {
-    const sorted = [...list].sort((a, b) => {
-      const sr = sentimentRank(b.sentiment) - sentimentRank(a.sentiment);
-      if (sr !== 0) return sr;
-      return new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime();
-    });
-    out.set(
-      d,
-      sorted.slice(0, topN).map((a) => ({
-        title: a.title ?? '',
-        source_name: a.source_name,
-        url: a.url,
-      }))
-    );
-  }
-  return out;
-}
+/** Newest days whose headlines are prefetched in ONE query; older days load on scroll. */
+const PREFETCH_DAYS = 4;
+const PAGE_ROWS = 1000; // PostgREST max rows per request
 
 export default async function ConflictTimelinePage() {
   const [user, supabase] = await Promise.all([getUser(), createClient()]);
   const isFreeTier = !user || user.tier === 'free';
 
-  const [{ data: rawArticles }, { data: scenarios }] = await Promise.all([
-    supabase
-      .from('articles')
-      .select('title, source_name, country, sentiment, conflict_day, published_at, url')
-      .in('sentiment', ['negative', 'positive'])
-      .order('conflict_day', { ascending: false })
-      .order('published_at', { ascending: false })
-      .limit(200),
-    supabase
-      .from('scenario_probabilities')
-      .select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d')
-      .order('conflict_day', { ascending: true }),
-  ]);
+  const calendarDay = currentConflictDay();
 
-  const articles = (rawArticles ?? []) as ArticleRow[];
+  const { data: scenarios } = await supabase
+    .from('scenario_probabilities')
+    .select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d')
+    .order('conflict_day', { ascending: true })
+    .range(0, PAGE_ROWS - 1);
   const scenarioRows = (scenarios ?? []) as ScenarioRow[];
 
-  const articlesByDay = groupTopArticlesPerDay(articles, 5);
-
   const scenarioMap = new Map<number, ScenarioRow>();
-  for (const s of scenarioRows) {
-    scenarioMap.set(s.conflict_day, s);
+  for (const s of scenarioRows) scenarioMap.set(s.conflict_day, s);
+
+  // Every day 1..today is listed. Day = calendar day (DAY LOCK) unless scenarios are ahead.
+  const maxFromScenarios = scenarioRows.length ? Math.max(...scenarioRows.map((s) => s.conflict_day)) : 0;
+  const maxDay = Math.max(calendarDay, maxFromScenarios, 1);
+
+  // Prefetch the newest PREFETCH_DAYS unlocked days in one query. Order (day desc, sentiment asc,
+  // newest first) makes the first rows of each day its exact top-5: negatives, then positives.
+  // A day the 1000-row cap cuts off entirely gets `null` and loads itself on scroll.
+  const prefetchFrom = Math.max(1, maxDay - PREFETCH_DAYS + 1);
+  const { data: rawArticles } = await supabase
+    .from('articles')
+    .select('title, source_name, conflict_day, url')
+    .gte('conflict_day', prefetchFrom)
+    .in('sentiment', ['negative', 'positive'])
+    .order('conflict_day', { ascending: false })
+    .order('sentiment', { ascending: true })
+    .order('published_at', { ascending: false })
+    .range(0, PAGE_ROWS - 1);
+  const prefetched = new Map<number, TimelineArticle[]>();
+  const rows = (rawArticles ?? []) as ArticleRow[];
+  for (const r of rows) {
+    const list = prefetched.get(r.conflict_day) ?? [];
+    if (list.length < 5) list.push({ title: r.title ?? '', source_name: r.source_name, url: r.url });
+    prefetched.set(r.conflict_day, list);
   }
 
-  const maxFromScenarios = scenarioRows.length
-    ? Math.max(...scenarioRows.map((s) => s.conflict_day))
-    : 0;
-  const maxFromArticles = articles.length ? Math.max(...articles.map((a) => a.conflict_day)) : 0;
-  const maxDay = Math.max(maxFromScenarios, maxFromArticles, 1);
+  // Days with fewer than 5 sentiment-tagged rows are topped up client-side (newest items), so
+  // let them load themselves rather than show a short list.
+  for (const [d, list] of [...prefetched]) if (list.length < 5) prefetched.delete(d);
+
+  // If the cap was hit, the oldest returned day may be cut short: let it load itself instead.
+  if (rows.length >= PAGE_ROWS && rows.length > 0) prefetched.delete(rows[rows.length - 1].conflict_day);
 
   const dayNumbers = Array.from({ length: maxDay }, (_, i) => i + 1);
   const daysNewestFirst = [...dayNumbers].reverse();
@@ -106,7 +88,7 @@ export default async function ConflictTimelinePage() {
       </h1>
       <ConflictDayBadge />
       <p className="font-mono text-xs mb-2 max-w-2xl leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-        Headline articles (negative / positive sentiment) and daily scenario probabilities — newest days first. Deep link
+        Headline articles (negative / positive framing first, otherwise the day’s newest items) and daily scenario probabilities — newest days first. Deep link
         to any day: <span style={{ color: 'var(--text-muted)' }}>/timeline#day-15</span>
       </p>
       {isFreeTier && (
@@ -124,7 +106,7 @@ export default async function ConflictTimelinePage() {
             conflictDay={d}
             dateLabel={formatConflictDayDate(d)}
             scenario={scenarioMap.get(d) ?? null}
-            articles={articlesByDay.get(d) ?? []}
+            articles={isFreeTier && d > 7 ? null : prefetched.get(d) ?? null}
             locked={isFreeTier && d > 7}
           />
         ))}

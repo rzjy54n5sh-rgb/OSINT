@@ -1,27 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { EMPTY_FRESHNESS, fetchDataFreshness, type DataFreshness } from '@/lib/data-freshness';
 
-export function useDataFreshness() {
-  const [lastNaiUpdate, setLastNaiUpdate] = useState<string | null>(null);
-  const [stale, setStale] = useState(false);
+/**
+ * Real per-table data freshness (daily_briefings, articles, scenario_probabilities).
+ * It no longer reads the archived `nai_scores` table.
+ *
+ * Exported API is backwards compatible: `{ lastNaiUpdate, stale }` still exist.
+ * `lastNaiUpdate` is a deprecated alias of `lastUpdateAt` (newest article timestamp).
+ * New fields: see DataFreshness (staleReasons, pipelineActive, lastUpdateAt, ...).
+ */
+export function useDataFreshness(): DataFreshness & { lastNaiUpdate: string | null } {
+  const [f, setF] = useState<DataFreshness>(EMPTY_FRESHNESS);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from('nai_scores')
-      .select('updated_at')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.updated_at) return;
-        setLastNaiUpdate(data.updated_at);
-        const hoursOld = (Date.now() - new Date(data.updated_at).getTime()) / 36e5;
-        setStale(hoursOld > 26); // flag if NAI scores are more than 26 hours old
-      });
+    let cancelled = false;
+    void fetchDataFreshness().then((r) => {
+      if (!cancelled) setF(r);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  return { lastNaiUpdate, stale };
+  return { ...f, lastNaiUpdate: f.lastUpdateAt };
 }

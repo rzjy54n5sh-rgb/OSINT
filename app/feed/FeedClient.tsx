@@ -12,6 +12,7 @@ import { PageBriefing } from '@/components/PageBriefing';
 import { ReactionBar } from '@/components/ReactionBar';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { DataAsOf } from '@/components/ui/DataAsOf';
+import { decodeHtmlEntities } from '@/lib/html-entities';
 import type { Article } from '@/types/supabase';
 
 type SentimentFilter = string | null;
@@ -74,14 +75,14 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
     <div className="max-w-4xl mx-auto px-4 py-8">
       <PageBriefing
         title="LIVE INTELLIGENCE FEED"
-        description="Articles are collected automatically from verified public RSS feeds across wire services, broadcasters, official government feeds, and military communications. Earlier days (before October 2026) are partly a reconstructed index of headlines and links from The GDELT Project, marked as retrospective. Nothing is written or editorialized by this platform \u2014 each item links directly to its original source."
-        note="Use the filters below to narrow by region, sentiment framing, or conflict day. Sentiment labels describe the article\u2019s narrative framing, not our assessment of its accuracy."
+        description="Articles are collected automatically from verified public RSS feeds across wire services, broadcasters, official government feeds, and military communications. Earlier days (before October 2026) are partly a reconstructed index of headlines and links from The GDELT Project, marked as retrospective. Nothing is written or editorialized by this platform — each item links directly to its original source."
+        note="Use the filters below to narrow by region, sentiment framing, or conflict day. Sentiment labels describe the article’s narrative framing, not our assessment of its accuracy."
       />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         LIVE INTELLIGENCE FEED
       </h1>
       <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY {conflictDay ?? maxConflictDay ?? '\u2014'} \u2014 FILTER BY REGION, SENTIMENT, SOURCE
+        CONFLICT DAY {conflictDay ?? maxConflictDay ?? '\u2014'} — FILTER BY REGION, SENTIMENT, SOURCE
       </p>
       {!hasActiveFilters && articles.length > 0 && (
         <DataAsOf
@@ -163,17 +164,17 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
                   {a.region ?? '\u2014'} {a.conflict_day != null && `| DAY ${a.conflict_day}`}
                 </span>
                 <h2 className="font-body text-base mt-2" style={{ color: 'var(--text-primary)' }}>
-                  {a.title}
+                  {decodeHtmlEntities(a.title)}
                 </h2>
                 {a.summary && (
                   <p className="font-body text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-                    {a.summary}
+                    {decodeHtmlEntities(a.summary)}
                   </p>
                 )}
                 <div className="flex items-center gap-2 mt-2">
                   <SentimentBadgeWithTooltip sentiment={a.sentiment} />
                   <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-                    CONFLICT DAY {a.conflict_day ?? '\u2014'} \u2014 {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC
+                    CONFLICT DAY {a.conflict_day ?? '\u2014'} — {a.published_at ? new Date(a.published_at).toISOString().slice(11, 16) : '--:--'} UTC
                   </span>
                 </div>
                 {a.confidence_score != null && (
