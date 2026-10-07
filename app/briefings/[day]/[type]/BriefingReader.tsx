@@ -162,7 +162,8 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
 
   const briefSources = useMemo(() => collectBriefSources(briefing.sections), [briefing.sections]);
 
-  const totalSections = briefing.sections.length;
+  const sections = Array.isArray(briefing.sections) ? briefing.sections : [];
+  const totalSections = sections.length;
   const sectionProgress = totalSections > 0
     ? Math.round((readSections.size / totalSections) * 100)
     : 0;
@@ -260,7 +261,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
                 </button>
               </div>
               <ul className="space-y-1">
-                {briefing.sections.map((s) => (
+                {sections.map((s) => (
                   <li key={s.id}>
                     <a href={`#${s.id}`}
                        onClick={() => setTocOpen(false)}
@@ -282,7 +283,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
 
       {/* Report sections */}
       <div ref={contentRef} className="space-y-8">
-        {briefing.sections.map((section) => (
+        {sections.map((section) => (
           <div key={section.id} id={section.id} data-section-id={section.id}>
             {/* Section heading */}
             <div className="flex items-center gap-3 mb-4 pb-2"
@@ -301,7 +302,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
 
             {/* Subsections */}
             <div className="space-y-6">
-              {section.subsections.map((sub) => (
+              {(Array.isArray(section.subsections) ? section.subsections : []).map((sub) => (
                 <SubsectionBlock
                   key={sub.id}
                   sub={sub}
@@ -379,7 +380,7 @@ function SubsectionBlock({
 
       {/* Paragraphs */}
       <div className="space-y-3">
-        {sub.paragraphs.map((para, pi) => (
+        {(Array.isArray(sub.paragraphs) ? sub.paragraphs : []).map((para, pi) => (
           <ParagraphBlock
             key={pi}
             para={para}
@@ -459,7 +460,7 @@ function ParagraphBlock({
             const key = sourceLookupKey(src);
             const entry = key ? indexByKey.get(key) : undefined;
             const url = safeHttpUrl(src.url);
-            const label = (src.name ?? '').trim() || hostOf(src.url) || 'Source';
+            const label = (typeof src.name === 'string' ? src.name.trim() : '') || hostOf(src.url) || 'Source';
             return (
               <li key={`${key ?? 'x'}-${i}`} className="inline-flex items-baseline gap-1">
                 {entry && <span style={{ color: 'var(--text-muted)' }}>[{entry.n}]</span>}
@@ -471,7 +472,7 @@ function ParagraphBlock({
                 ) : (
                   <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
                 )}
-                {src.party_source === true && <PartyMarker />}
+                {src.party_source && <PartyMarker />}
               </li>
             );
           })}
@@ -584,7 +585,7 @@ function SourcesList({ sources }: { sources: BriefSource[] }) {
                   {[
                     src.url ? hostOf(src.url) : null,
                     src.tier != null ? `tier ${src.tier}` : null,
-                    src.published_at ? src.published_at.slice(0, 10) : null,
+                    typeof src.published_at === 'string' && src.published_at ? src.published_at.slice(0, 10) : null,
                     `cited in ${src.cited} paragraph${src.cited === 1 ? '' : 's'}`,
                   ].filter(Boolean).join(' · ')}
                 </span>

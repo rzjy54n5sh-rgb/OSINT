@@ -1,6 +1,7 @@
 'use client';
 
 import { decodeHtmlEntities } from '@/lib/html-entities';
+import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { AsciiHero } from '@/components/AsciiHero';
@@ -94,17 +95,20 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const scenariosDay = maxConflictDay(scenarios);
   const briefingsAreCurrent = briefingDay != null && briefingDay === conflictDay;
 
-  const scenarioChartData =
-    scenarios.length > 0
-      ? scenarios.slice(-10).map((s) => ({
-          day: s.conflict_day,
-          A: s.scenario_a,
-          B: s.scenario_b,
-          C: s.scenario_c,
-          D: s.scenario_d,
-          E: s.scenario_e ?? 0,
-        }))
-      : [];
+  // One chart = ONE method series. scenario_probabilities mixes legacy-desk-v0 (Days 1-35) and
+  // market-anchored-v1 (Day 221+); joining them draws a line across a 185-day hole. Plot only the
+  // method of the newest row. Unmeasured E stays null (a gap), never 0.
+  const chartMethod = scenarios.length > 0 ? scenarioMethodForDay(scenarios[scenarios.length - 1].conflict_day) : null;
+  const chartRows = scenarios.filter((s) => scenarioMethodForDay(s.conflict_day) === chartMethod);
+  const scenarioChartData = chartRows.slice(-10).map((s) => ({
+    day: s.conflict_day,
+    A: s.scenario_a,
+    B: s.scenario_b,
+    C: s.scenario_c,
+    D: s.scenario_d,
+    E: s.scenario_e ?? null,
+  }));
+  const hasMeasuredE = scenarioChartData.some((r) => r.E != null);
 
   return (
     <div className="relative">
@@ -334,6 +338,14 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
             {scenarioChartData.length > 0 && (
               <DataAsOf section="SCENARIOS" latestDay={scenariosDay} currentDay={conflictDay} className="mb-3" />
             )}
+            {chartMethod && scenarioChartData.length > 0 && (
+              <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                Method: {scenarioMethodNote(chartMethod)} · Days {scenarioChartData[0].day}
+                {'\u2013'}{scenarioChartData[scenarioChartData.length - 1].day}
+                {chartMethod === 'market-anchored-v1' ? ' · earlier desk estimates (Days 1\u201335, retired method) are not plotted' : ''}
+                {hasMeasuredE ? '' : ' · E (UAE direct strike) not measured'}
+              </p>
+            )}
             {scenarioChartData.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (
@@ -355,7 +367,9 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                     <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
                     <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
                     <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
-                    <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" />
+                    {hasMeasuredE && (
+                      <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>

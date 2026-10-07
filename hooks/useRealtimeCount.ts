@@ -29,7 +29,7 @@ export function useRealtimeCount() {
           setLive(false);
         } else {
           setArticleCount(articlesRes.count ?? 0);
-          // Real timestamp of the newest article / brief in the DB — never the visitor's clock.
+          // Real timestamp of the newest article in the DB — never the visitor's clock.
           setLastUpdate(formatUtcStamp(freshness.lastUpdateAt));
           // LIVE only while article ingestion is actually fresh.
           setLive(freshness.loaded ? freshness.pipelineActive : false);

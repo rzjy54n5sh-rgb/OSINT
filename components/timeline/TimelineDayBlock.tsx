@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 
 export type TimelineArticle = {
@@ -51,10 +52,12 @@ async function loadDayHeadlines(conflictDay: number): Promise<TimelineArticle[]>
       .eq('conflict_day', conflictDay)
       .order('published_at', { ascending: false });
   }
-  // The three passes are independent: run them in parallel, then take the first TOP_N in order.
+  // The three passes are independent: run them in parallel and keep every pass that succeeded
+  // (one statement timeout must not blank the whole day). Fail only if all passes failed.
   const results = await Promise.all(passes.map((apply) => apply(base()).limit(TOP_N)));
+  if (results.every((r) => r.error)) throw results[0].error;
   for (const { data, error } of results) {
-    if (error) throw error;
+    if (error) continue;
     for (const a of (data ?? []) as { title: string | null; source_name: string | null; url: string | null }[]) {
       if (out.length < TOP_N) out.push({ title: a.title ?? '', source_name: a.source_name, url: a.url });
     }
@@ -108,8 +111,9 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
       <div className="p-4 space-y-3">
         {scenario ? (
           <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            [Scenario: B {Math.round(Number(scenario.scenario_b))}% | A {Math.round(Number(scenario.scenario_a))}% | C{' '}
-            {Math.round(Number(scenario.scenario_c))}% | D {Math.round(Number(scenario.scenario_d))}%]
+            [Scenario, {scenarioMethodNote(scenarioMethodForDay(conflictDay))}: B {Math.round(Number(scenario.scenario_b))}% | A{' '}
+            {Math.round(Number(scenario.scenario_a))}% | C {Math.round(Number(scenario.scenario_c))}% | D{' '}
+            {Math.round(Number(scenario.scenario_d))}%]
           </p>
         ) : (
           <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>

@@ -5,12 +5,13 @@
  * Legacy briefs (before Day 221) have no `sources`; every helper tolerates that.
  */
 
+/** Normalised citation: every field is already type-checked (stored JSON is untrusted). */
 export interface ParagraphSource {
-  name?: string | null;
-  url?: string | null;
-  published_at?: string | null;
-  tier?: number | null;
-  party_source?: boolean | null;
+  name: string | null;
+  url: string | null;
+  published_at: string | null;
+  tier: number | null;
+  party_source: boolean;
 }
 
 export interface BriefSource {
@@ -27,7 +28,7 @@ export interface BriefSource {
 }
 
 /** Only http(s) URLs become links (blocks javascript:/data: from stored content). */
-export function safeHttpUrl(u: string | null | undefined): string | null {
+export function safeHttpUrl(u: unknown): string | null {
   if (!u || typeof u !== 'string') return null;
   try {
     const p = new URL(u.trim());
@@ -37,21 +38,38 @@ export function safeHttpUrl(u: string | null | undefined): string | null {
   }
 }
 
+/** Dedup key: scheme+host are case-insensitive (URL parser lowercases them); the path/query keep their case. */
 function sourceKey(s: ParagraphSource): string | null {
   const url = safeHttpUrl(s.url);
-  if (url) return url.replace(/#.*$/, '').replace(/\/$/, '').toLowerCase();
+  if (url) {
+    const u = new URL(url);
+    u.hash = '';
+    return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, '')}${u.search}`;
+  }
   const name = (s.name ?? '').trim().toLowerCase();
   return name ? `name:${name}` : null;
 }
 
 interface SectionLike {
-  subsections?: { paragraphs?: { sources?: unknown }[] }[];
+  subsections?: ({ paragraphs?: ({ sources?: unknown } | null)[] | null } | null)[] | null;
 }
 
 /** Normalise a paragraph's `sources` (missing / null / not-an-array / junk entries -> []). */
 export function paragraphSources(raw: unknown): ParagraphSource[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter((x): x is ParagraphSource => !!x && typeof x === 'object');
+  const out: ParagraphSource[] = [];
+  for (const x of raw) {
+    if (!x || typeof x !== 'object') continue;
+    const r = x as Record<string, unknown>;
+    out.push({
+      name: typeof r.name === 'string' ? r.name : null,
+      url: typeof r.url === 'string' ? r.url : null,
+      published_at: typeof r.published_at === 'string' ? r.published_at : null,
+      tier: typeof r.tier === 'number' && Number.isFinite(r.tier) ? r.tier : null,
+      party_source: r.party_source === true,
+    });
+  }
+  return out;
 }
 
 /** Per-brief deduplicated (by URL) source list, numbered in order of first citation. */
@@ -61,9 +79,10 @@ export function collectBriefSources(sections: SectionLike[] | null | undefined):
 } {
   const indexByKey = new Map<string, BriefSource>();
   const list: BriefSource[] = [];
-  for (const sec of sections ?? []) {
-    for (const sub of sec.subsections ?? []) {
-      for (const para of sub.paragraphs ?? []) {
+  for (const sec of Array.isArray(sections) ? sections : []) {
+    for (const sub of Array.isArray(sec?.subsections) ? sec.subsections : []) {
+      for (const para of Array.isArray(sub?.paragraphs) ? sub.paragraphs : []) {
+        if (!para) continue;
         const seenInPara = new Set<string>();
         for (const s of paragraphSources(para.sources)) {
           const key = sourceKey(s);
@@ -75,14 +94,14 @@ export function collectBriefSources(sections: SectionLike[] | null | undefined):
               key,
               name: (s.name ?? '').trim() || hostOf(s.url) || 'Unnamed source',
               url: safeHttpUrl(s.url),
-              published_at: s.published_at ?? null,
-              tier: typeof s.tier === 'number' ? s.tier : null,
-              party_source: s.party_source === true,
+              published_at: s.published_at,
+              tier: s.tier,
+              party_source: s.party_source,
               cited: 0,
             };
             indexByKey.set(key, entry);
             list.push(entry);
-          } else if (s.party_source === true) {
+          } else if (s.party_source) {
             entry.party_source = true;
           }
           if (!seenInPara.has(key)) {
@@ -100,7 +119,7 @@ export function sourceLookupKey(s: ParagraphSource): string | null {
   return sourceKey(s);
 }
 
-export function hostOf(u: string | null | undefined): string {
+export function hostOf(u: unknown): string {
   const safe = safeHttpUrl(u);
   if (!safe) return '';
   try {

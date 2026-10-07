@@ -8,7 +8,7 @@ import { EMPTY_FRESHNESS, fetchDataFreshness, type DataFreshness } from '@/lib/d
  * It no longer reads the archived `nai_scores` table.
  *
  * Exported API is backwards compatible: `{ lastNaiUpdate, stale }` still exist.
- * `lastNaiUpdate` is a deprecated alias of `lastUpdateAt` (newest article / brief timestamp).
+ * `lastNaiUpdate` is a deprecated alias of `lastUpdateAt` (newest article timestamp).
  * New fields: see DataFreshness (staleReasons, pipelineActive, lastUpdateAt, ...).
  */
 export function useDataFreshness(): DataFreshness & { lastNaiUpdate: string | null } {

@@ -14,7 +14,7 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
   const { t } = useI18n();
   const day = getConflictDay();
   const date = getFormattedConflictDate();
-  // Real newest article / brief timestamp from the DB (not the visitor's clock).
+  // Real newest article timestamp from the DB (not the visitor's clock).
   const { lastUpdateAt } = useDataFreshness();
   const stamp = formatUtcStamp(lastUpdateAt).replace(/ UTC$/, '');
 
