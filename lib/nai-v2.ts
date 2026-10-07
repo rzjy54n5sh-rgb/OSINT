@@ -17,7 +17,28 @@ export const NAI_V2_METHOD = 'war-posture-v1';
 export const NAI_V2_START_DAY = 221;
 
 export const NAI_V2_EMPTY_TEXT = `War Posture index starts Day ${NAI_V2_START_DAY} — no scored rows yet`;
-export const NAI_V2_UNSCORABLE_TEXT = 'Insufficient evidence for latent position';
+/**
+ * UNSCORABLE has TWO causes (nai_c2_category, migration 20261006120000): (a) no admissible latent
+ * evidence (band NULL), or (b) a latent band that spans more than one category, so no single
+ * category holds across the whole band. Use unscorableReason() to say which one applies; this
+ * generic text is only for viewers whose tier cannot see the band.
+ */
+export const NAI_V2_UNSCORABLE_TEXT =
+  'No single category: latent evidence is missing, or its band spans more than one category';
+export const NAI_V2_UNSCORABLE_NO_EVIDENCE_TEXT = 'No admissible latent evidence, so no category is assigned';
+export const NAI_V2_UNSCORABLE_SPANS_TEXT =
+  'The latent band spans more than one category, so no single category is assigned';
+
+/** Which latent evidence the viewer can see for a row. */
+export type LatentEvidence = 'band' | 'none' | 'locked';
+
+/** Plain-language reason a row is UNSCORABLE, matching the generated-column rule exactly. */
+export function unscorableReason(evidence: LatentEvidence, expressed: number | null = 0): string {
+  if (expressed === null) return 'No sourced expressed score, so no category is assigned';
+  if (evidence === 'band') return NAI_V2_UNSCORABLE_SPANS_TEXT;
+  if (evidence === 'none') return NAI_V2_UNSCORABLE_NO_EVIDENCE_TEXT;
+  return NAI_V2_UNSCORABLE_TEXT;
+}
 export const NAI_ARCHIVE_LABEL = 'Archived — previous method (not comparable)';
 
 /** Grey for UNSCORABLE is deliberate: no category is shown rather than a guessed one. */
@@ -49,7 +70,7 @@ export const NAI_V2_CATEGORY_DEFS: { category: NaiCategoryV2; text: string }[] =
   { category: 'INVERSION', text: 'gap 30+, government and society on opposite sides of the war question' },
   {
     category: 'UNSCORABLE',
-    text: 'societal evidence missing or too uncertain (e.g. internet blackout); no category is shown rather than a guessed one',
+    text: 'no single category: either there is no admissible latent evidence, or the latent band spans more than one category (a category is assigned only when every value in the band gives the same one); no category is shown rather than a guessed one',
   },
 ];
 
@@ -124,6 +145,8 @@ export interface NaiV2View {
   latent_high: number | null;
   latent_basis: string | null;
   latentLocked: boolean;
+  /** 'band' = band visible, 'none' = no admissible latent evidence, 'locked' = tier cannot see it. */
+  latentEvidence: LatentEvidence;
   gap: number | null;
   gap_size: number | null;
   /** UNSCORABLE is always disclosed (it is a data-quality statement, not premium content). */
@@ -173,6 +196,7 @@ export function toNaiV2View(
     latent_high: access.latent ? toNum(row.latent_high) : null,
     latent_basis: access.latent ? (row.latent_basis ?? null) : null,
     latentLocked: !access.latent,
+    latentEvidence: !access.latent ? 'locked' : toNum(row.latent_low) === null ? 'none' : 'band',
     gap: access.gap ? toNum(row.gap) : null,
     gap_size: access.gap ? toNum(row.gap_size) : null,
     category: categoryVisible ? category : null,
@@ -258,6 +282,31 @@ export async function getNaiV2Day(
       .sort((a, b) => (b.expressed_score ?? -1) - (a.expressed_score ?? -1) || a.country_code.localeCompare(b.country_code));
   } catch {
     return [];
+  }
+}
+
+/**
+ * Latest War Posture row for ONE country (current method), plus its E delta vs that country's
+ * previous War Posture row. Never reads legacy nai_scores. Returns null when the country has no row.
+ */
+export async function getNaiV2CountryLatest(
+  supabase: Sb,
+  countryCode: string,
+  access: { latent: boolean; gap: boolean },
+): Promise<NaiV2View | null> {
+  try {
+    const { data, error } = await supabase
+      .from(NAI_V2_TABLE)
+      .select('*')
+      .eq('method_version', NAI_V2_METHOD)
+      .eq('country_code', countryCode.toUpperCase())
+      .order('conflict_day', { ascending: false })
+      .limit(2);
+    if (error || !data || data.length === 0) return null;
+    const [latest, prev] = data as NaiScoreV2[];
+    return toNaiV2View(latest!, access, prev ? { day: prev.conflict_day, expressed: prev.expressed_score } : null);
+  } catch {
+    return null;
   }
 }
 

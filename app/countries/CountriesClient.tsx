@@ -30,8 +30,8 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
         title="COUNTRY INTELLIGENCE REPORTS"
-        description="Per-country analysis covering NAI War Posture scores, elite network mapping, key risk factors, and stabilizing forces. Reports are generated daily by automated analysis of the preceding 24 hours of collected intelligence. Click any country to view its full report."
-        note="Reports reflect open-source data only. Countries with thin source coverage (Turkey, Russia, Pakistan) should be read with greater uncertainty than those with stronger coverage (Iran, Israel, Egypt, UAE). The five Horn of Africa & Red Sea countries (Ethiopia, Eritrea, Sudan, Somalia, Djibouti; added 2026-10-07) show 'No sourced data' until the daily build has scored them."
+        description="War Posture for the 25 tracked countries (the original 20 plus the Horn of Africa & Red Sea theatre: Ethiopia, Eritrea, Sudan, Somalia, Djibouti). Each card shows the official (expressed) score on one party-neutral scale — 0 = immediate ceasefire, 100 = continue or escalate — the societal (latent) band where admissible evidence exists, the category, and the cited sources. Click a country for its daily report: assessment, key risks, stabilizers, data-integrity note and sources."
+        note="Open-source data only. Scores and report text are written by the daily build from pages that were opened and checked; a claim that could not be confirmed is removed. A tracked country with no War Posture row for the day shows 'No sourced data' rather than a guessed score."
       />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         COUNTRY INTELLIGENCE
@@ -58,7 +58,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
                 <Link href={`/countries/${s.country_code.toLowerCase()}`} className="block">
                   <CountryFlag code={s.country_code} />
                   <div className="mt-2">
-                    <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} />
+                    <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} latentEvidence={s.latentEvidence} expressed={s.expressed_score} />
                   </div>
                   <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
                     <GlossaryTooltip

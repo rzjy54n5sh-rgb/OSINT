@@ -1,24 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { countryCodeFromValue, countryMatches, formatEngagement, parseEngagementEstimate } from '@/lib/utils';
 import { PageBriefing } from '@/components/PageBriefing';
 import { ReactionBar } from '@/components/ReactionBar';
-import { PageShareButton, buildWarRoomShareText } from '@/components/PageShareButton';
+import { PageShareButton } from '@/components/PageShareButton';
 import { PageShareCard } from '@/components/PageShareCard';
-import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { DataAsOf } from '@/components/ui/DataAsOf';
+import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
+import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
+import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
 import { maxConflictDay } from '@/lib/conflict-calendar';
-import type {
-  Article,
-  CountryReport,
-  MarketData,
-  SocialTrend,
-  ScenarioProbability,
-  DisinfoClaim,
-} from '@/types/supabase';
+import { TRACKED_COUNTRY_CODES, NO_SOURCED_DATA_TEXT } from '@/lib/countries';
+import { getNaiV2Day, getNaiV2DayRange, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
+import { parseNarrative } from '@/lib/country-narrative';
+import {
+  deltaWithinMethod,
+  getScenarioRegistryView,
+  probabilityOn,
+  scenarioColor,
+  seriesByMethod,
+  type ScenarioRegistryView,
+} from '@/lib/scenario-registry';
+import type { Article, MarketData, SocialTrend, DisinfoClaim } from '@/types/supabase';
 
 const COUNTRY_EMOJI: Record<string, string> = {
   IR: '🇮🇷', IL: '🇮🇱', IQ: '🇮🇶', YE: '🇾🇪', AE: '🇦🇪', SA: '🇸🇦', EG: '🇪🇬',
@@ -28,42 +35,29 @@ const COUNTRY_EMOJI: Record<string, string> = {
   ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
 };
 
-interface ContentJson {
-  elite_network?: Array<{ name?: string; role?: string; position?: string; red_line?: string }>;
-  key_risks?: string[];
-  stabilizers?: string[];
-  economic_exposure?: Record<string, number | string>;
-  key_flashpoints?: string[];
-}
-
-interface NaiRow {
+/** Only identity + the narrative keys the daily build maintains are read from country_reports. */
+interface CountryRow {
   country_code: string;
-  conflict_day: number;
-  expressed_score: number;
-  latent_score: number;
-  gap_size: number;
-  category: string;
+  country_name: string | null;
+  conflict_day: number | null;
+  content_json: unknown;
 }
 
-interface ScenarioRow {
-  conflict_day: number;
-  scenario_a: number;
-  scenario_b: number;
-  scenario_c: number;
-  scenario_d: number;
-}
-
-function buildPoints(history: ScenarioRow[], key: keyof ScenarioRow, w: number, h: number): string {
-  const values = history.map((r) => Number(r[key]));
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+/** Sparkline over ONE method's days only (callers never pass mixed methods). */
+function buildPoints(values: (number | null)[], w: number, h: number): string {
+  const v = values.filter((x): x is number => x !== null);
+  if (v.length === 0) return '';
+  const min = Math.min(...v);
+  const max = Math.max(...v);
   const range = max - min || 1;
   return values
-    .map((v, i) => {
-      const x = (i / Math.max(history.length - 1, 1)) * w;
-      const y = h - ((v - min) / range) * (h - 2) - 1;
+    .map((val, i) => {
+      if (val === null) return null;
+      const x = values.length === 1 ? w / 2 : (i / (values.length - 1)) * w;
+      const y = h - ((val - min) / range) * (h - 2) - 1;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })
+    .filter(Boolean)
     .join(' ');
 }
 
@@ -88,25 +82,52 @@ function formatTime(iso: string | null): string {
   return d.toISOString().slice(11, 16);
 }
 
+/** "HH:MM UTC" for today, otherwise "YYYY-MM-DD HH:MM UTC" (never a bare time for another day). */
+function stamp(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const today = new Date().toISOString().slice(0, 10);
+  const day = d.toISOString().slice(0, 10);
+  return `${day === today ? '' : `${day} `}${d.toISOString().slice(11, 16)} UTC`;
+}
+
+/**
+ * Mobile-only layout rules, scoped to this page (beat the global !important rules by specificity).
+ * - Fixed-height, scrollable country list and feed: content that loads after first paint no longer
+ *   pushes the page (CLS) and the page no longer grows to ~22,000 px.
+ * - Panel headers are NOT sticky on mobile and wrap, so the freshness notice cannot overlap the
+ *   country block underneath it.
+ */
+const MOBILE_CSS = `
+@media (max-width: 768px) {
+  .warroom-page .warroom-grid .warroom-left-panel { height: 42vh !important; max-height: 42vh; overflow-y: auto; }
+  .warroom-page .warroom-panel-header { position: static; flex-wrap: wrap; gap: 6px 10px; }
+  .warroom-page .warroom-center-head { align-items: flex-start; }
+  .warroom-page .warroom-feed { flex: none !important; height: 60vh; }
+  .warroom-page .country-row { min-height: 44px; }
+}
+`;
+
 export default function WarRoomPage() {
-  // Calendar day (DAY LOCK). Previously MAX(nai_scores.conflict_day), which froze the War
-  // Room at the last NAI day and keyed the scenario panel to it.
+  // Calendar day (DAY LOCK); each section labels its OWN table's latest day via DataAsOf.
   const CONFLICT_DAY = useConflictDay();
   const [activeCountry, setActiveCountry] = useState<string>('IR');
   const [lastRefresh, setLastRefresh] = useState<string>('--:--');
-  const [countryReports, setCountryReports] = useState<CountryReport[]>([]);
+  const [countryReports, setCountryReports] = useState<CountryRow[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
   const [articleCountByCountry, setArticleCountByCountry] = useState<Record<string, number>>({});
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [socialTrends, setSocialTrends] = useState<SocialTrend[]>([]);
-  const [scenarios, setScenarios] = useState<ScenarioProbability | null>(null);
+  const [registry, setRegistry] = useState<ScenarioRegistryView | null>(null);
   const [disinfoClaims, setDisinfoClaims] = useState<DisinfoClaim[]>([]);
   const [totalArticleCount, setTotalArticleCount] = useState<number>(0);
-  const [pipelineTimestamps, setPipelineTimestamps] = useState<Record<string, string>>({});
-  const [naiHistory, setNaiHistory] = useState<NaiRow[]>([]);
-  const [scenarioHistory, setScenarioHistory] = useState<ScenarioRow[]>([]);
+  const [pipelineTimestamps, setPipelineTimestamps] = useState<Record<string, string | null>>({});
+  const [naiRows, setNaiRows] = useState<NaiV2View[]>([]);
+  const [naiDay, setNaiDay] = useState<number | null>(null);
   const [tickerArticles, setTickerArticles] = useState<Article[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   const fetchAll = async () => {
     const supabase = createClient();
@@ -118,74 +139,63 @@ export default function WarRoomPage() {
         { count: totalCount },
         { data: marketRows, error: marketErr },
         { data: socialRows, error: socialErr },
-        { data: scenarioRows, error: scenarioErr },
         { data: disinfoRows, error: disinfoErr },
-        { data: naiRows, error: naiErr },
-        { data: scenarioHistoryRows, error: scenarioHistoryErr },
         { data: tickerRows },
+        naiRange,
+        reg,
       ] = await Promise.all([
-        supabase.from('country_reports').select('*').order('conflict_day', { ascending: false }),
+        supabase.from('country_reports').select('country_code, country_name, conflict_day, content_json'),
         supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
         supabase.from('articles').select('*', { count: 'exact', head: true }),
-        supabase.from('market_data').select('*').order('created_at', { ascending: false }),
-        supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }),
-        // scenario_probabilities' OWN latest row (labelled with its day below), not "row at
-        // some other table's day" — eq(calendar day) would return null → 0% bars while frozen.
-        supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('market_data').select('*').order('created_at', { ascending: false }).limit(200),
+        supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }).limit(200),
         supabase.from('disinfo_claims').select('*').order('published_at', { ascending: false }).limit(5),
-        supabase.from('nai_scores').select('country_code, conflict_day, expressed_score, latent_score, gap_size, category').order('conflict_day', { ascending: false }).limit(60),
-        supabase.from('scenario_probabilities').select('conflict_day, scenario_a, scenario_b, scenario_c, scenario_d').order('conflict_day', { ascending: true }),
         supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
+        // War Posture (nai_scores_v2) — the same scale /nai and /countries show. Legacy nai_scores is never read.
+        getNaiV2DayRange(supabase),
+        // Scenario registry: names, measurement state, method-stamped probabilities.
+        getScenarioRegistryView(supabase),
       ]);
+      const wp = naiRange.latestDay != null ? await getNaiV2Day(supabase, naiRange.latestDay, { latent: true, gap: true }) : [];
 
-      const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? scenarioErr?.message ?? disinfoErr?.message ?? naiErr?.message ?? scenarioHistoryErr?.message;
+      const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? disinfoErr?.message ?? reg.error;
       if (errMsg) setFetchError(errMsg);
 
-      const reportsList = (reports as CountryReport[]) ?? [];
-      const latestByCountry = new Map<string, CountryReport>();
-      reportsList.forEach((r) => {
-        if (!latestByCountry.has(r.country_code)) latestByCountry.set(r.country_code, r);
-      });
-      setCountryReports(Array.from(latestByCountry.values()));
+      setCountryReports((reports as CountryRow[]) ?? []);
       setTotalArticleCount(totalCount ?? 0);
 
       const arts = (articlesData as Article[]) ?? [];
       setArticles(arts);
-
       const byCountry: Record<string, number> = {};
       arts.forEach((a) => {
-        const code = countryCodeFromValue(a.country);
-        const c = code ?? 'OTHER';
+        const c = countryCodeFromValue(a.country) ?? 'OTHER';
         byCountry[c] = (byCountry[c] ?? 0) + 1;
       });
       setArticleCountByCountry(byCountry);
 
-      setMarketData((marketRows as MarketData[]) ?? []);
-      setSocialTrends((socialRows as SocialTrend[]) ?? []);
-      setScenarios(scenarioRows as ScenarioProbability | null);
-      setDisinfoClaims((disinfoRows as DisinfoClaim[]) ?? []);
+      const markets = (marketRows as MarketData[]) ?? [];
+      const social = (socialRows as SocialTrend[]) ?? [];
+      const disinfo = (disinfoRows as DisinfoClaim[]) ?? [];
+      setMarketData(markets);
+      setSocialTrends(social);
+      setDisinfoClaims(disinfo);
       setTickerArticles((tickerRows as Article[]) ?? []);
+      setNaiRows(wp);
+      setNaiDay(naiRange.latestDay);
+      setRegistry(reg);
 
-      const naiArr = (naiRows as NaiRow[]) ?? [];
-      setNaiHistory(naiArr);
-
-      let scenarioArr = (scenarioHistoryRows as ScenarioRow[]) ?? [];
-      if (scenarioArr.length === 0 && scenarioRows) {
-        scenarioArr = [scenarioRows as unknown as ScenarioRow];
-      }
-      setScenarioHistory(scenarioArr);
-
-      const nowIso = new Date().toISOString();
+      // Real timestamps from each table's newest row (never the browser clock).
       setPipelineTimestamps({
-        articles: (arts[0]?.fetched_at ?? arts[0]?.published_at) ?? nowIso,
-        markets: (marketRows as MarketData[])?.[0] ? nowIso : '—',
-        social: (socialRows as SocialTrend[])?.[0] ? nowIso : '—',
-        disinfo: (disinfoRows as DisinfoClaim[])?.[0]?.published_at ?? nowIso,
+        articles: arts[0]?.fetched_at ?? arts[0]?.published_at ?? null,
+        markets: markets[0]?.created_at ?? null,
+        social: social.reduce<string | null>((m, s) => (s.created_at && (!m || s.created_at > m) ? s.created_at : m), null),
+        disinfo: disinfo[0]?.published_at ?? null,
       });
-      setLastRefresh(nowIso.slice(11, 16) + ' UTC');
+      setLastRefresh(new Date().toISOString().slice(11, 16) + ' UTC');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to load war room data';
-      setFetchError(msg);
+      setFetchError(e instanceof Error ? e.message : 'Failed to load war room data');
+    } finally {
+      setLoaded(true);
     }
   };
 
@@ -201,32 +211,23 @@ export default function WarRoomPage() {
     ? articles.filter((a) => countryMatches(a.country, activeCountry)).slice(0, 30)
     : articles.slice(0, 30);
 
-  const activeReport = countryReports.find(
-    (r) => r.country_code.toUpperCase() === activeCountry
-  ) ?? countryReports[0];
-
-  const contentJson = (activeReport?.content_json ?? null) as ContentJson | null;
-  const eliteNetwork = contentJson?.elite_network ?? [];
-  const keyRisks = contentJson?.key_risks ?? [];
-  const stabilizers = contentJson?.stabilizers ?? [];
+  const reportFor = (code: string) => countryReports.find((r) => r.country_code.toUpperCase() === code) ?? null;
+  const activeReport = reportFor(activeCountry);
+  const activeName = activeReport?.country_name ?? activeCountry;
+  // Only the maintained narrative keys (assessment/key_risks/stabilizers/sources/…); legacy keys ignored.
+  const narrative = parseNarrative(activeReport?.content_json ?? null);
+  const keyRisks = narrative?.key_risks ?? [];
+  const stabilizers = narrative?.stabilizers ?? [];
 
   const socialForCountry = socialTrends.find((s) => countryMatches(s.country, activeCountry));
   const socialEngagement = parseEngagementEstimate(socialForCountry?.engagement_estimate ?? null);
 
+  // Newest collection per indicator (rows are ordered by created_at desc).
   const latestByIndicator = marketData.reduce<Record<string, MarketData>>((acc, row) => {
     const k = row.indicator ?? 'OTHER';
     if (!acc[k]) acc[k] = row;
     return acc;
   }, {});
-
-  const scenarioLatest: Record<string, number> = scenarios
-    ? {
-        scenario_a: scenarios.scenario_a,
-        scenario_b: scenarios.scenario_b,
-        scenario_c: scenarios.scenario_c,
-        scenario_d: scenarios.scenario_d,
-      }
-    : { scenario_a: 0, scenario_b: 0, scenario_c: 0, scenario_d: 0 };
 
   const sentimentByCountry = socialTrends.reduce<Record<string, string>>((acc, s) => {
     const c = countryCodeFromValue(s.country);
@@ -236,7 +237,7 @@ export default function WarRoomPage() {
 
   const pipelineStatus = (key: string): 'green' | 'orange' | 'red' => {
     const raw = pipelineTimestamps[key];
-    if (!raw || raw === '—') return 'red';
+    if (!raw) return 'red';
     const d = new Date(raw);
     if (isNaN(d.getTime())) return 'red';
     const hours = (Date.now() - d.getTime()) / (1000 * 60 * 60);
@@ -245,36 +246,25 @@ export default function WarRoomPage() {
     return 'red';
   };
 
-  const pipelineLabel = (key: string): string => {
-    const raw = pipelineTimestamps[key];
-    if (!raw || raw === '—') return '—';
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return raw;
-    return d.toISOString().slice(11, 16) + ' UTC';
-  };
+  const naiByCode = new Map(naiRows.map((r) => [r.country_code, r]));
+  const countries = [...TRACKED_COUNTRY_CODES].sort((a, b) => a.localeCompare(b));
+  const posture = naiByCode.get(activeCountry) ?? null;
 
-  const uniqueCountries = Array.from(
-    new Set(countryReports.map((r) => r.country_code.toUpperCase()))
-  ).sort();
+  // Scenarios: latest published day; sparklines and deltas use ONLY that day's method.
+  const scenarioDay = registry?.latestDay ?? null;
+  const methodSeries = registry ? seriesByMethod(registry.history) : [];
+  const currentSeries = methodSeries.find((m) => m.method === registry?.latestMethod) ?? null;
+  const visibleScenarios = (registry?.scenarios ?? []).filter((s) => s.status !== 'retired');
+  const scenarioSummary =
+    scenarioDay != null && registry
+      ? visibleScenarios
+          .map((s) => {
+            const p = probabilityOn(registry.history, s.code, scenarioDay);
+            return `${s.code} ${s.name_en}: ${p === null ? 'unmeasured' : `${p}%`}`;
+          })
+          .join(' · ') + ` (Day ${scenarioDay}, ${registry.latestMethod})`
+      : 'Scenario data loading';
 
-  const velocityMap: Record<string, number> = {};
-  const naiLatestMap: Record<string, NaiRow> = {};
-  const seen: Record<string, number> = {};
-  for (const row of naiHistory) {
-    const cc = row.country_code?.toUpperCase?.() ?? row.country_code;
-    if (!naiLatestMap[cc]) {
-      naiLatestMap[cc] = row;
-    } else if (!seen[cc]) {
-      seen[cc] = 1;
-      velocityMap[cc] = naiLatestMap[cc].expressed_score - row.expressed_score;
-    }
-  }
-
-  const naiLatest = activeCountry ? naiLatestMap[activeCountry] : null;
-
-  // Per-section own-table latest days, each compared to the calendar day by DataAsOf.
-  const naiDay = maxConflictDay(naiHistory);
-  const scenarioDay = scenarios?.conflict_day ?? scenarioHistory.at(-1)?.conflict_day ?? null;
   const marketDay = maxConflictDay(marketData);
 
   const breakingAlerts = (articles ?? []).filter((a) => {
@@ -287,10 +277,6 @@ export default function WarRoomPage() {
     );
   });
 
-  const recentCount = (articles ?? []).filter((a) => {
-    if (!a.published_at) return false;
-    return Date.now() - new Date(a.published_at).getTime() < 86400000;
-  }).length;
   const countryRecentCount = (articles ?? []).filter((a) => {
     if (!a.published_at) return false;
     return countryMatches(a.country, activeCountry) && Date.now() - new Date(a.published_at).getTime() < 86400000;
@@ -298,8 +284,11 @@ export default function WarRoomPage() {
   const confidence = countryRecentCount > 15 ? 'HIGH' : countryRecentCount > 5 ? 'MEDIUM' : 'LOW';
   const confColor = confidence === 'HIGH' ? 'var(--nai-safe)' : confidence === 'MEDIUM' ? 'var(--accent-gold)' : 'var(--accent-red)';
 
+  const mono = { fontFamily: 'IBM Plex Mono' } as const;
+
   return (
     <div className="warroom-page">
+      <style>{MOBILE_CSS}</style>
       {fetchError && (
         <div
           style={{
@@ -312,7 +301,7 @@ export default function WarRoomPage() {
           }}
           role="alert"
         >
-          War room data error: {fetchError}. Check Supabase env (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY) and table access.
+          War room data error: {fetchError}.
         </div>
       )}
       {breakingAlerts.length > 0 && (
@@ -396,30 +385,22 @@ export default function WarRoomPage() {
         <span>|</span>
         <span>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
         <span>|</span>
-        <span style={{ color: 'var(--accent-red)' }}>● LIVE</span>
-        <span>PIPELINE ACTIVE</span>
+        {/* min-widths (incl. 1.5px letter-spacing) reserve the loaded text width so the wrapped mobile bar does not shift (CLS) */}
+        <span style={{ display: 'inline-block', minWidth: '25ch' }}>{loaded ? totalArticleCount : '—'} ITEMS IN DB</span>
         <span>|</span>
-        <span>{totalArticleCount} ITEMS IN DB</span>
-        <span>|</span>
-        <span>LAST REFRESH: {lastRefresh}</span>
+        <span style={{ display: 'inline-block', minWidth: '32ch' }}>PAGE REFRESHED: {lastRefresh}</span>
         <span>|</span>
         <span>AUTO-REFRESH: 60s</span>
         <span style={{ marginLeft: 'auto', paddingRight: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <PageShareCard
-            label={`WAR ROOM · DAY ${CONFLICT_DAY ?? '—'}`}
-            summary={`Scenario A: ${scenarios?.scenario_a ?? '—'}% · B: ${scenarios?.scenario_b ?? '—'}% · C: ${scenarios?.scenario_c ?? '—'}% · D: ${scenarios?.scenario_d ?? '—'}% (as of Day ${scenarioDay ?? '—'})`}
-          />
+          <PageShareCard label={`WAR ROOM · DAY ${CONFLICT_DAY ?? '—'}`} summary={scenarioSummary} />
           <PageShareButton
             label="SHARE"
             getCopyText={() => {
-              const report = countryReports.find((r) => r.country_code.toUpperCase() === activeCountry);
-              const naiRow = naiLatestMap[activeCountry];
-              const name = report?.country_name ?? activeCountry;
-              const score = naiRow?.expressed_score ?? report?.nai_score ?? 0;
-              const category = naiRow?.category ?? report?.nai_category ?? '—';
-              // Stamp the share with the day the NAI figure belongs to, not the calendar day.
-              const scoreDay = naiRow?.conflict_day ?? report?.conflict_day ?? CONFLICT_DAY;
-              return buildWarRoomShareText(name, Math.round(Number(score)), String(category), scoreDay);
+              const p = naiByCode.get(activeCountry);
+              const base = typeof window !== 'undefined' ? window.location.origin : '';
+              return p
+                ? `${activeName} War Posture ${p.expressed_score ?? '—'} (0 = ceasefire, 100 = escalate) · ${p.category ?? '—'} · Day ${p.conflict_day} — ${base}/warroom`
+                : `${activeName} War Posture: ${NO_SOURCED_DATA_TEXT} — ${base}/warroom`;
             }}
           />
         </span>
@@ -427,31 +408,26 @@ export default function WarRoomPage() {
 
       <PageBriefing
         title="WAR ROOM — UNIFIED INTELLIGENCE VIEW"
-        description="A single-screen operational overview combining live intelligence, NAI scores, market indicators, scenario probabilities, and disinformation claims. Select a country from the left panel to focus all panels on that country's data. All data updates automatically every 60 seconds."
-        note="This page aggregates data from all platform tables simultaneously. Each section links to its dedicated analysis page for deeper investigation."
+        description="A single-screen overview combining live intelligence, War Posture, market indicators, scenario probabilities and disinformation claims. Select a country to focus the panels on it. The page re-reads the database every 60 seconds; each section shows the day its own data belongs to."
+        note={`War Posture uses one party-neutral scale for every state: ${NAI_V2_SCALE_TEXT}. Scenario changes are only compared within one method.`}
       />
 
       <div className="warroom-grid">
         {/* LEFT PANEL */}
-        <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }}>
+        <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }} aria-label="Theatre countries">
           <div className="warroom-panel-header">
             <span>◆ THEATRE COUNTRIES</span>
             <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-              {uniqueCountries.length} MONITORED
+              {countries.length} TRACKED · WAR POSTURE DAY {naiDay ?? '—'}
             </span>
           </div>
           <div>
-            {uniqueCountries.map((code) => {
-              const report = countryReports.find((r) => r.country_code.toUpperCase() === code);
-              const naiRow = naiLatestMap[code];
-              // No score and no category => 'NONE' (no coloured dot); never default to STABLE.
-              const hasNai = (naiRow?.expressed_score ?? report?.nai_score) != null;
-              const naiCategory = (naiRow?.category ?? report?.nai_category ?? 'NONE').toUpperCase().replace(/\s+/g, '_');
+            {countries.map((code) => {
+              const r = naiByCode.get(code) ?? null;
+              const name = reportFor(code)?.country_name ?? code;
               const isActive = activeCountry === code;
               const count = articleCountByCountry[code] ?? 0;
-              const gapSize = naiRow?.gap_size ?? 0;
-              const v = velocityMap[code] ?? 0;
-              const showRedLine = (naiRow?.gap_size ?? 0) > 30 || v <= -2;
+              const d = r?.delta ?? null;
               return (
                 <button
                   key={code}
@@ -459,83 +435,33 @@ export default function WarRoomPage() {
                   onClick={() => setActiveCountry(code)}
                   className="country-row"
                   data-active={isActive}
-                  data-nai={naiCategory}
+                  data-nai={r?.category ?? 'NONE'}
+                  aria-pressed={isActive}
                 >
                   <span
                     translate="no"
-                    style={{
-                      fontFamily: 'IBM Plex Mono',
-                      fontSize: 11,
-                      fontWeight: 'bold',
-                      color:
-                        v <= -2
-                          ? 'var(--accent-red)'
-                          : v < 0
-                            ? 'var(--accent-orange)'
-                            : v >= 2
-                              ? 'var(--accent-green)'
-                              : v > 0
-                                ? 'var(--nai-stable)'
-                                : 'var(--text-muted)',
-                      animation: v <= -2 ? 'blink 2s step-end infinite' : 'none',
-                      flexShrink: 0,
-                    }}
+                    title={d === null ? 'No previous War Posture day' : `Expressed score change vs Day ${r?.prevDay}`}
+                    style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
                   >
-                    {v <= -2 ? '↓↓' : v < 0 ? '↓' : v >= 2 ? '↑↑' : v > 0 ? '↑' : '→'}
+                    {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
+                    {d === null ? '·' : d > 0 ? '↑' : d < 0 ? '↓' : '→'}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }} translate="no">
                     <div className="country-name" style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 500 }}>
-                      {report?.country_name ?? code}
+                      {name}
                     </div>
-                    <div className="country-meta" style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
-                      {hasNai
-                        ? <>NAI {Number(naiRow?.expressed_score ?? report?.nai_score).toFixed(1)} · {naiRow?.category ?? report?.nai_category ?? '—'}</>
-                        : <>NAI — · No sourced data</>}
+                    <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>
+                      {r && r.expressed_score !== null ? (
+                        <>
+                          WP {r.expressed_score}
+                          {d !== null && d !== 0 ? ` (${formatGap(d)})` : ''} · {r.category ?? '—'}
+                        </>
+                      ) : (
+                        <>WP — · {NO_SOURCED_DATA_TEXT}</>
+                      )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                      <GlossaryTooltip term="GAP" definition="Difference between expressed and latent scores. GAP &gt; 30 = critical divergence.">
-                        <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }} translate="no">GAP</span>
-                      </GlossaryTooltip>
-                      <div
-                        style={{
-                          height: 2,
-                          borderRadius: 1,
-                          width: `${Math.min(gapSize * 0.6, 60)}px`,
-                          background: gapSize > 30 ? 'var(--accent-red)' : gapSize > 15 ? 'var(--accent-orange)' : 'var(--border-bright)',
-                          boxShadow: gapSize > 30 ? '0 0 6px rgba(224,82,82,0.7)' : 'none',
-                          transition: 'width 0.5s',
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontFamily: 'IBM Plex Mono',
-                          fontSize: 11,
-                          color: gapSize > 30 ? 'var(--accent-red)' : gapSize > 15 ? 'var(--accent-orange)' : 'var(--text-muted)',
-                        }}
-                      >
-                        {gapSize}
-                      </span>
-                    </div>
-                    {showRedLine && (
-                      <span
-                        style={{
-                          fontFamily: 'IBM Plex Mono',
-                          fontSize: 11,
-                          color: 'var(--accent-red)',
-                          letterSpacing: '1px',
-                          border: '1px solid rgba(224,82,82,0.4)',
-                          padding: '1px 4px',
-                          flexShrink: 0,
-                          animation: 'blink 2s step-end infinite',
-                          display: 'inline-block',
-                          marginTop: 2,
-                        }}
-                      >
-                        ⚠ RED LINE
-                      </span>
-                    )}
                   </div>
-                  <span className="article-count" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)' }}>
+                  <span className="article-count" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)' }} title="Articles in the last 500 collected">
                     {count}
                   </span>
                 </button>
@@ -544,173 +470,118 @@ export default function WarRoomPage() {
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
             <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
-              SCENARIO DRIFT — AS OF DAY {scenarioDay ?? '—'}
+              SCENARIOS — DAY {scenarioDay ?? '—'}
             </div>
             <DataAsOf section="SCENARIOS" latestDay={scenarioDay} currentDay={CONFLICT_DAY} className="mx-3 mb-2" />
-            {[
-              { key: 'scenario_a' as const, label: 'A', name: 'Contained', color: 'var(--accent-gold)' },
-              { key: 'scenario_b' as const, label: 'B', name: 'Regional Spread', color: 'var(--accent-blue)' },
-              { key: 'scenario_c' as const, label: 'C', name: 'Nuclear Threat', color: 'var(--accent-orange)' },
-              { key: 'scenario_d' as const, label: 'D', name: 'Full War', color: 'var(--accent-red)' },
-            ].map((sc) => {
-              const latest = scenarioHistory.at(-1)?.[sc.key] ?? scenarioLatest[sc.key] ?? 0;
-              const first = scenarioHistory.at(0)?.[sc.key] ?? 0;
-              const delta = Number(latest) - Number(first);
-              return (
-                <div
-                  key={sc.key}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 14px',
-                    borderBottom: '1px solid var(--border)',
-                  }}
-                >
-                  <span style={{ fontFamily: 'Bebas Neue', fontSize: 14, color: sc.color, width: 12, flexShrink: 0 }}>{sc.label}</span>
-                  <svg width={56} height={18} style={{ flexShrink: 0, overflow: 'visible' }}>
-                    <polyline
-                      points={buildPoints(scenarioHistory, sc.key, 56, 18)}
-                      fill="none"
-                      stroke={sc.color}
-                      strokeWidth="1.5"
-                      strokeLinejoin="round"
-                      strokeLinecap="round"
-                      opacity={0.9}
-                    />
-                  </svg>
-                  <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: sc.color, fontWeight: 500, width: 32, textAlign: 'right', flexShrink: 0 }}>{latest}%</span>
-                  <span
-                    style={{
-                      fontFamily: 'IBM Plex Mono',
-                      fontSize: 11,
-                      color: delta > 0 ? 'var(--accent-red)' : delta < 0 ? 'var(--accent-green)' : 'var(--text-muted)',
-                      letterSpacing: '0.5px',
-                    }}
+            {registry &&
+              visibleScenarios.map((s, i) => {
+                const p = probabilityOn(registry.history, s.code, scenarioDay);
+                const delta = deltaWithinMethod(registry.history, s.code, scenarioDay);
+                const color = scenarioColor(s.code, i);
+                const spark = currentSeries ? currentSeries.rows.map((r) => (r[s.code] ?? null) as number | null) : [];
+                return (
+                  <div
+                    key={s.code}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderBottom: '1px solid var(--border)' }}
+                    data-testid={`warroom-scenario-${s.code}`}
                   >
-                    {delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '—'}
-                  </span>
-                </div>
-              );
-            })}
-            <div style={{ padding: '6px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-              ↑ Scenario B +{((scenarioHistory.at(-1)?.scenario_b ?? 0) - (scenarioHistory.at(0)?.scenario_b ?? 0))}pts since Day 1
+                    <span style={{ fontFamily: 'Bebas Neue', fontSize: 14, color, width: 12, flexShrink: 0 }}>{s.code}</span>
+                    <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.name_en}
+                    </span>
+                    {spark.filter((v) => v !== null).length > 1 && (
+                      <svg width={40} height={16} style={{ flexShrink: 0, overflow: 'visible' }} aria-hidden="true">
+                        <polyline points={buildPoints(spark, 40, 16)} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+                      </svg>
+                    )}
+                    <span style={{ ...mono, fontSize: 12, color: p === null ? 'var(--text-muted)' : color, fontWeight: 500, minWidth: 32, textAlign: 'right', flexShrink: 0 }}>
+                      {p === null ? '—' : `${p}%`}
+                    </span>
+                    <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', minWidth: 30, textAlign: 'right' }} title={delta ? `since Day ${delta.sinceDay}, same method` : undefined}>
+                      {p === null ? 'unmeasured' : delta ? `${delta.delta > 0 ? '+' : ''}${delta.delta}` : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            <div style={{ padding: '6px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
+              {currentSeries
+                ? `Changes since Day ${currentSeries.firstDay}, ${currentSeries.method} only. Earlier days used a retired method and are not compared.`
+                : 'No published scenario day yet.'}{' '}
+              <Link href="/scenarios#method" style={{ color: 'var(--accent-gold)' }}>
+                Method →
+              </Link>
             </div>
           </div>
         </aside>
 
         {/* CENTER PANEL */}
         <main className="warroom-panel" style={{ display: 'flex', flexDirection: 'column', borderRight: 'none' }}>
-          {/* Selected country header */}
-          <div
-            className="warroom-panel-header"
-            style={{ flexShrink: 0 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 18 }}>{COUNTRY_EMOJI[activeCountry] ?? '🏳️'}</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Bebas Neue' }}>
-                {activeReport?.country_name ?? activeCountry}
+          {/* Selected country header — wraps (never overlaps) on narrow screens */}
+          <div className="warroom-panel-header warroom-center-head" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '6px 12px', minHeight: 44 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ fontSize: 18 }} aria-hidden="true">{COUNTRY_EMOJI[activeCountry] ?? '🏳️'}</span>
+              <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Bebas Neue' }} data-testid="warroom-country">
+                {activeName}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>NAI: {(naiLatest?.expressed_score ?? activeReport?.nai_score ?? 0).toFixed(1)}</span>
-              <span
-                className="nai-badge"
-                style={{
-                  color: `var(--nai-${(naiLatest?.category ?? activeReport?.nai_category ?? 'stable').toLowerCase()})`,
-                  background: 'transparent',
-                  border: '1px solid currentColor',
-                  padding: '2px 6px',
-                  fontSize: 11,
-                }}
-              >
-                {naiLatest?.category ?? activeReport?.nai_category ?? '—'}
+              <span style={{ color: 'var(--text-secondary)', fontSize: 11 }} translate="no" data-testid="warroom-wp">
+                WAR POSTURE {posture?.expressed_score ?? '—'}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
-                NAI AS OF DAY {naiLatest?.conflict_day ?? naiDay ?? '—'}
+              <NaiPostureLabel expressed={posture?.expressed_score ?? null} hideHeading />
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }} translate="no">
+                AS OF DAY {posture?.conflict_day ?? naiDay ?? '—'}
               </span>
             </div>
-            <DataAsOf section="NAI" latestDay={naiLatest?.conflict_day ?? naiDay} currentDay={CONFLICT_DAY} />
-            <div className="nai-bar-track" style={{ width: 120, height: 4 }}>
-              <div
-                className="nai-bar-fill tension"
-                style={{
-                  width: `${Math.min(100, naiLatest?.expressed_score ?? activeReport?.nai_score ?? 0)}%`,
-                  background: 'var(--accent-gold)',
-                  boxShadow: '0 0 6px rgba(232,197,71,0.5)',
-                }}
-              />
-            </div>
+            <DataAsOf section="WAR POSTURE" latestDay={naiDay} currentDay={CONFLICT_DAY} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 14px', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>INTEL CONFIDENCE</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>FEED COVERAGE</span>
             <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} sources / 24h</span>
+            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} articles / 24h</span>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr auto 1fr',
-              padding: '10px 14px',
-              borderBottom: '1px solid var(--border)',
-              gap: 8,
-              alignItems: 'center',
-            }}
-          >
-            <div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>EXPRESSED</div>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--accent-blue)', lineHeight: 1 }}>{naiLatest?.expressed_score ?? '—'}</div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>Official behavior</div>
-            </div>
-            <div style={{ textAlign: 'center', padding: '0 12px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>PRESSURE GAP</div>
-              <div
-                style={{
-                  fontFamily: 'Bebas Neue',
-                  fontSize: 36,
-                  lineHeight: 1,
-                  color: (naiLatest?.gap_size ?? 0) > 30 ? 'var(--accent-red)' : (naiLatest?.gap_size ?? 0) > 15 ? 'var(--accent-orange)' : 'var(--text-muted)',
-                  textShadow: (naiLatest?.gap_size ?? 0) > 30 ? '0 0 20px rgba(224,82,82,0.4)' : 'none',
-                }}
-              >
-                +{naiLatest?.gap_size ?? 0}
-              </div>
-              <div
-                style={{
-                  fontFamily: 'IBM Plex Mono',
-                  fontSize: 11,
-                  letterSpacing: '1px',
-                  color: (naiLatest?.gap_size ?? 0) > 30 ? 'var(--accent-red)' : 'var(--text-muted)',
-                }}
-              >
-                {(naiLatest?.gap_size ?? 0) > 30 ? '⚠ CRITICAL' : (naiLatest?.gap_size ?? 0) > 15 ? '△ ELEVATED' : '● NORMAL'}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
-              <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--accent-orange)', lineHeight: 1 }}>{naiLatest?.latent_score ?? '—'}</div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>Hidden pressure</div>
-            </div>
+          {/* War Posture block — fixed min-height so loading never shifts the feed below it */}
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', minHeight: 132 }} data-testid="warroom-posture">
+            {!loaded ? (
+              <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>LOADING WAR POSTURE…</p>
+            ) : !posture ? (
+              <p style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>
+                No sourced data available{naiDay != null ? ` for Day ${naiDay}` : ''}. No score or category is shown rather than a guessed one.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'center' }}>
+                  <div>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>EXPRESSED</div>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--text-primary)', lineHeight: 1 }}>{posture.expressed_score ?? '—'}</div>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>Official posture</div>
+                  </div>
+                  <div style={{ textAlign: 'center', padding: '0 12px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>GAP</div>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, lineHeight: 1, color: 'var(--text-primary)' }}>{formatGap(posture.gap)}</div>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>E − band midpoint</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
+                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--text-primary)', lineHeight: 1 }}>
+                      {posture.latent_low === null ? '—' : formatBand(posture.latent_low, posture.latent_high)}
+                    </div>
+                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>
+                      {posture.latent_low === null ? 'No admissible evidence' : 'Society (band)'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <NaiV2CategoryBadge
+                    category={posture.category}
+                    locked={posture.categoryLocked}
+                    latentEvidence={posture.latentEvidence}
+                    expressed={posture.expressed_score}
+                  />
+                </div>
+              </>
+            )}
           </div>
-
-          {(naiLatest?.gap_size ?? 0) > 30 && (
-            <div
-              style={{
-                margin: '8px 14px',
-                padding: '8px 12px',
-                background: 'rgba(224,82,82,0.07)',
-                borderLeft: '3px solid var(--accent-red)',
-                border: '1px solid rgba(224,82,82,0.25)',
-                fontFamily: 'IBM Plex Mono',
-                fontSize: 12,
-                color: 'var(--accent-red)',
-                letterSpacing: '0.5px',
-                lineHeight: 1.5,
-              }}
-            >
-              ⚠ RED LINE PROXIMITY — Expressed/latent gap: {naiLatest!.gap_size} points. Pressure significantly exceeds public behavior.
-            </div>
-          )}
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {/* Global live ticker */}
@@ -772,9 +643,9 @@ export default function WarRoomPage() {
               </div>
             </div>
             {/* Live feed - top ~55% */}
-            <div style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
+            <div className="warroom-feed" style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
               <div style={{ padding: '8px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
-                ▸ LIVE INTELLIGENCE — {activeReport?.country_name ?? activeCountry} — UPDATING EVERY 60s
+                ▸ LIVE INTELLIGENCE — {activeName} — REFRESHES EVERY 60s
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filteredArticles.length === 0 ? (
@@ -814,33 +685,33 @@ export default function WarRoomPage() {
               </div>
             </div>
 
-            {/* Bottom row - 3 or 4 columns: Elite, Risks/Stabilizers, Social, optional Economic Stress */}
-            <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: contentJson?.economic_exposure ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
-              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ ELITE NETWORK</div>
+            {/* Bottom row — War Posture evidence, risks/stabilizers (daily build), social */}
+            <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
+              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} aria-label="War Posture evidence">
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
                 <hr className="data-rule" />
-                {eliteNetwork.length === 0 ? (
-                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
+                {posture ? (
+                  <div style={{ marginTop: 8 }}>
+                    <NaiV2Evidence row={posture} compact />
+                    <Link href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
+                      Full country page →
+                    </Link>
+                  </div>
                 ) : (
-                  eliteNetwork.map((p, i) => (
-                    <div key={i} style={{ marginTop: 10, paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>
-                      <div style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 11 }}>{p.name ?? '—'}</div>
-                      <div style={{ color: 'var(--accent-gold)', fontFamily: 'IBM Plex Mono', fontSize: 11 }}>{p.role ?? '—'}</div>
-                      {p.position && <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>{p.position}</div>}
-                      {p.red_line && <div style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 4 }}>⚠ {p.red_line}</div>}
-                    </div>
-                  ))
+                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO SOURCED DATA'}</p>
                 )}
               </div>
-              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ KEY RISKS</div>
+              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} aria-label="Key risks and stabilizers">
+                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
+                  ▸ KEY RISKS{activeReport?.conflict_day != null && narrative ? ` · DAY ${activeReport.conflict_day}` : ''}
+                </div>
                 <hr className="data-rule" />
-                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--accent-red)', fontSize: 12, marginTop: 6 }}>▸ {r}</div>)}
+                {keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
-                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--accent-green)', fontSize: 12, marginTop: 6 }}>▸ {s}</div>)}
+                {stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
               </div>
-              <div style={{ borderRight: contentJson?.economic_exposure ? '1px solid var(--border)' : 'none', overflowY: 'auto', padding: 12 }}>
+              <div style={{ overflowY: 'auto', padding: 12 }}>
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
                 <hr className="data-rule" />
                 {!socialForCountry ? (
@@ -863,46 +734,12 @@ export default function WarRoomPage() {
                   </>
                 )}
               </div>
-              {contentJson?.economic_exposure && (
-                <div style={{ padding: '10px 14px', borderLeft: '1px solid var(--border)', overflowY: 'auto' }}>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-orange)', letterSpacing: '2px', marginBottom: 10, textTransform: 'uppercase' }}>▸ Economic Stress</div>
-                  {Object.entries(contentJson.economic_exposure).map(([key, val]) => {
-                    const numVal = typeof val === 'number' ? val : null;
-                    const displayVal = typeof val === 'number' ? (val > 1000000 ? `$${(val / 1000000).toFixed(1)}M` : `${val}${key.includes('pct') ? '%' : ''}`) : String(val);
-                    const barPct = numVal !== null ? Math.min(numVal > 100 ? 100 : numVal, 100) : null;
-                    return (
-                      <div key={key} style={{ marginBottom: 8 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', textTransform: 'uppercase' }}>{key.replace(/_/g, ' ')}</span>
-                          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: numVal && numVal > 50 ? 'var(--accent-red)' : 'var(--accent-orange)' }}>{displayVal}</span>
-                        </div>
-                        {barPct !== null && (
-                          <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 1, marginTop: 3 }}>
-                            <div style={{ height: '100%', borderRadius: 1, width: `${barPct}%`, background: barPct > 75 ? 'var(--accent-red)' : barPct > 50 ? 'var(--accent-orange)' : 'var(--accent-gold)', transition: 'width 0.5s ease' }} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {contentJson?.key_flashpoints && contentJson.key_flashpoints.length > 0 && (
-                    <>
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-red)', letterSpacing: '2px', margin: '10px 0 6px', textTransform: 'uppercase' }}>▸ Flashpoints</div>
-                      {contentJson.key_flashpoints.map((f: string, i: number) => (
-                        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'flex-start' }}>
-                          <span style={{ color: 'var(--accent-red)', fontSize: 11, fontFamily: 'IBM Plex Mono', flexShrink: 0 }}>⚠</span>
-                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6 }}>{f}</span>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </main>
 
         {/* RIGHT PANEL */}
-        <aside className="warroom-panel warroom-right-panel" style={{ width: 300 }}>
+        <aside className="warroom-panel warroom-right-panel" style={{ width: 300 }} aria-label="Markets, sentiment, disinformation">
           <div className="warroom-panel-header">
             <span>▸ MARKET WATCH — {marketDay != null && marketDay === CONFLICT_DAY ? 'LIVE' : 'LATEST'}</span>
           </div>
@@ -912,35 +749,26 @@ export default function WarRoomPage() {
           {Object.entries(latestByIndicator).length === 0 ? (
             <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
           ) : (
-            Object.entries(latestByIndicator).map(([name, row]) => {
-              const isOil = /brent|wti|crude|oil/i.test(name);
-              const isVix = /vix/i.test(name);
-              const isGold = /gold/i.test(name);
-              const isUsdIrr = /usd|irr/i.test(name);
-              return (
-                <div key={row.id} className="indicator-row">
-                  <span className="indicator-name">{name}</span>
-                  <span
-                    className="indicator-value"
-                    style={{
-                      color: isOil ? 'var(--accent-gold)' : isVix && (row.change_pct ?? 0) > 0 ? 'var(--accent-red)' : isGold ? 'var(--accent-gold)' : isUsdIrr ? 'var(--accent-orange)' : undefined,
-                    }}
-                  >
-                    {row.value != null ? row.value : '—'} {row.unit ?? ''}
+            Object.entries(latestByIndicator).map(([name, row]) => (
+              <div key={row.id} className="indicator-row" title={row.source ?? undefined}>
+                <span className="indicator-name">{name}</span>
+                <span className="indicator-value">
+                  {row.value != null ? row.value : '—'} {row.unit ?? ''}
+                </span>
+                {row.change_pct != null && (
+                  <span className={`change ${row.change_pct >= 0 ? 'up' : 'down'}`}>
+                    {row.change_pct >= 0 ? '▲' : '▼'} {Math.abs(row.change_pct).toFixed(1)}%
                   </span>
-                  <span className={`change ${(row.change_pct ?? 0) >= 0 ? 'up' : 'down'}`}>
-                    {(row.change_pct ?? 0) >= 0 ? '▲' : '▼'} {Math.abs(row.change_pct ?? 0).toFixed(1)}%
-                  </span>
-                </div>
-              );
-            })
+                )}
+              </div>
+            ))
           )}
 
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <span>▸ SENTIMENT MATRIX</span>
           </div>
           <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
-            {uniqueCountries.slice(0, 12).map((code) => {
+            {countries.slice(0, 12).map((code) => {
               const sentRaw = sentimentByCountry[code] ?? null;
               const { label, color } = mapSentimentDisplay(sentRaw);
               return (
@@ -979,7 +807,7 @@ export default function WarRoomPage() {
           )}
 
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
-            <span>▸ PIPELINE STATUS</span>
+            <span>▸ LATEST ROW PER FEED</span>
           </div>
           <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
             {['articles', 'markets', 'social', 'disinfo'].map((key) => {
@@ -988,8 +816,8 @@ export default function WarRoomPage() {
               return (
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <span style={{ textTransform: 'uppercase', color: 'var(--text-muted)', width: 70 }}>{key}</span>
-                  <span style={{ color: 'var(--text-secondary)', flex: 1 }}>{pipelineLabel(key)}</span>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+                  <span style={{ color: 'var(--text-secondary)', flex: 1 }}>{stamp(pipelineTimestamps[key])}</span>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} aria-label={status === 'green' ? 'under 1 hour old' : status === 'orange' ? '1 to 6 hours old' : 'over 6 hours old or missing'} />
                 </div>
               );
             })}
