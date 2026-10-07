@@ -4,6 +4,15 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-03-20",
   "compatibility_flags": ["nodejs_compat"],
+  // Workers Cache: Cloudflare answers GET/HEAD from its tiered edge cache, honouring the
+  // Cache-Control the Worker returns (s-maxage on ISR pages; `private, no-store` on everything
+  // that reads cookies), without running the Worker. Concurrent misses for one URL are collapsed
+  // into a single Worker run. No KV/R2 involved. Requires wrangler >= 4.69.
+  // FREE-PLAN NOTE: with this on, static-asset requests also count toward the 100,000
+  // requests/day Workers Free limit (see PR body). Set to false to roll back.
+  "cache": {
+    "enabled": true
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

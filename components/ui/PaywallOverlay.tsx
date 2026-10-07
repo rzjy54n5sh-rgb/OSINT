@@ -26,7 +26,7 @@ export function PaywallOverlay({
       >
         <span style={{ color: '#E8C547' }}>◆</span>
         <span>{tierName} plan required — </span>
-        <Link
+        <Link prefetch={false}
           href="/pricing"
           className="border px-2 py-0.5 rounded-sm hover:opacity-90 transition-opacity"
           style={{ borderColor: '#E8C547', color: '#E8C547' }}
@@ -62,7 +62,7 @@ export function PaywallOverlay({
         <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
           Feature: {featureName}
         </p>
-        <Link
+        <Link prefetch={false}
           href="/pricing"
           className="inline-block border px-4 py-2 text-sm rounded-sm hover:opacity-90 transition-opacity"
           style={{ borderColor: '#E8C547', color: '#E8C547' }}

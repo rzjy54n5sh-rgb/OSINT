@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
  * Server-side proxy for Flickr public photos feed (avoids CORS in the browser).
  * GET /api/flickr?tags=mena,middleeast
  */
+/** Public, visitor-agnostic: the edge cache may answer repeat calls without running the Worker. */
+const EDGE_CACHE = { 'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600' };
+
 export async function GET(request: NextRequest) {
   const tags = request.nextUrl.searchParams.get('tags') ?? 'mena,middleeast';
   const url = `https://api.flickr.com/services/feeds/photos_public.gne?tags=${encodeURIComponent(tags)}&format=json&nojsoncallback=1`;
@@ -23,7 +26,7 @@ export async function GET(request: NextRequest) {
         author: item.author,
       })
     ).filter((p) => p.thumb);
-    return NextResponse.json(photos);
+    return NextResponse.json(photos, { headers: EDGE_CACHE });
   } catch (e) {
     console.error('[api/flickr]', e);
     return NextResponse.json({ error: 'Flickr proxy error' }, { status: 502 });

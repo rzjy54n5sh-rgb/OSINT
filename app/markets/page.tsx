@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import MarketsClient from './MarketsClient';
 import { buildIndicatorViews, type HistoryRow } from './market-views';
 
@@ -9,12 +9,16 @@ export const metadata: Metadata = {
     'Latest conflict-sensitive market and shipping indicators with units, collection times and sources; trend charts never join different units.',
 };
 
+/** ISR (see app/page.tsx): market collector runs every 30 min; no per-visitor content. */
+export const revalidate = 600;
+
 const PAGE = 1000; // PostgREST max-rows on this project
 const PAGES = 4; // up to 4,000 rows in parallel (~2,600 today)
 const HISTORY_COLS = 'id, indicator, value, change_pct, unit, conflict_day, created_at, is_retrospective';
 
 export default async function MarketsPage() {
-  const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
+  const supabase = createPublicClient();
+  const currentDay = await getConflictDay();
 
   // Round trip 1 (all in parallel):
   //  - history pages, NEWEST FIRST by created_at (id tie-break), WITHOUT the long `source` text;

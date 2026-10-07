@@ -53,20 +53,37 @@ export function AsciiHero({
   const [lineIndex, setLineIndex]         = useState(0);
   const [phase, setPhase]                 = useState<Phase>('logo');
 
-  // Phase 1 — reveal ASCII logo fast
+  // prefers-reduced-motion: show the finished state at once (no typing animation).
+  useEffect(() => {
+    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    setDisplayedLogo(ASCII_LOGO);
+    setCompletedLines(bootLines);
+    setLineIndex(bootLines.length);
+    setPhase('done');
+  }, [bootLines]);
+
+  // Phase 1 — reveal ASCII logo fast. One React update per animation frame (it used to be
+  // one every 6 ms), ~35 frames in total.
   useEffect(() => {
     if (phase !== 'logo') return;
     let i = 0;
-    const id = setInterval(() => {
-      i += 3; // reveal 3 chars per tick for speed
-      setDisplayedLogo(ASCII_LOGO.slice(0, i));
+    let raf = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const step = () => {
+      i += 24;
       if (i >= ASCII_LOGO.length) {
-        clearInterval(id);
         setDisplayedLogo(ASCII_LOGO);
-        setTimeout(() => setPhase('boot'), 500);
+        timer = setTimeout(() => setPhase((p) => (p === 'logo' ? 'boot' : p)), 500);
+        return;
       }
-    }, 6);
-    return () => clearInterval(id);
+      setDisplayedLogo(ASCII_LOGO.slice(0, i));
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer) clearTimeout(timer);
+    };
   }, [phase]);
 
   // Phase 2 — type each boot line
@@ -143,14 +160,18 @@ export function AsciiHero({
           }}
         >
           {displayedLogo}
-          {phase === 'logo' && (
-            <span className="blink-cursor" style={{ color: '#E8C547' }}>█</span>
-          )}
+          {/* Unrevealed remainder is laid out but invisible (visibility:hidden, so it is also
+              ignored by layout-shift accounting), so the logo box has its final size from the
+              first paint and nothing below it moves while it "types" (CLS). */}
+          <span aria-hidden style={{ visibility: 'hidden' }}>
+            {ASCII_LOGO.slice(displayedLogo.length)}
+          </span>
         </pre>
       </div>
 
-      {/* Boot sequence terminal */}
-      {phase !== 'logo' && (
+      {/* Boot sequence terminal — always laid out (one row reserved per boot line) so it does
+          not push the page down when the logo finishes. */}
+      {(
         <div
           style={{
             marginTop: '32px',
@@ -179,46 +200,41 @@ export function AsciiHero({
             SYSTEM BOOT — MENA INTEL DESK v1.0
           </div>
 
-          {/* Completed lines */}
-          {completedLines.map((line, i) => (
-            <p
-              key={i}
-              style={{
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: '11px',
-                lineHeight: '1.8',
-                color: isLineGreen(line)
-                  ? 'var(--accent-green)'
-                  : 'var(--text-secondary)',
-                opacity: 0.75,
-              }}
-            >
-              {line}
-            </p>
-          ))}
-
-          {/* Currently typing line */}
-          {phase === 'boot' && (
-            <p
-              style={{
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: '11px',
-                lineHeight: '1.8',
-                color: 'var(--text-primary)',
-              }}
-            >
-              {currentLine}
-              <span className="blink-cursor" style={{ color: 'var(--accent-green)' }}>█</span>
-            </p>
-          )}
+          {bootLines.map((line, i) => {
+            const done = i < completedLines.length;
+            const typing = !done && phase === 'boot' && i === lineIndex;
+            const text = done ? completedLines[i] : typing ? currentLine : '';
+            return (
+              <p
+                key={i}
+                style={{
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  fontSize: '11px',
+                  lineHeight: '1.8',
+                  minHeight: '1.8em',
+                  color: done
+                    ? isLineGreen(line)
+                      ? 'var(--accent-green)'
+                      : 'var(--text-secondary)'
+                    : 'var(--text-primary)',
+                  opacity: done ? 0.75 : 1,
+                }}
+              >
+                {text}
+                {typing && <span className="blink-cursor" style={{ color: 'var(--accent-green)' }}>█</span>}
+              </p>
+            );
+          })}
         </div>
       )}
 
-      {/* Live stat bar — appears after boot */}
-      {phase === 'done' && (
+      {/* Live stat bar — space reserved from the start, revealed after boot */}
+      {(
         <div
-          className="fade-up fade-up-1"
+          className={phase === 'done' ? 'fade-up fade-up-1' : undefined}
+          aria-hidden={phase !== 'done'}
           style={{
+            visibility: phase === 'done' ? 'visible' : 'hidden',
             marginTop: '28px',
             display: 'flex',
             gap: '40px',

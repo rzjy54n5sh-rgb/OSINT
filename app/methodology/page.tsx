@@ -3,10 +3,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { EmailCapture } from '@/components/EmailCapture';
-import { createClient } from '@/utils/supabase/server';
+import { createPublicClient } from '@/utils/supabase/server';
 import { NAI_POSTURE_NOTE } from '@/lib/nai-v2';
 import { TRACKED_COUNTRY_CODES, HORN_COUNTRY_CODES } from '@/lib/countries';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
+
+/** ISR: the registry changes at most daily; no per-visitor content. */
+export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: 'Methodology — War Posture, Scenarios & Sources — MENA Intel Desk',
@@ -520,7 +523,7 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
 export default async function MethodologyPage() {
   let scenarios: RegistryRow[] = [];
   try {
-    const supabase = await createClient();
+    const supabase = createPublicClient();
     const { data } = await supabase
       .from('scenarios')
       .select('code, name_en, definition_en, status, group_code')
@@ -604,7 +607,7 @@ export default async function MethodologyPage() {
           <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>
             MENA INTEL DESK — OPEN SOURCE INTELLIGENCE PLATFORM
           </span>
-          <Link href="/" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
+          <Link prefetch={false} href="/" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
             ← RETURN TO DASHBOARD
           </Link>
         </div>

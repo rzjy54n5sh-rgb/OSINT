@@ -176,7 +176,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
            style={{ background: 'rgba(7,10,15,0.92)', backdropFilter: 'blur(12px)',
                     borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between gap-4 mb-1.5">
-          <Link href="/briefings"
+          <Link prefetch={false} href="/briefings"
                 className="font-mono text-xs shrink-0"
                 style={{ color: 'var(--accent-gold)' }}>
             ← BRIEFINGS
@@ -328,7 +328,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
       {/* Bottom navigation */}
       <div className="flex items-center justify-between mt-10 pt-6"
            style={{ borderTop: '1px solid var(--border)' }}>
-        <Link href="/briefings"
+        <Link prefetch={false} href="/briefings"
               className="font-mono text-xs"
               style={{ color: 'var(--accent-gold)' }}>
           ← ALL BRIEFINGS

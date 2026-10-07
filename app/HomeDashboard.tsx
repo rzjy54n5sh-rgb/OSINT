@@ -194,7 +194,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               </span>
             )}
           </p>
-          <Link href={`/briefings/${briefingDay ?? conflictDay}/general`}
+          <Link prefetch={false} href={`/briefings/${briefingDay ?? conflictDay}/general`}
                 className="font-mono text-xs mt-2 inline-block"
                 style={{ color: 'var(--accent-gold)' }}>
             READ FULL BRIEF →
@@ -247,7 +247,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                 ? <>◆ TODAY&apos;S BRIEFINGS — DAY {conflictDay}</>
                 : <>◆ LATEST BRIEFINGS — DAY {briefingDay ?? '—'}</>}
             </span>
-            <Link href="/briefings" className="font-mono text-xs"
+            <Link prefetch={false} href="/briefings" className="font-mono text-xs"
                   style={{ color: 'var(--text-muted)' }}>
               ALL DAYS →
             </Link>
@@ -262,7 +262,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               { type: 'eschatology', label: 'ESCHA\u200BTOLOGY', emoji: '◎' },
               { type: 'business', label: 'BUSINESS', emoji: '◈' },
             ].map(({ type, label, emoji }) => (
-              <Link key={type}
+              <Link prefetch={false} key={type}
                     href={`/briefings/${briefingDay ?? conflictDay}/${type}`}
                     className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
                     style={{ borderColor: 'var(--border)',
@@ -281,7 +281,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
           {QUICK_LINKS.map((link, i) => (
-            <Link key={link.href} href={link.href}>
+            <Link prefetch={false} key={link.href} href={link.href}>
               <OsintCard className={`fade-up fade-up-${(i % 6) + 1} block hover:border-accent-gold/30`}>
                 <span className="font-mono text-xs uppercase" style={{ color: 'var(--accent-gold)' }}>
                   {link.label}

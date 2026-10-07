@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
 import CountriesClient from './CountriesClient';
+
+/** ISR: War Posture rows change at most daily; same view for every tier (see note below). */
+export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: 'Countries — War Posture by Country — MENA Intel Desk',
@@ -12,7 +15,8 @@ export const metadata: Metadata = {
 export default async function CountriesPage() {
   // currentDay = calendar (DAY LOCK); naiDay = nai_scores_v2's OWN latest day (War Posture).
   // Legacy nai_scores (Days 1-35, retired method) is never shown here as current NAI.
-  const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
+  const supabase = createPublicClient();
+  const currentDay = await getConflictDay();
   const { latestDay: naiDay } = await getNaiV2DayRange(supabase);
 
   // This page has historically shown expressed, latent and category to every tier; that

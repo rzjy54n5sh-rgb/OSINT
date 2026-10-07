@@ -20,7 +20,11 @@ export async function GET(request: NextRequest) {
     }
     const xml = await res.text();
     return new NextResponse(xml, {
-      headers: { 'Content-Type': 'application/xml' },
+      headers: {
+        'Content-Type': 'application/xml',
+        // Public, visitor-agnostic: the edge cache may answer repeat calls without the Worker.
+        'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
+      },
     });
   } catch (e) {
     console.error('[api/youtube-rss]', e);

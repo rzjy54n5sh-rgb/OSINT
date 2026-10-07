@@ -512,7 +512,7 @@ export default function WarRoomPage() {
               {currentSeries
                 ? `Changes since Day ${currentSeries.firstDay}, ${currentSeries.method} only. Earlier days used a retired method and are not compared.`
                 : 'No published scenario day yet.'}{' '}
-              <Link href="/scenarios#method" style={{ color: 'var(--accent-gold)' }}>
+              <Link prefetch={false} href="/scenarios#method" style={{ color: 'var(--accent-gold)' }}>
                 Method →
               </Link>
             </div>
@@ -698,7 +698,7 @@ export default function WarRoomPage() {
                 {posture ? (
                   <div style={{ marginTop: 8 }}>
                     <NaiV2Evidence row={posture} compact />
-                    <Link href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
+                    <Link prefetch={false} href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
                       Full country page →
                     </Link>
                   </div>

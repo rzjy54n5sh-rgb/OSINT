@@ -996,3 +996,8 @@ input::placeholder, textarea::placeholder {
 input:focus, textarea:focus, select:focus {
   border-color: var(--accent-gold);
 }
+
+/* TranslationBanner: dismissed visitors are hidden before first paint (root layout boot script). */
+html[data-tb-dismissed] .translation-banner {
+  display: none !important;
+}

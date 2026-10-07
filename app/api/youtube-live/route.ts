@@ -11,6 +11,9 @@ export interface LiveChannelResult {
  * Requires YOUTUBE_API_KEY in env. GET /api/youtube-live?ids=id1,id2
  * Returns [{ channelId, videoId, isLive }, ...]. If no API key, returns empty array.
  */
+/** Public, visitor-agnostic; also caps YouTube Data API quota use to ~1 lookup per minute per id set. */
+const EDGE_CACHE = { 'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=120' };
+
 export async function GET(request: NextRequest) {
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -40,5 +43,5 @@ export async function GET(request: NextRequest) {
       results.push({ channelId, videoId: null, isLive: false });
     }
   }
-  return NextResponse.json(results);
+  return NextResponse.json(results, { headers: EDGE_CACHE });
 }

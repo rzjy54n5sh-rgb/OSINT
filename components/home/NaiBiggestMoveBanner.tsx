@@ -1,4 +1,4 @@
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
 import { NAI_POSTURE_HEADING, NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange, postureLabel } from '@/lib/nai-v2';
 
@@ -11,7 +11,8 @@ import { NAI_POSTURE_HEADING, NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange, 
  * as-of day is stated explicitly. With no v2 rows it shows the honest empty state.
  */
 export async function NaiBiggestMoveBanner() {
-  const [supabase, currentDay] = await Promise.all([createClient(), getConflictDay()]);
+  const supabase = createPublicClient();
+  const currentDay = await getConflictDay();
   const { latestDay: naiDay } = await getNaiV2DayRange(supabase);
 
   if (naiDay == null) {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
@@ -76,6 +77,23 @@ interface BriefingsClientProps {
   availability: DayAvailability[];
 }
 
+/**
+ * Deep link `?day=N`. The page is cached (ISR) and identical for every URL, so the requested day
+ * is applied after hydration. Same rule as before: 1..calendar day only. Isolated in its own
+ * Suspense boundary so that useSearchParams() does not opt the whole list out of server rendering.
+ */
+function DayParamSync({ currentDay, onDay }: { currentDay: number; onDay: (d: number) => void }) {
+  const dayParam = useSearchParams().get('day');
+  useEffect(() => {
+    if (!dayParam || !/^[1-9]\d{0,3}$/.test(dayParam)) return;
+    const requested = Number(dayParam);
+    if (requested <= currentDay) onDay(requested);
+    // onDay is a fresh closure each render; the param is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dayParam, currentDay]);
+  return null;
+}
+
 export default function BriefingsClient({
   initialBriefings,
   conflictDay,
@@ -98,6 +116,7 @@ export default function BriefingsClient({
     setSelectedDay(d);
     setDayInput(String(d));
   }
+
 
   // Re-fetch when user selects a different day than the initial one
   useEffect(() => {
@@ -135,6 +154,9 @@ export default function BriefingsClient({
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      <Suspense fallback={null}>
+        <DayParamSync currentDay={currentDay} onDay={goToDay} />
+      </Suspense>
       <PageBriefing
         title="DAILY INTELLIGENCE BRIEFINGS"
         description="Structured reports for every conflict day from Day 1: a general brief plus Horn of Africa, Egypt, UAE, eschatology and business briefs (not every type exists for every day), and weekly digests that cover the days between full briefs. From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
@@ -243,7 +265,7 @@ export default function BriefingsClient({
         return cover ? (
           <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-secondary)' }}>
             Day {day} is covered by the weekly digest for Days {cover.digestFrom}{'\u2013'}{cover.digestTo}:{' '}
-            <Link href={`/briefings/${cover.day}/general_weekly`} style={{ color: 'var(--accent-gold)' }}>
+            <Link prefetch={false} href={`/briefings/${cover.day}/general_weekly`} style={{ color: 'var(--accent-gold)' }}>
               read the digest {'\u2192'}
             </Link>
           </p>
@@ -270,7 +292,7 @@ export default function BriefingsClient({
                 transition={{ duration: 0.25, delay: i * 0.06 }}
               >
                 {b ? (
-                  <Link href={`/briefings/${day}/${type}`}>
+                  <Link prefetch={false} href={`/briefings/${day}/${type}`}>
                     <OsintCard className="block h-full hover:border-border-bright active:scale-[0.98] transition-transform"
                                style={{ minHeight: '180px' }}>
                       {/* Header */}

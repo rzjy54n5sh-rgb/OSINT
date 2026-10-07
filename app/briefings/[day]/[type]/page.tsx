@@ -1,7 +1,19 @@
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import BriefingReader from './BriefingReader';
+
+/**
+ * ISR per (day, type) path, rendered on first request (no build-time params). A brief is written
+ * once a day; past days do not change. Not tier-gated today (see GATING note below) — if business
+ * briefs become Pro-only, gate them client-side or exclude this route from the shared cache.
+ */
+export const revalidate = 900;
+
+/** No paths at build time: each path is rendered on its first request, then cached (ISR). */
+export async function generateStaticParams() {
+  return [];
+}
 
 /** Report types that exist (lower-case, case-sensitive in the URL). */
 const VALID_TYPES = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'] as const;
@@ -47,7 +59,7 @@ export default async function BriefingReaderPage({ params }: PageProps) {
   const currentDay = await getConflictDay();
   if (day > currentDay) return notFound();
 
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from('daily_briefings')
     .select('*')

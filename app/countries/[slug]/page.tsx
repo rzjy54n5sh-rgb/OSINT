@@ -1,13 +1,25 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
-import { createClient } from '@/utils/supabase/server';
-import { getUser } from '@/utils/supabase/server';
+import { createPublicClient } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
-import { CountryReportClient, type CountryReportView } from './CountryReportClient';
+import type { CountryReportView } from './CountryReportClient';
+import { CountryReportGate } from './CountryReportGate';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { parseNarrative } from '@/lib/country-narrative';
 import { getNaiV2CountryLatest } from '@/lib/nai-v2';
+
+/**
+ * ISR, rendered on first request per slug. The HTML is what an ANONYMOUS visitor sees (summary,
+ * War Posture, no paid narrative) and is shared by the edge cache; a signed-in visitor whose
+ * tier unlocks the narrative gets it after hydration from /api/viewer/country/[code].
+ */
+export const revalidate = 900;
+
+/** No paths at build time: each path is rendered on its first request, then cached (ISR). */
+export async function generateStaticParams() {
+  return [];
+}
 
 /** Slug (URL) -> ISO2 country_code. */
 const SLUG_TO_CODE: Record<string, string> = {
@@ -49,30 +61,18 @@ export default async function CountryReportPage({
   const rawSlug = typeof slug === 'string' ? slug : '';
   const countryCode = codeForSlug(rawSlug);
 
-  const [user, supabase] = await Promise.all([
-    getUser(),
-    createClient(),
-  ]);
-
-  const { data: tierRows } = await supabase
-    .from('tier_features')
-    .select('feature_key, free_access, informed_access, pro_access');
-  const flags = buildTierFlags(tierRows ?? []);
+  const supabase = createPublicClient();
 
   const isEgypt = countryCode === 'EG';
   const isUae = countryCode === 'AE' || countryCode === 'ARE' || countryCode === 'UAE';
-  const hasAccess = isEgypt
-    ? tierHasFeature(user?.tier, 'country_report_egy', flags)
-    : isUae
-      ? tierHasFeature(user?.tier, 'country_report_uae', flags)
-      : tierHasFeature(user?.tier, 'country_report_other', flags);
+  const featureKey = isEgypt ? 'country_report_egy' : isUae ? 'country_report_uae' : 'country_report_other';
   const requiredTier = (isEgypt || isUae) ? 'informed' : 'professional';
-  const summaryOnly = !hasAccess;
 
   // Only the columns the page renders. country_reports.nai_score / nai_category are the RETIRED
   // US-referenced scale and are deliberately not selected: the score shown is War Posture
   // (nai_scores_v2), the same one /nai and /countries show.
-  const [{ data: report, error }, posture] = await Promise.all([
+  const [{ data: tierRows }, { data: report, error }, posture] = await Promise.all([
+    supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
     supabase
       .from('country_reports')
       .select('country_code, country_name, conflict_day, updated_at, content_json')
@@ -85,10 +85,14 @@ export default async function CountryReportPage({
     countryCode ? getNaiV2CountryLatest(supabase, countryCode, { latent: true, gap: true }) : Promise.resolve(null),
   ]);
 
+  const flags = buildTierFlags(tierRows ?? []);
+  // Access as an ANONYMOUS visitor (tier null) — the only view this shared HTML may contain.
+  const hasAccess = tierHasFeature(null, featureKey, flags);
+
   if (error) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Link href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
+        <Link prefetch={false} href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
           ← COUNTRIES
         </Link>
         <div className="font-mono text-xs py-8 border px-4" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }}>
@@ -101,7 +105,7 @@ export default async function CountryReportPage({
   if (!report && !posture) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
-        <Link href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
+        <Link prefetch={false} href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
           ← COUNTRIES
         </Link>
         <p className="redacted py-12">NO INTEL AVAILABLE</p>
@@ -113,7 +117,7 @@ export default async function CountryReportPage({
     | { country_code: string; country_name: string | null; conflict_day: number | null; updated_at: string | null; content_json: unknown }
     | null;
   // Whitelisted narrative keys only (see ./narrative.ts); legacy keys never leave the server.
-  // Paid content is withheld server-side for tiers without access.
+  // Paid content is withheld server-side unless the ANONYMOUS tier has access.
   const view: CountryReportView = {
     country_code: row?.country_code ?? countryCode,
     country_name: row?.country_name ?? null,
@@ -123,12 +127,13 @@ export default async function CountryReportPage({
   };
 
   return (
-    <CountryReportClient
+    <CountryReportGate
       report={view}
       posture={posture}
-      hasAccess={hasAccess}
+      featureKey={featureKey}
       requiredTier={requiredTier}
-      summaryOnly={summaryOnly}
+      tierFlags={flags}
+      anonHasAccess={hasAccess}
       conflictDayBadge={<ConflictDayBadge />}
     />
   );

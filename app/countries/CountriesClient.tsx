@@ -55,7 +55,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
               transition={{ duration: 0.3, delay: i * 0.05 }}
             >
               <OsintCard className="block hover:border-border-bright">
-                <Link href={`/countries/${s.country_code.toLowerCase()}`} className="block">
+                <Link prefetch={false} href={`/countries/${s.country_code.toLowerCase()}`} className="block">
                   <CountryFlag code={s.country_code} />
                   <div className="mt-2">
                     <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} latentEvidence={s.latentEvidence} expressed={s.expressed_score} />
@@ -87,7 +87,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay }: C
           ))}
           {unscored.map((code) => (
             <OsintCard key={`nodata-${code}`} className="block hover:border-border-bright">
-              <Link href={`/countries/${code.toLowerCase()}`} className="block" data-testid={`country-nodata-${code}`}>
+              <Link prefetch={false} href={`/countries/${code.toLowerCase()}`} className="block" data-testid={`country-nodata-${code}`}>
                 <CountryFlag code={code} />
                 <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
                   {NO_SOURCED_DATA_TEXT}

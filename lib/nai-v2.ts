@@ -242,22 +242,25 @@ export async function getNaiV2Day(
   access: { latent: boolean; gap: boolean },
 ): Promise<NaiV2View[]> {
   try {
-    const { data, error } = await supabase
-      .from(NAI_V2_TABLE)
-      .select('*')
-      .eq('method_version', NAI_V2_METHOD)
-      .eq('conflict_day', day);
+    // The day's rows and the previous War Posture day are independent: one round trip, not two.
+    const [{ data, error }, { data: prevDayRow }] = await Promise.all([
+      supabase
+        .from(NAI_V2_TABLE)
+        .select('*')
+        .eq('method_version', NAI_V2_METHOD)
+        .eq('conflict_day', day),
+      supabase
+        .from(NAI_V2_TABLE)
+        .select('conflict_day')
+        .eq('method_version', NAI_V2_METHOD)
+        .lt('conflict_day', day)
+        .order('conflict_day', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
     if (error || !data) return [];
     const rows = data as NaiScoreV2[];
 
-    const { data: prevDayRow } = await supabase
-      .from(NAI_V2_TABLE)
-      .select('conflict_day')
-      .eq('method_version', NAI_V2_METHOD)
-      .lt('conflict_day', day)
-      .order('conflict_day', { ascending: false })
-      .limit(1)
-      .maybeSingle();
     const prevDay = (prevDayRow as { conflict_day?: number } | null)?.conflict_day ?? null;
     const prevMap = new Map<string, number | null>();
     if (prevDay != null) {

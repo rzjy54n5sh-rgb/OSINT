@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import BriefingsClient, { type DayAvailability } from './BriefingsClient';
 
 export const metadata: Metadata = {
@@ -11,12 +11,14 @@ export const metadata: Metadata = {
 const REPORT_ORDER = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'];
 const META_COLS = 'conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at, period_start_day, period_end_day';
 
-interface PageProps {
-  searchParams?: Promise<{ day?: string | string[] }>;
-}
+/**
+ * ISR: briefs are written once a day. `?day=N` deep links are applied by BriefingsClient after
+ * hydration (reading searchParams here would make every request dynamic and uncacheable).
+ */
+export const revalidate = 900;
 
-export default async function BriefingsPage({ searchParams }: PageProps) {
-  const supabase = await createClient();
+export default async function BriefingsPage() {
+  const supabase = createPublicClient();
   // Calendar day (DAY LOCK) — not derived from any table.
   const currentDay = await getConflictDay();
 
@@ -49,12 +51,10 @@ export default async function BriefingsPage({ searchParams }: PageProps) {
   const availability = [...byDay.values()].sort((a, b) => b.day - a.day);
   const latestBriefingDay = availability[0]?.day ?? null;
 
-  // Initial day: ?day=N when valid, else the calendar day, else the latest day that has briefs.
-  const sp = searchParams ? await searchParams : undefined;
-  const rawDay = Array.isArray(sp?.day) ? sp?.day[0] : sp?.day;
-  const requested = rawDay && /^[1-9]\d{0,3}$/.test(rawDay) ? Number(rawDay) : null;
-  let effectiveDay = requested != null && requested <= currentDay ? requested : currentDay;
-  if (requested == null && !byDay.has(currentDay) && latestBriefingDay != null) {
+  // Initial day: the calendar day, else the latest day that has briefs (a `?day=N` deep link is
+  // applied client-side, see above).
+  let effectiveDay = currentDay;
+  if (!byDay.has(currentDay) && latestBriefingDay != null) {
     // Calendar day has no briefs yet — show the latest available day (client labels this).
     effectiveDay = latestBriefingDay;
   }

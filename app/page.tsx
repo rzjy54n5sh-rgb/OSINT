@@ -1,19 +1,23 @@
-import { createClient } from '@/utils/supabase/server';
-import { getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
 import type { Metadata } from 'next';
 import type { Article, ScenarioProbability } from '@/types/supabase';
+
+/**
+ * ISR: public, tier-agnostic data (collectors run every 30 min – 6 h, briefs daily). The HTML is
+ * served with `s-maxage=300, stale-while-revalidate` so the edge cache answers repeat visits
+ * without running the Worker (Cloudflare 1102 under load). Nothing here depends on the visitor.
+ */
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'MENA Intel Desk · Live US-Iran Conflict Dashboard',
 };
 
 export default async function Page() {
-  const [supabase, conflictDay] = await Promise.all([
-    createClient(),
-    getConflictDay(),
-  ]);
+  const supabase = createPublicClient();
+  const conflictDay = await getConflictDay();
 
   // Parallel server-side fetches — data baked into HTML, no loading states
   const [articlesRes, countRes, scenariosRes, briefingRes, marketRes] = await Promise.all([

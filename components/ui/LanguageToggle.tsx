@@ -1,17 +1,16 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useI18n } from '@/components/I18nProvider';
 import type { Lang } from '@/lib/i18n';
 
 export function LanguageToggle() {
-  const router = useRouter();
-  const { lang } = useI18n();
+  const { lang, setLang } = useI18n();
 
+  // Client-side switch: pages are cached and language-agnostic on the server, so a
+  // router.refresh() would only re-download the same payload.
   const toggle = () => {
     const newLang: Lang = lang === 'en' ? 'ar' : 'en';
-    document.cookie = `lang=${newLang}; path=/; max-age=31536000; SameSite=Lax`;
-    router.refresh();
+    setLang(newLang);
   };
 
   return (

@@ -1,7 +1,10 @@
-import { createClient, getConflictDay } from '@/utils/supabase/server';
+import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import type { Article } from '@/types/supabase';
 import type { Metadata } from 'next';
 import FeedClient from './FeedClient';
+
+/** ISR: articles are collected hourly; FeedClient keeps its own live client-side refresh. */
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'Live Intelligence Feed · MENA Intel Desk',
@@ -14,10 +17,8 @@ export default async function FeedPage() {
   let initialConflictDay: number | null = null;
 
   try {
-    const [supabase, conflictDay] = await Promise.all([
-      createClient(),
-      getConflictDay(),
-    ]);
+    const supabase = createPublicClient();
+    const conflictDay = await getConflictDay();
 
     initialConflictDay = conflictDay;
 
