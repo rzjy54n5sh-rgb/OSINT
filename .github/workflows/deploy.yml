@@ -2,6 +2,12 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+# Only the newest commit may deploy. On 2026-10-07 two merges 48 s apart raced and the
+# older build (PR #16 only) finished last, overwriting the newer one (PR #16 + #17).
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: ubuntu-latest
