@@ -1,0 +1,38 @@
+# Daily Cloudflare Workers request-usage alert (operator ruling 2026-10-07).
+# Free plan: 100,000 requests/day, then error 1027 until 00:00 UTC. With Workers Cache on
+# (wrangler.jsonc), static-asset requests count too. This job FAILS — so GitHub emails the repo
+# owner — when yesterday's Worker requests exceed 70,000 (70%).
+# Query: GraphQL Analytics API, dataset workersInvocationsAdaptive, verified against
+# https://developers.cloudflare.com/analytics/graphql-api/tutorials/querying-workers-metrics/
+# Token needs: Account > Account Analytics > Read (the job says so if it is missing).
+# Free: one GraphQL call per day; no paid API, writes nothing.
+name: Worker Usage Alert
+
+on:
+  schedule:
+    - cron: '30 0 * * *'   # 00:30 UTC daily — yesterday (UTC) is complete
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  usage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/workflows/scripts
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check yesterday's Worker requests vs the Free plan limit
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKER_SCRIPT: mena-intel-desk
+          ALERT_THRESHOLD: '70000'
+        run: python .github/workflows/scripts/worker_usage.py
