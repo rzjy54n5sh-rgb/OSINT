@@ -25,6 +25,7 @@
 - **Payments:** Stripe | **Email:** Resend | **Analytics:** Plausible
 - **Collectors (no AI, GitHub Actions, free — public repo):** Collect Feeds (hourly), Collect Market Data (every 30 min), Collect Social Trends (every 12 h), Collect Disinfo Claims (daily 06:00 UTC), Deploy (on push to `main`). Manual-only / disabled: Production E2E, Run DB Migration.
 - **Agent analysis:** Claude scheduled task "MENA Intel Desk — daily build" (06:51 Cairo, subscription). There is NO model in the GitHub pipeline.
+- **Clock / backups / heartbeats (WS4, PR ws4/bastion):** Cloudflare Worker `mena-intel-scheduler` (`workers/scheduler/`, Cron Triggers `*/30` + `20 5`, deployed by `scheduler-deploy.yml`) dispatches collect-markets, collect-articles and scenario-daily via `workflow_dispatch`; their GitHub `schedule:` is a fallback whose `gate` job (`scripts/schedule_gate.sh`) skips a late run already covered. `db-backup.yml`: nightly encrypted `pg_dump` (public + auth, one snapshot) → R2, weekly restore drill with exact row counts (`docs/backup-restore.md`). Collectors append to `job_heartbeats`; pg_cron `job-watchdog` alerts Telegram on lateness (migrations 20261010090000/090100 — apply both)
 - **Reports:** Node.js `docx` npm package — never PDF/ReportLab
 
 ## Commands
@@ -104,6 +105,9 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 11. **No metered AI API in automation.** The old "claude-sonnet-4-6 adaptive thinking pipeline" rule is void: the pipeline workflows are retired and agent analysis runs as the Claude scheduled task
 
 ## Gotchas (learned the hard way — each one cost real data or money)
+- **GitHub `schedule:` is not a clock:** measured 2026-10-08, collect-markets (`*/30`) ran 4–7 h apart and scenario-daily (`20 5`) ran at 11:51/12:06. Anything time-sensitive is dispatched by the scheduler Worker; the GitHub schedule is only a fallback
+- **Workflow supply chain:** every `uses:` is pinned to a full commit SHA with a `# vX.Y.Z` comment; installs use `npm ci`; secrets go only into the step that needs them (no service-role or API keys in the Next build env — the build provably needs neither); every workflow declares `permissions:`. Steps that pipe (`| tee`) need `shell: bash` for pipefail
+- **maplibre-gl ≥ 6 is ESM-only:** `import * as maplibregl from 'maplibre-gl'` plus `setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString())` (components/nai/NaiMapClient.tsx). A default import breaks the build; a missing worker URL breaks the map
 - **PostgREST bulk insert:** a mixed-key array fails with PGRST102 "All object keys must match". Group rows by key signature and insert each group; NEVER pad missing keys with null (null overrides column defaults)
 - **Silent collectors:** a collector that prints an error and exits 0 hides failure for months (articles sat at 0). Exit non-zero whenever it collected rows but wrote none
 - **feedparser:** `feedparser.parse(url)` has no network timeout. Fetch with `requests.get(url, timeout=…)` and parse the bytes (the Horn feeds are marked `"fetch": "requests"` and do exactly that)
@@ -143,7 +147,9 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 
 ## Secrets Location
 - Local: `.env.local` (NEVER commit — in .gitignore)
-- GitHub Actions secrets that active workflows reference (grep of `.github/workflows/*.yml`, 2026-10-06): `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CF_KV_NAMESPACE_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `YOUTUBE_API_KEY` (deploy, optional); `prod-e2e.yml` (manual) also reads `SUPABASE_SERVICE_ROLE_KEY`
+- GitHub Actions secrets that active workflows reference (grep of `.github/workflows/*.yml`, 2026-10-06): `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CF_KV_NAMESPACE_ID`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`; `prod-e2e.yml` (manual) also reads `SUPABASE_SERVICE_ROLE_KEY`
+- Since WS4 the site build/deploy reads NO service-role or YouTube key: `SUPABASE_SERVICE_KEY` and `YOUTUBE_API_KEY` are runtime-only and live as Cloudflare Worker secrets (`wrangler secret`); the GitHub copies are used only by the collectors (service key)
+- WS4 secrets (created by Omar; absent until then — the jobs skip with a notice): `DB_POOLER_URL`, `BACKUP_AGE_KEY`, `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, repo variable `BACKUP_AGE_RECIPIENT`, `GH_DISPATCH_TOKEN`, optional `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID`; Vault secrets `telegram_bot_token`/`telegram_chat_id` for the watchdog. Scopes: PR "WS4 Reliability" body
 - `ANTHROPIC_API_KEY` and `PERPLEXITY_API_KEY` are NOT needed by automation — no active workflow references either (grep-verified); only `.github/workflows-retired/*.yml` do. `RESEND_API_KEY` / `ADMIN_EMAIL` likewise appear only in the retired `daily_pipeline.yml`
 - **`ANTHROPIC_API_KEY` repo secret DELETED 2026-10-06** (operator order; verified by before/after `gh secret list`). `PERPLEXITY_API_KEY` was never a repo secret (404). Still open: revoke the key itself in the Anthropic console. Caveat: the `admin-agent` Edge Function reads its own `ANTHROPIC_API_KEY` Supabase function secret (admin chat only; returns 503 "AI not configured" without it) — revoking the key disables that feature unless it is repointed or removed. The `/api/generate-briefing` route (visitor-supplied key) was retired 2026-10-06; `/briefings/generate` is now a static notice
 - wrangler.jsonc: `services` binding `WORKER_SELF_REFERENCE` → `"service": "mena-intel-desk"` (NOT a vars string, NOT a pages.dev URL)

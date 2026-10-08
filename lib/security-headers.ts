@@ -20,7 +20,8 @@
  *   eval / new Function). It is added only for `next dev` (React Refresh).
  * - NAI map (maplibre-gl, components/nai/NaiMapClient.tsx) loads style, vector
  *   tiles and glyphs from demotiles.maplibre.org via fetch (connect-src) and
- *   spawns its worker from a blob: URL (worker-src blob:).
+ *   spawns its worker. Since maplibre-gl v6 the worker is a same-origin
+ *   /_next/static file (worker-src 'self'); blob: is kept, harmless.
  * - Media room embeds YouTube live players (frame-src youtube[-nocookie]);
  *   thumbnails (img.youtube.com, *.ytimg.com, *.staticflickr.com,
  *   t2.gstatic.com favicons) are covered by img-src https:.
