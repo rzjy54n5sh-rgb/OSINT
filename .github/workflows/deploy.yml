@@ -120,8 +120,54 @@ jobs:
           done
           echo "::error::Project ID $PROJECT_ID not in client bundle. Ensure 'Write Supabase env into client module' ran and built."
           exit 1
+      # A fresh random CACHE_PURGE_SECRET is uploaded WITH this deployment (--secrets-file: same
+      # version, no extra deploy; other secrets such as SUPABASE_SERVICE_KEY are kept). It
+      # authorises POST /api/internal/cache-purge below. Needs no extra token permission: the
+      # deploy token's "Workers Scripts: Edit" already covers secrets, and the purge itself runs
+      # inside the Worker (ctx.cache.purge), not through the Cloudflare API.
       - name: Deploy
-        run: npx wrangler deploy
+        run: |
+          umask 077
+          CACHE_PURGE_SECRET="$(openssl rand -hex 32)"
+          echo "::add-mask::$CACHE_PURGE_SECRET"
+          printf '{"CACHE_PURGE_SECRET":"%s"}' "$CACHE_PURGE_SECRET" > "$RUNNER_TEMP/deploy-secrets.json"
+          npx wrangler deploy --secrets-file "$RUNNER_TEMP/deploy-secrets.json"
+          rm -f "$RUNNER_TEMP/deploy-secrets.json"
+          echo "CACHE_PURGE_SECRET=$CACHE_PURGE_SECRET" >> "$GITHUB_ENV"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Incident 2026-10-08: 5 s after the new version went live, Workers Cache stored /warroom
+      # HTML rendered by the PREVIOUS version and kept serving it (s-maxage=1y) while that HTML's
+      # /_next/static chunks no longer existed. Wait for the rollout to settle, purge the
+      # Worker's cache (documented pattern: developers.cloudflare.com/workers/cache/cache-keys/
+      # #purge-everything-after-deploy), then prove every cached page points at live assets.
+      # On a mismatch: purge once more and re-check, then fail loudly.
+      - name: Purge Workers Cache and verify pages match the deployed assets
+        env:
+          SITE_URL: https://mena-intel-desk.mores-cohorts9x.workers.dev
+        run: |
+          purge() {
+            code=$(curl -sS -o purge.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer $CACHE_PURGE_SECRET" "$SITE_URL/api/internal/cache-purge" || echo 000)
+            echo "purge HTTP $code: $(cat purge.json 2>/dev/null)"; rm -f purge.json
+            [ "$code" = "200" ]
+          }
+          sleep 30
+          ok=0
+          for attempt in 1 2 3; do
+            if purge; then ok=1; break; fi
+            echo "purge attempt $attempt failed (new version may not be live everywhere yet); retrying in 20 s"
+            sleep 20
+          done
+          [ "$ok" = 1 ] || echo "::warning::Workers Cache purge failed; relying on per-version cache keys + revalidate caps"
+          sleep 5
+          if node scripts/check-deployed-assets.mjs "$SITE_URL"; then exit 0; fi
+          echo "::warning::Stale HTML found after purge; purging again"
+          sleep 30
+          purge || true
+          sleep 5
+          node scripts/check-deployed-assets.mjs "$SITE_URL" || {
+            echo "::error::Live pages reference /_next/static assets that this deployment does not serve (stale cached HTML). Re-run this workflow; see PR hotfix/stale-cache."
+            exit 1
+          }
