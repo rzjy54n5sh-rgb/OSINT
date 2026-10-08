@@ -4,7 +4,6 @@ import { decodeHtmlEntities } from '@/lib/html-entities';
 import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { AsciiHero } from '@/components/AsciiHero';
 import { OsintCard } from '@/components/OsintCard';
 import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
@@ -38,7 +37,7 @@ function briefingLeadToPlainText(lead: string | null | undefined): string {
 
 const QUICK_LINKS = [
   { href: '/feed', label: 'FEED', description: 'Live OSINT articles filtered by region, sentiment & source' },
-  { href: '/nai', label: 'NAI MAP', description: 'Narrative Alignment Index — 25 countries mapped & ranked' },
+  { href: '/nai', label: 'WAR POSTURE', description: 'War Posture — 25 countries, official and societal posture on one scale' },
   { href: '/countries', label: 'COUNTRIES', description: 'Per-country intelligence reports with elite network analysis' },
   { href: '/scenarios', label: 'SCENARIOS', description: 'Conflict scenario probability tracker across 10 days' },
   { href: '/disinfo', label: 'DISINFO', description: 'Active disinformation claims — verdict & spread estimate' },
@@ -46,7 +45,7 @@ const QUICK_LINKS = [
   { href: '/social', label: 'SOCIAL', description: 'Regional social media trend monitoring by platform' },
   { href: '/timeline', label: 'TIMELINE', description: 'Day-by-day conflict chronology from Day 1 to present' },
   { href: '/analytics', label: 'ANALYTICS', description: 'Mix-and-match chart builder across all data dimensions' },
-  { href: '/methodology', label: 'METHODOLOGY', description: 'How this platform works — NAI scoring, scenario framework, data sources, and neutrality principles' },
+  { href: '/methodology', label: 'METHODOLOGY', description: 'How this platform works — War Posture scoring, scenario framework, data sources, and neutrality principles' },
   { href: '/sources', label: 'SOURCES', description: 'Full registry of monitored feeds — tiers, languages, and party-source attribution' },
 ];
 
@@ -112,11 +111,10 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
 
   return (
     <div className="relative">
-      <AsciiHero
-        articleCount={articleCount}
-        conflictDay={conflictDay ?? null}
-        countriesTracked={20}
-      />
+      {/* The animated "SYSTEM BOOT" opener was removed (shop-window pass, 2026-10-08): real content
+          starts at the top. The page keeps one h1 for screen readers and search engines. */}
+      <h1 className="sr-only">MENA Intel Desk — live conflict and corridor risk dashboard</h1>
+      <div aria-hidden style={{ height: 24 }} />
 
       {children != null && (
         <div className="max-w-6xl mx-auto px-4 w-full">{children}</div>

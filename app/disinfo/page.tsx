@@ -1,8 +1,17 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import { createClient } from '@/utils/supabase/server';
 import { getUser } from '@/utils/supabase/server';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { DisinfoTrackerClient } from '@/components/disinfo/DisinfoTrackerClient';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Disinformation Tracker — MENA Intel Desk',
+  description:
+    'Claims already circulating publicly, logged with a verdict (false, misleading, true or unverified), the original source and the debunk link where one exists.',
+  path: '/disinfo',
+});
 
 function verdictToStatus(verdict: string | null | undefined): string {
   switch (verdict?.toUpperCase()) {

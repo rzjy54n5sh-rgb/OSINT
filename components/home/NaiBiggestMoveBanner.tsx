@@ -23,7 +23,7 @@ export async function NaiBiggestMoveBanner() {
         data-testid="nai-biggest-move"
         data-freshness="empty"
       >
-        ◆ NAI WAR POSTURE — {NAI_V2_EMPTY_TEXT}
+        ◆ WAR POSTURE — {NAI_V2_EMPTY_TEXT}
       </div>
     );
   }
@@ -35,7 +35,7 @@ export async function NaiBiggestMoveBanner() {
   const isToday = fresh.status === 'current';
   const staleNote = !isToday && (
     <div className="text-xs mt-1 uppercase" style={{ color: 'var(--accent-orange)' }} translate="no">
-      ⚠ NAI — Latest available: Day {naiDay} ({formatConflictDayShort(naiDay)}) — no data for Day {currentDay}
+      ⚠ WAR POSTURE — Latest available: Day {naiDay} ({formatConflictDayShort(naiDay)}) — no data for Day {currentDay}
     </div>
   );
 
@@ -47,7 +47,7 @@ export async function NaiBiggestMoveBanner() {
         data-testid="nai-biggest-move"
         data-freshness={fresh.status}
       >
-        ◆ NAI WAR POSTURE — DAY {naiDay}: {rows.length} countries scored; no earlier War Posture day to compare yet.
+        ◆ WAR POSTURE — DAY {naiDay}: {rows.length} countries scored; no earlier War Posture day to compare yet.
         {staleNote}
       </div>
     );

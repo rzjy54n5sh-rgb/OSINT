@@ -1,12 +1,14 @@
+import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import BriefingsClient, { type DayAvailability } from './BriefingsClient';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Daily Intelligence Briefings · MENA Intel Desk',
   description:
     'Every conflict-day briefing from Day 1: general, Horn of Africa, Egypt, UAE, eschatology and business briefs plus weekly digests, with per-paragraph source citations.',
-};
+  path: '/briefings',
+});
 
 const REPORT_ORDER = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'];
 const META_COLS = 'conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at, period_start_day, period_end_day';

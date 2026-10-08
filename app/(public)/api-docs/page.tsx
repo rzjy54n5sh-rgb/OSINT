@@ -1,10 +1,14 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import { getUser } from '@/utils/supabase/server';
 import { ApiDocsClient } from '@/components/api-docs/ApiDocsClient';
 
-export const metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'API Reference · MENA Intel Desk',
-  description: 'REST API documentation for NAI, scenarios, country reports, disinformation tracker, and disputes.',
-};
+  description:
+    'REST API documentation for War Posture, scenario probabilities, country reports, disinformation claims and disputes.',
+  path: '/api-docs',
+});
 
 export default async function ApiDocsPage() {
   const user = await getUser();

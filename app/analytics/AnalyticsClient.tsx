@@ -119,7 +119,7 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
         ) : locked ? (
           <div className="py-12 flex flex-wrap items-center gap-2 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
             <span>The latent band and gap are available on the Informed tier.</span>
-            <PaywallOverlay requiredTier="informed" featureName="NAI Latent Band" compact />
+            <PaywallOverlay requiredTier="informed" featureName="War Posture latent band" compact />
           </div>
         ) : data.length === 0 ? (
           <p className="redacted py-12">NO INTEL AVAILABLE</p>

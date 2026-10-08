@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import { getUser } from '@/utils/supabase/server';
 import { createClient } from '@/utils/supabase/server';
 import { currentConflictDay, formatConflictDayDate } from '@/lib/conflict-calendar';
@@ -5,11 +7,12 @@ import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { TimelineDayNav } from '@/components/timeline/TimelineDayNav';
 import { TimelineDayBlock, type TimelineArticle } from '@/components/timeline/TimelineDayBlock';
 
-export const metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Conflict Timeline · MENA Intel Desk',
   description:
     'Day-by-day chronology of the conflict from Day 1 — headline articles and scenario probabilities, with source links.',
-};
+  path: '/timeline',
+});
 
 type ArticleRow = {
   title: string;

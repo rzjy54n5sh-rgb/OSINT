@@ -75,7 +75,7 @@ function markerColor(r: NaiV2View): string {
 function NaiV2Legend() {
   return (
     <>
-      <strong style={{ color: 'var(--text-primary)' }}>Narrative Alignment Index (NAI) — War Posture</strong>:{' '}
+      <strong style={{ color: 'var(--text-primary)' }}>War Posture</strong>:{' '}
       whether a state&apos;s official war posture and its society&apos;s posture point the same way. Both are scored
       on one party-neutral scale: {NAI_V2_SCALE_TEXT}.
       <br />• <strong>EXPRESSED (0–100)</strong>: the official narrative&apos;s position on continuing hostilities
@@ -207,7 +207,7 @@ export function NaiMapClient({
     <div>
       <PageBriefing
         title={t('naiMapHeading')}
-        description="War Posture NAI: each country's official narrative is scored 0–100 on one party-neutral question — the position on continuing hostilities (0 = demands immediate unconditional ceasefire, 50 = conditional or ambivalent, 100 = backs continuing or escalating military action, by any party). Society (population and non-government elites) is scored on the same scale as a band, or left empty when there is no evidence. The category shows whether government and society point the same way."
+        description="War Posture: each country's official narrative is scored 0–100 on one party-neutral question — the position on continuing hostilities (0 = demands immediate unconditional ceasefire, 50 = conditional or ambivalent, 100 = backs continuing or escalating military action, by any party). Society (population and non-government elites) is scored on the same scale as a band, or left empty when there is no evidence. The category shows whether government and society point the same way."
         note="Every score cites its sources. UNSCORABLE (grey category) means no single category can be assigned: either there is no admissible evidence for society's position, or the latent band spans more than one category. No category is guessed; the map then colours the country by its official posture. Days 1–35 used a retired, non-comparable method and are only available under the archived toggle."
       />
       <div className="px-4 max-w-6xl mx-auto w-full">
@@ -268,11 +268,11 @@ export function NaiMapClient({
         >
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <h2 className="font-display text-lg inline-flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              NAI · WAR POSTURE
+              WAR POSTURE
             </h2>
-            <PageShareCard label={`NAI WAR POSTURE · DAY ${conflictDay ?? '—'}`} summary={shareSummary} />
+            <PageShareCard label={`WAR POSTURE · DAY ${conflictDay ?? '—'}`} summary={shareSummary} />
             <GlossaryTooltip term="NAI" definition={<NaiV2Legend />}>
-              <span className="font-mono text-sm cursor-help" style={{ color: 'var(--accent-gold)' }} aria-label="NAI definition">
+              <span className="font-mono text-sm cursor-help" style={{ color: 'var(--accent-gold)' }} aria-label="War Posture definition">
                 ⓘ
               </span>
             </GlossaryTooltip>
@@ -348,7 +348,7 @@ export function NaiMapClient({
                   ) : (
                     <span className="inline-flex items-center gap-1">
                       <span className="blur-sm select-none" aria-hidden="true">—</span>
-                      <PaywallOverlay requiredTier="informed" featureName="NAI Latent Band" compact />
+                      <PaywallOverlay requiredTier="informed" featureName="War Posture latent band" compact />
                     </span>
                   )}
                   {hasGapAccess ? (
@@ -356,7 +356,7 @@ export function NaiMapClient({
                   ) : (
                     <span className="inline-flex items-center gap-1">
                       <span className="blur-sm select-none" aria-hidden="true">—</span>
-                      <PaywallOverlay requiredTier="informed" featureName="NAI Gap Analysis" compact />
+                      <PaywallOverlay requiredTier="informed" featureName="War Posture gap analysis" compact />
                     </span>
                   )}
                   <span translate="no">CONF {r.confidence.toUpperCase()}</span>

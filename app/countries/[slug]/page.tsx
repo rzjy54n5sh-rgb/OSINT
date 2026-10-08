@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
@@ -47,11 +48,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const code = codeForSlug(typeof slug === 'string' ? slug : '');
   const name = TRACKED_COUNTRY_NAMES[code];
-  if (!name) return { title: 'Country not tracked — MENA Intel Desk' };
-  return {
+  if (!name) return { title: 'Country not tracked — MENA Intel Desk', robots: { index: false, follow: true } };
+  return pageMetadata({
     title: `${name} — War Posture & Country Report — MENA Intel Desk`,
     description: `${name}: latest War Posture (official and societal posture on one party-neutral scale) with cited sources, and the daily country report.`,
-  };
+    path: `/countries/${slug}`,
+  });
 }
 
 export default async function CountryReportPage({

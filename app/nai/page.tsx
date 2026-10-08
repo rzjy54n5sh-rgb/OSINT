@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
@@ -7,11 +8,12 @@ import { NaiViewer } from '@/components/nai/NaiViewer';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
 
-export const metadata: Metadata = {
-  title: 'War Posture Map (NAI) — MENA Intel Desk',
+export const metadata: Metadata = pageMetadata({
+  title: 'War Posture Map — MENA Intel Desk',
   description:
     "Each tracked state's official war posture and its society's posture on one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), with sources.",
-};
+  path: '/nai',
+});
 
 /**
  * ISR: War Posture rows are written at most once a day. This HTML is shared by the edge cache,
@@ -60,7 +62,7 @@ export default async function NaiMapPage() {
         conflictDayBadge={
           <>
             <ConflictDayBadge />
-            <DataAsOf section="NAI WAR POSTURE" latestDay={latestDay} currentDay={currentDay} className="mt-2" />
+            <DataAsOf section="WAR POSTURE" latestDay={latestDay} currentDay={currentDay} className="mt-2" />
           </>
         }
       />
