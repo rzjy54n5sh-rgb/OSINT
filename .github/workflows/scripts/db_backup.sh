@@ -59,8 +59,10 @@ cmd_dump() {
   mkdir -p "$out"
   local work stamp server_num client_major
   work="$(mktemp -d)"
+  # EXIT, not RETURN: die() exits, and a RETURN trap never runs on exit, which left the plaintext
+  # dumps/tar in $work after any failure. One command per invocation, so EXIT is safe.
   # shellcheck disable=SC2064  # expand now: the trap must remove this run's dir
-  trap "rm -rf '$work'" RETURN
+  trap "rm -rf '$work'" EXIT
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
   local recips="$work/recipients.txt" name="mena-db-$stamp.tar"
   printf '%s\n' "$BACKUP_AGE_RECIPIENT" | grep -E '^age1[0-9a-z]+$' > "$recips" \
@@ -78,7 +80,9 @@ cmd_dump() {
   coproc SNAP { psql "$DB_URL" -X -q -At -v ON_ERROR_STOP=1 2>&1; }
   local snap counts
   # statement_timeout 0: a role/pooler default (e.g. 2 min) must not cut the row counts short.
-  printf 'SET statement_timeout = 0;\nBEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSELECT pg_export_snapshot();\n' >&"${SNAP[1]}"
+  # idle_in_transaction_session_timeout 0: this session sits idle-in-transaction while pg_dump runs;
+  # a role default would kill it and the next pg_dump fails with 'snapshot ... does not exist'.
+  printf 'SET statement_timeout = 0;\nSET idle_in_transaction_session_timeout = 0;\nBEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;\nSELECT pg_export_snapshot();\n' >&"${SNAP[1]}"
   IFS= read -r -t 60 snap <&"${SNAP[0]}" || die "could not export a snapshot"
   [[ "$snap" =~ ^[0-9A-F-]+$ ]] || die "unexpected snapshot id from the server: $snap"
   { count_sql | tr '\n' ' '; printf '\n'; } >&"${SNAP[1]}"
@@ -187,14 +191,16 @@ cmd_upload() {
   name="$(basename "$file")"
   month="$(sed -E 's/^mena-db-([0-9]{4})([0-9]{2}).*/\1-\2/' <<<"$name")"
   size="$(stat -c %s "$file")"
-  s3 s3 cp --only-show-errors "$file" "s3://$R2_BUCKET/daily/$name"
+  # .sha256 first: fetch-latest picks the newest .tar.age, so a run that dies between the two
+  # uploads must not leave a tarball without its checksum (the drill would fail on it).
   s3 s3 cp --only-show-errors "$file.sha256" "s3://$R2_BUCKET/daily/$name.sha256"
+  s3 s3 cp --only-show-errors "$file" "s3://$R2_BUCKET/daily/$name"
   remote="$(s3 s3api head-object --bucket "$R2_BUCKET" --key "daily/$name" --query ContentLength --output text)"
   [ "$remote" = "$size" ] || die "uploaded size $remote != local $size"
   log "uploaded daily/$name ($size bytes, verified)"
   if [ -z "$(list_keys "monthly/$month/" | grep -E '\.tar\.age$' || true)" ]; then
-    s3 s3 cp --only-show-errors "$file" "s3://$R2_BUCKET/monthly/$month/$name"
     s3 s3 cp --only-show-errors "$file.sha256" "s3://$R2_BUCKET/monthly/$month/$name.sha256"
+    s3 s3 cp --only-show-errors "$file" "s3://$R2_BUCKET/monthly/$month/$name"
     log "first backup of $month: also stored as monthly/$month/$name"
   fi
   prune daily/ "${KEEP_DAILY:-30}"
@@ -260,8 +266,9 @@ cmd_restore_verify() {
   [ -n "${BACKUP_AGE_KEY:-}" ] || die "BACKUP_AGE_KEY is not set"
   local work errs=0 rc
   work="$(mktemp -d)"
+  # EXIT (see cmd_dump): the decrypted dumps must not survive a failed drill.
   # shellcheck disable=SC2064
-  trap "rm -rf '$work'" RETURN
+  trap "rm -rf '$work'" EXIT
   printf '%s\n' "$BACKUP_AGE_KEY" > "$work/key.txt"
   age --decrypt --identity "$work/key.txt" --output "$work/b.tar" "$file" || die "decrypt failed (wrong BACKUP_AGE_KEY?)"
   rm -f "$work/key.txt"

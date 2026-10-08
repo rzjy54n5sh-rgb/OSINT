@@ -12,7 +12,7 @@ on:
 jobs:
   # Fallback gate (WS4): this workflow is dispatched on time by the Cloudflare scheduler Worker
   # (workers/scheduler). The GitHub schedule above stays as a fallback; a late scheduled run is
-  # skipped when a dispatched run already covered the last 50 minutes.
+  # skipped when a dispatched run already covered the last 65 minutes (> the hourly dispatch interval).
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -28,11 +28,12 @@ jobs:
       - id: gate
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash .github/workflows/scripts/schedule_gate.sh collect-articles.yml 50
+        run: bash .github/workflows/scripts/schedule_gate.sh collect-articles.yml 65
 
   collect:
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    # Fail open like the gate script: only an explicit run=false skips (a failed gate job does not).
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:

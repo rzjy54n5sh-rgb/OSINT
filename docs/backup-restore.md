@@ -60,6 +60,7 @@ pg_restore --dbname="$NEW" --no-owner --schema=public public.dump          # sch
 ```
 
 Then check row counts against `manifest.json` (`row_counts`).
+Then re-create the trigger `on_auth_user_created` ON `auth.users` (definition: `supabase/migrations/001_users.sql`, hardened function in `20260321120000_harden_handle_new_auth_user.sql`): it is attached to an auth table, so neither the data-only auth restore nor `public.dump` brings it back, and without it new sign-ups get no `public.users` row (the weekly drill shows this as one `pg_restore` error, not a failure).
 Then re-create the Vault secrets, the pg_cron jobs (`deduplicate-market-data`, `job-watchdog`) and the Edge Function secrets, and repoint `NEXT_PUBLIC_SUPABASE_URL`, the keys and the Worker secrets.
 The dump does not contain extension-schema objects (`extensions`, `cron`, `vault`) or Storage objects.
 

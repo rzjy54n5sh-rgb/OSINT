@@ -9,15 +9,20 @@
 #
 # Writes run=true|false to $GITHUB_OUTPUT:
 #   - any event other than `schedule` (dispatch from the Worker, manual run)  -> run=true
-#   - `schedule` and a workflow_dispatch run of the same workflow was created inside the window
-#     and is queued/in progress or succeeded                                     -> run=false
+#   - `schedule` and a workflow_dispatch run of the same workflow ON THE SAME BRANCH was created
+#     inside the window, is not a dry run, and is queued/in progress or succeeded -> run=false
+#     (a manual dry run, or a dispatch on a test branch, must never suppress the real run)
 #   - otherwise, or if the GitHub API cannot be read (fail open)                -> run=true
-# Needs: GH_TOKEN (github.token with actions: read), GITHUB_REPOSITORY, GITHUB_EVENT_NAME.
+# Needs: GH_TOKEN (github.token with actions: read), GITHUB_REPOSITORY, GITHUB_EVENT_NAME,
+#        GITHUB_REF_NAME (the scheduled run's branch = the default branch).
+# Window: use MORE than the dispatch interval (35 for */30, 65 for hourly), otherwise a late
+# scheduled run that lands just before the next dispatch finds nothing and duplicates it.
 set -uo pipefail
 
 wf="${1:?workflow file}"
 window="${2:?window minutes or utc-day}"
 out="${GITHUB_OUTPUT:-/dev/stdout}"
+branch="${GITHUB_REF_NAME:-main}"
 
 if [ "${GITHUB_EVENT_NAME:-}" != "schedule" ]; then
   echo "run=true" >> "$out"
@@ -32,7 +37,10 @@ fi
 
 if ! n="$(gh api -X GET "repos/${GITHUB_REPOSITORY}/actions/workflows/${wf}/runs" \
       -f event=workflow_dispatch -f created=">=${since}" -f per_page=20 \
-      --jq '[.workflow_runs[] | select(.status != "completed" or .conclusion == "success")] | length')"; then
+      -f branch="${branch}" \
+      --jq '[.workflow_runs[] | select(.head_branch == "'"${branch}"'")
+             | select((.display_title // "") | test("\\(dry run\\)") | not)
+             | select(.status != "completed" or .conclusion == "success")] | length')"; then
   echo "::warning::schedule gate: could not list runs of ${wf}; running the fallback anyway"
   echo "run=true" >> "$out"
   exit 0

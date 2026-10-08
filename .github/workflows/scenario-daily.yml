@@ -4,6 +4,8 @@
 # Never writes scenario_probabilities (derived by the registry's sync trigger).
 # Runs at 05:20 UTC, before the 06:51 Cairo Claude daily-build task.
 name: Scenario Daily (market-anchored-v1)
+# The run title marks dry runs, so schedule_gate.sh never counts a dry run as today's real run.
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'Scenario Daily (dry run)' || 'Scenario Daily (market-anchored-v1)' }}
 
 on:
   schedule:
@@ -45,7 +47,8 @@ jobs:
 
   scenario:
     needs: gate
-    if: needs.gate.outputs.run == 'true'
+    # Fail open like the gate script: only an explicit run=false skips (a failed gate job does not).
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

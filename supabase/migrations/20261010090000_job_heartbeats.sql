@@ -37,8 +37,11 @@ CREATE INDEX IF NOT EXISTS job_heartbeats_job_ran_at_idx ON public.job_heartbeat
 -- RLS on; explicit grants are the second gate (default privileges no longer auto-grant, 20261008090000 §8).
 ALTER TABLE public.job_heartbeats ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE public.job_heartbeats FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON SEQUENCE public.job_heartbeats_id_seq FROM PUBLIC, anon, authenticated;
+-- service_role too: Supabase's default privileges for postgres in public still GRANT ALL on new
+-- tables to service_role (20261008090000 §8 only removed anon/authenticated), and service_role has
+-- BYPASSRLS, so without this it could UPDATE/DELETE/TRUNCATE the "append-only" log.
+REVOKE ALL ON TABLE public.job_heartbeats FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON SEQUENCE public.job_heartbeats_id_seq FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT ON TABLE public.job_heartbeats TO service_role;
 GRANT USAGE ON SEQUENCE public.job_heartbeats_id_seq TO service_role;
 
