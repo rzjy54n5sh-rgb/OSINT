@@ -35,7 +35,9 @@ export function EmailCapture({
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error' | 'duplicate'>('idle');
 
-  const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  // 254 = the longest deliverable address (RFC 5321 path limit); the DB CHECK rejects > 320 with a
+  // generic error that a retry can never fix, so stop it here.
+  const isValidEmail = (v: string) => v.trim().length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
   const submit = async () => {
     if (!isValidEmail(email)) return;
@@ -80,6 +82,7 @@ export function EmailCapture({
         type="email"
         name="email"
         autoComplete="email"
+        maxLength={254}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && submit()}

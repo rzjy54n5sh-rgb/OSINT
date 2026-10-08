@@ -36,6 +36,15 @@ function xmlSafe(s: string): string {
   return s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, '');
 }
 
+/**
+ * RSS 2.0 <description> is entity-encoded HTML: readers decode it once and render the result as HTML.
+ * Plain text must therefore be HTML-escaped before it is XML-escaped, or a decoded `<img onerror=...>`
+ * in a lead would reach the reader as live markup.
+ */
+function htmlEscape(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function plainText(html: string | null | undefined): string {
   if (!html) return '';
   return decodeHtmlEntities(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -59,7 +68,7 @@ export async function GET(): Promise<Response> {
         `      <guid isPermaLink="true">${xmlEscape(link)}</guid>`,
         pubDate ? `      <pubDate>${pubDate}</pubDate>` : '',
         `      <category>${xmlEscape(b.report_type)}</category>`,
-        `      <description>${xmlEscape(xmlSafe(description))}</description>`,
+        `      <description>${xmlEscape(htmlEscape(xmlSafe(description)))}</description>`,
         '    </item>',
       ]
         .filter(Boolean)

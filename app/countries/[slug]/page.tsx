@@ -52,7 +52,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return pageMetadata({
     title: `${name} — War Posture & Country Report — MENA Intel Desk`,
     description: `${name}: latest War Posture (official and societal posture on one party-neutral scale) with cited sources, and the daily country report.`,
-    path: `/countries/${slug}`,
+    // Canonical is the lowercase ISO code (the form the sitemap lists): /countries/iran, /countries/IR and
+    // /countries/irxyz (codeForSlug falls back to the first two letters) all point at /countries/ir.
+    path: `/countries/${code.toLowerCase()}`,
   });
 }
 
