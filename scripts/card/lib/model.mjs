@@ -31,6 +31,11 @@ export const isHttpUrl = (u) => typeof u === 'string' && /^https?:\/\/[^\s/$.?#]
 export const LANES = ['suez', 'bam_redsea', 'hormuz'];
 export const STATUSES = ['NORMAL', 'ELEVATED', 'DISRUPTED', 'CLOSED'];
 
+// weekly_spec v1 §3.1: baselines are FIXED and published (mean daily n_total 1 Jan-31 Oct 2023 x 7,
+// re-computed from the PortWatch API 2026-10-08: 515.42 / 522.10 / 669.38). A file that carries a
+// different baseline cannot pass the index check by being self-consistent.
+export const BASELINE_WEEK = { suez: 515.4, bam_redsea: 522.1, hormuz: 669.4 };
+
 /** weekly_spec v1 section 3.2. Traffic alone never yields CLOSED. */
 export function trafficBand(indexPct) {
   if (indexPct >= 90) return 'NORMAL';
@@ -41,8 +46,11 @@ export function trafficBand(indexPct) {
 export function chokepointView(cp) {
   const lanes = LANES.map((id) => (cp?.lanes || []).find((l) => l.lane === id)).filter(Boolean);
   const weeks = [...new Set(lanes.map((l) => `${l.week_start}|${l.week_end}`))];
+  const laneAsOf = lanes.map((l) => l.as_of).filter((x) => typeof x === 'string' && !Number.isNaN(Date.parse(x)))
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
   return {
-    asOf: cp?.as_of,
+    // Printed "as of" = the OLDEST lane as_of (gated); the file-level as_of is not gated and is ignored.
+    asOf: laneAsOf[0] || null,
     sourceName: cp?.source_name,
     sourceCredit: cp?.source_credit,
     sourceHome: cp?.source_home || null,
@@ -66,6 +74,9 @@ export function chokepointView(cp) {
       asOf: l.as_of,
       sourceUrl: l.source_url,
       override: l.analyst_override || null,
+      statusBand: l.status_band || null,
+      statusDriver: l.status_driver || null,
+      statusSourceUrl: l.status_source_url || null,
     })),
   };
 }
@@ -147,7 +158,22 @@ export function oddsView(registry, daily) {
 //    otherwise the subsection heading (also desk-written and covered by the same source).
 // Nothing is paraphrased or generated here.
 // ---------------------------------------------------------------------------------------------
-export const AVOID_OUTLETS = [/lloyd'?s list/i, /\blli\b/i, /straits\.live/i, /windward/i, /drewry/i];
+// Licence AVOID list (licence_check.md rows 5, 6, 11a, 13). Matched against source names AND URLs AND
+// the line's own text/heading: a wire story that quotes an LLI or Windward figure is still LLI/Windward data.
+export const AVOID_OUTLETS = [
+  /lloyd[\s'\u2018\u2019\u02bc`]*s[\s.-]*list/i, /lloydslist/i, /\blli\b/i,
+  /straits[\s.-]*live/i, /windward/i, /drewry/i,
+];
+export const isAvoid = (s) => AVOID_OUTLETS.some((re) => re.test(String(s || '')));
+// Party / state outlets (CLAUDE.md "Party sources", DECISION-002 Tier 3, Horn ruling). Backstop for a
+// brief source that lacks party_source: true. Al Jazeera is conditional and left to the flag.
+export const PARTY_OUTLETS = [
+  /\birna\b/i, /irna\.ir/i, /tasnim/i, /\bfars\b/i, /farsnews/i, /press\s?tv/i, /presstv/i, /\bmehr\b/i, /mehrnews/i,
+  /\birib\b/i, /kayhan/i, /al[\s-]?mayadeen/i, /al[\s-]?manar/i, /\btass\b/i, /tass\.(com|ru)/i, /xinhua/i, /\bwam\b/i, /wam\.ae/i,
+  /\bspa\b/i, /spa\.gov\.sa/i, /the\s+national\b/i, /thenationalnews/i, /al[\s-]?ahram/i, /ahram\.org/i, /\bfana\b/i, /fanabc/i,
+  /\bsonna\b/i, /sonna\.so/i, /\bsaba\b/i, /sabanew/i, /\bsana\b/i, /sana\.sy/i, /\brt\.com\b/i, /sputnik/i, /cgtn/i, /global\s?times/i,
+];
+export const isPartyOutlet = (x) => !!x && (x.party_source === true || PARTY_OUTLETS.some((re) => re.test(`${x.name || ''} ${x.url || ''}`)));
 export const MAX_LINE = 160;
 const NEGATIVE = /\b(could not be sourced|could be sourced|no sourced|not confirmed)\b/i;
 const ABBREV = /\b(?:Mr|Mrs|Ms|Dr|St|Gen|Lt|Col|Maj|Capt|Sgt|Adm|Rep|Sen|Gov|No|Jr|Sr|Inc|Ltd|Co|U\.S|U\.K|U\.N|e\.g|i\.e|vs|approx)\.$/i;
@@ -166,8 +192,10 @@ export function firstSentence(text) {
 
 function dayDiff(isoDate, day) {
   if (!isoDate || !Number.isFinite(day)) return NaN;
-  const t = Date.parse(String(isoDate).slice(0, 10) + 'T00:00:00Z');
-  if (Number.isNaN(t)) return NaN;
+  const s = String(isoDate);
+  const full = s.length > 10 ? new Date(s) : new Date(s.slice(0, 10) + 'T00:00:00Z');
+  if (Number.isNaN(full.getTime())) return NaN;
+  const t = Date.UTC(full.getUTCFullYear(), full.getUTCMonth(), full.getUTCDate()); // UTC calendar date
   return Math.round((dateOfDay(day).getTime() - t) / MS_DAY);
 }
 
@@ -181,20 +209,23 @@ export function selectChanges(brief, { max = 3, sectionsKey = 'sections' } = {})
       for (const p of ss.paragraphs || []) {
         const srcs = (p.sources || []).filter((x) => x && x.name && isHttpUrl(x.url));
         if (!srcs.length) continue;
-        if ((p.sources || []).some((x) => AVOID_OUTLETS.some((re) => re.test(`${x?.name || ''} ${x?.url || ''}`)))) continue;
+        if ((p.sources || []).some((x) => isAvoid(`${x?.name || ''} ${x?.url || ''}`))) continue;
         const fresh = srcs.filter((x) => { const dd = dayDiff(x.published_at, brief.conflict_day); return dd >= 0 && dd <= 2; });
         if (!fresh.length) continue;
         if (NEGATIVE.test(p.text || '')) continue;
         const sentence = firstSentence(p.text);
         const useSentence = sentence.length <= MAX_LINE;
-        const src = fresh.find((x) => !x.party_source) || fresh[0];
+        const line = useSentence ? sentence : String(ss.heading || '');
+        if (line.trim().length < 12) continue; // no usable desk-written line
+        if (isAvoid(p.text) || isAvoid(ss.heading)) continue; // licence-forbidden figure quoted through another outlet
+        const src = fresh.find((x) => !isPartyOutlet(x)) || fresh[0];
         out.push({
-          text: useSentence ? sentence : ss.heading,
+          text: line,
           from: useSentence ? 'first-sentence' : 'heading',
           outlet: src.name,
           url: src.url,
           publishedAt: src.published_at,
-          partySource: !!src.party_source,
+          partySource: isPartyOutlet(src),
           section: s.id,
           subsection: ss.id,
         });

@@ -30,6 +30,7 @@ const weekday = (date, lang = 'en') => new Intl.DateTimeFormat(lang === 'ar' ? '
 const arDate = (iso, { year = false } = {}) => new Intl.DateTimeFormat('ar-u-nu-latn', { timeZone: 'UTC', day: 'numeric', month: 'long', ...(year ? { year: 'numeric' } : {}) })
   .format(new Date(String(iso).length === 10 ? iso + 'T00:00:00Z' : iso));
 const dateFor = (lang) => (lang === 'ar' ? arDate : fmtDate);
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
 
 function fontFaces(fontDir) {
   const f = (family, file, weight) => `@font-face{font-family:'${family}';src:url('${fontDir}/${file}') format('woff2');font-weight:${weight};font-style:normal;font-display:block}`;
@@ -231,7 +232,10 @@ export function renderHtml(m) {
   const cpAsOf = fd(cp.asOf, { year: false });
   const cpChip = cp.commonWeek ? S.week(fd(cp.commonWeek.start), fd(cp.commonWeek.end)) : '';
   const overrides = cp.lanes.filter((l) => l.override).map((l) => `${S.override} (${l.name}): ${l.override}.`).join(' ');
-  const cpSrc = `${cp.sourceCredit} · ${S.asOf(cpAsOf)}. ${S.cpNote}${overrides ? ' ' + overrides : ''}`;
+  // weekly_spec §3: say which band set the status. A security-band status is not a PortWatch figure.
+  const secStatus = cp.lanes.filter((l) => l.statusBand === 'security').map((l) => S.securityStatus(l.name, l.statusDriver, hostOf(l.statusSourceUrl))).join(' ');
+  const cpExtra = [secStatus, overrides].filter(Boolean).join(' ');
+  const cpSrc = `${cp.sourceCredit} · ${S.asOf(cpAsOf)}. ${S.cpNote}${cpExtra ? ' ' + cpExtra : ''}`;
   const odds = m.odds;
   const oddsAsOf = `Day ${odds.day}`;
   const oddsSrc = S.oddsSource(odds.venues.join(', '), odds.method, odds.day, odds.recordedAt ? hhmm(odds.recordedAt) : '');
@@ -241,7 +245,7 @@ export function renderHtml(m) {
 
   const cpBlock = `<section class="blk" id="b-cp">${blockHead(S, S.chokepoints, cpChip, m.stale.chokepoints ? cpAsOf : null)}
     <div class="${m.stale.chokepoints ? 'stale' : ''}">${P ? chokepointTiles(S, cp) : chokepointRows(S, cp)}</div>
-    ${P ? `<div class="src">${esc(cpSrc)}</div>` : `<div class="src">${esc(`${cp.sourceCredit} · ${S.asOf(cpAsOf)}. ${S.cpNoteShort}`)}</div>`}
+    ${P ? `<div class="src">${esc(cpSrc)}</div>` : `<div class="src">${esc(`${cp.sourceCredit} · ${S.asOf(cpAsOf)}. ${secStatus || S.cpNoteShort}`)}</div>`}
   </section>`;
   const chBlock = `<section class="blk" id="b-ch">${blockHead(S, S.whatChanged, briefSrc, m.stale.brief ? `Day ${m.brief?.conflict_day}` : null)}
     <div class="${m.stale.brief ? 'stale' : ''}">${changesList(S, m.changes, fd)}</div>

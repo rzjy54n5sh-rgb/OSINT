@@ -9,8 +9,8 @@
 # Publishing is OFF until secrets exist (both steps are skipped otherwise):
 #   R2:       R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
 #   Telegram: TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID
-# Honesty line: repository variable CARD_REVIEWED=true prints "AI-assisted, analyst-reviewed";
-# otherwise the card says "Automated edition".
+# Honesty line: "AI-assisted, analyst-reviewed" only when repository variables CARD_REVIEWED=true AND
+# CARD_REVIEWED_FOR=<today's UTC date, YYYY-MM-DD>; a stale date falls back to "Automated edition".
 name: Daily Card
 
 on:
@@ -36,7 +36,8 @@ permissions:
 
 jobs:
   card:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moves to 26.04 in Nov 2026; Google Chrome is verified on the 24.04 image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       HAS_R2: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_BUCKET != '' }}
@@ -73,6 +74,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CARD_REVIEWED: ${{ vars.CARD_REVIEWED || 'false' }}
+          CARD_REVIEWED_FOR: ${{ vars.CARD_REVIEWED_FOR || '' }}
           CARD_CHROME_CHANNEL: chrome
           ALLOW_STALE: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_stale && 'true' || 'false' }}
         run: |

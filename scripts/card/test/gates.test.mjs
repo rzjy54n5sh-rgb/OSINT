@@ -5,14 +5,14 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runGates } from '../lib/gates.mjs';
-import { frechetB, oddsView, selectChanges, firstSentence, conflictDay, trafficBand } from '../lib/model.mjs';
+import { frechetB, oddsView, selectChanges, firstSentence, conflictDay, trafficBand, isAvoid, isPartyOutlet } from '../lib/model.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const load = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const clone = (x) => structuredClone(x);
 const FIX = load(join(HERE, 'fixtures', 'day223.json'));
 const CP = load(join(HERE, '..', '..', '..', 'data', 'chokepoints', 'latest.json'));
-const NOW = new Date('2026-10-08T04:30:00Z'); // Day 223
+const NOW = new Date('2026-10-08T12:30:00Z'); // Day 223, after the chokepoint file's as_of (10:52 UTC)
 
 function gates(over = {}, opts = {}) {
   const d = { chokepoints: clone(CP), registry: clone(FIX.registry), daily: clone(FIX.daily), brief: clone(FIX.brief), ...over };
@@ -127,4 +127,73 @@ test('licence AVOID outlets (Straits.live, Lloyd\'s List) never feed a line', ()
 test('first sentence keeps abbreviations intact', () => {
   assert.equal(firstSentence('The U.S. Navy said it saw it. Then more.'), 'The U.S. Navy said it saw it.');
   assert.equal(firstSentence('Maj. Gen. Turki al-Maliki spoke. Next.'), 'Maj. Gen. Turki al-Maliki spoke.');
+});
+
+// ---- Verifier (PR #25) regressions ------------------------------------------------------------
+const briefWith = (p, heading = 'A desk-written subsection heading') => {
+  const b = clone(FIX.brief);
+  b.sections = [{ id: 'x', type: 'analysis', heading: 'X', subsections: [{ id: 's', heading, paragraphs: [p] }] }];
+  return b;
+};
+const src = (name, url, extra = {}) => ({ name, url, published_at: '2026-10-07', party_source: false, ...extra });
+
+test('AVOID list catches curly apostrophes, LLI / Straits.live domains and figures quoted through another outlet', () => {
+  for (const s of ['Lloyd’s List Intelligence', 'https://www.lloydslistintelligence.com/x', 'https://www.lloydslist.com/LL1/x', 'Straits Live', 'https://straitslive.com/x', 'Windward AI']) assert.ok(isAvoid(s), s);
+  assert.ok(!isAvoid('Lloyd Austin said') && !isAvoid('Reuters'));
+  const cases = [
+    { text: 'Only 19 vessels transited Hormuz this week, the lowest since March.', sources: [src('Lloyd’s List Intelligence', 'https://www.lloydslistintelligence.com/x')] },
+    { text: "Lloyd's List Intelligence counted 280 transits through Bab al-Mandeb last week.", sources: [src('Al Jazeera', 'https://www.aljazeera.com/x')] },
+    { text: 'Windward data showed 12 tankers going dark near Hormuz on Tuesday.', sources: [src('Reuters', 'https://www.reuters.com/x')] },
+  ];
+  for (const p of cases) assert.equal(selectChanges(briefWith(p)).length, 0, p.text);
+  assert.ok(gates({ changes: [{ text: 'Straits.live says premiums are up thirty-fold.', outlet: 'Reuters', url: 'https://www.reuters.com/x' }] }).errors.some((e) => /AVOID/.test(e)));
+});
+
+test('party/state outlets are labelled even when the brief forgot party_source', () => {
+  assert.ok(isPartyOutlet({ name: 'IRNA' }) && isPartyOutlet({ name: 'The National' }) && isPartyOutlet({ name: 'x', url: 'https://tass.com/a' }));
+  assert.ok(!isPartyOutlet({ name: 'Al Jazeera' }) && !isPartyOutlet({ name: 'Reuters' }));
+  const ch = selectChanges(briefWith({ text: 'Iran said its navy seized a foreign tanker smuggling fuel in the Gulf.', sources: [src('IRNA', 'https://en.irna.ir/news/1')] }));
+  assert.equal(ch[0].partySource, true);
+});
+
+test('chokepoint data week must be recent and shared by all lanes; baselines frozen; lanes unique; as_of not in the future', () => {
+  const cp = clone(CP); Object.assign(cp.lanes[2], { week_start: '2026-06-01', week_end: '2026-06-07' });
+  const e = gates({ chokepoints: cp }).errors;
+  assert.ok(e.some((x) => /different weeks/.test(x)) && e.some((x) => /STALE chokepoints: hormuz data week ends 2026-06-07/.test(x)));
+  const cp2 = clone(CP); for (const l of cp2.lanes) Object.assign(l, { week_start: '2026-06-01', week_end: '2026-06-07' });
+  assert.ok(gates({ chokepoints: cp2 }).errors.some((x) => /data week ends/.test(x)));
+  assert.equal(gates({ chokepoints: cp2 }, { allowStale: true }).stale.chokepoints, true);
+  const cp3 = clone(CP); Object.assign(cp3.lanes[2], { baseline_week: 20, index_pct_of_2023: 95, status: 'NORMAL' });
+  assert.ok(gates({ chokepoints: cp3 }).errors.some((x) => /frozen weekly_spec baseline/.test(x)));
+  const cp4 = clone(CP); cp4.lanes.push(clone(CP.lanes[0]));
+  assert.ok(gates({ chokepoints: cp4 }).errors.some((x) => /more than once/.test(x)));
+  assert.ok(gates({}, { now: new Date('2026-10-08T04:30:00Z') }).errors.some((x) => /is in the future/.test(x)));
+});
+
+test('a security-band status must print its driver and carry a USE-tier source URL', () => {
+  const cp = clone(CP); Object.assign(cp.lanes[2], { status: 'CLOSED', status_band: 'security', status_driver: 'IRGC says the strait is closed' });
+  assert.ok(gates({ chokepoints: cp }).errors.some((x) => /status_source_url/.test(x)));
+  cp.lanes[2].status_source_url = 'https://www.ukmto.org/indian-ocean/warnings/0412';
+  assert.equal(gates({ chokepoints: cp }).ok, true);
+  const cp2 = clone(CP); cp2.lanes[0].status_band = 'vibes';
+  assert.ok(gates({ chokepoints: cp2 }).errors.some((x) => /status_band must be/.test(x)));
+});
+
+test('E is gated like A-D whenever it carries a number', () => {
+  const daily = clone(FIX.daily); const e = daily.find((r) => r.scenario_id === idOf('E'));
+  Object.assign(e, { probability_raw: 37, probability: 37, null_reason: null, inputs: [] });
+  assert.ok(gates({ daily }).errors.some((x) => /scenarios\.E: printed value has no used market input/.test(x)));
+  e.probability_raw = 'abc';
+  assert.ok(gates({ daily }).errors.some((x) => /scenarios\.E: probability abc malformed/.test(x)));
+  assert.equal(gates().ok, true, 'E unmeasured (null) still passes');
+});
+
+test('only a "full" General brief feeds the card', () => {
+  const brief = clone(FIX.brief); brief.quality = 'retrospective';
+  assert.ok(gates({ brief }).errors.some((x) => /quality "retrospective"/.test(x)));
+});
+
+test('source dates are compared as UTC calendar dates', () => {
+  const ch = selectChanges(briefWith({ text: 'Iran fired missiles at Israel on Tuesday night.', sources: [src('AP', 'https://apnews.com/x', { published_at: '2026-10-08T22:30:00-05:00' })] }));
+  assert.equal(ch.length, 0, '03:30 UTC on 9 Oct is after the Day 223 brief');
 });

@@ -110,7 +110,13 @@ async function main() {
 
   const cp = chokepointView(chokepoints);
   const odds = oddsView(data.registry, data.daily);
-  const reviewed = truthy(process.env.CARD_REVIEWED);
+  // The reviewed line is a per-day claim. A standing flag (a repository variable left at "true") would
+  // stamp every later automated card "analyst-reviewed", so it must name the UTC date it was given for.
+  const todayIso = now.toISOString().slice(0, 10);
+  const reviewed = truthy(process.env.CARD_REVIEWED) && process.env.CARD_REVIEWED_FOR === todayIso;
+  if (truthy(process.env.CARD_REVIEWED) && !reviewed) {
+    console.log(`card: note: CARD_REVIEWED is set but CARD_REVIEWED_FOR (${process.env.CARD_REVIEWED_FOR || 'unset'}) is not ${todayIso}; printing "Automated edition"`);
+  }
   const siteUrl = process.env.CARD_SITE_URL || DEFAULT_SITE;
   const fontDir = pathToFileURL(join(HERE, 'node_modules', '@fontsource')).href;
   const today = conflictDay(now);
@@ -118,8 +124,9 @@ async function main() {
   mkdirSync(outDir, { recursive: true });
 
   const watermark = arPreview ? 'ARABIC DRAFT · NOT REVIEWED · NOT FOR PUBLICATION' : null;
-  const base = { lang, today, now, cp, odds, changes, brief: data.brief, stale: gate.stale, reviewed, siteUrl, fontDir, watermark };
+  const base = { lang, today, now, cp, odds, brief: data.brief, stale: gate.stale, reviewed, siteUrl, fontDir, watermark };
   const files = [];
+  let shown = changes; // may shrink if three long lines do not fit the portrait card
   let browser;
   try {
     if (!args['html-only']) {
@@ -131,20 +138,32 @@ async function main() {
     }
     for (const layout of ['portrait', 'landscape']) {
       const { width, height } = SIZES[layout];
-      const html = renderHtml({ ...base, layout });
       const stem = `card-${lang}-${width}x${height}${arPreview ? '-PREVIEW' : ''}`;
       const htmlPath = join(outDir, `${stem}.html`);
-      writeFileSync(htmlPath, html);
-      if (!browser) { files.push(htmlPath); continue; }
-      const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-      page.setDefaultTimeout(60000);
-      await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'load' });
-      await page.evaluate(() => document.fonts.ready);
-      const problems = await page.evaluate(checkLayout);
-      if (problems.length) {
+      let page;
+      for (;;) {
+        writeFileSync(htmlPath, renderHtml({ ...base, changes: shown, layout }));
+        if (!browser) break;
+        page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, javaScriptEnabled: false });
+        page.setDefaultTimeout(60000);
+        // The page is local and static: nothing may be fetched from the network.
+        await page.route(/^(?!file:|data:)/i, (route) => route.abort());
+        await page.goto(pathToFileURL(htmlPath).href, { waitUntil: 'load' });
+        await page.evaluate(() => document.fonts.ready);
+        const problems = await page.evaluate(checkLayout);
+        if (!problems.length) break;
+        if (layout === 'portrait' && shown.length > 1) {
+          // Three maximum-length lines do not fit; drop the last-ranked line rather than publish no card.
+          gate.notes.push(`layout: change ${shown.length} ("${shown.at(-1).text.slice(0, 50)}") dropped, it did not fit the portrait card`);
+          console.log(`card: note: ${gate.notes.at(-1)}`);
+          shown = shown.slice(0, -1);
+          await page.close();
+          continue;
+        }
         await page.screenshot({ path: join(outDir, `${stem}.REFUSED.png`) });
         fail(3, `card: REFUSED ${stem}: layout overflow:\n` + problems.map((p) => `  - ${p}`).join('\n'));
       }
+      if (!browser) { files.push(htmlPath); continue; }
       const png = join(outDir, `${stem}.png`);
       try {
         await page.screenshot({ path: png, type: 'png', animations: 'disabled' });
@@ -163,23 +182,28 @@ async function main() {
   const lanesAlt = cp.lanes.map((l) => `${l.name} ${l.status.toLowerCase()}, ${l.index.toFixed(1)} percent of 2023 traffic, ${l.transits} transits in the week ${fmtDate(l.weekStart)} to ${fmtDate(l.weekEnd)}`).join('; ');
   const oddsAlt = odds.rows.map((r) => r.kind === 'range' ? `${r.code} ${r.name} between ${r.lo.toFixed(1)} and ${r.hi.toFixed(1)} percent` : `${r.code} ${r.name} ${r.lo.toFixed(1)} percent`).join('; ');
   const alt = `MENA Intel Desk daily card, Day ${today}. Chokepoints (IMF PortWatch, as of ${fmtDate(cp.asOf)}): ${lanesAlt}. `
-    + `What changed (General brief Day ${data.brief?.conflict_day}): ${changes.length ? changes.map((c, i) => `${i + 1}. ${c.text} (${c.outlet})`).join(' ') : 'No sourced change today.'} `
+    + `What changed (General brief Day ${data.brief?.conflict_day}): ${shown.length ? shown.map((c, i) => `${i + 1}. ${c.text} (${c.outlet})`).join(' ') : 'No sourced change today.'} `
     + `Scenario odds to ${fmtDate(odds.horizonEnd)}, market-implied, Day ${odds.day}: ${oddsAlt}. ${reviewed ? 'AI-assisted, analyst-reviewed.' : 'Automated edition.'}`;
+  const staleMark = (b, asOf) => (gate.stale[b] ? ` [NOT UPDATED, as of ${asOf}]` : '');
   const caption = [
     `MENA Intel Desk · Day ${today} · ${reviewed ? 'AI-assisted, analyst-reviewed' : 'Automated edition'}`,
-    `Chokepoints: ${cp.lanes.map((l) => `${l.name} ${l.status.toLowerCase()} (${l.index.toFixed(1)}%)`).join(' · ')}. Transits: IMF PortWatch ${cp.sourceHome || cp.lanes[0]?.sourceUrl || ''}, week ${fmtDate(cp.lanes[0]?.weekStart)}–${fmtDate(cp.lanes[0]?.weekEnd)}`,
-    ...changes.map((c, i) => `${i + 1}. ${c.outlet}: ${c.url}`),
-    `Odds: ${odds.venues.join(', ')} via market-anchored-v1, Day ${odds.day}. Not our forecast.`,
+    `Chokepoints${staleMark('chokepoints', fmtDate(cp.asOf))}: ${cp.lanes.map((l) => `${l.name} ${l.status.toLowerCase()} (${l.index.toFixed(1)}%)`).join(' · ')}. Transits: IMF PortWatch ${cp.sourceHome || cp.lanes[0]?.sourceUrl || ''}, week ${fmtDate(cp.lanes[0]?.weekStart)}–${fmtDate(cp.lanes[0]?.weekEnd)}`,
+    ...(gate.stale.brief ? [`What changed${staleMark('brief', `Day ${data.brief?.conflict_day}`)}:`] : []),
+    ...shown.map((c, i) => `${i + 1}. ${c.outlet}: ${c.url}`),
+    `Odds${staleMark('scenarios', `Day ${odds.day}`)}: ${odds.venues.join(', ')} via market-anchored-v1, Day ${odds.day}. Not our forecast.`,
     `https://${siteUrl}`,
   ].join('\n');
   writeFileSync(join(outDir, `card-${lang}-alt.txt`), alt + '\n');
-  writeFileSync(join(outDir, `card-${lang}-caption.txt`), caption.slice(0, 1024) + '\n');
+  // Telegram caption limit is 1024; never cut a line (a half URL is a different URL): drop whole source lines.
+  let capLines = caption.split('\n');
+  while (capLines.join('\n').length > 1024 && capLines.length > 3) capLines.splice(capLines.length - 3, 1);
+  writeFileSync(join(outDir, `card-${lang}-caption.txt`), capLines.join('\n').slice(0, 1024) + '\n');
   writeFileSync(join(outDir, `card-${lang}-manifest.json`), JSON.stringify({
     rendered_at: now.toISOString(), conflict_day: today, lang, reviewed, stale: gate.stale, notes: gate.notes,
     blocks: {
       chokepoints: { as_of: cp.asOf, week: cp.commonWeek, source: cp.sourceCredit, urls: [...new Set(cp.lanes.map((l) => l.sourceUrl))] },
       scenarios: { conflict_day: odds.day, recorded_at: odds.recordedAt, method: odds.method, venues: odds.venues, ranges: odds.rows.map(({ code, lo, hi, kind }) => ({ code, lo, hi, kind })), source_urls: odds.sourceUrls },
-      brief: { conflict_day: data.brief?.conflict_day, generated_at: data.brief?.generated_at, changes },
+      brief: { conflict_day: data.brief?.conflict_day, generated_at: data.brief?.generated_at, changes: shown, selected: changes.length },
     },
     files: files.map((f) => f.replace(outDir + '/', '')),
   }, null, 2) + '\n');
