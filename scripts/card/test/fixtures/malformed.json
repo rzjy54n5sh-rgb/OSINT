@@ -1,0 +1,566 @@
+{
+ "_note": "DELIBERATELY MALFORMED fixture for the gate test: Hormuz source_url removed, Suez index 72.0 vs counts 58.6, scenario A = 121.5.",
+ "registry": [
+  {
+   "id": "e4e7c469-10d1-407f-ad0d-8d0c64451e84",
+   "code": "A",
+   "group_code": "core",
+   "name_en": "Managed Exit",
+   "name_ar": null,
+   "status": "active",
+   "display_order": 10
+  },
+  {
+   "id": "3453b78c-2790-45c3-84e8-a12788b56aef",
+   "code": "B",
+   "group_code": "core",
+   "name_en": "Prolonged War",
+   "name_ar": null,
+   "status": "active",
+   "display_order": 20
+  },
+  {
+   "id": "82f06d21-6769-4f9f-bd13-b9f135dbd2e2",
+   "code": "C",
+   "group_code": "core",
+   "name_en": "Cascade",
+   "name_ar": null,
+   "status": "active",
+   "display_order": 30
+  },
+  {
+   "id": "970802a1-0a8b-4079-ae37-1f57986d2560",
+   "code": "D",
+   "group_code": "core",
+   "name_en": "Escalation Spiral",
+   "name_ar": null,
+   "status": "active",
+   "display_order": 40
+  },
+  {
+   "id": "68af7b28-caaa-42ea-a049-ecea3efb991e",
+   "code": "E",
+   "group_code": "independent",
+   "name_en": "UAE Direct Strike",
+   "name_ar": null,
+   "status": "active",
+   "display_order": 50
+  }
+ ],
+ "daily": [
+  {
+   "scenario_id": "3453b78c-2790-45c3-84e8-a12788b56aef",
+   "conflict_day": 223,
+   "method_version": "market-anchored-v1",
+   "probability": 42,
+   "probability_raw": 41.5,
+   "null_reason": null,
+   "horizon_end": "2026-10-31",
+   "recorded_at": "2026-10-08T12:06:30.821057+00:00",
+   "is_published": true,
+   "inputs": []
+  },
+  {
+   "scenario_id": "68af7b28-caaa-42ea-a049-ecea3efb991e",
+   "conflict_day": 223,
+   "method_version": "market-anchored-v1",
+   "probability": null,
+   "probability_raw": null,
+   "null_reason": "No E proxy passes the quality floor (method 1.5 E / 1.9): 'Will Iran target the United Arab Emirates by October 31, 2026?' fails spread 0.06; volume 2515<10000; observed mid is display-only.",
+   "horizon_end": "2026-10-31",
+   "recorded_at": "2026-10-08T12:06:30.821057+00:00",
+   "is_published": true,
+   "inputs": [
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/will-iran-target-united-arab-emirates-byptptpt-20260907",
+     "used": false,
+     "question": "Will Iran target the United Arab Emirates by October 31, 2026?",
+     "yes_bid": 0.21,
+     "yes_ask": 0.27,
+     "probability": 0.24,
+     "scenario_class": "E"
+    }
+   ]
+  },
+  {
+   "scenario_id": "82f06d21-6769-4f9f-bd13-b9f135dbd2e2",
+   "conflict_day": 223,
+   "method_version": "market-anchored-v1",
+   "probability": 5,
+   "probability_raw": 5.5,
+   "null_reason": null,
+   "horizon_end": "2026-10-31",
+   "recorded_at": "2026-10-08T12:06:30.821057+00:00",
+   "is_published": true,
+   "inputs": [
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/bab-el-mandeb-strait-effectively-closed-by",
+     "used": true,
+     "question": "Bab el-Mandeb Strait effectively closed by October 31?",
+     "yes_bid": 0.05,
+     "yes_ask": 0.06,
+     "probability": 0.055,
+     "scenario_class": "C"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/strait-of-hormuz-traffic-returns-to-normal-by-october-31-20260810151043583",
+     "used": true,
+     "question": "Strait of Hormuz traffic returns to normal by October 31?",
+     "yes_bid": 0.018,
+     "yes_ask": 0.019,
+     "probability": 0.0185,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Kalshi",
+     "url": "https://api.elections.kalshi.com/trade-api/v2/events/KXHORMUZNORM-26MAR17?with_nested_markets=true",
+     "used": true,
+     "question": "Will the 7-day moving average of transit calls through the Strait of Hormuz as reported by the IMF PortWatch be above 60 before November 1, 2026?",
+     "yes_bid": 0.02,
+     "yes_ask": 0.03,
+     "probability": 0.025,
+     "scenario_class": "A"
+    }
+   ]
+  },
+  {
+   "scenario_id": "970802a1-0a8b-4079-ae37-1f57986d2560",
+   "conflict_day": 223,
+   "method_version": "market-anchored-v1",
+   "probability": 32,
+   "probability_raw": 31.5,
+   "null_reason": null,
+   "horizon_end": "2026-10-31",
+   "recorded_at": "2026-10-08T12:06:30.821057+00:00",
+   "is_published": true,
+   "inputs": [
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/us-iran-ceasefire-continues-throughptptpt",
+     "used": true,
+     "question": "US x Iran ceasefire continues through October 31?",
+     "yes_bid": 0.68,
+     "yes_ask": 0.69,
+     "probability": 0.315,
+     "scenario_class": "D"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/israel-x-iran-ceasefire-continues-throughptptpt-20260716224448963",
+     "used": true,
+     "question": "Israel x Iran ceasefire continues through October 31?",
+     "yes_bid": 0.82,
+     "yes_ask": 0.83,
+     "probability": 0.175,
+     "scenario_class": "D"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/kharg-island-no-longer-under-iranian-control-by-march-31",
+     "used": true,
+     "question": "Kharg Island no longer under Iranian control by October 31?",
+     "yes_bid": 0.01,
+     "yes_ask": 0.011,
+     "probability": 0.0105,
+     "scenario_class": "D"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/saudi-arabia-military-action-against-iran-by-20260916",
+     "used": false,
+     "question": "Saudi Arabia military action against Iran by October 31, 2026?",
+     "yes_bid": 0.02,
+     "yes_ask": 0.049,
+     "probability": 0.0345,
+     "scenario_class": "D"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/will-the-us-invade-iran-before-2027",
+     "used": false,
+     "question": "Will the U.S. invade Iran before 2027?",
+     "yes_bid": 0.16,
+     "yes_ask": 0.17,
+     "probability": 0.165,
+     "scenario_class": "D"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/israel-ground-operation-in-iran-confirmed-by",
+     "used": false,
+     "question": "Will Israel launch a ground operation in Iran by December 31, 2026?",
+     "yes_bid": 0.07,
+     "yes_ask": 0.08,
+     "probability": 0.075,
+     "scenario_class": "D"
+    }
+   ]
+  },
+  {
+   "scenario_id": "e4e7c469-10d1-407f-ad0d-8d0c64451e84",
+   "conflict_day": 223,
+   "method_version": "market-anchored-v1",
+   "probability": 21,
+   "probability_raw": 121.5,
+   "null_reason": null,
+   "horizon_end": "2026-10-31",
+   "recorded_at": "2026-10-08T12:06:30.821057+00:00",
+   "is_published": true,
+   "inputs": [
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/us-announces-end-of-iranian-blockade-byptptpt-20260713152715080",
+     "used": true,
+     "question": "US announces end of Iranian blockade by October 31, 2026?",
+     "yes_bid": 0.21,
+     "yes_ask": 0.22,
+     "probability": 0.215,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/us-iran-hormuz-agreement-byptptpt-20260803235957575",
+     "used": true,
+     "question": "US-Iran Hormuz Agreement by October 31?",
+     "yes_bid": 0.15,
+     "yes_ask": 0.17,
+     "probability": 0.16,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/us-iran-final-nuclear-deal-by-20260621201254412",
+     "used": true,
+     "question": "US-Iran Final Nuclear Deal by October 31, 2026?",
+     "yes_bid": 0.026,
+     "yes_ask": 0.033,
+     "probability": 0.0295,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Kalshi",
+     "url": "https://api.elections.kalshi.com/trade-api/v2/events/KXUSAIRANAGREEMENT-27?with_nested_markets=true",
+     "used": true,
+     "question": "Will the US agree to a new Iranian nuclear deal this year?",
+     "yes_bid": 0.02,
+     "yes_ask": 0.04,
+     "probability": 0.03,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Polymarket",
+     "url": "https://polymarket.com/event/strait-of-hormuz-traffic-returns-to-normal-by-october-31-20260810151043583",
+     "used": true,
+     "question": "Strait of Hormuz traffic returns to normal by October 31?",
+     "yes_bid": 0.018,
+     "yes_ask": 0.019,
+     "probability": 0.0185,
+     "scenario_class": "A"
+    },
+    {
+     "venue": "Kalshi",
+     "url": "https://api.elections.kalshi.com/trade-api/v2/events/KXHORMUZNORM-26MAR17?with_nested_markets=true",
+     "used": true,
+     "question": "Will the 7-day moving average of transit calls through the Strait of Hormuz as reported by the IMF PortWatch be above 60 before November 1, 2026?",
+     "yes_bid": 0.02,
+     "yes_ask": 0.03,
+     "probability": 0.025,
+     "scenario_class": "A"
+    }
+   ]
+  }
+ ],
+ "brief": {
+  "conflict_day": 223,
+  "report_type": "general",
+  "title": "General Brief — Day 223",
+  "generated_at": "2026-10-08T04:06:17.841893+00:00",
+  "updated_at": "2026-10-08T04:06:17.841893+00:00",
+  "quality": "full",
+  "sections": [
+   {
+    "id": "theatre",
+    "type": "analysis",
+    "heading": "Theatre Overview",
+    "subsections": [
+     {
+      "id": "saudi-airports",
+      "heading": "Houthi-claimed strikes on two Saudi airports",
+      "paragraphs": [
+       {
+        "text": "Three civilians were killed and 36 injured in Houthi-claimed attacks on two airports in Saudi Arabia. The attack on Abha International Airport killed two female residents, a Moroccan and an Algerian, and injured 28 others. The attack on King Khalid International Airport in Riyadh killed a Sudanese citizen and injured eight residents. Abha International Airport and King Khalid International Airport in Riyadh were targeted in two separate attacks.",
+        "sources": [
+         {
+          "url": "https://www.aljazeera.com/news/2026/10/7/saudi-arabia-says-three-foreign-nationals-killed-in-attacks-on-airports",
+          "name": "Al Jazeera",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "neutral"
+       },
+       {
+        "text": "The spokesperson for the Saudi-led coalition, Major-General Turki al-Maliki, said forces intercepted a ballistic missile.",
+        "sources": [
+         {
+          "url": "https://www.aljazeera.com/news/2026/10/7/saudi-arabia-says-three-foreign-nationals-killed-in-attacks-on-airports",
+          "name": "Al Jazeera",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "gulf"
+       },
+       {
+        "text": "The Gulf Cooperation Council secretary-general, Jassim Mohammed al-Budaiwi, described the attacks on Abha and King Khalid airports as \"systematic crimes\" targeting civilians. He said that \"endangering the lives of travellers, workers and civilians\" is \"a dangerous escalation and a flagrant violation of international laws and norms\".",
+        "sources": [
+         {
+          "url": "https://www.middleeasteye.net/live-blog/live-blog-update/gcc-chief-condemns-houthi-attacks-saudi-airports",
+          "name": "Middle East Eye",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "gulf"
+       },
+       {
+        "text": "The Saudi-led coalition said it struck 82 Houthi military targets in Yemen in what it called a \"comprehensive operation\". Coalition spokesman Major-General Turki al-Maliki said in a statement posted on X that the targets included \"11 mountain-based ballistic missile storage sites in Saada\", along with \"command and control centres, communications systems, missile and weapons depots, and a gathering site\", across Saada, Hodeidah, al-Jawf and Marib. The claim is the coalition own account and is not independently confirmed in the report.",
+        "sources": [
+         {
+          "url": "https://www.middleeasteye.net/live-blog/live-blog-update/saudi-led-coalition-says-it-destroyed-82-houthi-military-targets-across",
+          "name": "Middle East Eye",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "gulf"
+       }
+      ]
+     },
+     {
+      "id": "tanker-qatar",
+      "heading": "Tanker struck north of Qatar",
+      "paragraphs": [
+       {
+        "text": "A tanker was struck by multiple projectiles in an incident 51 nautical miles north of Qatar's Madinat ash Shamal, the United Kingdom Maritime Trade Operations agency said on Wednesday, with casualties reported. The agency issued the incident as UKMTO Warning 158-26. No exact number of projectiles or casualties was given, and no party was identified as responsible.",
+        "sources": [
+         {
+          "url": "https://www.middleeasteye.net/live-blog/live-blog-update/ukmto-reports-casualties-projectiles-hit-tanker-qatar",
+          "name": "Middle East Eye",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "neutral"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "us-posture",
+    "type": "analysis",
+    "heading": "US Military Posture and the Election Calendar",
+    "subsections": [
+     {
+      "id": "centcom",
+      "heading": "Preparations to resume major combat operations",
+      "paragraphs": [
+       {
+        "text": "The Pentagon instructed US Central Command several days ago to conclude preparations for resuming major combat operations in Iran, according to US officials. If major combat operations resume, they are expected to include massive bombing of Iranian energy, infrastructure and nuclear targets. The directive did not include a specific date for launching strikes, and President Trump has not made any final decisions. A Pentagon official said: \"The Department's job is to develop and present military options to the President.\"",
+        "sources": [
+         {
+          "url": "https://www.axios.com/2026/10/07/trump-us-central-command-iran-israel-war-elections",
+          "name": "Axios",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "us_israel"
+       },
+       {
+        "text": "The report states it could happen before the US midterm elections and possibly the Israeli elections a week earlier, citing a source who said \"The chances of it happening before the elections is not high but we don't rule it out\" and that \"After the midterms the chances of it happening increase significantly\". A White House official said \"President Trump holds all the cards and will do whatever is best for the United States\". A second Israeli official said \"The discussion about possible resumption of major combat operations in Iran has increased\".",
+        "sources": [
+         {
+          "url": "https://www.axios.com/2026/10/07/trump-us-central-command-iran-israel-war-elections",
+          "name": "Axios",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "us_israel"
+       }
+      ]
+     },
+     {
+      "id": "iran-conditions",
+      "heading": "Iran's stated conditions",
+      "paragraphs": [
+       {
+        "text": "Iran's foreign ministry spokesperson, Esmaeil Baghaei, referred to \"Our considerations and conditions for ending the imposed war on all fronts\" and said \"The necessary response to the other side's proposals will also be delivered through mediators\".",
+        "sources": [
+         {
+          "url": "https://www.middleeasteye.net/live-blog/live-blog-update/iran-says-it-clearly-and-firmly-set-conditions-end-war",
+          "name": "Middle East Eye",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-08"
+         }
+        ],
+        "perspective": "iran_irgc"
+       },
+       {
+        "text": "On the other side of the same channel, Qatari mediators are still waiting for an Iranian reply to a US counterproposal that included nuclear concessions. Israeli officials characterised the Iranian leadership as \"desperate and paranoid, which might lead it to strike first\".",
+        "sources": [
+         {
+          "url": "https://www.axios.com/2026/10/07/trump-us-central-command-iran-israel-war-elections",
+          "name": "Axios",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "both"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "civilian-harm-iran",
+    "type": "analysis",
+    "heading": "Civilian Harm in Iran",
+    "subsections": [
+     {
+      "id": "harm-strikes",
+      "heading": "Strike casualties inside Iran",
+      "paragraphs": [
+       {
+        "text": "No casualty figure for civilians killed or injured by US or Israeli strikes inside Iran could be sourced for this reporting window. The only in-window report of activity at a struck Iranian site concerns the Pentagon directive naming Iranian energy, infrastructure and nuclear targets as expected objectives if major combat operations resume; it carries no casualty count.",
+        "sources": [
+         {
+          "url": "https://www.axios.com/2026/10/07/trump-us-central-command-iran-israel-war-elections",
+          "name": "Axios",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "neutral"
+       }
+      ]
+     },
+     {
+      "id": "harm-executions",
+      "heading": "Civilians harmed by the Iranian state",
+      "paragraphs": [
+       {
+        "text": "Alireza Sepahi, 25, and Alireza Raissi, 21, were hanged on the morning of 5 October at Isfahan's central prison. According to the judiciary's Mizan agency they were convicted of membership of an armed group and endangering national security, in a case concerning protests in Isfahan's Alikhani Square on 8 January in which authorities say four police officers were killed. Sepahi had been spared a public execution in July after a heart attack, and the night before his execution he married Mahshad Kashani, 22, in a telephone ceremony conducted by their lawyer.",
+        "sources": [
+         {
+          "url": "https://www.al-monitor.com/originals/2026/10/spared-married-hanged-last-weeks-iranian-protester-alireza-sepahi",
+          "name": "Al-Monitor",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "neutral"
+       },
+       {
+        "text": "Iran Human Rights, a Norway-based organisation, reported that Iran has executed 34 people over the protests, which peaked on 8 and 9 January. The US-based Abdorrahman Boroumand Center said the case had \"serious procedural flaws\", including disregard for defence evidence, and its co-founder Roya Boroumand said the marriage took place \"in absentia\". Mai Sato, the UN special rapporteur on human rights in Iran, said that for Sepahi's family \"the horror continued\" after the execution, as his body was taken to Kashan rather than returned for burial in Isfahan. Rights groups say the protests were crushed in a crackdown that killed thousands, accompanied by an internet blackout.",
+        "sources": [
+         {
+          "url": "https://www.al-monitor.com/originals/2026/10/spared-married-hanged-last-weeks-iranian-protester-alireza-sepahi",
+          "name": "Al-Monitor",
+          "tier": 2,
+          "party_source": false,
+          "published_at": "2026-10-07"
+         }
+        ],
+        "perspective": "neutral"
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "sections_ar": null
+ },
+ "chokepoints": {
+  "schema": "chokepoints/v1",
+  "issue": 1,
+  "issue_label": "Chokepoint Weekly #1",
+  "as_of": "2026-10-08T10:52:00Z",
+  "written_by": "Chokepoint Weekly routine (weekly). Values for Issue #1 from actionplan/corridor/issue1_sources.md S01, re-queried 2026-10-08 and unchanged.",
+  "method": "Status = traffic band of weekly_spec v1 section 3.2 (index >= 90% NORMAL, 50-90% ELEVATED, < 50% DISRUPTED; never CLOSED from traffic alone). Index = PortWatch n_total summed Mon-Sun / baseline week. Baseline week = mean daily n_total 1 Jan - 31 Oct 2023 x 7.",
+  "source_name": "IMF PortWatch",
+  "source_credit": "Transits: IMF PortWatch (UN Global Platform), AIS-based",
+  "licence": "USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.",
+  "lanes": [
+   {
+    "lane": "suez",
+    "name": "Suez Canal",
+    "name_ar": "قناة السويس",
+    "portwatch_portid": "chokepoint1",
+    "status": "ELEVATED",
+    "status_band": "traffic",
+    "status_driver": "Traffic 58.6% of 2023 baseline (50-90% band)",
+    "index_pct_of_2023": 72,
+    "transits_week": 302,
+    "transits_prev_week": 280,
+    "baseline_week": 515.4,
+    "week_start": "2026-09-28",
+    "week_end": "2026-10-04",
+    "as_of": "2026-10-08T10:52:00Z",
+    "source_url": "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0"
+   },
+   {
+    "lane": "bam_redsea",
+    "name": "Bab al-Mandeb",
+    "name_ar": "باب المندب",
+    "subname": "Red Sea",
+    "subname_ar": "البحر الأحمر",
+    "portwatch_portid": "chokepoint4",
+    "status": "DISRUPTED",
+    "status_band": "traffic",
+    "status_driver": "Traffic 39.6% of 2023 baseline (< 50% band)",
+    "index_pct_of_2023": 39.6,
+    "transits_week": 207,
+    "transits_prev_week": 190,
+    "baseline_week": 522.1,
+    "week_start": "2026-09-28",
+    "week_end": "2026-10-04",
+    "as_of": "2026-10-08T10:52:00Z",
+    "source_url": "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0"
+   },
+   {
+    "lane": "hormuz",
+    "name": "Strait of Hormuz",
+    "name_ar": "مضيق هرمز",
+    "portwatch_portid": "chokepoint6",
+    "status": "DISRUPTED",
+    "status_band": "traffic",
+    "status_driver": "Traffic 2.8% of 2023 baseline (< 50% band)",
+    "index_pct_of_2023": 2.8,
+    "transits_week": 19,
+    "transits_prev_week": 22,
+    "baseline_week": 669.4,
+    "week_start": "2026-09-28",
+    "week_end": "2026-10-04",
+    "as_of": "2026-10-08T10:52:00Z"
+   }
+  ],
+  "name_ar_note": "name_ar / subname_ar are DRAFT labels for the disabled Arabic card; native review pending."
+ }
+}

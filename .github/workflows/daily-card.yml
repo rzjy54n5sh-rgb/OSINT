@@ -1,0 +1,128 @@
+# Daily card (WS6): renders the shareable "Corridor risk, measured" card as PNG
+# (1080x1350 chat/feed, 1200x630 link preview) from PUBLIC data only:
+#   - Supabase PostgREST with the anon/publishable key (scenario registry + scenario_daily, General brief)
+#   - data/chokepoints/latest.json (written weekly from the Chokepoint Weekly; IMF PortWatch figures)
+# Deterministic: no model / AI API, writes nothing to the database.
+# Data-quality gates in scripts/card/lib/gates.mjs refuse to render on stale blocks, missing source URLs
+# or malformed scenario ranges (exit 2) and on layout overflow (exit 3). See scripts/card/README.md.
+#
+# Publishing is OFF until secrets exist (both steps are skipped otherwise):
+#   R2:       R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
+#   Telegram: TELEGRAM_BOT_TOKEN, TELEGRAM_CHANNEL_ID
+# Honesty line: repository variable CARD_REVIEWED=true prints "AI-assisted, analyst-reviewed";
+# otherwise the card says "Automated edition".
+name: Daily Card
+
+on:
+  schedule:
+    - cron: '30 4 * * *'
+  workflow_dispatch:
+    inputs:
+      allow_stale:
+        description: 'Render stale blocks greyed with their as-of date instead of refusing'
+        type: boolean
+        default: false
+      publish:
+        description: 'Also publish (only if R2 / Telegram secrets exist)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: daily-card
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HAS_R2: ${{ secrets.R2_ACCOUNT_ID != '' && secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_BUCKET != '' }}
+      HAS_TELEGRAM: ${{ secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_CHANNEL_ID != '' }}
+      WANT_PUBLISH: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+    defaults:
+      run:
+        working-directory: scripts/card
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/card
+            data/chokepoints
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: scripts/card/package-lock.json
+
+      # Separate minimal package (playwright-core + IBM Plex fonts): the root app's deps are not installed.
+      # playwright-core downloads no browser; the runner's preinstalled Google Chrome is used.
+      - name: Install card dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Gate unit tests
+        run: npm test
+
+      - name: Render card
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          CARD_REVIEWED: ${{ vars.CARD_REVIEWED || 'false' }}
+          CARD_CHROME_CHANNEL: chrome
+          ALLOW_STALE: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_stale && 'true' || 'false' }}
+        run: |
+          ARGS=(--out out)
+          if [ "$ALLOW_STALE" = "true" ]; then ARGS+=(--allow-stale); fi
+          node render-card.mjs "${ARGS[@]}"
+
+      - name: Upload card artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: daily-card-${{ github.run_id }}-${{ github.run_attempt }}
+          path: scripts/card/out/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Publish to Cloudflare R2
+        if: success() && env.HAS_R2 == 'true' && env.WANT_PUBLISH == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          DATE=$(date -u +%F)
+          for f in out/card-en-1080x1350.png out/card-en-1200x630.png out/card-en-alt.txt out/card-en-manifest.json; do
+            aws s3 cp "$f" "s3://${R2_BUCKET}/daily/${DATE}/$(basename "$f")" --endpoint-url "$ENDPOINT" --only-show-errors
+            aws s3 cp "$f" "s3://${R2_BUCKET}/latest/$(basename "$f")" --endpoint-url "$ENDPOINT" --only-show-errors \
+              --cache-control "public, max-age=300"
+          done
+          echo "Published to R2 bucket daily/${DATE}/ and latest/"
+
+      - name: Publish to Telegram channel
+        if: success() && env.HAS_TELEGRAM == 'true' && env.WANT_PUBLISH == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        run: |
+          set -euo pipefail
+          HTTP=$(curl -sS -o tg.json -w '%{http_code}' \
+            -F "chat_id=${TELEGRAM_CHANNEL_ID}" \
+            -F "photo=@out/card-en-1080x1350.png" \
+            -F "caption=<out/card-en-caption.txt" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto")
+          if [ "$HTTP" != "200" ]; then echo "::error::Telegram sendPhoto HTTP $HTTP"; head -c 300 tg.json; exit 1; fi
+          echo "Posted to Telegram"
+
+      - name: Publishing skipped (no secrets)
+        if: success() && (env.HAS_R2 != 'true' && env.HAS_TELEGRAM != 'true')
+        run: echo "::notice::Card rendered and uploaded as a workflow artifact. R2 / Telegram publishing skipped (secrets not set)."
