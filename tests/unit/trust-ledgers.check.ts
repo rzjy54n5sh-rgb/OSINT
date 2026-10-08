@@ -129,6 +129,25 @@ async function html(el: Promise<React.ReactElement> | React.ReactElement) {
   out = await html(TrackRecordPage());
   assert.match(out, /Hash chain check FAILED at entry 2 \(row_hash_mismatch\)/);
 
+  // 5b. annulling a miss / re-dating a resolution must not make the forecast vanish from the page
+  fakeFetch((u) => {
+    if (u.pathname === '/rest/v1/forecast_ledger')
+      return { status: 200, body: [f(1, 'QA', 'desk', 0.95, '2026-10-01T00:00:00Z'), f(2, 'QB', 'desk', 0.9, '2026-10-03T00:00:00Z')] };
+    if (u.pathname === '/rest/v1/forecast_resolutions')
+      return { status: 200, body: [
+        { id: 'a1', question_id: 'QA', status: 'resolved', outcome: false, resolved_at: '2026-10-05T00:00:00Z', resolution_source_url: 'https://x.test', notes: null, supersedes: null },
+        { id: 'a2', question_id: 'QA', status: 'annulled', outcome: null, resolved_at: '2026-10-06T00:00:00Z', resolution_source_url: 'https://x.test', notes: null, supersedes: 'a1' },
+        { id: 'b1', question_id: 'QB', status: 'resolved', outcome: false, resolved_at: '2026-10-02T00:00:00Z', resolution_source_url: 'https://x.test', notes: null, supersedes: null },
+      ] };
+    if (u.pathname === '/rest/v1/rpc/verify_forecast_chain') return { status: 200, body: null };
+    return null;
+  });
+  out = await html(TrackRecordPage());
+  assert.match(out, /FORECASTS NOT IN THE SCORE/);
+  assert.match(out, /not scored: question annulled/);
+  assert.match(out, /not scored: registered after the stated resolution time/);
+  assert.match(out, /1 resolution was later superseded/);
+
   // 6. /about prints no identity block while all identity fields are null
   out = await html(AboutPage());
   assert.doesNotMatch(out, /WHO IS RESPONSIBLE/);

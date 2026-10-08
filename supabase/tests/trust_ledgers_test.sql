@@ -169,7 +169,13 @@ SELECT tl_test.chk('resolve q1', 'ok',
 SELECT tl_test.chk('second resolution without supersedes rejected', 'rejected',
   $q$INSERT INTO public.forecast_resolutions (question_id, outcome, resolved_at, resolution_source_url)
      VALUES ('TEST-q1', true, now(), 'https://example.test/r2')$q$);
-SELECT tl_test.chk('superseding resolution accepted', 'ok',
+SELECT tl_test.chk('superseding resolution WITHOUT a correction blocked', 'blocked',
+  $q$INSERT INTO public.forecast_resolutions (question_id, outcome, resolved_at, resolution_source_url, supersedes)
+     SELECT 'TEST-q1', true, now(), 'https://example.test/r2', id FROM public.forecast_resolutions WHERE question_id = 'TEST-q1'$q$);
+SELECT tl_test.chk('correction for the re-resolution', 'ok',
+  $q$INSERT INTO public.corrections (target_table, target_id, correction_class, summary)
+     SELECT 'forecast_resolutions', id::text, 'material', 'TEST re-resolution' FROM public.forecast_resolutions WHERE question_id = 'TEST-q1'$q$, true);
+SELECT tl_test.chk('superseding resolution with a published correction accepted', 'ok',
   $q$INSERT INTO public.forecast_resolutions (question_id, outcome, resolved_at, resolution_source_url, supersedes)
      SELECT 'TEST-q1', true, now(), 'https://example.test/r2', id FROM public.forecast_resolutions WHERE question_id = 'TEST-q1'$q$);
 SELECT tl_test.chk('resolution of an unknown question rejected', 'rejected',
@@ -298,6 +304,15 @@ SELECT tl_test.chk('app.correction_id = garbage -> blocked (no cast error)', 'bl
   $q$SELECT tl_test.edit_with_setting('00000000-0000-0000-0000-00000000a001', 'not-a-uuid')$q$);
 SELECT tl_test.chk('app.correction_id = random uuid -> blocked', 'blocked',
   $q$SELECT tl_test.edit_with_setting('00000000-0000-0000-0000-00000000a001', gen_random_uuid()::text)$q$);
+SELECT tl_test.chk('moving an old brief to another day after 2h (re-points its URL)', 'blocked',
+  $q$UPDATE public.daily_briefings SET conflict_day = 9999 WHERE id = '00000000-0000-0000-0000-00000000a003'$q$);
+SELECT tl_test.chk('changing source_ids of an old brief after 2h', 'blocked',
+  $q$UPDATE public.daily_briefings SET source_ids = ARRAY['forged'] WHERE id = '00000000-0000-0000-0000-00000000a003'$q$);
+SELECT tl_test.chk('INSERT with generated_at in the future rejected', 'rejected',
+  $q$INSERT INTO public.daily_briefings (conflict_day, report_type, title, lead, sections, provenance, generated_at)
+     SELECT 9004, (SELECT code FROM public.report_types ORDER BY code LIMIT 1), 'TEST future', 'l', '[]', 'reconstructed', now() + interval '10 years'$q$);
+SELECT tl_test.chk('pushing generated_at into the future inside the window rejected', 'rejected',
+  $q$UPDATE public.daily_briefings SET generated_at = now() + interval '50 years' WHERE id = '00000000-0000-0000-0000-00000000a002'$q$);
 RESET ROLE;
 SELECT tl_test.chk('silent title edit after 2h (postgres)', 'blocked',
   $q$UPDATE public.daily_briefings SET title = 'TEST silent pg' WHERE id = '00000000-0000-0000-0000-00000000a001'$q$);
@@ -316,7 +331,7 @@ SELECT tl_test.chk('anon cannot read market_reads.raw', 'denied', $q$SELECT raw:
 SELECT tl_test.chk('anon cannot SELECT * market_reads (raw included)', 'denied', $q$SELECT count(*) FROM (SELECT * FROM public.market_reads) s$q$);
 SELECT tl_test.chk('anon cannot read operator_rulings', 'denied', $q$SELECT count(*) FROM public.operator_rulings$q$);
 SELECT tl_test.chk('anon sees published corrections only', 'ok=0', $q$SELECT count(*)::text FROM public.corrections WHERE NOT published$q$);
-SELECT tl_test.chk('anon sees the published corrections', 'ok=1', $q$SELECT count(*)::text FROM public.corrections$q$);
+SELECT tl_test.chk('anon sees the published corrections', 'ok=2', $q$SELECT count(*)::text FROM public.corrections$q$);
 SELECT tl_test.chk('anon runs verify_forecast_chain()', 'ok=<null>', $q$SELECT public.verify_forecast_chain()::text$q$);
 SELECT tl_test.chk('anon INSERT corrections', 'denied',
   $q$INSERT INTO public.corrections (target_table, target_id, correction_class, summary) VALUES ('daily_briefings', 'x', 'minor', 's')$q$);

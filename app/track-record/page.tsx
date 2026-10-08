@@ -92,6 +92,23 @@ export default async function TrackRecordPage() {
     const open = forecasts
       .filter((f) => !eff.has(f.question_id))
       .sort((a, b) => b.chain_seq - a.chain_seq);
+    // Every forecast on a closed question that is NOT in the score, with the reason — so annulling a miss or
+    // re-dating a resolution cannot make a forecast disappear from the page.
+    const scoredIds = new Set(scored.map((s) => `${s.forecaster}\u0000${s.questionId}\u0000${s.forecastAt}`));
+    const supersededCount = resolutions.filter((r) => r.supersedes).length;
+    const unscored = forecasts
+      .filter((f) => eff.has(f.question_id) && !scoredIds.has(`${f.forecaster}\u0000${f.question_id}\u0000${f.created_at}`))
+      .map((f) => {
+        const r = eff.get(f.question_id)!;
+        const reason =
+          r.status === 'annulled'
+            ? 'question annulled'
+            : Date.parse(f.created_at) > Date.parse(r.resolved_at)
+              ? `registered after the stated resolution time (${formatUtc(r.resolved_at)})`
+              : 'superseded by a later forecast from the same forecaster';
+        return { f, reason };
+      })
+      .sort((a, b) => b.f.chain_seq - a.f.chain_seq);
     body = (
       <>
         <ChainStatus chain={chain} />
@@ -144,6 +161,27 @@ export default async function TrackRecordPage() {
               })}
             </ol>
           </>
+        )}
+        {unscored.length > 0 && (
+          <>
+            <H2 id="unscored">FORECASTS NOT IN THE SCORE</H2>
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {unscored.map(({ f, reason }) => (
+                <li key={f.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
+                  <div style={{ color: 'var(--text-primary)' }}>{f.question_text}</div>
+                  <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                    {f.forecaster} said {pct(f.probability)} on {formatUtc(f.created_at)} · not scored: {reason}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+        {supersededCount > 0 && (
+          <P>
+            {supersededCount} resolution{supersededCount === 1 ? ' was' : 's were'} later superseded; each change is logged in the{' '}
+            <A href="/corrections">corrections log</A>.
+          </P>
         )}
         <H2 id="open">OPEN FORECASTS</H2>
         {open.length === 0 ? <P>No open forecasts right now.</P> : <OpenForecasts forecasts={open} />}

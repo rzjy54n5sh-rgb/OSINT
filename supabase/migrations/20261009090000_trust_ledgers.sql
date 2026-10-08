@@ -49,7 +49,8 @@ BEGIN
   IF (SELECT count(*) FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name = 'daily_briefings'
          AND column_name IN ('id', 'title', 'lead', 'sections', 'cover_stats', 'generated_at',
-                             'title_ar', 'lead_ar', 'sections_ar')) <> 9 THEN
+                             'title_ar', 'lead_ar', 'sections_ar', 'conflict_day', 'report_type',
+                             'country_code', 'source_ids', 'period_start_day', 'period_end_day')) <> 15 THEN
     RAISE EXCEPTION 'trust_ledgers preflight: daily_briefings content columns differ from the 2026-10-08 live schema';
   END IF;
 END $pre$;
@@ -164,6 +165,15 @@ DECLARE
   v_changed    boolean;
   v_correction text := NULLIF(btrim(current_setting('app.correction_id', true)), '');
 BEGIN
+  -- generated_at anchors the window: a future value would keep the window open for ever.
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW.generated_at > now() + interval '5 minutes' THEN
+    RAISE EXCEPTION 'daily_briefings: generated_at % is in the future — it anchors the no-silent-edit window', NEW.generated_at
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    RETURN NEW;
+  END IF;
+
   IF TG_OP = 'UPDATE' THEN
     v_changed :=
          NEW.title        IS DISTINCT FROM OLD.title
@@ -171,6 +181,13 @@ BEGIN
       OR NEW.sections     IS DISTINCT FROM OLD.sections
       OR NEW.cover_stats  IS DISTINCT FROM OLD.cover_stats
       OR NEW.generated_at IS DISTINCT FROM OLD.generated_at
+      -- identity + citations: moving a brief to another day/type re-points its public URL
+      OR NEW.conflict_day     IS DISTINCT FROM OLD.conflict_day
+      OR NEW.report_type      IS DISTINCT FROM OLD.report_type
+      OR NEW.country_code     IS DISTINCT FROM OLD.country_code
+      OR NEW.source_ids       IS DISTINCT FROM OLD.source_ids
+      OR NEW.period_start_day IS DISTINCT FROM OLD.period_start_day
+      OR NEW.period_end_day   IS DISTINCT FROM OLD.period_end_day
       OR (OLD.title_ar    IS NOT NULL AND NEW.title_ar    IS DISTINCT FROM OLD.title_ar)
       OR (OLD.lead_ar     IS NOT NULL AND NEW.lead_ar     IS DISTINCT FROM OLD.lead_ar)
       OR (OLD.sections_ar IS NOT NULL AND NEW.sections_ar IS DISTINCT FROM OLD.sections_ar);
@@ -196,14 +213,14 @@ BEGIN
   RAISE EXCEPTION 'No silent edits: daily_briefings % (day %, %) was generated at % — more than % ago — so this % must be logged as a correction.',
     OLD.id, OLD.conflict_day, OLD.report_type, OLD.generated_at, public.briefing_edit_window(), TG_OP
     USING ERRCODE = 'restrict_violation',
-          HINT = format('In ONE transaction: INSERT INTO public.corrections (target_table, target_id, conflict_day, report_type, correction_class, summary, before_excerpt, after_excerpt) VALUES (''daily_briefings'', %L, %s, %L, ''material|minor|clarification|reply'', ''what changed and why'', ''...'', ''...'') RETURNING id; then SET LOCAL app.correction_id = ''<that id>''; then repeat the %s. The correction must be published and less than 1 day old.',
+          HINT = format('In ONE transaction (one SQL call is enough): WITH c AS (INSERT INTO public.corrections (target_table, target_id, conflict_day, report_type, correction_class, summary, before_excerpt, after_excerpt) VALUES (''daily_briefings'', %L, %s, %L, ''material|minor|clarification|reply'', ''what changed and why'', ''...'', ''...'') RETURNING id) SELECT set_config(''app.correction_id'', id::text, true) FROM c; then repeat the %s. The correction must be published and less than 1 day old. Not possible through PostgREST: use SQL.',
                         OLD.id::text, OLD.conflict_day, OLD.report_type, TG_OP);
 END $fn$;
 COMMENT ON FUNCTION public.daily_briefings_no_silent_edit() IS
-  'BEFORE UPDATE OR DELETE on daily_briefings. After generated_at + briefing_edit_window(), a change to title/lead/sections/cover_stats/generated_at (or to an Arabic column that already has text), or a DELETE, raises unless current_setting(''app.correction_id'') names a published corrections row (< 1 day old) whose target_table = ''daily_briefings'' and target_id = the brief id.';
+  'BEFORE INSERT OR UPDATE OR DELETE on daily_briefings. generated_at may never be more than 5 minutes in the future. After generated_at + briefing_edit_window(), a change to title/lead/sections/cover_stats/generated_at/conflict_day/report_type/country_code/source_ids/period_start_day/period_end_day (or to an Arabic column that already has text), or a DELETE, raises unless current_setting(''app.correction_id'') names a published corrections row (< 1 day old) whose target_table = ''daily_briefings'' and target_id = the brief id.';
 
 DROP TRIGGER IF EXISTS daily_briefings_no_silent_edit ON public.daily_briefings;
-CREATE TRIGGER daily_briefings_no_silent_edit BEFORE UPDATE OR DELETE ON public.daily_briefings
+CREATE TRIGGER daily_briefings_no_silent_edit BEFORE INSERT OR UPDATE OR DELETE ON public.daily_briefings
   FOR EACH ROW EXECUTE FUNCTION public.daily_briefings_no_silent_edit();
 ALTER TABLE public.daily_briefings ENABLE ALWAYS TRIGGER daily_briefings_no_silent_edit;
 
@@ -351,6 +368,15 @@ BEGIN
        SELECT 1 FROM public.forecast_resolutions r WHERE r.id = NEW.supersedes AND r.question_id = NEW.question_id) THEN
     RAISE EXCEPTION 'forecast_resolutions: superseded row % is not a resolution of question %', NEW.supersedes, NEW.question_id
       USING ERRCODE = 'foreign_key_violation';
+  END IF;
+  -- Re-resolving (flip the outcome, annul a miss, move resolved_at) changes the published score: it must be
+  -- logged first, like an edit to a brief.
+  IF NEW.supersedes IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.corrections c
+        WHERE c.target_table = 'forecast_resolutions' AND c.target_id = NEW.supersedes::text
+          AND c.published AND c.created_at >= clock_timestamp() - interval '1 day') THEN
+    RAISE EXCEPTION 'forecast_resolutions: superseding resolution % needs a published corrections row (target_table = ''forecast_resolutions'', target_id = ''%'') created in the last day', NEW.supersedes, NEW.supersedes
+      USING ERRCODE = 'restrict_violation';
   END IF;
   RETURN NEW;
 END $fn$;

@@ -6,7 +6,8 @@
 # visible against this history. Commits go to `ledger-hashes` ONLY — never to main (pushes to main
 # deploy the site).
 #
-# Canonical export of a table = its rows as returned by PostgREST (service role, select=*), only rows
+# Canonical export of a table = its rows as returned by PostgREST (service role, select=*; corrections
+# without `published`, whose only allowed change is false -> true), only rows
 # with created_at before the run's snapshot time, ordered by created_at then id (forecast_ledger: by
 # chain_seq), each row as compact JSON with sorted keys (`jq -cS`), one per line; hash = sha256 of
 # that text. Anyone with read access can recompute the public tables' hashes the same way (the
@@ -56,33 +57,54 @@ jobs:
           hdr="$work/headers"; umask 077
           printf 'apikey: %s\nAuthorization: Bearer %s\nAccept: application/json\n' "$SUPABASE_SERVICE_KEY" "$SUPABASE_SERVICE_KEY" > "$hdr"
 
-          line="$snapshot"
-          present=0
-          for t in corrections forecast_ledger forecast_resolutions posture_evidence market_reads operator_rulings; do
-            order='created_at.asc,id.asc'; [ "$t" = forecast_ledger ] && order='chain_seq.asc'
-            out="$work/$t.jsonl"; : > "$out"
-            offset=0; missing=0
+          # Columns hashed per table. corrections leaves out `published`: its one permitted change
+          # (false -> true) must not look like a rewrite when an old prefix is re-hashed.
+          cols() { case "$1" in
+            corrections) echo 'id,created_at,target_table,target_id,conflict_day,report_type,correction_class,summary,before_excerpt,after_excerpt' ;;
+            *) echo '*' ;; esac; }
+          # hash_table <table> <snapshot> -> prints "<rows>:<sha256>" or "absent"; writes rows to $work/<table>.jsonl
+          hash_table() {
+            local t="$1" snap="$2" order='created_at.asc,id.asc' out="$work/$1.jsonl" offset=0 code n
+            [ "$t" = forecast_ledger ] && order='chain_seq.asc'
+            : > "$out"
             while :; do
               code=$(curl -sS -o "$work/page.json" -w '%{http_code}' -H @"$hdr" \
-                "$base/$t?select=*&created_at=lt.$snapshot&order=$order&limit=1000&offset=$offset") || code=000
-              if [ "$code" = 404 ] && grep -q '"PGRST205"' "$work/page.json"; then missing=1; break; fi
-              if [ "$code" != 200 ]; then
-                echo "::error title=Ledger hash::$t: HTTP $code from PostgREST"; exit 1
-              fi
+                "$base/$t?select=$(cols "$t")&created_at=lt.$snap&order=$order&limit=1000&offset=$offset") || code=000
+              if [ "$code" = 404 ] && grep -q '"PGRST205"' "$work/page.json"; then echo absent; return 0; fi
+              if [ "$code" != 200 ]; then echo "::error title=Ledger hash::$t: HTTP $code from PostgREST" >&2; return 1; fi
               n=$(jq 'length' "$work/page.json")
               jq -cS '.[]' "$work/page.json" >> "$out"
               [ "$n" -lt 1000 ] && break
               offset=$((offset + 1000))
             done
-            if [ "$missing" = 1 ]; then
-              line="$line $t=absent"; continue
-            fi
+            echo "$(wc -l < "$out" | tr -d ' '):$(sha256sum "$out" | cut -d' ' -f1)"
+          }
+
+          # Previous anchor (if any): every table's rows older than the previous snapshot must hash the same today.
+          prev=""
+          if git fetch -q --depth=1 origin ledger-hashes 2>/dev/null; then
+            prev="$(git show FETCH_HEAD:ledger-hashes.log 2>/dev/null | tail -n 1 || true)"
+          fi
+          prev_snap="${prev%% *}"
+
+          line="$snapshot"
+          present=0
+          alarm=""
+          for t in corrections forecast_ledger forecast_resolutions posture_evidence market_reads operator_rulings; do
+            h=$(hash_table "$t" "$snapshot") || exit 1
+            line="$line $t=$h"
+            [ "$h" = absent ] && continue
             present=$((present + 1))
-            rows=$(wc -l < "$out" | tr -d ' ')
-            sha=$(sha256sum "$out" | cut -d' ' -f1)
-            line="$line $t=$rows:$sha"
-            if [ "$t" = forecast_ledger ] && [ "$rows" -gt 0 ]; then
-              line="$line forecast_head=$(tail -n 1 "$out" | jq -r '.row_hash')"
+            if [ "$t" = forecast_ledger ] && [ "${h%%:*}" -gt 0 ]; then
+              line="$line forecast_head=$(tail -n 1 "$work/$t.jsonl" | jq -r '.row_hash')"
+            fi
+            was=$(printf '%s\n' "$prev" | tr ' ' '\n' | sed -n "s/^$t=//p")
+            if [ -n "$prev_snap" ] && [ -n "$was" ] && [ "$was" != absent ]; then
+              again=$(hash_table "$t" "$prev_snap") || exit 1
+              if [ "$again" != "$was" ]; then
+                alarm="$alarm $t"
+                echo "::error title=Ledger hash::$t: rows older than the previous anchor ($prev_snap) now hash to $again, anchored $was — history was rewritten"
+              fi
             fi
           done
 
@@ -96,13 +118,17 @@ jobs:
           if [ "$code" = 200 ]; then
             if [ "$(jq -c '.' "$work/chain.json")" = null ]; then chain=ok
             else chain="BROKEN@$(jq -r '.chain_seq' "$work/chain.json"):$(jq -r '.problem' "$work/chain.json")"
+              alarm="$alarm forecast_chain"
               echo "::error title=Ledger hash::forecast_ledger hash chain is broken: $(jq -c '.' "$work/chain.json")"
             fi
           else chain="unchecked(http-$code)"; fi
-          line="$line chain=$chain run=${GITHUB_RUN_ID}"
+          line="$line chain=$chain"
+          [ -n "$alarm" ] && line="$line ALARM=$(echo "${alarm# }" | tr ' ' ',')"
+          line="$line run=${GITHUB_RUN_ID}"
           rm -rf "$work"
           echo "$line"
           echo "line=$line" >> "$GITHUB_OUTPUT"
+          echo "alarm=$alarm" >> "$GITHUB_OUTPUT"
 
       - name: Commit to the ledger-hashes branch
         if: steps.hash.outputs.line != ''
@@ -132,3 +158,13 @@ jobs:
           git add ledger-hashes.log
           git commit -q -m "ledger hashes ${LINE%% *}"
           git push origin HEAD:refs/heads/ledger-hashes
+
+      # The anchor line is committed first (the alarm is part of the record); then the job fails so the
+      # repository owner is notified by GitHub.
+      - name: Fail on a broken chain or a rewritten ledger
+        if: steps.hash.outputs.alarm != ''
+        env:
+          ALARM: ${{ steps.hash.outputs.alarm }}
+        run: |
+          echo "::error title=Ledger hash::tamper alarm:${ALARM}"
+          exit 1
