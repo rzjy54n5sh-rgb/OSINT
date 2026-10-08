@@ -5,7 +5,7 @@
 import type React from 'react';
 
 export const GLOSSARY: Record<string, React.ReactNode> = {
-  NAI: 'Narrative Alignment Index (NAI), War Posture method: whether a state\'s official war posture and its society\'s posture point the same way, on one party-neutral scale (0 = immediate unconditional ceasefire, 50 = conditional or ambivalent, 100 = continue or escalate military action, by any party). Expressed = official position (0–100); Latent = population and non-government elites, as a band from admissible evidence only; Gap = Expressed minus the band midpoint.',
+  NAI: 'War Posture: whether a state\'s official war posture and its society\'s posture point the same way, on one party-neutral scale (0 = immediate unconditional ceasefire, 50 = conditional or ambivalent, 100 = continue or escalate military action, by any party). Expressed = official position (0–100); Latent = population and non-government elites, as a band from admissible evidence only; Gap = Expressed minus the band midpoint.',
   GAP: 'Expressed score minus the midpoint of the latent band (signed), on the War Posture scale. It shows how far the official posture sits from society\'s; the category is set from the whole band, not from the gap alone.',
   EXPRESSED: 'Expressed (0–100): the government\'s official position on continuing hostilities, from official statements and state communications. 0 = immediate unconditional ceasefire, 100 = continue or escalate.',
   LATENT: 'Latent (band): the population and non-government elites on the same 0–100 scale, as a low–high band from admissible evidence only (polls with pollster, field dates and sample size; protest reporting; opposition votes; independent elite commentary). Empty when there is no admissible evidence — never guessed.',
@@ -38,5 +38,5 @@ export const GLOSSARY: Record<string, React.ReactNode> = {
   SENTIMENT_POSITIVE: 'Keyword count: the headline and summary use more de-escalation words (ceasefire, talks, deal…) than violence or crisis words. Describes wording only — not the event, its accuracy or any party\'s position.',
   SENTIMENT_NEGATIVE: 'Keyword count: the headline and summary use more violence or crisis words (strike, missile, killed…) than de-escalation words. Describes wording only — not the event, its accuracy or any party\'s position.',
   SENTIMENT_NEUTRAL: 'Keyword count: violence/crisis words and de-escalation words are balanced or absent.',
-  CONFLICT_DAY: 'Days elapsed since the conflict began on February 28, 2026 (Day 1). Used to index all data — articles, NAI scores, scenario probabilities — for historical comparison.',
+  CONFLICT_DAY: 'Days elapsed since the conflict began on February 28, 2026 (Day 1). Used to index all data — articles, War Posture scores, scenario probabilities — for historical comparison.',
 };

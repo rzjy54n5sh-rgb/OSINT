@@ -1,6 +1,16 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import fs from 'fs';
 import path from 'path';
 import Link from 'next/link';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Stripe Setup (internal) — MENA Intel Desk',
+  description:
+    'Internal setup notes.',
+  path: '/docs/stripe-setup',
+  noindex: true,
+});
 
 export default function StripeSetupDocPage() {
   const filePath = path.join(process.cwd(), 'docs', 'stripe-setup.md');

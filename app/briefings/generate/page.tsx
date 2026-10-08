@@ -1,9 +1,19 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 
 // The manual briefing-generation API route was retired (2026-10-06): it wrote unsourced
 // model output into daily_briefings. This page remains only so old links land
 // on an explanation instead of a 404.
+export const metadata: Metadata = pageMetadata({
+  title: 'Briefing Generation Retired — MENA Intel Desk',
+  description:
+    'Manual briefing generation is retired; briefings are produced by the daily build.',
+  path: '/briefings/generate',
+  noindex: true,
+});
+
 export default function GenerateBriefingRetiredPage() {
   return (
     <div className="max-w-xl mx-auto px-4 py-8">

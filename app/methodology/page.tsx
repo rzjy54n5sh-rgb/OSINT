@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -11,11 +12,12 @@ import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
 /** ISR: the registry changes at most daily; no per-visitor content. */
 export const revalidate = 900;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Methodology — War Posture, Scenarios & Sources — MENA Intel Desk',
   description:
     'How War Posture is scored, how scenario probabilities are computed from prediction markets (market-anchored-v1), where the data comes from and how sources are labelled.',
-};
+  path: '/methodology',
+});
 
 /**
  * Methodology — the current truth only (rulings 2026-10-06 / 2026-10-07).
@@ -146,15 +148,15 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
     },
     {
       id: 'war-posture',
-      title: 'WAR POSTURE (NAI)',
-      subtitle: 'Narrative Alignment Index, method war-posture-v1 — series starts Day 221',
+      title: 'WAR POSTURE',
+      subtitle: 'Method war-posture-v1 — series starts Day 221',
       items: [
         {
           q: 'What does War Posture measure?',
           a: (
             <>
               <P>
-                The Narrative Alignment Index (NAI) asks whether a state&apos;s official war posture and its society&apos;s
+                War Posture asks whether a state&apos;s official war posture and its society&apos;s
                 posture point the same way. Both are placed on one party-neutral scale — the position on continuing
                 hostilities, by any party:
               </P>

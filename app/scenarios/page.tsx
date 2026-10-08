@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createPublicClient } from '@/utils/supabase/server';
 import { buildTierFlags } from '@/lib/tier';
@@ -13,11 +14,12 @@ import { getScenarioRegistryView } from '@/lib/scenario-registry';
  */
 export const revalidate = 900;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Scenario Probabilities — Market-Anchored — MENA Intel Desk',
   description:
     'Daily conflict scenario probabilities from the scenario registry, computed by market-anchored-v1 with every driving market, horizon and run flag shown.',
-};
+  path: '/scenarios',
+});
 
 export default async function ScenariosPage() {
   const supabase = createPublicClient();

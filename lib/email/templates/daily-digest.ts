@@ -91,7 +91,7 @@ export function dailyDigestTemplate(
       ? `<tr><td style="padding:16px;background:#1C3A5E;text-align:center;">
         <a href="${esc(siteUrl + '/pricing')}"
            style="color:#E8C547;font-family:monospace;font-size:13px;">
-          ◆ Upgrade for full country reports, NAI latent scores, and API access →
+          ◆ Upgrade for full country reports, War Posture latent bands, and API access →
         </a>
       </td></tr>`
       : '';

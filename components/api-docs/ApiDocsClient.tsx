@@ -137,7 +137,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
             className="inline-block font-mono text-xs px-4 py-2 border rounded-sm"
             style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
           >
-            View plans →
+            See access options →
           </Link>
         </OsintCard>
       )}
@@ -206,7 +206,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
           <strong>T1+:</strong> + <code translate="no">latent_score</code>, <code translate="no">gap_size</code>, <code translate="no">category</code>.
         </li>
         <li>
-          <strong>T1+ (full NAI feature):</strong> + <code translate="no">velocity</code> / <code translate="no">velocity_delta</code> on rows.
+          <strong>T1+ (full War Posture feature):</strong> + <code translate="no">velocity</code> / <code translate="no">velocity_delta</code> on rows.
         </li>
       </ul>
       <CodeBlock code={curlNai} allowCopy={showSecrets} />

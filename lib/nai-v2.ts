@@ -66,7 +66,7 @@ export const NAI_V2_SCALE_TEXT =
   '0 = demands immediate ceasefire · 50 = conditional or ambivalent · 100 = backs continuing or escalating military action (by any party)';
 
 export const NAI_V2_DEFINITION =
-  "Narrative Alignment Index (NAI): whether a state's official war posture and its society's posture point the same way. Both are scored on one party-neutral scale.";
+  "War Posture: whether a state's official war posture and its society's posture point the same way. Both are scored on one party-neutral scale.";
 
 /** Memo §6 wording. Thresholds 10/20/30 and midpoint 50 are conventions, not empirical findings. */
 export const NAI_V2_CATEGORY_DEFS: { category: NaiCategoryV2; text: string }[] = [
@@ -109,7 +109,7 @@ export const NAI_POSTURE_CUTS = [25, 50, 75] as const;
 /** UI heading for the label. Always shown with this name so it is never confused with the NAI category. */
 export const NAI_POSTURE_HEADING = 'Posture (official)';
 export const NAI_POSTURE_NOTE =
-  'Posture (official) is a display convention derived only from the expressed score (0–24 Ceasefire-seeking, 25–49 De-escalatory, 50–74 Conditional pressure, 75–100 Escalatory). The cut-points are operator conventions (2026-10-06), not empirical findings. It is separate from the NAI category.';
+  'Posture (official) is a display convention derived only from the expressed score (0–24 Ceasefire-seeking, 25–49 De-escalatory, 50–74 Conditional pressure, 75–100 Escalatory). The cut-points are operator conventions (2026-10-06), not empirical findings. It is separate from the War Posture category.';
 export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture (latent evidence insufficient)';
 
 /**
