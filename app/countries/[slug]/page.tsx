@@ -8,6 +8,7 @@ import { CountryReportGate } from './CountryReportGate';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { parseNarrative } from '@/lib/country-narrative';
 import { getNaiV2CountryLatest } from '@/lib/nai-v2';
+import { getViewerCountryReport, narrativeUnlocked } from '@/lib/country-report';
 
 /**
  * ISR, rendered on first request per slug. The HTML is what an ANONYMOUS visitor sees (summary,
@@ -86,14 +87,13 @@ export default async function CountryReportPage({
     gap: tierHasFeature(null, 'nai_gap_analysis', flags),
   };
 
+  // viewer_country_report via the cookie-less client = the ANONYMOUS view: content_json is null
+  // unless the free tier unlocks it. Before migration 20261008090000 the RPC is missing and the old
+  // table read runs; content_json is then selected only when the anonymous tier has access.
   const [{ data: report, error }, posture] = await Promise.all([
-    supabase
-      .from('country_reports')
-      .select('country_code, country_name, conflict_day, updated_at, content_json')
-      .eq('country_code', countryCode)
-      .order('conflict_day', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    countryCode
+      ? getViewerCountryReport(supabase, countryCode, { withContent: hasAccess })
+      : Promise.resolve({ data: null, error: null }),
     countryCode ? getNaiV2CountryLatest(supabase, countryCode, anonPostureAccess) : Promise.resolve(null),
   ]);
 
@@ -121,17 +121,15 @@ export default async function CountryReportPage({
     );
   }
 
-  const row = report as
-    | { country_code: string; country_name: string | null; conflict_day: number | null; updated_at: string | null; content_json: unknown }
-    | null;
-  // Whitelisted narrative keys only (see ./narrative.ts); legacy keys never leave the server.
-  // Paid content is withheld server-side unless the ANONYMOUS tier has access.
+  const row = report;
+  // Whitelisted narrative keys only (see lib/country-narrative.ts); legacy keys never leave the server.
+  // Paid content is withheld server-side unless the ANONYMOUS tier has access (app check AND RPC).
   const view: CountryReportView = {
     country_code: row?.country_code ?? countryCode,
     country_name: row?.country_name ?? null,
     conflict_day: row?.conflict_day ?? null,
     updated_at: row?.updated_at ?? null,
-    narrative: hasAccess && row ? parseNarrative(row.content_json) : null,
+    narrative: narrativeUnlocked(hasAccess, row) ? parseNarrative(row!.content_json) : null,
   };
 
   return (

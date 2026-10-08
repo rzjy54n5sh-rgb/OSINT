@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { articleUrlForDispute, normalizeDisputeUrl, DISPUTE_CLAIM_MAX } from '@/lib/dispute-url';
 
 // Session-scoped cooldown: track which articleIds have had a dispute submitted this session
 const SESSION_DISPUTES = new Set<string>();
@@ -17,6 +18,8 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
   const [disputeText, setDisputeText] = useState('');
   const [disputeSource, setDisputeSource] = useState('');
   const [disputeSubmitted, setDisputeSubmitted] = useState(false);
+  const [disputeError, setDisputeError] = useState<string | null>(null);
+  const [disputeSaving, setDisputeSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [alreadyDisputed] = useState(() => SESSION_DISPUTES.has(articleId));
 
@@ -32,16 +35,41 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
   };
 
   const submitDispute = async () => {
-    if (!disputeText.trim() || !disputeSource.trim()) return;
+    const claim = disputeText.trim();
+    if (!claim || !disputeSource.trim() || disputeSaving) return;
     if (SESSION_DISPUTES.has(articleId)) return;
-    SESSION_DISPUTES.add(articleId);
+    setDisputeError(null);
+    if (claim.length > DISPUTE_CLAIM_MAX) {
+      setDisputeError(`Please keep the description under ${DISPUTE_CLAIM_MAX} characters.`);
+      return;
+    }
+    // Same rule as the database CHECK: an http(s) URL; "https://" is added when no scheme was typed.
+    const source = normalizeDisputeUrl(disputeSource);
+    if (!source) {
+      setDisputeError('Enter a valid source link starting with http:// or https://');
+      return;
+    }
+    setDisputeSource(source);
+    setDisputeSaving(true);
     const supabase = createClient();
-    await supabase.from('disputes').insert({
+    const { error } = await supabase.from('disputes').insert({
       article_id: articleId,
-      article_url: articleUrl,
-      claim_text: disputeText.trim(),
-      source_url: disputeSource.trim(),
+      article_url: articleUrlForDispute(articleUrl),
+      claim_text: claim,
+      source_url: source,
     });
+    setDisputeSaving(false);
+    if (error) {
+      // Never report success for a rejected insert. Raw DB text stays in the console.
+      console.error('[dispute] insert failed:', error.code, error.message);
+      setDisputeError(
+        error.code === '23514'
+          ? 'The dispute was not accepted: check the source link and the description, then try again.'
+          : 'The dispute could not be saved. Please try again later.',
+      );
+      return;
+    }
+    SESSION_DISPUTES.add(articleId);
     setDisputeSubmitted(true);
     setDisputeOpen(false);
   };
@@ -137,18 +165,25 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
           <input
             value={disputeSource}
             onChange={(e) => setDisputeSource(e.target.value)}
-            placeholder="Source URL (required)"
+            placeholder="Source URL (required), e.g. https://…"
+            inputMode="url"
+            aria-invalid={disputeError ? true : undefined}
             style={{
               width: '100%', marginTop: 6, background: 'var(--bg-primary)', border: '1px solid var(--border)',
               color: 'var(--text-primary)', fontFamily: 'IBM Plex Mono', fontSize: 12,
               padding: 8, boxSizing: 'border-box',
             }}
           />
+          {disputeError && (
+            <p role="alert" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-red)', marginTop: 6 }} data-testid="dispute-error">
+              {disputeError}
+            </p>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <button
               type="button"
               onClick={submitDispute}
-              disabled={!disputeText.trim() || !disputeSource.trim()}
+              disabled={!disputeText.trim() || !disputeSource.trim() || disputeSaving}
               style={{
                 fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1px',
                 padding: '5px 14px', border: '1px solid var(--accent-orange)',
@@ -156,7 +191,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
                 opacity: (!disputeText.trim() || !disputeSource.trim()) ? 0.4 : 1,
               }}
             >
-              SUBMIT
+              {disputeSaving ? 'SUBMITTING…' : 'SUBMIT'}
             </button>
             <button
               type="button"

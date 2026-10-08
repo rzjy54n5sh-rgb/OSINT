@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getUser } from '@/utils/supabase/server';
 import { createClient } from '@/utils/supabase/server';
 import { AccountClient } from '@/app/(platform)/account/AccountClient';
+import { SUBSCRIPTION_COLUMNS } from '@/lib/user-profile';
 
 export default async function AccountPage() {
   const user = await getUser();
@@ -12,7 +13,7 @@ export default async function AccountPage() {
   const [subResult, keysResult, configResult] = await Promise.all([
     supabase
       .from('subscriptions')
-      .select('*')
+      .select(SUBSCRIPTION_COLUMNS)
       .eq('user_id', user.id)
       .in('status', ['active', 'trialing', 'past_due'])
       .order('created_at', { ascending: false })

@@ -12,9 +12,11 @@ export function tierHasFeature(
 ): boolean {
   const f = flags[featureKey];
   if (!f) return false;
-  if (!tier || tier === 'free') return f.free_access;
+  if (tier === 'professional') return f.pro_access;
   if (tier === 'informed') return f.informed_access;
-  return f.pro_access;
+  // free, anonymous (null/undefined) and any unknown value: fail closed to the free tier — an
+  // unexpected tier string must never unlock professional features.
+  return f.free_access;
 }
 
 /** Build TierFlags from tier_features rows (use in Server Components). */

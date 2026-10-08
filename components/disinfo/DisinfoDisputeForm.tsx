@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { OsintCard } from '@/components/OsintCard';
 import { submitDispute } from '@/lib/api/dispute';
+import { articleUrlForDispute, normalizeDisputeUrl, DISPUTE_CLAIM_MAX } from '@/lib/dispute-url';
 
 /** Sentinel article id for tracker-level challenges (disputes.article_id is text). */
 const DISINFO_TRACKER_ARTICLE_ID = 'disinfo-tracker';
@@ -19,13 +20,25 @@ export function DisinfoDisputeForm() {
     setError(null);
     setMessage(null);
     if (!claimText.trim() || !sourceUrl.trim()) return;
+    if (claimText.trim().length > DISPUTE_CLAIM_MAX) {
+      setError(`Please keep your reasoning under ${DISPUTE_CLAIM_MAX} characters.`);
+      return;
+    }
+    // Same rule as the disputes CHECK: an http(s) URL ("https://" added when no scheme was typed).
+    const source = normalizeDisputeUrl(sourceUrl);
+    if (!source) {
+      setError('Enter a valid source link starting with http:// or https://');
+      return;
+    }
+    setSourceUrl(source);
     setLoading(true);
     try {
       const res = await submitDispute({
         article_id: DISINFO_TRACKER_ARTICLE_ID,
-        article_url: typeof window !== 'undefined' ? `${window.location.origin}/disinfo` : undefined,
+        article_url:
+          (typeof window !== 'undefined' ? articleUrlForDispute(`${window.location.origin}/disinfo`) : null) ?? undefined,
         claim_text: claimText.trim(),
-        source_url: sourceUrl.trim(),
+        source_url: source,
       });
       if (res?.success) {
         setMessage('Submitted. Our team will review primary sources cited.');
@@ -69,7 +82,8 @@ export function DisinfoDisputeForm() {
             Primary source URL
           </label>
           <input
-            type="url"
+            type="text"
+            inputMode="url"
             value={sourceUrl}
             onChange={(e) => setSourceUrl(e.target.value)}
             required

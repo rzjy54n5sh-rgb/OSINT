@@ -8,6 +8,7 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import type { User } from '@/types';
 import { currentConflictDay } from '@/lib/conflict-calendar';
+import { USER_PROFILE_COLUMNS } from '@/lib/user-profile';
 
 /**
  * Cookie-less anon client for PUBLIC, cacheable (ISR) pages. It never reads the request's
@@ -58,7 +59,7 @@ export const getUser = cache(async (): Promise<User | null> => {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-    const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).maybeSingle();
+    const { data: profile } = await supabase.from('users').select(USER_PROFILE_COLUMNS).eq('id', user.id).maybeSingle();
     if (!profile) return null;
     // Admin users always get professional tier access regardless of subscription
     const { data: adminRow } = await supabase

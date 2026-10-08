@@ -69,9 +69,16 @@ export interface NaiScoreV2 {
   /** E − midpoint(latent band); numeric in Postgres → may arrive as number or string. */
   gap: number | string | null;
   gap_size: number | string | null;
-  category: NaiCategoryV2;
+  /** null when read through viewer_nai_v2 by a viewer whose tier cannot see it (UNSCORABLE is always returned). */
+  category: NaiCategoryV2 | null;
   method_version: string;
   created_at: string;
+  /** viewer_nai_v2 only (migration 20261008090000): whether the CALLER's tier sees the latent band / L sources. */
+  latent_access?: boolean;
+  /** viewer_nai_v2 only: whether the CALLER's tier sees gap / gap_size / category. */
+  gap_access?: boolean;
+  /** viewer_nai_v2 only: number of L-feeding sources removed for this caller (0 when latent_access). */
+  hidden_latent_source_count?: number;
 }
 
 export interface ScenarioProbability {
