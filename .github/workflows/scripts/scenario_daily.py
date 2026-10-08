@@ -45,6 +45,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+import heartbeat  # job_heartbeats row at the end of a run (non-fatal)
 from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal as D
 
 METHOD_VERSION = "market-anchored-v1"
@@ -796,7 +797,11 @@ def main(argv=None):
     r.add_argument("--dry-run", action="store_true")
     r.add_argument("--day", type=int)
     args = ap.parse_args(argv)
-    return cmd_fetch(args) if args.cmd == "fetch" else cmd_run(args)
+    if args.cmd == "fetch":
+        return cmd_fetch(args)
+    rc = cmd_run(args)
+    heartbeat.beat("scenario-daily", "ok" if rc == 0 else "fail", f"run rc={rc}")
+    return rc
 
 
 if __name__ == "__main__":
