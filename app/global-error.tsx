@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { isChunkLoadError, recoverFromStaleBuild } from '@/lib/stale-build-recovery';
 
 /**
  * Catches uncaught client-side errors (e.g. Supabase init, hydration) and shows a fallback
@@ -13,6 +15,13 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // A ChunkLoadError here almost always means this HTML came from an older build whose
+  // /_next/static files are gone (stale cache). Reload once from a fresh cache key; the inline
+  // script in app/layout.tsx owns the loop guards, so this is a no-op on the retry.
+  useEffect(() => {
+    if (isChunkLoadError(error)) recoverFromStaleBuild('ChunkLoadError in global-error');
+  }, [error]);
+
   return (
     <html lang="en">
       <body style={{

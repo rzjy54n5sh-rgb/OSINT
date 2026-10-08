@@ -17,8 +17,21 @@ import {
   NEXT_PUBLIC_SUPABASE_URL as GEN_SUPABASE_URL,
   NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
 } from '@/lib/supabase/env.client.generated';
+import { STALE_BUILD_RECOVERY_SCRIPT } from '@/lib/stale-build-recovery';
 
 validateEnv();
+
+/**
+ * Upper bound on how long ANY cached page HTML may live (seconds). The lowest `revalidate` across
+ * a route's layouts and page wins, so pages with their own lower value (300, 600, 900) keep it;
+ * pages with NO `revalidate` (fully static, e.g. /warroom, /contact, /login, /mediaroom) would
+ * otherwise get Next's default `s-maxage=31536000` (one year), and their HTML embeds this
+ * build's /_next/static chunk URLs. Incident 2026-10-08: Workers Cache kept serving /warroom
+ * HTML from the previous deploy whose chunks no longer existed. Capping it means cached HTML can
+ * never outlive a build by more than this, even if a post-deploy purge is missed.
+ * Dynamic routes (cookies, no-store) are unaffected.
+ */
+export const revalidate = 900;
 
 /** Resolves relative OG/Twitter image URLs; silences Next.js metadataBase build warnings. */
 const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mena-intel-desk.com';
@@ -129,6 +142,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
     >
       <head>
+        {/* First script in <head>: recovers from cached HTML whose build assets are gone. */}
+        <script dangerouslySetInnerHTML={{ __html: STALE_BUILD_RECOVERY_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: LANG_BOOT_SCRIPT }} />
         {runtimeSupabaseUrl && hasInjectableKey ? (
           <script

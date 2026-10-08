@@ -12,6 +12,12 @@
   // expired page is re-rendered on the next request (that request waits), never served stale.
   // FREE-PLAN NOTE: with this on, static-asset requests also count toward the 100,000
   // requests/day Workers Free limit (see PR body). Set to false to roll back.
+  // Deploy skew (incident 2026-10-08): the Worker version is part of the cache key by default,
+  // yet /warroom HTML rendered by the previous version was cached 5 s after a deploy and then
+  // served with chunk URLs the new version's assets no longer had. Guards: deploy.yml purges this
+  // cache after `wrangler deploy` (POST /api/internal/cache-purge -> ctx.cache.purge) and checks
+  // every page's assets; app/layout.tsx caps HTML TTL (revalidate) and ships a one-shot
+  // cache-busting reload for failed /_next/static loads (lib/stale-build-recovery.ts).
   "cache": {
     "enabled": true
   },

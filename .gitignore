@@ -21,3 +21,6 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+
+# Wrangler local secrets (wrangler dev)
+.dev.vars*
