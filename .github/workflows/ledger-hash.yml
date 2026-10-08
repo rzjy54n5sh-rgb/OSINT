@@ -1,0 +1,134 @@
+# Ledger hash anchor — once a day, record the row count and SHA-256 of a canonical export of every
+# trust ledger (migration 20261009090000_trust_ledgers.sql) on the orphan branch `ledger-hashes`.
+#
+# Why: the ledgers are append-only inside the database, but the table owner could still disable a
+# trigger and rewrite history. A dated, public, git-committed hash of each ledger makes any rewrite
+# visible against this history. Commits go to `ledger-hashes` ONLY — never to main (pushes to main
+# deploy the site).
+#
+# Canonical export of a table = its rows as returned by PostgREST (service role, select=*), only rows
+# with created_at before the run's snapshot time, ordered by created_at then id (forecast_ledger: by
+# chain_seq), each row as compact JSON with sorted keys (`jq -cS`), one per line; hash = sha256 of
+# that text. Anyone with read access can recompute the public tables' hashes the same way (the
+# service role is used so market_reads.raw and operator_rulings are covered too).
+#
+# Free: one short ubuntu job a day, no paid API. Exits 0 with a notice while the tables do not exist
+# yet (migration not applied) or the secrets are missing.
+name: Ledger hash anchor
+
+on:
+  schedule:
+    - cron: '17 3 * * *'   # 03:17 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ledger-hash
+  cancel-in-progress: false
+
+jobs:
+  anchor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out (credentials for the push to ledger-hashes)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+
+      - name: Hash the ledgers
+        id: hash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::notice title=Ledger hash::SUPABASE_URL / SUPABASE_SERVICE_KEY not configured; nothing to anchor."
+            echo "line=" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          base="${SUPABASE_URL%/}/rest/v1"
+          snapshot="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          work="$(mktemp -d)"
+          # curl reads the auth headers from a file so the key never appears on a command line.
+          hdr="$work/headers"; umask 077
+          printf 'apikey: %s\nAuthorization: Bearer %s\nAccept: application/json\n' "$SUPABASE_SERVICE_KEY" "$SUPABASE_SERVICE_KEY" > "$hdr"
+
+          line="$snapshot"
+          present=0
+          for t in corrections forecast_ledger forecast_resolutions posture_evidence market_reads operator_rulings; do
+            order='created_at.asc,id.asc'; [ "$t" = forecast_ledger ] && order='chain_seq.asc'
+            out="$work/$t.jsonl"; : > "$out"
+            offset=0; missing=0
+            while :; do
+              code=$(curl -sS -o "$work/page.json" -w '%{http_code}' -H @"$hdr" \
+                "$base/$t?select=*&created_at=lt.$snapshot&order=$order&limit=1000&offset=$offset") || code=000
+              if [ "$code" = 404 ] && grep -q '"PGRST205"' "$work/page.json"; then missing=1; break; fi
+              if [ "$code" != 200 ]; then
+                echo "::error title=Ledger hash::$t: HTTP $code from PostgREST"; exit 1
+              fi
+              n=$(jq 'length' "$work/page.json")
+              jq -cS '.[]' "$work/page.json" >> "$out"
+              [ "$n" -lt 1000 ] && break
+              offset=$((offset + 1000))
+            done
+            if [ "$missing" = 1 ]; then
+              line="$line $t=absent"; continue
+            fi
+            present=$((present + 1))
+            rows=$(wc -l < "$out" | tr -d ' ')
+            sha=$(sha256sum "$out" | cut -d' ' -f1)
+            line="$line $t=$rows:$sha"
+            if [ "$t" = forecast_ledger ] && [ "$rows" -gt 0 ]; then
+              line="$line forecast_head=$(tail -n 1 "$out" | jq -r '.row_hash')"
+            fi
+          done
+
+          if [ "$present" = 0 ]; then
+            echo "::notice title=Ledger hash::Trust ledgers not deployed yet (migration 20261009090000_trust_ledgers.sql not applied); nothing to anchor."
+            echo "line=" >> "$GITHUB_OUTPUT"; rm -rf "$work"; exit 0
+          fi
+
+          code=$(curl -sS -o "$work/chain.json" -w '%{http_code}' -H @"$hdr" -H 'Content-Type: application/json' \
+            -X POST -d '{}' "$base/rpc/verify_forecast_chain") || code=000
+          if [ "$code" = 200 ]; then
+            if [ "$(jq -c '.' "$work/chain.json")" = null ]; then chain=ok
+            else chain="BROKEN@$(jq -r '.chain_seq' "$work/chain.json"):$(jq -r '.problem' "$work/chain.json")"
+              echo "::error title=Ledger hash::forecast_ledger hash chain is broken: $(jq -c '.' "$work/chain.json")"
+            fi
+          else chain="unchecked(http-$code)"; fi
+          line="$line chain=$chain run=${GITHUB_RUN_ID}"
+          rm -rf "$work"
+          echo "$line"
+          echo "line=$line" >> "$GITHUB_OUTPUT"
+
+      - name: Commit to the ledger-hashes branch
+        if: steps.hash.outputs.line != ''
+        env:
+          LINE: ${{ steps.hash.outputs.line }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git ls-remote --exit-code --heads origin ledger-hashes >/dev/null 2>&1; then
+            git fetch --depth=1 origin ledger-hashes
+            git checkout -B ledger-hashes FETCH_HEAD
+          else
+            git checkout --orphan ledger-hashes
+            git rm -rq --cached . && git clean -fdqx
+            printf '%s\n' \
+              '# ledger-hashes' \
+              '' \
+              'Daily anchor of the MENA Intel Desk trust ledgers, written by .github/workflows/ledger-hash.yml on main.' \
+              'One line per run: <snapshot UTC> <table>=<rows>:<sha256 of canonical export> ... forecast_head=<last row_hash> chain=<ok|BROKEN@seq:problem> run=<run id>.' \
+              'A table that is absent from the database is recorded as <table>=absent.' \
+              'This branch is append-only by convention: never rewrite or force-push it.' > README.md
+            : > ledger-hashes.log
+            git add README.md
+          fi
+          printf '%s\n' "$LINE" >> ledger-hashes.log
+          git add ledger-hashes.log
+          git commit -q -m "ledger hashes ${LINE%% *}"
+          git push origin HEAD:refs/heads/ledger-hashes
