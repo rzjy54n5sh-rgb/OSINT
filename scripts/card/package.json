@@ -1,0 +1,18 @@
+{
+  "name": "mena-intel-desk-daily-card",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Renders the MENA Intel Desk daily card (1080x1350 and 1200x630 PNG) from public Supabase data. Separate from the root app so CI installs only what the card needs.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "render": "node render-card.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.2.7",
+    "@fontsource/ibm-plex-sans": "5.2.8",
+    "@fontsource/ibm-plex-sans-arabic": "5.2.8",
+    "playwright-core": "1.58.2"
+  }
+}
