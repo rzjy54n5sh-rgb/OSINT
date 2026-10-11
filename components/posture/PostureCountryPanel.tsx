@@ -119,7 +119,7 @@ export function PostureCountryPanel({
         </span>
       </div>
       {withheld ? (
-        <PositionsLedger ledger={ledger} conflictName={cn} cited={rows[0]?.cited ?? []} withheld />
+        <PositionsLedger ledger={ledger} conflictName={cn} withheld />
       ) : rows.length === 0 ? (
         <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }} data-testid="war-posture-empty">
           No position on record for any tracked conflict. A posture is left empty only when no statement has ever been

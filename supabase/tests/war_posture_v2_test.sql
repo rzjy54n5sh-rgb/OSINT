@@ -34,6 +34,7 @@ BEGIN
       v_got := CASE WHEN SQLERRM LIKE '%row-level security%' THEN 'rls' ELSE 'denied' END; v_det := SQLERRM;
     WHEN check_violation OR unique_violation OR not_null_violation OR foreign_key_violation THEN
       v_got := 'rejected'; v_det := SQLSTATE || ' ' || SQLERRM;
+    WHEN restrict_violation THEN v_got := 'blocked'; v_det := SQLSTATE || ' ' || SQLERRM;
     WHEN OTHERS THEN v_got := 'error'; v_det := SQLSTATE || ' ' || SQLERRM;
   END;
   IF p_expect LIKE 'ok=%' THEN
@@ -113,6 +114,10 @@ SELECT wp_test.chk('unknown conflict_code rejected (registry FK)', 'rejected',
 SELECT wp_test.chk('stated_at after capture rejected', 'rejected',
   $q$INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, source_url, captured_at, stated_at, method_version)
      VALUES ('IR', 'us-iran', 'TEST', 'https://example.test/x', '2026-10-01T00:00Z', '2026-10-05T00:00Z', 'war-posture-v2')$q$);
+
+SELECT wp_test.chk('evidence captured in the future rejected', 'rejected',
+  $q$INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, source_url, captured_at, method_version)
+     VALUES ('IR', 'us-iran', 'TEST', 'https://example.test/x', now() + interval '30 days', 'war-posture-v2')$q$);
 
 -- Synthetic evidence rows kept for the rest of the run.
 SELECT wp_test.chk('insert evidence EV1 (IR statement, stated 11 Sep)', 'ok', $q$
@@ -209,7 +214,37 @@ SELECT wp_test.chk('nulled without note rejected', 'rejected', $q$
 SELECT wp_test.chk('S5 YE day 222 nulled (evidence ruled inadmissible)', 'ok', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, evidence_id, change_reason, note)
   VALUES ('YE', 'red-sea-houthi', 222, '2026-10-07', 'nulled', '00000000-0000-0000-0000-0000000e0003', 'nulled', 'TEST: speaker is not a government voice')$q$, true);
+-- verifier additions (PR #28): backdating, forged silence, out-of-order, laundered re-capture, append-only
+SELECT wp_test.chk('as_of not the DAY LOCK date of conflict_day rejected', 'rejected', $q$
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
+  VALUES ('QA', 'us-iran', 223, '2026-10-11', 'position', 'ambivalent', 50, '00000000-0000-0000-0000-0000000e0007', 'low', 'new_evidence')$q$);
+SELECT wp_test.chk('silence 1 h after a trigger, checked-through forged 3 days ahead, rejected', 'rejected', $q$
+  WITH ev AS (
+    INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, source_url, captured_at, stated_at, method_version, evidence_kind)
+    VALUES ('JO', 'us-iran', 'TEST trigger one hour ago', 'https://example.test/jo', now(), now() - interval '1 hour', 'war-posture-v2', 'silence_trigger') RETURNING id)
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, evidence_id, confidence_base, change_reason, silence_checked_through)
+  SELECT 'JO', 'us-iran', public.posture_current_day(), public.posture_day_date(public.posture_current_day()), 'deliberate_silence', ev.id, 'medium', 'new_evidence', now() + interval '3 days' FROM ev RETURNING 1$q$);
+SELECT wp_test.chk('out-of-order insert (Day 222 under a Day 224 row) rejected', 'rejected', $q$
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
+  VALUES ('IR', 'us-iran', 222, '2026-10-07', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000e0001', 'medium', 'reverification', 'TEST')$q$);
+SELECT wp_test.chk('method_version other than war-posture-v2 rejected', 'rejected', $q$
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, method_version)
+  VALUES ('IR', 'us-iran', 225, '2026-10-10', 'position', 'ambivalent', 60, '00000000-0000-0000-0000-0000000e0001', 'medium', 'new_evidence', 'war-posture-v2x')$q$);
+SELECT wp_test.chk('insert evidence EV9 (re-capture of EV2: same URL + quote)', 'ok', $q$
+  INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, source_url, captured_at, stated_at, method_version)
+  VALUES ('00000000-0000-0000-0000-0000000e0009', 'IR', 'us-iran', 'TEST  verbatim quote TWO', 'https://example.test/ir2', '2026-10-10T09:00Z', '2026-10-09T07:00Z', 'war-posture-v2')$q$, true);
+SELECT wp_test.chk('re-capture used as new_evidence (laundered move) rejected', 'rejected', $q$
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
+  VALUES ('IR', 'us-iran', 225, '2026-10-10', 'position', 'escalation', 100, '00000000-0000-0000-0000-0000000e0009', 'high', 'new_evidence')$q$);
+SELECT wp_test.chk('service_role UPDATE posture_scores denied', 'denied', $q$UPDATE public.posture_scores SET expressed_score = 10, label = 'immediate_ceasefire' WHERE country_code = 'IR' AND conflict_day = 224$q$);
+SELECT wp_test.chk('service_role DELETE posture_scores denied', 'denied', $q$DELETE FROM public.posture_scores WHERE country_code = 'IR'$q$);
+SELECT wp_test.chk('service_role DELETE policy row denied', 'denied', $q$DELETE FROM public.posture_publication_policy WHERE country_code = 'EG'$q$);
 RESET ROLE;
+SELECT wp_test.chk('postgres UPDATE posture_scores blocked (append-only)', 'blocked', $q$UPDATE public.posture_scores SET conflict_day = 223 WHERE country_code = 'IR' AND conflict_day = 224$q$);
+SELECT wp_test.chk('postgres DELETE posture_scores blocked (append-only)', 'blocked', $q$DELETE FROM public.posture_scores WHERE country_code = 'IR'$q$);
+SELECT wp_test.chk('postgres TRUNCATE posture_scores blocked', 'blocked', $q$TRUNCATE public.posture_scores$q$);
+SELECT wp_test.chk('postgres DELETE policy row blocked', 'blocked', $q$DELETE FROM public.posture_publication_policy WHERE country_code = 'EG'$q$);
+SELECT wp_test.chk('postgres UPDATE policy row blocked', 'blocked', $q$UPDATE public.posture_publication_policy SET policy = 'positions_ledger_only', country_code = 'XX' WHERE country_code = 'SA'$q$);
 
 -- ---------------------------------------------------------------------------------------------------
 -- D. viewer_posture_v2 as anon (free tier)
@@ -278,6 +313,20 @@ SET LOCAL ROLE service_role;
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 SELECT wp_test.chk('service_role: legacy EG row kept (archive not deleted)', 'ok=1', $q$SELECT count(*) FROM public.nai_scores_v2 WHERE country_code = 'EG'$q$);
 SELECT wp_test.chk('service_role: posture_scores readable', 'ok=6', $q$SELECT count(*) FROM public.posture_scores$q$);
+RESET ROLE;
+
+-- F. Re-run of an OLDER migration must not re-open EG / AE / SA (verifier addition, PR #28)
+-- 20261006120000_nai_scores_v2.sql recreates the permissive policy with USING (true): simulate that.
+DROP POLICY IF EXISTS "nai_scores_v2_public_select" ON public.nai_scores_v2;
+CREATE POLICY "nai_scores_v2_public_select" ON public.nai_scores_v2 AS PERMISSIVE FOR SELECT TO anon, authenticated USING (true);
+INSERT INTO public.nai_scores (country_code, conflict_day, expressed_score, latent_score, gap_size, category)
+VALUES ('EG', 35, 19, 11, 8, 'FRACTURE'), ('IR', 35, 50, 40, 10, 'STABLE');
+SET LOCAL ROLE anon;
+SELECT set_config('request.jwt.claims', '{"role":"anon"}', true);
+SELECT wp_test.chk('after permissive-policy reset: anon still sees no EG nai_scores_v2 row', 'ok=0', $q$SELECT count(*) FROM public.nai_scores_v2 WHERE country_code = 'EG'$q$);
+SELECT wp_test.chk('after permissive-policy reset: anon still sees IR rows', 'ok=2', $q$SELECT count(*) FROM public.nai_scores_v2 WHERE country_code = 'IR'$q$);
+SELECT wp_test.chk('legacy nai_scores: anon sees no EG grade', 'ok=0', $q$SELECT count(*) FROM public.nai_scores WHERE country_code = 'EG'$q$);
+SELECT wp_test.chk('legacy nai_scores: anon still sees IR archive', 'ok=1', $q$SELECT count(*) FROM public.nai_scores WHERE country_code = 'IR' AND conflict_day = 35$q$);
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------------------------------

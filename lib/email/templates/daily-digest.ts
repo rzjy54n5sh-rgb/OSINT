@@ -58,7 +58,7 @@ function scenarioRowHtml(data: DigestData): string {
     { s: 'A', v: `${data.scenarioA}%`, lead: data.scenarioA === max, name: 'Blockade end / deal' },
     { s: 'B', v: bRangeText(data), lead: false, name: 'None of A, C, D (range)' },
     { s: 'C', v: `${data.scenarioC}%`, lead: data.scenarioC === max, name: 'Bab el-Mandeb closed' },
-    { s: 'D', v: `${data.scenarioD}%`, lead: data.scenarioD === max, name: 'Strike on Iran' },
+    { s: 'D', v: `${data.scenarioD}%`, lead: data.scenarioD === max, name: 'US / Israel–Iran strike' },
   ];
   return cells
     .map(({ s, v, lead: isLead, name }) => {

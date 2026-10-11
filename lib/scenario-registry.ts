@@ -448,6 +448,14 @@ export function daysToHorizonFor(run: ScenarioRun, code: string): number | null 
   return fromHorizon !== null && fromHorizon > 0 ? fromHorizon : null;
 }
 
+/**
+ * Below this many days to the driving market's close the constant-hazard conversion is not shown: with
+ * τ hours left the exponent 30/τ explodes (a 2% price 2 hours before close would read as 99.9%), and a
+ * market that close to resolution prices the deadline, not a constant hazard. The horizon normally rolls
+ * about 13 days before close, so this only bites when a roll is late.
+ */
+export const MIN_DAYS_FOR_30D_READING = 7;
+
 /** 30-day readings for every measured class in the run (C uses its post-gate value; C_raw is skipped). */
 export function thirtyDayReadings(run: ScenarioRun | null): Record<string, ThirtyDayReading> {
   const out: Record<string, ThirtyDayReading> = {};
@@ -456,7 +464,7 @@ export function thirtyDayReadings(run: ScenarioRun | null): Record<string, Thirt
     if (p === null || code.endsWith('_RAW') || code.includes('_')) continue;
     const days = daysToHorizonFor(run, code);
     const p30 = constantHorizonProbability(p, days);
-    if (days === null || p30 === null) continue;
+    if (days === null || p30 === null || days < MIN_DAYS_FOR_30D_READING) continue;
     out[code] = { code, marketP: p, daysToHorizon: days, p30 };
   }
   return out;

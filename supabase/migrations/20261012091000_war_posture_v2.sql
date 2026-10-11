@@ -59,6 +59,9 @@ BEGIN
      OR to_regprocedure('public.nai_v2_sources_valid(jsonb)') IS NULL THEN
     RAISE EXCEPTION 'war_posture_v2 preflight: viewer_nai_v2 / viewer_has_feature / nai_c2_category / nai_v2_sources_valid missing (apply security_hardening first)';
   END IF;
+  IF to_regprocedure('public.trust_append_only_guard()') IS NULL THEN
+    RAISE EXCEPTION 'war_posture_v2 preflight: trust_append_only_guard missing (apply trust_ledgers first)';
+  END IF;
 END $pre$;
 
 -- =====================================================================================================
@@ -274,6 +277,24 @@ BEGIN
   END IF;
 END $pe$;
 
+-- A page cannot have been captured in the future (captured_at is caller-supplied; created_at is stamped).
+CREATE OR REPLACE FUNCTION public.posture_evidence_capture_check()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $fn$
+BEGIN
+  IF NEW.captured_at > now() + interval '10 minutes' THEN
+    RAISE EXCEPTION 'posture_evidence: captured_at % is in the future', NEW.captured_at USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $fn$;
+DROP TRIGGER IF EXISTS posture_evidence_capture_check ON public.posture_evidence;
+CREATE TRIGGER posture_evidence_capture_check BEFORE INSERT ON public.posture_evidence
+  FOR EACH ROW EXECUTE FUNCTION public.posture_evidence_capture_check();
+ALTER TABLE public.posture_evidence ENABLE ALWAYS TRIGGER posture_evidence_capture_check;
+REVOKE ALL ON FUNCTION public.posture_evidence_capture_check() FROM PUBLIC, anon, authenticated;
+
 CREATE INDEX IF NOT EXISTS posture_evidence_pair_idx
   ON public.posture_evidence (country_code, conflict_code, captured_at DESC);
 
@@ -335,7 +356,8 @@ CREATE TABLE IF NOT EXISTS public.posture_scores (
   CONSTRAINT posture_scores_latent_order CHECK (latent_low IS NULL OR latent_low <= latent_high),
   CONSTRAINT posture_scores_latent_sourced CHECK ((latent_low IS NULL) = (latent_sources IS NULL)
       AND (latent_sources IS NULL OR public.posture_latent_sources_valid(latent_sources))),
-  CONSTRAINT posture_scores_method_chk CHECK (length(btrim(method_version)) BETWEEN 1 AND 64)
+  -- one method only: a different method_version string would sit outside every previous-row rule below
+  CONSTRAINT posture_scores_method_chk CHECK (method_version = 'war-posture-v2')
 );
 COMMENT ON TABLE public.posture_scores IS
   'War Posture v2: one row per country x conflict per CHANGE (not per day). The latest row on or before a day is carried forward; confidence decays with the age of its posture_evidence row. Countries in posture_publication_policy are rejected. Read through viewer_posture_v2().';
@@ -363,8 +385,28 @@ BEGIN
     RAISE EXCEPTION 'posture_scores: % is under the positions-ledger-only editorial policy (posture_publication_policy): capture its statements and acts in posture_evidence only, never a score row', NEW.country_code
       USING ERRCODE = 'check_violation';
   END IF;
-  IF NEW.conflict_day > public.posture_current_day() + 1 THEN
+  IF NEW.conflict_day > public.posture_current_day() THEN
     RAISE EXCEPTION 'posture_scores: conflict_day % is in the future (DAY LOCK says today is Day %)', NEW.conflict_day, public.posture_current_day()
+      USING ERRCODE = 'check_violation';
+  END IF;
+  -- as_of is the DAY LOCK date of conflict_day: otherwise a row filed under an old day could rest on
+  -- evidence captured later (the "evidence after as_of" rule below is keyed on as_of).
+  IF NEW.as_of IS DISTINCT FROM public.posture_day_date(NEW.conflict_day) THEN
+    RAISE EXCEPTION 'posture_scores: as_of % is not the DAY LOCK date of conflict_day % (%)', NEW.as_of, NEW.conflict_day, public.posture_day_date(NEW.conflict_day)
+      USING ERRCODE = 'check_violation';
+  END IF;
+  -- silence cannot have been checked through a time that has not happened yet.
+  IF NEW.silence_checked_through IS NOT NULL AND NEW.silence_checked_through > now() + interval '10 minutes' THEN
+    RAISE EXCEPTION 'posture_scores: silence_checked_through % is in the future', NEW.silence_checked_through
+      USING ERRCODE = 'check_violation';
+  END IF;
+  -- rows are appended in day order per pair: an earlier-day insert would silently re-base the
+  -- change_reason / no-change / "previous row" of every later row (none of which is re-validated).
+  IF TG_OP = 'INSERT' AND EXISTS (
+       SELECT 1 FROM public.posture_scores p
+        WHERE p.country_code = NEW.country_code AND p.conflict_code = NEW.conflict_code
+          AND p.method_version = NEW.method_version AND p.conflict_day >= NEW.conflict_day) THEN
+    RAISE EXCEPTION 'posture_scores: %/% already has a row on or after Day % — rows are appended in day order only', NEW.country_code, NEW.conflict_code, NEW.conflict_day
       USING ERRCODE = 'check_violation';
   END IF;
 
@@ -423,6 +465,17 @@ BEGIN
     RAISE EXCEPTION 'posture_scores: evidence % was already used for %/% — a re-coding of it is change_reason reverification', NEW.evidence_id, NEW.country_code, NEW.conflict_code
       USING ERRCODE = 'check_violation';
   END IF;
+  -- a second capture of the same statement (same URL + same quote, whitespace/case-normalised) is not
+  -- new evidence either: otherwise a re-coding could be laundered into a "biggest move".
+  IF NEW.change_reason = 'new_evidence' AND NEW.evidence_id IS NOT NULL AND EXISTS (
+       SELECT 1 FROM public.posture_scores p JOIN public.posture_evidence pe ON pe.id = p.evidence_id
+        WHERE p.country_code = NEW.country_code AND p.conflict_code = NEW.conflict_code AND p.method_version = NEW.method_version
+          AND p.conflict_day < NEW.conflict_day AND pe.id <> ev.id
+          AND pe.source_url = ev.source_url
+          AND regexp_replace(lower(btrim(pe.position_quote)), '\s+', ' ', 'g') = regexp_replace(lower(btrim(ev.position_quote)), '\s+', ' ', 'g')) THEN
+    RAISE EXCEPTION 'posture_scores: evidence % re-captures a statement already used for %/% (same URL and quote) — a re-coding of it is change_reason reverification', NEW.evidence_id, NEW.country_code, NEW.conflict_code
+      USING ERRCODE = 'check_violation';
+  END IF;
   IF NEW.change_reason = 'reverification' AND NOT EXISTS (
        SELECT 1 FROM public.posture_scores p
         WHERE p.country_code = NEW.country_code AND p.conflict_code = NEW.conflict_code AND p.method_version = NEW.method_version
@@ -441,6 +494,28 @@ CREATE TRIGGER posture_scores_validate BEFORE INSERT OR UPDATE ON public.posture
   FOR EACH ROW EXECUTE FUNCTION public.posture_scores_validate();
 ALTER TABLE public.posture_scores ENABLE ALWAYS TRIGGER posture_scores_validate;
 
+-- posture_scores is append-only like posture_evidence: a correction is a NEW row (reverification /
+-- nulled, note required), never an UPDATE or DELETE that silently rewrites what was published.
+DROP TRIGGER IF EXISTS posture_scores_append_only ON public.posture_scores;
+CREATE TRIGGER posture_scores_append_only BEFORE UPDATE OR DELETE ON public.posture_scores
+  FOR EACH ROW EXECUTE FUNCTION public.trust_append_only_guard();
+ALTER TABLE public.posture_scores ENABLE ALWAYS TRIGGER posture_scores_append_only;
+DROP TRIGGER IF EXISTS posture_scores_no_truncate ON public.posture_scores;
+CREATE TRIGGER posture_scores_no_truncate BEFORE TRUNCATE ON public.posture_scores
+  FOR EACH STATEMENT EXECUTE FUNCTION public.trust_append_only_guard();
+ALTER TABLE public.posture_scores ENABLE ALWAYS TRIGGER posture_scores_no_truncate;
+
+-- The editorial policy rows cannot be edited or removed through the API (service key included): lifting
+-- the policy for a country is an operator decision made by a reviewed migration, not a DELETE.
+DROP TRIGGER IF EXISTS posture_publication_policy_locked ON public.posture_publication_policy;
+CREATE TRIGGER posture_publication_policy_locked BEFORE UPDATE OR DELETE ON public.posture_publication_policy
+  FOR EACH ROW EXECUTE FUNCTION public.trust_append_only_guard();
+ALTER TABLE public.posture_publication_policy ENABLE ALWAYS TRIGGER posture_publication_policy_locked;
+DROP TRIGGER IF EXISTS posture_publication_policy_no_truncate ON public.posture_publication_policy;
+CREATE TRIGGER posture_publication_policy_no_truncate BEFORE TRUNCATE ON public.posture_publication_policy
+  FOR EACH STATEMENT EXECUTE FUNCTION public.trust_append_only_guard();
+ALTER TABLE public.posture_publication_policy ENABLE ALWAYS TRIGGER posture_publication_policy_no_truncate;
+
 -- =====================================================================================================
 -- §6 Legacy nai_scores_v2: withhold EG / AE / SA from the API
 -- =====================================================================================================
@@ -451,6 +526,22 @@ DROP POLICY IF EXISTS "nai_scores_v2_public_select" ON public.nai_scores_v2;
 CREATE POLICY "nai_scores_v2_public_select" ON public.nai_scores_v2
   AS PERMISSIVE FOR SELECT TO anon, authenticated
   USING (NOT public.posture_is_withheld(country_code));
+-- RESTRICTIVE twin under a name no older migration knows: re-running 20261006120000_nai_scores_v2.sql
+-- recreates the permissive policy above with USING (true); this one still ANDs the withholding in.
+DROP POLICY IF EXISTS nai_scores_v2_withheld_guard ON public.nai_scores_v2;
+CREATE POLICY nai_scores_v2_withheld_guard ON public.nai_scores_v2
+  AS RESTRICTIVE FOR SELECT TO anon, authenticated
+  USING (NOT public.posture_is_withheld(country_code));
+
+-- Legacy nai_scores (Days 1-35, archived, read-only) carries 0-100 grades + categories for EG / AE / SA
+-- and is publicly readable (anon REST). Same withholding, data untouched (rows are hidden, not changed).
+DO $legacy$
+BEGIN
+  IF to_regclass('public.nai_scores') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS nai_scores_withheld_guard ON public.nai_scores';
+    EXECUTE 'CREATE POLICY nai_scores_withheld_guard ON public.nai_scores AS RESTRICTIVE FOR SELECT TO anon, authenticated USING (NOT public.posture_is_withheld(country_code))';
+  END IF;
+END $legacy$;
 
 -- Same signature and output columns as 20261008090000 (the deployed app keeps working). Changes:
 -- policy countries -> expressed_score / expressed_basis / latent_* / gap / gap_size / category NULL,
@@ -630,9 +721,11 @@ COMMENT ON FUNCTION public.viewer_posture_v2(text, text, integer) IS
 -- =====================================================================================================
 -- §8 Grants + RLS (nothing inherited from default privileges)
 -- =====================================================================================================
-REVOKE ALL ON public.conflicts, public.posture_publication_policy, public.posture_scores FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.conflicts, public.posture_publication_policy, public.posture_scores FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT ON public.conflicts, public.posture_publication_policy TO anon, authenticated;
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.conflicts, public.posture_publication_policy, public.posture_scores TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.conflicts TO service_role;
+-- append-only tables: no UPDATE / DELETE grant either (the guard triggers also block the owner)
+GRANT SELECT, INSERT ON public.posture_publication_policy, public.posture_scores TO service_role;
 
 ALTER TABLE public.conflicts                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.posture_publication_policy ENABLE ROW LEVEL SECURITY;
@@ -697,6 +790,17 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.posture_scores'::regclass AND tgname = 'posture_scores_validate' AND tgenabled = 'A') THEN
     RAISE EXCEPTION 'war_posture_v2 post-check: posture_scores_validate trigger missing or not ENABLE ALWAYS';
+  END IF;
+  IF (SELECT count(*) FROM pg_trigger WHERE tgenabled = 'A' AND (
+        (tgrelid = 'public.posture_scores'::regclass AND tgname IN ('posture_scores_append_only', 'posture_scores_no_truncate'))
+     OR (tgrelid = 'public.posture_publication_policy'::regclass AND tgname IN ('posture_publication_policy_locked', 'posture_publication_policy_no_truncate')))) <> 4
+     OR has_table_privilege('service_role', 'public.posture_scores', 'UPDATE')
+     OR has_table_privilege('service_role', 'public.posture_publication_policy', 'DELETE') THEN
+    RAISE EXCEPTION 'war_posture_v2 post-check: append-only guards on posture_scores / posture_publication_policy missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'nai_scores_v2'
+                    AND policyname = 'nai_scores_v2_withheld_guard' AND permissive = 'RESTRICTIVE') THEN
+    RAISE EXCEPTION 'war_posture_v2 post-check: restrictive EG/AE/SA guard on nai_scores_v2 missing';
   END IF;
 END $post$;
 

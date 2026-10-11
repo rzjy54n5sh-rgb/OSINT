@@ -187,4 +187,17 @@ ok('residualRange30 from rounded p30 of A, C, D', () => {
   assert.deepEqual([rr.low, rr.high], [Math.max(0, 100 - a - c - d), 100 - Math.max(a, c, d)]);
 });
 
+ok('thirtyDayReadings: no conversion in the last week of a market (2% two hours before close is not 99.9%)', () => {
+  const late: ScenarioRun = {
+    ...run,
+    inputs: [input('A', 0.02, true, '2026-10-11T13:28:20Z'), input('D', 0.215, true, '2026-10-16T11:28:20Z'), input('C', 0.065)],
+    class_probabilities: { A: 0.02, C: 0.065, D: 0.215 },
+  };
+  const r = thirtyDayReadings(late);
+  assert.equal(r.A, undefined, '2 hours to close: hidden');
+  assert.equal(r.D, undefined, '5 days to close: hidden');
+  assert.ok(r.C, '20.7 days to close: shown');
+  assert.equal(residualRange30(scenarios, r)!.low, 0, 'A and D unknown -> B30 low end 0');
+});
+
 console.log(`scenario-range.check: ${n} checks passed`);

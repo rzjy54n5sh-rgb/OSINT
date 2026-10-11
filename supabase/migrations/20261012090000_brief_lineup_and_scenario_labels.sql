@@ -19,7 +19,8 @@
 --         A  Managed Exit       -> US announces blockade end or a deal
 --         B  Prolonged War      -> None of A, C or D               (+ definition explains the Fréchet range)
 --         C  Cascade            -> Bab el-Mandeb closed while Hormuz is shut
---         D  Escalation Spiral  -> US or Israeli strike on Iran (ceasefire breaks)
+--         D  Escalation Spiral  -> US strike on Iran or Israel–Iran strike  (the Israel x Iran ceasefire market
+--                                  resolves on a strike by EITHER side, so the label names both directions)
 --         E  UAE Direct Strike  -> Iran targets the UAE
 --       NOT touched: scenario_probabilities (Hard Ban), scenario_daily, scenario_runs, codes, lifecycle columns.
 --
@@ -116,7 +117,7 @@ UPDATE public.scenarios s SET former_name_en = s.name_en, name_en = v.new_name
   FROM (VALUES ('A', 'Managed Exit',      'US announces blockade end or a deal'),
                ('B', 'Prolonged War',     'None of A, C or D'),
                ('C', 'Cascade',           'Bab el-Mandeb closed while Hormuz is shut'),
-               ('D', 'Escalation Spiral', 'US or Israeli strike on Iran (ceasefire breaks)'),
+               ('D', 'Escalation Spiral', 'US strike on Iran or Israel–Iran strike'),
                ('E', 'UAE Direct Strike', 'Iran targets the UAE')) v(code, old_name, new_name)
  WHERE s.code = v.code AND s.name_en = v.old_name;
 

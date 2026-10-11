@@ -114,9 +114,12 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
           <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {(() => {
               const method = scenarioMethodForDay(conflictDay);
-              const a = Math.round(Number(scenario.scenario_a));
-              const c = Math.round(Number(scenario.scenario_c));
-              const d = Math.round(Number(scenario.scenario_d));
+              // null / non-numeric = unmeasured: shown as "—" and passed to the range as unknown (never 0).
+              const val = (v: unknown): number | null => (v == null || !Number.isFinite(Number(v)) ? null : Math.round(Number(v)));
+              const pctText = (v: number | null) => (v == null ? '—' : `${v}%`);
+              const a = val(scenario.scenario_a);
+              const c = val(scenario.scenario_c);
+              const d = val(scenario.scenario_d);
               // Market-anchored days: A, C, D can co-occur, so B (none of them) is a range. Legacy desk
               // days are shown as published, marked as a retired method that cannot be scored.
               const b =
@@ -125,8 +128,8 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
                       const r = residualRange({ A: a, C: c, D: d });
                       return r ? `${formatRange(r)} (range)` : '—';
                     })()
-                  : `${Math.round(Number(scenario.scenario_b))}%`;
-              return `[Scenario, ${scenarioMethodNote(method)}: A ${a}% | B ${b} | C ${c}% | D ${d}%]`;
+                  : pctText(val(scenario.scenario_b));
+              return `[Scenario, ${scenarioMethodNote(method)}: A ${pctText(a)} | B ${b} | C ${pctText(c)} | D ${pctText(d)}]`;
             })()}
           </p>
         ) : (

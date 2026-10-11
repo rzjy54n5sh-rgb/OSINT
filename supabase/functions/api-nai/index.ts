@@ -48,7 +48,11 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: error.message }, 500, origin);
   }
 
-  const list = rows || [];
+  // EG / AE / SA: no 0-100 grade or category is published, archived Days 1-35 included (War Posture v2
+  // editorial policy, public.posture_publication_policy). This function reads with the service role, so
+  // the database RLS guard does not apply here: filter explicitly.
+  const WITHHELD = new Set(["EG", "AE", "SA"]);
+  const list = (rows || []).filter((r: { country_code: string }) => !WITHHELD.has(String(r.country_code).toUpperCase()));
   const todayScores = list.filter((r: { conflict_day: number }) => r.conflict_day === currentDay);
   const yesterdayMap = new Map(
     list

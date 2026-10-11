@@ -101,7 +101,7 @@ h2{font-size:${P ? 32 : 26}px;font-weight:600;line-height:1.2}
 .odds{display:grid;grid-template-columns:${P ? '40px 290px 1fr 210px' : '32px 1fr auto'};column-gap:${P ? 16 : 12}px;row-gap:${P ? 6 : 4}px;align-items:center}
 .odds .trk.l,.odds .axl.l{grid-column:2 / 4;margin-bottom:6px}
 .code{width:${P ? 36 : 30}px;height:${P ? 36 : 30}px;border-radius:4px;color:${T.bg};display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-weight:500;font-size:${P ? 21 : 17}px}
-.sn{font-size:${P ? 26 : 21}px;white-space:nowrap}
+.sn{font-size:${P ? 23 : 17}px;line-height:${P ? 1.12 : 1.05};white-space:normal;overflow-wrap:anywhere}
 .val{font-size:${P ? 28 : 24}px;text-align:end;white-space:nowrap;letter-spacing:${P ? 0 : '-.03em'}}
 .trk{position:relative;height:${P ? 30 : 22}px;direction:ltr}
 .trk .ax{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:${T.line}}
