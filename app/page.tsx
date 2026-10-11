@@ -24,7 +24,7 @@ export default async function Page() {
   const conflictDay = await getConflictDay();
 
   // Parallel server-side fetches — data baked into HTML, no loading states
-  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes] = await Promise.all([
+  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes] = await Promise.all([
     supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(3),
     supabase.from('articles').select('*', { count: 'exact', head: true }),
     supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: true }),
@@ -38,6 +38,8 @@ export default async function Page() {
       .limit(1)
       .maybeSingle(),
     supabase.from('market_data').select('indicator, value, change_pct, unit, conflict_day').order('conflict_day', { ascending: false }).limit(50),
+    // Which brief types exist on the latest days (for the home strip: link only what was published).
+    supabase.from('daily_briefings').select('conflict_day, report_type').order('conflict_day', { ascending: false }).limit(40),
   ]);
 
   const articles = (articlesRes.data as Article[]) ?? [];
@@ -46,6 +48,9 @@ export default async function Page() {
   const briefingRow = briefingRes.data as { lead?: string | null; conflict_day?: number | null } | null;
   const topFindingLead = briefingRow?.lead ?? null;
   const briefingDay = briefingRow?.conflict_day ?? null;
+  const briefingTypes = ((recentTypesRes.data ?? []) as { conflict_day: number; report_type: string }[])
+    .filter((r) => r.conflict_day === briefingDay)
+    .map((r) => r.report_type);
 
   // Build market metrics from latest day
   const marketRows = (marketRes.data ?? []) as { indicator: string; value: number; change_pct: number; unit: string; conflict_day: number }[];
@@ -75,6 +80,7 @@ export default async function Page() {
         scenarios,
         topFindingLead,
         briefingDay,
+        briefingTypes,
         marketMetrics,
         marketDay: latestDay ?? null,
       }}

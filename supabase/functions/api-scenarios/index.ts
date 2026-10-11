@@ -1,5 +1,22 @@
 import { handleCors, jsonResponse, authenticate, serviceClient, getFeatureFlags, tierHasFeature } from "../_shared/middleware.ts";
 
+/**
+ * B ("none of A, C or D") as its Fréchet range. A, C and D can happen in the same window, so the
+ * stored scenario_b (100 − A − C − D) is only the LOW end; the high end is 100 − max(A, C, D).
+ * Additive field: scenario_b stays as stored for existing clients. Mirrors lib/scenario-range.ts.
+ * Rows of Days 1–35 (legacy desk estimates, retired method, cannot be scored) get null.
+ */
+function bRange(r: Record<string, unknown>): { low: number; high: number; note: string } | null {
+  const day = Number(r.conflict_day);
+  const a = Number(r.scenario_a), c = Number(r.scenario_c), d = Number(r.scenario_d);
+  if (!Number.isFinite(day) || day <= 35 || ![a, c, d].every(Number.isFinite) || r.scenario_b == null) return null;
+  return {
+    low: Math.max(0, 100 - a - c - d),
+    high: 100 - Math.max(a, c, d),
+    note: "B = none of A, C or D. A, C and D can co-occur, so B is bounded: [100 - (A+C+D), 100 - max(A,C,D)].",
+  };
+}
+
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("Origin") || "";
   const preflight = handleCors(req, origin);
@@ -46,6 +63,7 @@ Deno.serve(async (req: Request) => {
     scenario_c: currentRow.scenario_c,
     scenario_d: currentRow.scenario_d,
     scenario_e: currentRow.scenario_e,
+    scenario_b_range: bRange(currentRow),
     updated_at: currentRow.updated_at,
   } : null;
   const historyData = canSeeHistory && scenarioRows && scenarioRows.length > 1
@@ -56,6 +74,7 @@ Deno.serve(async (req: Request) => {
         scenario_c: r.scenario_c,
         scenario_d: r.scenario_d,
         scenario_e: r.scenario_e,
+        scenario_b_range: bRange(r),
         updated_at: r.updated_at,
       }))
     : undefined;

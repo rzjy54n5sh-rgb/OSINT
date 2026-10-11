@@ -24,7 +24,9 @@ import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import {
   deltaWithinMethod,
   getScenarioRegistryView,
+  isResidual,
   probabilityOn,
+  scenarioDisplay,
   scenarioColor,
   seriesByMethod,
   type ScenarioRegistryView,
@@ -338,8 +340,8 @@ export default function WarRoomPage() {
     scenarioDay != null && registry
       ? visibleScenarios
           .map((s) => {
-            const p = probabilityOn(registry.history, s.code, scenarioDay);
-            return `${s.code} ${s.name_en}: ${p === null ? 'unmeasured' : `${p}%`}`;
+            const d = scenarioDisplay(registry, s.code, scenarioDay);
+            return `${s.code} ${s.name_en}: ${d.kind === 'range' ? `${d.text} (range)` : d.text}`;
           })
           .join(' · ') + ` (Day ${scenarioDay}, ${registry.latestMethod})`
       : 'Scenario data loading';
@@ -555,9 +557,12 @@ export default function WarRoomPage() {
             {registry &&
               visibleScenarios.map((s, i) => {
                 const p = probabilityOn(registry.history, s.code, scenarioDay);
-                const delta = deltaWithinMethod(registry.history, s.code, scenarioDay);
+                const shown = scenarioDisplay(registry, s.code, scenarioDay);
+                // B (none of A, C, D) is a range: no sparkline of its low end and no point delta.
+                const residual = isResidual(s.code);
+                const delta = residual ? null : deltaWithinMethod(registry.history, s.code, scenarioDay);
                 const color = scenarioColor(s.code, i);
-                const spark = currentSeries ? currentSeries.rows.map((r) => (r[s.code] ?? null) as number | null) : [];
+                const spark = currentSeries && !residual ? currentSeries.rows.map((r) => (r[s.code] ?? null) as number | null) : [];
                 return (
                   <div
                     key={s.code}
@@ -573,11 +578,14 @@ export default function WarRoomPage() {
                         <polyline points={buildPoints(spark, 40, 16)} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
                       </svg>
                     )}
-                    <span style={{ ...mono, fontSize: 12, color: p === null ? 'var(--text-muted)' : color, fontWeight: 500, minWidth: 32, textAlign: 'right', flexShrink: 0 }}>
-                      {p === null ? '—' : `${p}%`}
+                    <span
+                      style={{ ...mono, fontSize: 12, color: shown.kind === 'unmeasured' ? 'var(--text-muted)' : color, fontWeight: 500, minWidth: 32, textAlign: 'right', flexShrink: 0 }}
+                      title={shown.kind === 'range' ? 'Range: A, C and D can happen in the same window' : undefined}
+                    >
+                      {shown.kind === 'unmeasured' ? '—' : shown.text}
                     </span>
                     <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', minWidth: 30, textAlign: 'right' }} title={delta ? `since Day ${delta.sinceDay}, same method` : undefined}>
-                      {p === null ? 'unmeasured' : delta ? `${delta.delta > 0 ? '+' : ''}${delta.delta}` : '—'}
+                      {shown.kind === 'unmeasured' || p === null ? 'unmeasured' : residual ? 'range' : delta ? `${delta.delta > 0 ? '+' : ''}${delta.delta}` : '—'}
                     </span>
                   </div>
                 );

@@ -14,11 +14,19 @@
  * Safe on server and client (takes the caller's Supabase client; no global client).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { constantHorizonProbability, daysBetween, formatRange, residualRange, type ResidualRange } from '@/lib/scenario-range';
 
 type Sb = Pick<SupabaseClient, 'from'>;
 
 export const CURRENT_SCENARIO_METHOD = 'market-anchored-v1';
 export const LEGACY_SCENARIO_METHOD = 'legacy-desk-v0';
+/** Short public marker for the Days 1-35 series wherever it is shown. */
+export const LEGACY_SERIES_MARKER = 'retired method, cannot be scored';
+/**
+ * The core-set residual ("none of the other core scenarios"). market-anchored-v1 computes it as
+ * 100 − A − C − D (scenario_daily.py); the UI shows it as the Fréchet range (lib/scenario-range.ts).
+ */
+export const RESIDUAL_SCENARIO_CODE = 'B';
 
 export interface RegistryScenario {
   id: string;
@@ -76,6 +84,10 @@ export interface ScenarioRun {
   raw_percent: Record<string, number> | null;
   provenance: string | null;
   recorded_at: string | null;
+  /** When the last market read of the run finished (the "as of" instant of the prices). */
+  read_finished_at: string | null;
+  /** Unrounded class probabilities 0-1 from computed.class_probabilities (C after the Hormuz gate). */
+  class_probabilities: Record<string, number | null>;
 }
 
 export interface ScenarioMethod {
@@ -167,6 +179,16 @@ function parseRun(row: Record<string, unknown> | null): ScenarioRun | null {
     raw_percent,
     provenance: str(row.provenance),
     recorded_at: str(row.recorded_at),
+    read_finished_at: str(row.read_finished_at),
+    class_probabilities: (() => {
+      const cp = computed.class_probabilities;
+      if (!cp || typeof cp !== 'object') return {};
+      return Object.fromEntries(
+        Object.entries(cp as Record<string, unknown>)
+          .filter(([k]) => /^[A-Z][A-Z0-9_]{0,15}$/.test(k))
+          .map(([k, v]) => [k, num(v)] as const),
+      );
+    })(),
   };
 }
 
@@ -251,7 +273,7 @@ export async function getScenarioRegistryView(supabase: Sb): Promise<ScenarioReg
     if (runId) {
       const { data } = await supabase
         .from('scenario_runs')
-        .select('id, conflict_day, method_version, horizon_end, verdict, flags, inputs, computed, provenance, recorded_at')
+        .select('id, conflict_day, method_version, horizon_end, verdict, flags, inputs, computed, provenance, recorded_at, read_finished_at')
         .eq('id', runId)
         .maybeSingle();
       run = parseRun((data as Record<string, unknown> | null) ?? null);
@@ -345,4 +367,107 @@ export function unmeasuredFlag(run: ScenarioRun | null, code: string): string | 
   if (!run) return null;
   const f = run.flags.find((x) => x.startsWith(`${code} NULL:`));
   return f ? f.slice(`${code} NULL:`.length).trim() : null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Honest display: B as a range, and a fixed 30-day reading (strategy 2026-10-08)
+// ---------------------------------------------------------------------------------------------
+
+/** Core, non-residual scenario codes (the components whose union B is the complement of). */
+export function residualComponentCodes(scenarios: RegistryScenario[]): string[] {
+  return scenarios
+    .filter((s) => s.group_code === 'core' && s.code !== RESIDUAL_SCENARIO_CODE && s.status !== 'retired')
+    .map((s) => s.code);
+}
+
+/** True when `code` is the core residual (B). */
+export function isResidual(code: string): boolean {
+  return code === RESIDUAL_SCENARIO_CODE;
+}
+
+/**
+ * Fréchet range of B on `day` from the published A, C, D of the SAME day (whole numbers).
+ * null when B has no published value that day (unmeasured / frozen) or no component is known.
+ */
+export function residualRangeOn(view: Pick<ScenarioRegistryView, 'scenarios' | 'history'>, day: number | null): ResidualRange | null {
+  if (day == null) return null;
+  if (probabilityOn(view.history, RESIDUAL_SCENARIO_CODE, day) === null) return null;
+  const comps: Record<string, number | null> = {};
+  for (const code of residualComponentCodes(view.scenarios)) comps[code] = probabilityOn(view.history, code, day);
+  return residualRange(comps);
+}
+
+/** Same range from a chart row ({ day, A, B, C, D, ... }). */
+export function residualRangeFromRow(row: Record<string, unknown>, componentCodes: string[]): ResidualRange | null {
+  if (row[RESIDUAL_SCENARIO_CODE] == null) return null;
+  const comps: Record<string, number | null> = {};
+  for (const c of componentCodes) comps[c] = typeof row[c] === 'number' ? (row[c] as number) : null;
+  return residualRange(comps);
+}
+
+export type ScenarioDisplay =
+  | { kind: 'range'; range: ResidualRange; text: string }
+  | { kind: 'point'; p: number; text: string }
+  | { kind: 'unmeasured'; text: string };
+
+/** What to show for `code` on `day`: B → range; others → published point; else unmeasured. */
+export function scenarioDisplay(view: Pick<ScenarioRegistryView, 'scenarios' | 'history'>, code: string, day: number | null): ScenarioDisplay {
+  if (isResidual(code)) {
+    const r = residualRangeOn(view, day);
+    return r ? { kind: 'range', range: r, text: formatRange(r) } : { kind: 'unmeasured', text: 'unmeasured' };
+  }
+  const p = probabilityOn(view.history, code, day);
+  return p === null ? { kind: 'unmeasured', text: 'unmeasured' } : { kind: 'point', p, text: `${p}%` };
+}
+
+export interface ThirtyDayReading {
+  code: string;
+  /** Unrounded class probability at the market horizon (0-1). */
+  marketP: number;
+  /** Days from the price read to the driving market's resolution. */
+  daysToHorizon: number;
+  /** Constant-hazard 30-day probability (0-1). */
+  p30: number;
+}
+
+/**
+ * Days from read to resolution for class `code`: the driving market is the used input of that class
+ * whose price equals the class probability (or, after a same-event merge, the highest used input);
+ * falls back to the run horizon (end of horizon_end, UTC) and the run's read_finished_at.
+ */
+export function daysToHorizonFor(run: ScenarioRun, code: string): number | null {
+  const p = run.class_probabilities[code];
+  const used = run.inputs.filter((i) => i.used && i.scenario_class === code && i.probability !== null);
+  const driver =
+    (p != null ? used.find((i) => Math.abs((i.probability as number) - p) < 1e-9) : undefined) ??
+    used.slice().sort((a, b) => (b.probability as number) - (a.probability as number))[0];
+  const readAt = driver?.read_at ?? run.read_finished_at ?? run.recorded_at;
+  const fromDriver = driver ? daysBetween(readAt, driver.resolution_date) : null;
+  if (fromDriver !== null && fromDriver > 0) return fromDriver;
+  const fromHorizon = run.horizon_end ? daysBetween(run.read_finished_at ?? run.recorded_at, `${run.horizon_end}T23:59:59Z`) : null;
+  return fromHorizon !== null && fromHorizon > 0 ? fromHorizon : null;
+}
+
+/** 30-day readings for every measured class in the run (C uses its post-gate value; C_raw is skipped). */
+export function thirtyDayReadings(run: ScenarioRun | null): Record<string, ThirtyDayReading> {
+  const out: Record<string, ThirtyDayReading> = {};
+  if (!run) return out;
+  for (const [code, p] of Object.entries(run.class_probabilities)) {
+    if (p === null || code.endsWith('_RAW') || code.includes('_')) continue;
+    const days = daysToHorizonFor(run, code);
+    const p30 = constantHorizonProbability(p, days);
+    if (days === null || p30 === null) continue;
+    out[code] = { code, marketP: p, daysToHorizon: days, p30 };
+  }
+  return out;
+}
+
+/** B's range on the 30-day footing, from the rounded 30-day readings of its components. */
+export function residualRange30(scenarios: RegistryScenario[], readings: Record<string, ThirtyDayReading>): ResidualRange | null {
+  const comps: Record<string, number | null> = {};
+  for (const code of residualComponentCodes(scenarios)) {
+    const r = readings[code];
+    comps[code] = r ? Math.round(r.p30 * 100) : null;
+  }
+  return residualRange(comps);
 }

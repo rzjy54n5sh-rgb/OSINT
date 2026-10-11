@@ -17,6 +17,7 @@ import {
   type BriefSource,
 } from '@/lib/briefing-sources';
 import type { Article } from '@/types/supabase';
+import { briefTypeMeta } from '@/lib/brief-types';
 
 interface Paragraph {
   text: string;
@@ -67,15 +68,6 @@ const PERSPECTIVE_COLORS: Record<string, string> = {
   both:       '#a855f7',
 };
 
-const TYPE_LABELS: Record<string, string> = {
-  general:     'GENERAL INTELLIGENCE BRIEF',
-  general_weekly: 'WEEKLY GENERAL DIGEST',
-  horn:        'HORN OF AFRICA & RED SEA',
-  egypt:       'EGYPT COUNTRY BRIEF',
-  uae:         'UAE COUNTRY BRIEF',
-  eschatology: 'ESCHATOLOGY & GEOPOLITICS',
-  business:    'BUSINESS OPPORTUNITIES',
-};
 
 function dayToDate(day: number): string {
   return formatConflictDayDate(day);
@@ -183,7 +175,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
           </Link>
           <span className="font-mono text-xs text-center truncate"
                 style={{ color: 'var(--text-muted)' }}>
-            DAY {day} · {TYPE_LABELS[type] ?? type.toUpperCase()}
+            DAY {day} · {briefTypeMeta(type)?.label ?? type.toUpperCase()}
             {type === 'general_weekly' && briefing.period_start_day != null && briefing.period_end_day != null
               ? ` · DAYS ${briefing.period_start_day}\u2013${briefing.period_end_day}`
               : ''}
@@ -225,6 +217,21 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
            briefing.quality === 'reconstructed' ? 'RECONSTRUCTED' : briefing.quality.toUpperCase()}
         </span>
       </div>
+
+      {/* Line-up note: renamed or archived types (old URLs keep working, history is not rewritten) */}
+      {(() => {
+        const meta = briefTypeMeta(type);
+        if (!meta || (!meta.formerTitle && meta.lineup !== 'archive')) return null;
+        return (
+          <p className="font-mono mb-3" data-testid="brief-lineup-note"
+             style={{ fontSize: '11px', lineHeight: 1.6, color: 'var(--text-muted)', letterSpacing: '0.3px' }}>
+            {meta.formerTitle ? `${meta.title}, formerly "${meta.formerTitle}". ` : ''}
+            {meta.lineup === 'archive'
+              ? 'Archived type: since the October 2026 line-up this coverage is in the Egypt & Gulf Economy brief. This edition is shown as published.'
+              : meta.cadence === 'weekly' ? 'Weekly from October 2026; earlier daily editions are shown as published.' : ''}
+          </p>
+        );
+      })()}
 
       {/* Title */}
       <h1 className="font-display text-2xl sm:text-3xl mb-3"
@@ -317,7 +324,7 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
         ))}
       </div>
 
-      {type === 'business' && (
+      {(type === 'business' || type === 'egypt_gulf_economy') && (
         <p className="font-mono mt-8" style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
           Market and business content is analysis of public information, not investment advice.
         </p>

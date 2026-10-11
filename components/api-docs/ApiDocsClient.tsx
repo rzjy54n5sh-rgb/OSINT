@@ -60,17 +60,24 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
   ]
 }`;
 
+  // Day 226 as published (scenario_probabilities, market-anchored-v1). scenario_b is the stored
+  // residual = the LOW end; scenario_b_range carries both Fréchet bounds (A, C, D can co-occur).
   const jsonScenarios = `{
-  "conflictDay": 20,
+  "conflictDay": 226,
   "tier": "informed",
   "current": {
-    "conflict_day": 20,
-    "scenario_a": 15,
-    "scenario_b": 45,
-    "scenario_c": 22,
-    "scenario_d": 18,
-    "scenario_e": 8,
-    "updated_at": "2026-03-19T06:00:00Z"
+    "conflict_day": 226,
+    "scenario_a": 12,
+    "scenario_b": 60,
+    "scenario_c": 6,
+    "scenario_d": 22,
+    "scenario_e": null,
+    "scenario_b_range": {
+      "low": 60,
+      "high": 78,
+      "note": "B = none of A, C or D. A, C and D can co-occur, so B is bounded: [100 - (A+C+D), 100 - max(A,C,D)]."
+    },
+    "updated_at": "2026-10-11T11:28:25.994526+00:00"
   },
   "history": [],
   "detectedScenarios": []

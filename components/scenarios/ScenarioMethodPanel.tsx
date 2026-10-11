@@ -93,8 +93,15 @@ export function ScenarioMethodPanel({
               points, liquidity (Kalshi: open interest) and volume each at least $10,000, and resolution on the horizon date.
             </li>
             <li>
-              B is the residual: 100 − A − C − D. The published whole numbers use largest-remainder (Hamilton) rounding so the
-              core set sums to exactly 100.
+              The method computes B as 100 − A − C − D, with largest-remainder (Hamilton) rounding so that A + B + C + D = 100.
+              That single number is right only if A, C and D never happen in the same window. Their definitions allow it (a
+              strike in week 1 and a deal in week 3 count for both D and A), so this page shows B as a range: from 100 − (A + C +
+              D) up to 100 − the largest of A, C and D (Fréchet bounds). The computed B is the low end.
+            </li>
+            <li>
+              Each price is for its market&apos;s own closing date, so it drifts down every day nothing happens. The fixed
+              30-day reading converts it to a common horizon assuming a constant daily hazard: p30 = 1 − (1 − p)^(30 / days
+              until the market closes). It is a conversion of the market price, not a market price.
             </li>
             <li>
               If A or D has no qualifying market, or the core probabilities would exceed 100, the run is KEEP_FROZEN: it is stored

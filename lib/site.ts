@@ -46,10 +46,10 @@ export const DEFAULT_OG_IMAGE = {
 export const ARABIC_ENABLED = ['1', 'true'].includes((process.env.NEXT_PUBLIC_ENABLE_AR ?? '').trim().toLowerCase());
 
 /**
- * Brief types that have a public page at /briefings/{day}/{type}. Mirrors VALID_TYPES in
- * app/briefings/[day]/[type]/page.tsx — keep the two in step (used by the sitemap and RSS feed).
+ * Brief types that have a public page at /briefings/{day}/{type} (current line-up + archive). The
+ * list lives in lib/brief-types.ts; the brief page, index, sitemap and RSS feed all read it from there.
  */
-export const ROUTABLE_BRIEF_TYPES = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'] as const;
+export { ROUTABLE_BRIEF_TYPES } from '@/lib/brief-types';
 
 /** <link rel="alternate" type="application/rss+xml"> on every page. */
 export const RSS_ALTERNATE = {

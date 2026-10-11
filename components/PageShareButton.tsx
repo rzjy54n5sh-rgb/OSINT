@@ -47,14 +47,18 @@ export function buildWarRoomShareText(countryName: string, naiScore: number, cat
   return `${countryName} War Posture: ${naiScore} · ${category} · Day ${conflictDay} — ${BASE_URL}/warroom`;
 }
 
+/**
+ * Scenario share text. B is passed as a range string (e.g. "60\u201378%") because A, C and D can
+ * co-occur: "none of them" is bounded, not a point (lib/scenario-range.ts).
+ */
 export function buildScenariosShareText(
   scenarioA: number,
-  scenarioB: number,
+  scenarioBRange: string,
   scenarioC: number,
   scenarioD: number,
   conflictDay: number
 ): string {
-  return `Scenarios A: ${scenarioA}% · B: ${scenarioB}% · C: ${scenarioC}% · D: ${scenarioD}% · Day ${conflictDay} — ${BASE_URL}/scenarios`;
+  return `Scenarios A: ${scenarioA}% · B (none of A/C/D): ${scenarioBRange} · C: ${scenarioC}% · D: ${scenarioD}% · Day ${conflictDay} — ${BASE_URL}/scenarios`;
 }
 
 export function buildNaiMapShareText(conflictDay: number, countryCode?: string, score?: number, category?: string): string {

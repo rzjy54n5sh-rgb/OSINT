@@ -32,11 +32,11 @@ const COUNTRY_NAMES: Record<string, string> = {
   DJ: "Djibouti",
 };
 
+// Lead = the largest MEASURED scenario. B ("none of A, C or D") is a range, never a lead.
 const LEAD_LABELS = [
-  "A — Ceasefire",
-  "B — Prolonged War",
-  "C — Cascade / Dual Closure",
-  "D — Escalation Spiral",
+  "A — US announces blockade end or a deal",
+  "C — Bab el-Mandeb closed while Hormuz is shut",
+  "D — US or Israeli strike on Iran",
 ];
 
 function getSupabaseUrl(): string {
@@ -151,9 +151,9 @@ Deno.serve(async (req: Request) => {
     const scenarioB = pct(scRow?.scenario_b);
     const scenarioC = pct(scRow?.scenario_c);
     const scenarioD = pct(scRow?.scenario_d);
-    const vals = [scenarioA, scenarioB, scenarioC, scenarioD];
+    const vals = [scenarioA, scenarioC, scenarioD];
     const maxIdx = vals.indexOf(Math.max(...vals));
-    const leadScenario = LEAD_LABELS[maxIdx] ?? "A — Ceasefire";
+    const leadScenario = LEAD_LABELS[maxIdx] ?? LEAD_LABELS[0];
 
     // NAI: nai_scores' OWN latest day (may be frozen) vs the day before it.
     const { data: latestNaiRow } = await supabase

@@ -1,6 +1,7 @@
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/site';
 import { briefPath, latestBriefs } from '@/lib/seo-feed';
 import { decodeHtmlEntities } from '@/lib/html-entities';
+import { briefTitle } from '@/lib/brief-types';
 
 /**
  * RSS 2.0 feed of the latest 30 briefs (title, link, guid, pubDate = generated_at,
@@ -10,16 +11,6 @@ import { decodeHtmlEntities } from '@/lib/html-entities';
 export const revalidate = 900;
 
 const FEED_SIZE = 30;
-
-const TYPE_TITLES: Record<string, string> = {
-  general: 'General Intelligence Brief',
-  general_weekly: 'Weekly General Digest',
-  horn: 'Horn of Africa & Red Sea Brief',
-  egypt: 'Egypt Country Brief',
-  uae: 'UAE Country Brief',
-  eschatology: 'Eschatology & Geopolitics Brief',
-  business: 'Business Opportunities Brief',
-};
 
 function xmlEscape(s: string): string {
   return s
@@ -57,7 +48,7 @@ export async function GET(): Promise<Response> {
   const items = briefs
     .map((b) => {
       const link = `${SITE_URL}${briefPath(b)}`;
-      const fallbackTitle = `Day ${b.conflict_day} ${TYPE_TITLES[b.report_type] ?? b.report_type}`;
+      const fallbackTitle = `Day ${b.conflict_day} ${briefTitle(b.report_type)}`;
       const title = plainText(b.title) || fallbackTitle;
       const description = plainText(b.lead);
       const pubDate = b.generated_at ? new Date(b.generated_at).toUTCString() : '';

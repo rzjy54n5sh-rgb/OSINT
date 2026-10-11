@@ -4,7 +4,8 @@ import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
 import { NAI_V2_METHOD, NAI_V2_RPC, NAI_V2_TABLE } from '@/lib/nai-v2';
 import { rpcWithFallback } from '@/lib/supabase/rpc-fallback';
-import { getScenarioRegistryView } from '@/lib/scenario-registry';
+import { RESIDUAL_SCENARIO_CODE, getScenarioRegistryView, isResidual, residualComponentCodes } from '@/lib/scenario-registry';
+import { residualRange } from '@/lib/scenario-range';
 import AnalyticsClient, { type PostureRow, type ScenarioDayRow } from './AnalyticsClient';
 
 export const metadata: Metadata = pageMetadata({
@@ -69,10 +70,29 @@ export default async function AnalyticsPage() {
     row[`scenario_${p.code.toLowerCase()}`] = p.probability;
     byDay.set(p.conflict_day, row);
   }
-  const scenarioDays = Array.from(byDay.values()).sort((a, b) => a.conflict_day - b.conflict_day);
+  // B (none of A, C, D) is a range, not a point: it is offered as its two bounds, never as the
+  // single residual (which is only the low end when A, C and D can co-occur).
+  const componentCodes = residualComponentCodes(registry.scenarios);
+  const scenarioDays = Array.from(byDay.values())
+    .sort((a, b) => a.conflict_day - b.conflict_day)
+    .map((row) => {
+      const resKey = `scenario_${RESIDUAL_SCENARIO_CODE.toLowerCase()}`;
+      const comps = Object.fromEntries(componentCodes.map((c) => [c, row[`scenario_${c.toLowerCase()}`] as number | null]));
+      const r = row[resKey] == null ? null : residualRange(comps);
+      const { [resKey]: _published, ...rest } = row;
+      void _published;
+      return { ...rest, [`${resKey}_low`]: r ? r.low : null, [`${resKey}_high`]: r ? r.high : null } as ScenarioDayRow;
+    });
   const scenarioCodes = registry.scenarios
     .filter((s) => s.group_code === 'core' && s.status !== 'retired')
-    .map((s) => ({ code: s.code, name: s.name_en }));
+    .flatMap((s) =>
+      isResidual(s.code)
+        ? [
+            { code: `${s.code}_low`, name: `${s.name_en} — low end of range (100 − sum)` },
+            { code: `${s.code}_high`, name: `${s.name_en} — high end of range (100 − largest)` },
+          ]
+        : [{ code: s.code, name: s.name_en }],
+    );
 
   return (
     <AnalyticsClient
