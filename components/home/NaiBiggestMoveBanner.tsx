@@ -1,86 +1,71 @@
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
-import { NAI_POSTURE_HEADING, NAI_V2_EMPTY_TEXT, getNaiV2Day, getNaiV2DayRange, postureLabel } from '@/lib/nai-v2';
+import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
+import { conflictName, getPostureBoard, postureLabelDef, postureMoves } from '@/lib/posture';
 
 /**
- * Server-rendered: largest |Δ expressed| in nai_scores_v2 (War Posture) between its latest day
- * and the previous War Posture day present. Reads ONLY nai_scores_v2 — legacy nai_scores
- * (Days 1-35, retired method) is never presented as current.
+ * Home tile: War Posture "biggest move" — ONLY a change that rests on NEW evidence (posture_scores
+ * change_reason = 'new_evidence'), never a re-verification or method artefact (War Posture v2 rule 5).
  *
- * The move is only called "TODAY" when the v2 day equals the calendar day; otherwise its
- * as-of day is stated explicitly. With no v2 rows it shows the honest empty state.
+ * Before v2 rows exist the board is the v1 table, which re-opens its sources daily: its day-to-day
+ * differences can be artefacts, so no move is claimed — the tile states what is on record instead.
+ * Expressed side only (visible to every tier); EG / AE / SA never appear as a move (no grade).
  */
 export async function NaiBiggestMoveBanner() {
   const supabase = createPublicClient();
   const currentDay = await getConflictDay();
-  const { latestDay: naiDay } = await getNaiV2DayRange(supabase);
+  const board = await getPostureBoard(supabase, { access: { latent: false, gap: false } });
+  const box = 'border border-white/10 px-4 py-3 font-mono text-xs mb-4 rounded-sm';
 
-  if (naiDay == null) {
+  if (board.rows.length === 0) {
     return (
-      <div
-        className="border border-white/10 px-4 py-3 font-mono text-xs mb-4 rounded-sm uppercase"
-        style={{ color: 'var(--text-muted)' }}
-        data-testid="nai-biggest-move"
-        data-freshness="empty"
-      >
-        ◆ WAR POSTURE — {NAI_V2_EMPTY_TEXT}
+      <div className={`${box} uppercase`} style={{ color: 'var(--text-muted)' }} data-testid="nai-biggest-move" data-freshness="empty">
+        ◆ WAR POSTURE — no government position captured yet
       </div>
     );
   }
 
-  // Expressed score only: it is visible to every tier, so no gated field is exposed here.
-  const rows = await getNaiV2Day(supabase, naiDay, { latent: false, gap: false });
-  const withDelta = rows.filter((r) => r.delta !== null);
-  const fresh = sectionFreshness(naiDay, currentDay);
-  const isToday = fresh.status === 'current';
-  const staleNote = !isToday && (
-    <div className="text-xs mt-1 uppercase" style={{ color: 'var(--accent-orange)' }} translate="no">
-      ⚠ WAR POSTURE — Latest available: Day {naiDay} ({formatConflictDayShort(naiDay)}) — no data for Day {currentDay}
-    </div>
-  );
+  const positions = board.rows.filter((r) => r.stance === 'position');
+  const countries = new Set(positions.map((r) => r.country_code)).size;
 
-  if (withDelta.length === 0) {
+  if (board.schema === 'v1') {
+    const fresh = sectionFreshness(board.latestDay ?? currentDay, currentDay);
     return (
-      <div
-        className="border border-white/10 px-4 py-3 font-mono text-xs mb-4 rounded-sm"
-        style={{ color: 'var(--text-muted)' }}
-        data-testid="nai-biggest-move"
-        data-freshness={fresh.status}
-      >
-        ◆ WAR POSTURE — DAY {naiDay}: {rows.length} countries scored; no earlier War Posture day to compare yet.
-        {staleNote}
+      <div className={box} style={{ color: 'var(--text-muted)' }} data-testid="nai-biggest-move" data-freshness={fresh.status} data-schema="v1">
+        ◆ WAR POSTURE — DAY {board.latestDay}: {countries} governments with a sourced position on record.{' '}
+        Moves are flagged only when they rest on newly captured evidence; the current series re-checks its sources daily, so
+        its day-to-day differences are not shown as moves.
+        {fresh.status !== 'current' && board.latestDay != null && (
+          <div className="text-xs mt-1 uppercase" style={{ color: 'var(--accent-orange)' }} translate="no">
+            ⚠ Latest available: Day {board.latestDay} ({formatConflictDayShort(board.latestDay)}) — no data for Day {currentDay}
+          </div>
+        )}
       </div>
     );
   }
 
-  const biggest = [...withDelta].sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))[0];
-  const d = biggest.delta ?? 0;
-  if (Math.abs(d) < 5) return null;
-
+  const moves = postureMoves(board);
+  if (moves.length === 0) {
+    return (
+      <div className={box} style={{ color: 'var(--text-muted)' }} data-testid="nai-biggest-move" data-freshness="current" data-schema="v2">
+        ◆ WAR POSTURE — DAY {board.day}: {positions.length} positions on record across {countries} governments; no position
+        changed on new evidence in the last two days.
+      </div>
+    );
+  }
+  const { row, delta } = moves[0];
+  const name = TRACKED_COUNTRY_NAMES[row.country_code] ?? row.country_code;
   return (
-    <div
-      className="border border-[#E8C547]/40 bg-[#E8C547]/5 px-4 py-3 font-mono text-sm mb-4 rounded-sm"
-      data-testid="nai-biggest-move"
-      data-freshness={fresh.status}
-    >
-      <span className="text-[#E8C547]">
-        {isToday ? '◆ BIGGEST WAR POSTURE MOVE TODAY:' : `◆ BIGGEST WAR POSTURE MOVE — DAY ${naiDay}:`}
-      </span>
-      <span className="text-white ml-2">
-        <span translate="no">{biggest.country_code}</span>{' '}
+    <div className="border border-[#F0AE6B]/40 bg-[#F0AE6B]/5 px-4 py-3 font-mono text-sm mb-4 rounded-sm" data-testid="nai-biggest-move" data-freshness="current" data-schema="v2">
+      <span style={{ color: '#F0AE6B' }}>◆ WAR POSTURE — CHANGED ON NEW EVIDENCE (DAY {row.score_day}):</span>
+      <span className="ml-2" style={{ color: 'var(--text-primary)' }}>
+        <span translate="no">{name}</span> on {conflictName(board.conflicts, row.conflict_code)}:{' '}
+        {postureLabelDef(row.previous_label)?.text ?? row.previous_score} → {postureLabelDef(row.label)?.text ?? row.expressed_score}{' '}
         <span translate="no">
-          {d > 0 ? '↑' : '↓'}
-          {Math.abs(d)} points {d > 0 ? 'toward continuing hostilities' : 'toward ceasefire'}
+          ({row.previous_score} → {row.expressed_score}, {delta > 0 ? 'toward continuing hostilities' : 'toward ceasefire'})
         </span>
-        <span translate="no">
-          {' '}
-          · Expressed {biggest.expressed_score}
-          {postureLabel(biggest.expressed_score) !== null &&
-            ` · ${NAI_POSTURE_HEADING}: ${postureLabel(biggest.expressed_score)}`}
-          {' '}(vs Day {biggest.prevDay})
-        </span>
+        {row.defensive ? ' · defensive' : ''}
       </span>
-      {staleNote}
     </div>
   );
 }

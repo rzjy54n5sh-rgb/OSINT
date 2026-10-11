@@ -4,13 +4,13 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { CountryReportClient, type CountryReportView } from './CountryReportClient';
 import { useViewerTier } from '@/hooks/useViewerTier';
 import { tierHasFeature, type TierFlags } from '@/lib/tier';
-import type { NaiV2View } from '@/lib/nai-v2';
+import type { ConflictDef, CountryPosture } from '@/lib/posture';
 import type { CountryNarrative } from '@/lib/country-narrative';
 
 type Unlocked = {
   hasAccess: boolean;
   narrative: CountryNarrative | null;
-  posture: NaiV2View | null;
+  posture: CountryPosture | null;
 };
 
 /**
@@ -23,6 +23,7 @@ type Unlocked = {
 export function CountryReportGate({
   report,
   posture,
+  conflicts,
   featureKey,
   requiredTier,
   tierFlags,
@@ -31,7 +32,8 @@ export function CountryReportGate({
   conflictDayBadge,
 }: {
   report: CountryReportView;
-  posture: NaiV2View | null;
+  posture: CountryPosture | null;
+  conflicts: readonly ConflictDef[];
   featureKey: string;
   requiredTier: 'informed' | 'professional';
   tierFlags: TierFlags;
@@ -68,6 +70,7 @@ export function CountryReportGate({
     <CountryReportClient
       report={unlocked?.hasAccess ? { ...report, narrative: unlocked.narrative } : report}
       posture={unlocked?.posture ?? posture}
+      conflicts={conflicts}
       hasAccess={hasAccess}
       requiredTier={requiredTier}
       summaryOnly={!hasAccess}

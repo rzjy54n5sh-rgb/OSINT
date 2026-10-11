@@ -186,11 +186,11 @@ SELECT tl_test.chk('forecast on an already-resolved question rejected', 'rejecte
      VALUES ('TEST-q1', 'TEST question 1?', 'Resolves YES if TEST.', current_date + 30, 'desk', 0.2)$q$);
 SELECT tl_test.chk('insert posture_evidence', 'ok',
   $q$INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, speaker, source_url, archive_url, page_sha256, captured_at, method_version)
-     VALUES ('EG', 'us-iran-2026', 'TEST verbatim quote', 'TEST speaker', 'https://example.test/p', 'https://web.archive.org/web/2026/https://example.test/p',
+     VALUES ('EG', 'us-iran', 'TEST verbatim quote', 'TEST speaker', 'https://example.test/p', 'https://web.archive.org/web/2026/https://example.test/p',
              repeat('b', 64), now(), 'war-posture-v1')$q$, true);
 SELECT tl_test.chk('posture_evidence without source_url rejected', 'rejected',
   $q$INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, captured_at, method_version)
-     VALUES ('EG', 'us-iran-2026', 'q', now(), 'v1')$q$);
+     VALUES ('EG', 'us-iran', 'q', now(), 'v1')$q$);
 SELECT tl_test.chk('insert market_reads', 'ok',
   $q$INSERT INTO public.market_reads (venue, market_slug, market_question, resolution_wording, bid, ask, last, liquidity, read_at, raw)
      VALUES ('polymarket', 'test-market', 'TEST?', 'TEST wording', 0.40, 0.42, 0.41, 1000, now(), '{"secret":"raw"}')$q$, true);
@@ -255,7 +255,9 @@ SELECT tl_test.chk('postgres DELETE forecast_resolutions', 'blocked', $q$DELETE 
 SELECT tl_test.chk('postgres TRUNCATE forecast_resolutions', 'blocked', $q$TRUNCATE public.forecast_resolutions$q$);
 SELECT tl_test.chk('postgres UPDATE posture_evidence', 'blocked', $q$UPDATE public.posture_evidence SET speaker = 'x'$q$);
 SELECT tl_test.chk('postgres DELETE posture_evidence', 'blocked', $q$DELETE FROM public.posture_evidence$q$);
-SELECT tl_test.chk('postgres TRUNCATE posture_evidence', 'blocked', $q$TRUNCATE public.posture_evidence$q$);
+-- CASCADE: with 20261012091000_war_posture_v2 applied posture_scores references posture_evidence, and a plain
+-- TRUNCATE stops at the FK before the guard trigger fires; CASCADE reaches the guard either way.
+SELECT tl_test.chk('postgres TRUNCATE posture_evidence', 'blocked', $q$TRUNCATE public.posture_evidence CASCADE$q$);
 SELECT tl_test.chk('postgres UPDATE market_reads', 'blocked', $q$UPDATE public.market_reads SET last = 0.9$q$);
 SELECT tl_test.chk('postgres DELETE market_reads', 'blocked', $q$DELETE FROM public.market_reads$q$);
 SELECT tl_test.chk('postgres TRUNCATE market_reads', 'blocked', $q$TRUNCATE public.market_reads$q$);

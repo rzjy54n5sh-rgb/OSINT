@@ -6,45 +6,35 @@ import { DataAsOf } from '@/components/ui/DataAsOf';
 import { tierHasFeature, buildTierFlags } from '@/lib/tier';
 import { NaiViewer } from '@/components/nai/NaiViewer';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
-import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
+import { getPostureBoard } from '@/lib/posture';
 
 export const metadata: Metadata = pageMetadata({
   title: 'War Posture Map — MENA Intel Desk',
   description:
-    "Each tracked state's official war posture and its society's posture on one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), with sources.",
+    "Each tracked government's stated position on continuing each war, per conflict, on one party-neutral scale (0 = immediate ceasefire, 100 = continue or escalate), with the verbatim statement, its date and an archived copy.",
   path: '/nai',
 });
 
 /**
- * ISR: War Posture rows are written at most once a day. This HTML is shared by the edge cache,
- * so it is rendered for an ANONYMOUS visitor at the latest day: locked fields (latent band, gap,
- * category per tier_features) are withheld here, server-side, exactly as before for a logged-out
- * visitor. NaiViewer loads the signed-in visitor's tier view and any `?day=N` from
- * /api/viewer/nai after hydration (reading searchParams/cookies here would make the page
- * dynamic and uncacheable).
+ * ISR: posture rows change at most daily. This HTML is shared by the edge cache, so it is rendered for
+ * an ANONYMOUS visitor (locked fields withheld server-side). NaiViewer loads the signed-in visitor's
+ * tier view and any `?day=N` from /api/viewer/posture after hydration.
+ *
+ * Board: War Posture v2 (per conflict, viewer_posture_v2) when that migration is applied and has rows;
+ * otherwise the v1 table (one blended number per country), labelled as such. Legacy nai_scores
+ * (Days 1-35, retired method) is never used here.
  */
 export const revalidate = 900;
 
 export default async function NaiMapPage() {
   const supabase = createPublicClient();
   const currentDay = await getConflictDay();
-
-  // currentDay = calendar (DAY LOCK). latestDay = nai_scores_v2's OWN max day for the
-  // war-posture-v1 method. Legacy nai_scores (Days 1-35, retired method) is NEVER used here
-  // as a fallback: if v2 has no rows the page shows the honest empty state.
-  const [{ firstDay, latestDay }, { data: tierRows }] = await Promise.all([
-    getNaiV2DayRange(supabase),
-    supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
-  ]);
-  const conflictDay = latestDay ?? currentDay;
-
+  const { data: tierRows } = await supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access');
   const flags = buildTierFlags(tierRows ?? []);
   // Anonymous-visitor access only: this page is cached and served to everyone.
-  const hasLatentAccess = tierHasFeature(null, 'nai_latent_score', flags);
-  const hasGapAccess = tierHasFeature(null, 'nai_gap_analysis', flags);
-
-  const rows: NaiV2View[] =
-    latestDay != null ? await getNaiV2Day(supabase, conflictDay, { latent: hasLatentAccess, gap: hasGapAccess }) : [];
+  const access = { latent: tierHasFeature(null, 'nai_latent_score', flags), gap: tierHasFeature(null, 'nai_gap_analysis', flags) };
+  const board = await getPostureBoard(supabase, { access });
+  const dataDay = board.schema === 'v1' ? board.latestDay : currentDay;
 
   return (
     <Suspense
@@ -55,14 +45,12 @@ export default async function NaiMapPage() {
       }
     >
       <NaiViewer
-        initial={{ rows, conflictDay, hasLatentAccess, hasGapAccess }}
-        latestDay={latestDay}
-        firstDay={firstDay}
+        initial={board}
         tierFlags={flags}
         conflictDayBadge={
           <>
             <ConflictDayBadge />
-            <DataAsOf section="WAR POSTURE" latestDay={latestDay} currentDay={currentDay} className="mt-2" />
+            <DataAsOf section="WAR POSTURE" latestDay={dataDay} currentDay={currentDay} className="mt-2" />
           </>
         }
       />

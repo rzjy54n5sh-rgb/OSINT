@@ -91,27 +91,36 @@ export default function CountriesClient({ initialScores, naiDay, currentDay, tie
               <OsintCard className="block hover:border-border-bright">
                 <Link prefetch={false} href={`/countries/${s.country_code.toLowerCase()}`} className="block">
                   <CountryFlag code={s.country_code} />
-                  <div className="mt-2">
-                    <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} latentEvidence={s.latentEvidence} expressed={s.expressed_score} />
-                  </div>
-                  <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
-                    <GlossaryTooltip
-                      term="EXPRESSED"
-                      definition={`Official narrative's position on continuing hostilities (${NAI_V2_SCALE_TEXT}).`}
-                    >
-                      <span>EXPRESSED {s.expressed_score ?? '—'}</span>
-                    </GlossaryTooltip>
-                    {' | '}
-                    <GlossaryTooltip
-                      term="LATENT"
-                      definition="Population and non-government elites on the same scale, stored as a low–high band. Empty when there is no evidence."
-                    >
-                      <span>LATENT {s.latentLocked ? 'Informed tier' : formatBand(s.latent_low, s.latent_high)}</span>
-                    </GlossaryTooltip>
-                  </p>
-                  <div className="mt-1">
-                    <NaiPostureLabel expressed={s.expressed_score} />
-                  </div>
+                  {s.withheld ? (
+                    <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-secondary)' }} data-testid={`country-withheld-${s.country_code}`}>
+                      STATED POSITIONS ONLY — no grade is published for this government (editorial policy). Open the
+                      country page for its statements and acts.
+                    </p>
+                  ) : (
+                    <>
+                    <div className="mt-2">
+                      <NaiV2CategoryBadge category={s.category} locked={s.categoryLocked} latentEvidence={s.latentEvidence} expressed={s.expressed_score} />
+                    </div>
+                    <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
+                      <GlossaryTooltip
+                        term="EXPRESSED"
+                        definition={`Official narrative's position on continuing hostilities (${NAI_V2_SCALE_TEXT}).`}
+                      >
+                        <span>EXPRESSED {s.expressed_score ?? '—'}</span>
+                      </GlossaryTooltip>
+                      {' | '}
+                      <GlossaryTooltip
+                        term="LATENT"
+                        definition="Population and non-government elites on the same scale, stored as a low–high band. Empty when there is no evidence."
+                      >
+                        <span>LATENT {s.latentLocked ? 'Informed tier' : formatBand(s.latent_low, s.latent_high)}</span>
+                      </GlossaryTooltip>
+                    </p>
+                    <div className="mt-1">
+                      <NaiPostureLabel expressed={s.expressed_score} />
+                    </div>
+                    </>
+                  )}
                 </Link>
                 <div className="mt-2">
                   <NaiV2Evidence row={s} compact />

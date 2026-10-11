@@ -2,7 +2,7 @@ import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
-import { NAI_V2_METHOD, NAI_V2_RPC, NAI_V2_TABLE } from '@/lib/nai-v2';
+import { NAI_V2_METHOD, NAI_V2_RPC, NAI_V2_TABLE, isNaiV2Withheld } from '@/lib/nai-v2';
 import { rpcWithFallback } from '@/lib/supabase/rpc-fallback';
 import { RESIDUAL_SCENARIO_CODE, getScenarioRegistryView, isResidual, residualComponentCodes } from '@/lib/scenario-registry';
 import { residualRange } from '@/lib/scenario-range';
@@ -49,7 +49,8 @@ export default async function AnalyticsPage() {
   const gapAccess = tierHasFeature(user?.tier, 'nai_gap_analysis', flags);
 
   // Tier-gated fields are nulled here, server-side, same as /nai.
-  const posture: PostureRow[] = ((wp ?? []) as Record<string, unknown>[]).map((r) => {
+  // EG / AE / SA: no grade is published (War Posture v2 editorial policy), so they are not plotted.
+  const posture: PostureRow[] = ((wp ?? []) as Record<string, unknown>[]).filter((r) => !isNaiV2Withheld(String(r.country_code))).map((r) => {
     const lo = num(r.latent_low);
     const hi = num(r.latent_high);
     return {

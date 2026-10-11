@@ -5,16 +5,8 @@ import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { CountryFlag } from '@/components/CountryFlag';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
-import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
-import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
-import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
-import {
-  NAI_V2_ARCHIVE_NOTE,
-  NAI_V2_SCALE_TEXT,
-  formatBand,
-  formatGap,
-  type NaiV2View,
-} from '@/lib/nai-v2';
+import { PostureCountryPanel } from '@/components/posture/PostureCountryPanel';
+import type { ConflictDef, CountryPosture } from '@/lib/posture';
 import type { CountryNarrative } from '@/lib/country-narrative';
 
 /** What the server hands the client: identity, report day and the WHITELISTED narrative only. */
@@ -30,8 +22,10 @@ export interface CountryReportView {
 
 type CountryReportClientProps = {
   report: CountryReportView;
-  /** Latest nai_scores_v2 row for this country (War Posture), or null when it has none. */
-  posture: NaiV2View | null;
+  /** War Posture for this country: v2 rows per conflict (or the v1 blended row) + its evidence ledger. */
+  posture: CountryPosture | null;
+  /** Conflicts registry (names for the per-conflict cards). */
+  conflicts: readonly ConflictDef[];
   hasAccess: boolean;
   requiredTier: 'informed' | 'professional';
   summaryOnly: boolean;
@@ -45,117 +39,10 @@ function fmtUtc(iso: string | null): string | null {
   return `${d.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
 }
 
-function WarPosturePanel({ posture, countryDay }: { posture: NaiV2View | null; countryDay: number | null }) {
-  if (!posture) {
-    return (
-      <section className="osint-card p-5 mb-6" data-testid="war-posture-panel">
-        <h2 className="font-display text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
-          WAR POSTURE
-        </h2>
-        <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }} data-testid="war-posture-empty">
-          No sourced data available{countryDay != null ? ` for Day ${countryDay}` : ''}. No score or category is shown
-          rather than a guessed one.
-        </p>
-      </section>
-    );
-  }
-  const p = posture;
-  return (
-    <section className="osint-card p-5 mb-6" data-testid="war-posture-panel" aria-labelledby="war-posture-h">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-        <h2 id="war-posture-h" className="font-display text-lg" style={{ color: 'var(--text-primary)' }}>
-          WAR POSTURE
-        </h2>
-        <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }} translate="no">
-          AS OF DAY {p.conflict_day} · {p.as_of}
-        </span>
-      </div>
-      <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-        One party-neutral scale for every state: {NAI_V2_SCALE_TEXT}.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-            Expressed (official)
-          </p>
-          <p className="font-display text-3xl" style={{ color: 'var(--text-primary)' }} translate="no" data-testid="war-posture-expressed">
-            {p.expressed_score ?? '—'}
-          </p>
-          <NaiPostureLabel expressed={p.expressed_score} className="mt-1" />
-          <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
-            ΔEXP {p.delta === null ? '—' : formatGap(p.delta)}
-            {p.prevDay != null ? ` vs Day ${p.prevDay}` : ''}
-          </p>
-        </div>
-        <div>
-          <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-            Latent (society, band)
-          </p>
-          <p className="font-display text-3xl" style={{ color: 'var(--text-primary)' }} translate="no" data-testid="war-posture-latent">
-            {p.latentLocked ? 'Informed tier' : p.latent_low === null ? '—' : formatBand(p.latent_low, p.latent_high)}
-          </p>
-          {!p.latentLocked && p.latent_low === null && (
-            <p className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-              No admissible evidence
-            </p>
-          )}
-        </div>
-        <div>
-          <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-            Gap · Category
-          </p>
-          <p className="font-display text-3xl" style={{ color: 'var(--text-primary)' }} translate="no">
-            {formatGap(p.gap)}
-          </p>
-          <div className="mt-1">
-            <NaiV2CategoryBadge
-              category={p.category}
-              locked={p.categoryLocked}
-              latentEvidence={p.latentEvidence}
-              expressed={p.expressed_score}
-            />
-          </div>
-        </div>
-      </div>
-      {(p.expressed_basis || p.latent_basis) && (
-        <dl className="font-body text-sm mt-4 space-y-2" style={{ color: 'var(--text-secondary)' }}>
-          {p.expressed_basis && (
-            <div>
-              <dt className="font-mono text-[11px] uppercase" style={{ color: 'var(--text-muted)' }}>
-                Basis — expressed
-              </dt>
-              <dd className="leading-relaxed">{p.expressed_basis}</dd>
-            </div>
-          )}
-          {p.latent_basis && (
-            <div>
-              <dt className="font-mono text-[11px] uppercase" style={{ color: 'var(--text-muted)' }}>
-                Basis — latent
-              </dt>
-              <dd className="leading-relaxed">{p.latent_basis}</dd>
-            </div>
-          )}
-        </dl>
-      )}
-      <div className="mt-4 border-t pt-3" style={{ borderColor: 'var(--border)' }}>
-        <p className="font-mono text-[11px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
-          Sources
-        </p>
-        <NaiV2Evidence row={p} />
-      </div>
-      <p className="font-mono text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
-        {NAI_V2_ARCHIVE_NOTE}{' '}
-        <Link prefetch={false} href="/methodology" style={{ color: 'var(--accent-gold)' }}>
-          How War Posture is scored →
-        </Link>
-      </p>
-    </section>
-  );
-}
-
 export function CountryReportClient({
   report,
   posture,
+  conflicts,
   requiredTier,
   summaryOnly,
   conflictDayBadge,
@@ -182,7 +69,7 @@ export function CountryReportClient({
         </span>
       </div>
 
-      <WarPosturePanel posture={posture} countryDay={report.conflict_day} />
+      <PostureCountryPanel countryCode={report.country_code} posture={posture} conflicts={conflicts} />
 
       {summaryOnly && (
         <div className="relative">
