@@ -3,7 +3,9 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import maplibregl from 'maplibre-gl';
+// maplibre-gl v6 is ESM-only (no default export). Under a bundler the worker URL must be set once:
+// https://github.com/maplibre/maplibre-gl-js/blob/main/docs/guides/v5-to-v6-migration-guide.md
+import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
@@ -127,6 +129,8 @@ export function NaiMapClient({
 
   useEffect(() => {
     if (!mapContainer.current) return;
+    // Self-hosted worker (same origin), emitted by webpack from the package (maplibre docs, "webpack 5+").
+    maplibregl.setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
     map.current = new maplibregl.Map({
       container: mapContainer.current,
       style: 'https://demotiles.maplibre.org/style.json',

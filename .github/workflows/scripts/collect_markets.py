@@ -9,6 +9,7 @@ import os
 import json
 import datetime
 import requests
+import heartbeat  # job_heartbeats row at the end of a run (non-fatal)
 
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
@@ -144,6 +145,7 @@ def main():
     records = build_records(day)
     inserted = insert_records(records)
     print(f"[collect_markets] Done — {inserted} market indicators written")
+    heartbeat.beat("collect-markets", "ok" if inserted else "fail", f"{inserted} indicators written")
     for r in records:
         print(f"  {r['indicator']}: {r['value']} {r['unit']} ({r['change_pct']:+.2f}%)")
 

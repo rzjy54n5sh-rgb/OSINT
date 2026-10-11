@@ -10,6 +10,8 @@ SCRIPTS_DIR = os.environ.get("COLLECTOR_SCRIPTS_DIR", DEFAULT_DIR)
 # The scripts read these at import time; tests never touch the network.
 os.environ.setdefault("SUPABASE_URL", "https://supabase.test")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-key")
+# heartbeat.beat() (end of collect_feeds/collect_markets/scenario_daily) must not POST from tests.
+os.environ.setdefault("HEARTBEAT_DISABLED", "1")
 
 
 def load(name):

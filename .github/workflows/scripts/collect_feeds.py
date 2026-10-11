@@ -24,6 +24,7 @@ import hashlib
 import datetime
 import time
 import requests
+import heartbeat  # job_heartbeats row at the end of a run (non-fatal)
 import feedparser
 import concurrent.futures
 from dateutil import parser as dateparser
@@ -590,6 +591,7 @@ def main(argv=None):
 
     elapsed = (datetime.datetime.utcnow() - now).total_seconds()
     print(f"\n[collect_feeds] Done in {elapsed:.1f}s")
+    heartbeat.beat("collect-articles", "ok", f"{total_inserted} upserted in {elapsed:.0f}s")
 
 
 if __name__ == "__main__":

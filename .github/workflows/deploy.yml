@@ -8,14 +8,17 @@ on:
 concurrency:
   group: deploy-production
   cancel-in-progress: true
+# Least privilege: the job only reads the repo; Cloudflare is reached with its own API token.
+permissions:
+  contents: read
 jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
       - name: Check required secrets
@@ -30,16 +33,17 @@ jobs:
             echo "Add them in repo Settings → Secrets and variables → Actions, then re-run."
             exit 1
           fi
-          [ -z "$SUPABASE_SERVICE_KEY" ] && echo "::warning::SUPABASE_SERVICE_KEY not set — admin routes will fail until added (and in Cloudflare env)."
           echo "Required secrets present."
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      # npm ci installs exactly package-lock.json (fails if it is out of sync) instead of
+      # re-resolving ranges at deploy time. The Worker's SUPABASE_SERVICE_KEY lives in
+      # Cloudflare (wrangler secret), not in this build.
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Check Supabase secrets (required for live data)
         run: |
           if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
@@ -101,8 +105,10 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          # SUPABASE_SERVICE_KEY / YOUTUBE_API_KEY removed (WS4): no page reads them at build
+          # time (proved by building without them and with sentinel values: 0 occurrences in
+          # .next/.open-next). /api/youtube-live and the admin client read them at runtime from
+          # the Worker's own Cloudflare secrets.
       - name: Verify Supabase URL in client bundle
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

@@ -1,0 +1,205 @@
+# Nightly encrypted database backup to Cloudflare R2, and a weekly automated restore drill.
+# - backup  (nightly 01:17 UTC): pg_dump (client 17 = Supabase Postgres 17) of `public` (schema + data)
+#   and `auth` (schema + data; restore only its data into a new Supabase project) from ONE snapshot,
+#   through the Supabase SESSION pooler (IPv4; GitHub runners have no IPv6, the direct host is IPv6),
+#   with exact per-table row counts -> tar -> age-encrypted to BACKUP_AGE_RECIPIENT (public key) ->
+#   R2 daily/ (+ monthly/<YYYY-MM>/ for the first backup of each month). Keeps 30 daily + 12 monthly.
+# - restore-test (weekly, Sunday 03:43 UTC): newest daily backup -> decrypt with BACKUP_AGE_KEY ->
+#   restore into a throwaway postgres:17 service container -> every table's row count must equal
+#   the manifest. A failure fails the job (GitHub emails the owner) and the watchdog alerts.
+# - Missing secrets: each job ends green with a ::notice:: naming what is missing (nothing runs).
+# - Free: R2 Free 10 GB-month (~30-40 MB per dump est.), Actions minutes free on a public repo.
+#   Logs are public: no step prints a secret or a connection string; dumps never leave encrypted.
+# Scripts: .github/workflows/scripts/db_backup.sh (tested locally, see PR). Runbook: docs/backup-restore.md
+name: DB Backup (nightly) + Restore Drill (weekly)
+
+on:
+  schedule:
+    - cron: '17 1 * * *'   # backup
+    - cron: '43 3 * * 0'   # restore drill
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'What to run'
+        type: choice
+        default: backup
+        options: [backup, restore-test, both]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  SCRIPT: .github/workflows/scripts/db_backup.sh
+
+# Explicit bash = `bash --noprofile --norc -eo pipefail` (the implicit default has no pipefail, which
+# would let `restore-verify | tee` pass on a failed drill).
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backup:
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '17 1 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.job != 'restore-test')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check secrets (skip with a notice when not configured)
+        id: cfg
+        env:
+          DB_POOLER_URL: ${{ secrets.DB_POOLER_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT || secrets.BACKUP_AGE_RECIPIENT }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          missing=""
+          for v in DB_POOLER_URL BACKUP_AGE_RECIPIENT R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice title=DB backup skipped::Not configured. Missing:$missing (see docs/backup-restore.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          sparse-checkout: .github/workflows/scripts
+
+      # postgresql-client-17 from the PostgreSQL apt repo (postgresql.org/download/linux/ubuntu,
+      # "Automated repository configuration"); age from Ubuntu universe. awscli v2 is preinstalled.
+      - name: Install pg_dump 17 and age
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17 age
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Dump, verify, encrypt
+        id: dump
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          DB_URL: ${{ secrets.DB_POOLER_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ vars.BACKUP_AGE_RECIPIENT || secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          pg_dump --version
+          bash "$SCRIPT" dump "$RUNNER_TEMP/backup"
+
+      - name: Upload to R2 and apply retention
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          FILE: ${{ steps.dump.outputs.file }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          KEEP_DAILY: '30'
+          KEEP_MONTHLY: '12'
+        run: |
+          aws --version
+          bash "$SCRIPT" upload "$FILE"
+          echo "Backup: $(basename "$FILE"), ${{ steps.dump.outputs.tables }} tables, ${{ steps.dump.outputs.rows }} rows" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Heartbeat (non-fatal)
+        if: always() && steps.cfg.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STATUS: ${{ job.status == 'success' && 'ok' || 'fail' }}
+          DETAIL: ${{ steps.dump.outputs.tables }} tables / ${{ steps.dump.outputs.rows }} rows, run ${{ github.run_id }}
+        run: python3 -c "import sys; sys.path.insert(0, '.github/workflows/scripts'); import heartbeat, os; heartbeat.beat('db-backup', os.environ['STATUS'], os.environ['DETAIL'])"
+
+  restore-test:
+    needs: [backup]
+    # Runs after `backup` when both are requested, and alone when `backup` is skipped (weekly
+    # cron). `always()` is required for a job whose dependency was skipped; a failed or cancelled
+    # backup stops the drill.
+    if: >-
+      always() && (needs.backup.result == 'success' || needs.backup.result == 'skipped') && (
+      (github.event_name == 'schedule' && github.event.schedule == '43 3 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && inputs.job != 'backup'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - name: Check secrets (skip with a notice when not configured)
+        id: cfg
+        env:
+          BACKUP_AGE_KEY: ${{ secrets.BACKUP_AGE_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          missing=""
+          for v in BACKUP_AGE_KEY R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::notice title=Restore drill skipped::Not configured. Missing:$missing (see docs/backup-restore.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        if: steps.cfg.outputs.ready == 'true'
+        with:
+          sparse-checkout: .github/workflows/scripts
+
+      - name: Install pg_restore 17 and age
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-17 age
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch newest backup from R2
+        id: fetch
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: bash "$SCRIPT" fetch-latest "$RUNNER_TEMP/drill"
+
+      - name: Restore into postgres:17 and compare row counts
+        if: steps.fetch.outcome == 'success'
+        env:
+          BACKUP_AGE_KEY: ${{ secrets.BACKUP_AGE_KEY }}
+          FILE: ${{ steps.fetch.outputs.file }}
+          TARGET: postgresql://postgres:drill@localhost:5432/postgres
+        run: |
+          bash "$SCRIPT" restore-verify "$FILE" "$TARGET" | tee "$RUNNER_TEMP/drill.txt"
+          { echo '```'; tail -n 1 "$RUNNER_TEMP/drill.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Heartbeat (non-fatal)
+        if: always() && steps.cfg.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STATUS: ${{ job.status == 'success' && 'ok' || 'fail' }}
+        run: python3 -c "import sys; sys.path.insert(0, '.github/workflows/scripts'); import heartbeat, os; heartbeat.beat('db-restore-test', os.environ['STATUS'], 'run ${{ github.run_id }}')"

@@ -1,0 +1,31 @@
+{
+  // WS4 scheduler: a tiny separate Worker whose Cron Triggers call the GitHub REST API
+  // `workflow_dispatch` for the collectors, because GitHub's own `schedule:` drifts by hours
+  // (measured 2026-10-08: collect-markets "*/30" ran 4-7 h apart; scenario-daily "20 5" ran 12:06).
+  // Deployed by .github/workflows/scheduler-deploy.yml (separate from the site deploy).
+  // Free plan: 5 Cron Triggers per ACCOUNT (this Worker uses 2), 10 ms CPU and 50 subrequests per
+  // invocation (this one uses <1 ms CPU and at most 5 subrequests), 100,000 requests/day.
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "mena-intel-scheduler",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-17",
+  // No public URL: the Worker only runs on its crons (fetch() answers 404 anyway).
+  "workers_dev": false,
+  "preview_urls": false,
+  "triggers": {
+    // UTC. "*/30" = collect-markets every run + collect-articles on the :00 run; "20 5" = scenario-daily.
+    "crons": ["*/30 * * * *", "20 5 * * *"]
+  },
+  "observability": { "enabled": true },
+  "vars": {
+    "GH_OWNER": "rzjy54n5sh-rgb",
+    "GH_REPO": "OSINT",
+    "GH_REF": "main",
+    "GITHUB_API": "https://api.github.com",
+    // Kill switch without a redeploy of code: set to "false" in the dashboard (or here) to stop dispatching.
+    "DISPATCH_ENABLED": "true"
+  }
+  // Secrets (wrangler secret / --secrets-file, never in this file):
+  //   GH_DISPATCH_TOKEN   fine-grained PAT, repo rzjy54n5sh-rgb/OSINT only, Actions: Read and write
+  //   TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID   optional: message on a failed dispatch
+}
