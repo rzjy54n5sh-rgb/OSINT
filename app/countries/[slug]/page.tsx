@@ -8,7 +8,7 @@ import type { CountryReportView } from './CountryReportClient';
 import { CountryReportGate } from './CountryReportGate';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { parseNarrative } from '@/lib/country-narrative';
-import { getNaiV2CountryLatest } from '@/lib/nai-v2';
+import { getConflicts, getCountryPosture } from '@/lib/posture';
 import { getViewerCountryReport, narrativeUnlocked } from '@/lib/country-report';
 
 /**
@@ -94,11 +94,12 @@ export default async function CountryReportPage({
   // viewer_country_report via the cookie-less client = the ANONYMOUS view: content_json is null
   // unless the free tier unlocks it. Before migration 20261008090000 the RPC is missing and the old
   // table read runs; content_json is then selected only when the anonymous tier has access.
-  const [{ data: report, error }, posture] = await Promise.all([
+  const [{ data: report, error }, posture, conflicts] = await Promise.all([
     countryCode
       ? getViewerCountryReport(supabase, countryCode, { withContent: hasAccess })
       : Promise.resolve({ data: null, error: null }),
-    countryCode ? getNaiV2CountryLatest(supabase, countryCode, anonPostureAccess) : Promise.resolve(null),
+    countryCode ? getCountryPosture(supabase, countryCode, anonPostureAccess) : Promise.resolve(null),
+    getConflicts(supabase),
   ]);
 
   if (error) {
@@ -114,7 +115,7 @@ export default async function CountryReportPage({
     );
   }
 
-  if (!report && !posture) {
+  if (!report && (!posture || (posture.rows.length === 0 && posture.ledger.length === 0))) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
         <Link prefetch={false} href="/countries" className="font-mono text-xs mb-6 inline-block" style={{ color: 'var(--accent-gold)' }}>
@@ -140,6 +141,7 @@ export default async function CountryReportPage({
     <CountryReportGate
       report={view}
       posture={posture}
+      conflicts={conflicts}
       featureKey={featureKey}
       requiredTier={requiredTier}
       tierFlags={flags}

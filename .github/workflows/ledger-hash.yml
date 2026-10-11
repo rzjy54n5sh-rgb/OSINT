@@ -59,8 +59,12 @@ jobs:
 
           # Columns hashed per table. corrections leaves out `published`: its one permitted change
           # (false -> true) must not look like a rewrite when an old prefix is re-hashed.
+          # posture_evidence is pinned to its original 11 columns: migration 20261012091000_war_posture_v2 adds
+          # columns (evidence_kind, act_type, ...) and `*` would re-hash every old row differently -> false alarm.
+          # The added columns are still covered by the append-only guard; anchoring them needs a new key.
           cols() { case "$1" in
             corrections) echo 'id,created_at,target_table,target_id,conflict_day,report_type,correction_class,summary,before_excerpt,after_excerpt' ;;
+            posture_evidence) echo 'id,country_code,conflict_code,position_quote,speaker,source_url,archive_url,page_sha256,captured_at,method_version,created_at' ;;
             *) echo '*' ;; esac; }
           # hash_table <table> <snapshot> -> prints "<rows>:<sha256>" or "absent"; writes rows to $work/<table>.jsonl
           hash_table() {

@@ -9,10 +9,14 @@ export function NaiV2Evidence({ row, compact = false }: { row: NaiV2View; compac
   const list = compact ? row.sources.slice(0, 3) : row.sources;
   return (
     <div className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-      <p translate="no">
-        CONFIDENCE <span style={{ color: 'var(--text-secondary)' }}>{row.confidence.toUpperCase()}</span>
-        {' · '}AS OF {row.as_of}
-      </p>
+      {row.withheld ? (
+        <p translate="no">CITED REPORTING · AS OF {row.as_of}</p>
+      ) : (
+        <p translate="no">
+          CONFIDENCE <span style={{ color: 'var(--text-secondary)' }}>{row.confidence.toUpperCase()}</span>
+          {' · '}AS OF {row.as_of}
+        </p>
+      )}
       <ul className="mt-1 space-y-1">
         {list.map((s, i) => (
           <li key={`${s.url}-${i}`}>

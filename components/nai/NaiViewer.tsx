@@ -2,17 +2,10 @@
 
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { NaiMapClient } from '@/components/nai/NaiMapClient';
+import { PostureMapClient } from '@/components/posture/PostureMapClient';
 import { useViewerTier } from '@/hooks/useViewerTier';
 import { tierHasFeature, type TierFlags } from '@/lib/tier';
-import type { NaiV2View } from '@/lib/nai-v2';
-
-type NaiState = {
-  rows: NaiV2View[];
-  conflictDay: number;
-  hasLatentAccess: boolean;
-  hasGapAccess: boolean;
-};
+import type { PostureBoard } from '@/lib/posture';
 
 /** Reads `?day=N`. Its own Suspense boundary keeps the map/sidebar server-rendered. */
 function DayParam({ onDay }: { onDay: (day: number | null) => void }) {
@@ -27,51 +20,42 @@ function DayParam({ onDay }: { onDay: (day: number | null) => void }) {
 }
 
 /**
- * /nai is cached and rendered for an anonymous visitor at the latest War Posture day. After
- * hydration this loads, from /api/viewer/nai (session re-checked server-side, never cached):
+ * /nai is cached and rendered for an anonymous visitor. After hydration this loads, from
+ * /api/viewer/posture (session re-checked server-side, never cached):
  *  - the latent band / gap / category when the signed-in visitor's tier unlocks them, and
  *  - a historical day when the URL carries `?day=N`.
- * Anonymous visitors on the latest day make no extra request.
+ * Anonymous visitors on the default day make no extra request.
  */
 export function NaiViewer({
   initial,
-  latestDay,
-  firstDay,
   tierFlags,
   conflictDayBadge,
 }: {
-  initial: NaiState;
-  latestDay: number | null;
-  firstDay: number | null;
+  initial: PostureBoard;
   tierFlags: TierFlags;
   conflictDayBadge: ReactNode;
 }) {
   const tier = useViewerTier();
   const [dayParam, setDayParam] = useState<number | null>(null);
-  const [state, setState] = useState<NaiState>(initial);
+  const [board, setBoard] = useState<PostureBoard>(initial);
 
-  const wantDay = dayParam ?? latestDay ?? initial.conflictDay;
+  const wantDay = dayParam ?? initial.day;
   const wantLatent = tierHasFeature(tier ?? null, 'nai_latent_score', tierFlags);
   const wantGap = tierHasFeature(tier ?? null, 'nai_gap_analysis', tierFlags);
   const tierUnlocksMore = (wantLatent && !initial.hasLatentAccess) || (wantGap && !initial.hasGapAccess);
 
   useEffect(() => {
     if (tier === undefined) return; // wait until the visitor's tier is known
-    if (wantDay === initial.conflictDay && !tierUnlocksMore) {
-      setState(initial);
+    if (wantDay === initial.day && !tierUnlocksMore) {
+      setBoard(initial);
       return;
     }
     let cancelled = false;
-    fetch(`/api/viewer/nai?day=${wantDay}`, { credentials: 'same-origin', cache: 'no-store' })
-      .then((r) => (r.ok ? (r.json() as Promise<(NaiState & { rows: NaiV2View[] }) | null>) : null))
-      .then((j: (NaiState & { rows: NaiV2View[] }) | null) => {
+    fetch(`/api/viewer/posture${wantDay != null ? `?day=${wantDay}` : ''}`, { credentials: 'same-origin', cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<PostureBoard | null>) : null))
+      .then((j) => {
         if (cancelled || !j || !Array.isArray(j.rows)) return;
-        setState({
-          rows: j.rows,
-          conflictDay: j.conflictDay,
-          hasLatentAccess: !!j.hasLatentAccess,
-          hasGapAccess: !!j.hasGapAccess,
-        });
+        setBoard(j);
       })
       .catch(() => {});
     return () => {
@@ -84,19 +68,15 @@ export function NaiViewer({
       <Suspense fallback={null}>
         <DayParam onDay={setDayParam} />
       </Suspense>
-      <NaiMapClient
-        rows={state.rows}
-        conflictDay={state.conflictDay}
-        latestDay={latestDay}
-        firstDay={firstDay}
-        hasLatentAccess={state.hasLatentAccess}
-        hasGapAccess={state.hasGapAccess}
+      <PostureMapClient
+        board={board}
+        defaultDay={initial.day}
         conflictDayBadge={
           <>
             {conflictDayBadge}
-            {latestDay != null && state.conflictDay !== latestDay && (
+            {initial.day != null && board.day !== initial.day && (
               <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
-                VIEWING HISTORICAL WAR POSTURE — DAY {state.conflictDay}
+                VIEWING HISTORICAL WAR POSTURE — DAY {board.day}
               </p>
             )}
           </>

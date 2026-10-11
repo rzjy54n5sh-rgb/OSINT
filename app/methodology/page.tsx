@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { EmailCapture } from '@/components/EmailCapture';
 import { createPublicClient } from '@/utils/supabase/server';
-import { NAI_POSTURE_NOTE } from '@/lib/nai-v2';
+import { CONFLICTS_FALLBACK, POSTURE_LABELS } from '@/lib/posture';
 import { TRACKED_COUNTRY_CODES, HORN_COUNTRY_CODES } from '@/lib/countries';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
 
@@ -149,33 +149,135 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
     {
       id: 'war-posture',
       title: 'WAR POSTURE',
-      subtitle: 'Method war-posture-v1 — series starts Day 221',
+      subtitle: 'War Posture v2 — per conflict, captured once, stated positions only for Egypt, the UAE and Saudi Arabia',
       items: [
         {
           q: 'What does War Posture measure?',
           a: (
             <>
               <P>
-                War Posture asks whether a state&apos;s official war posture and its society&apos;s
-                posture point the same way. Both are placed on one party-neutral scale — the position on continuing
-                hostilities, by any party:
+                War Posture records what a government says it wants on continuing a particular war. Every government is asked
+                the same question on the same party-neutral scale, whichever side it is on; no party is the reference point.
               </P>
               <ul style={{ margin: '0 0 10px 0', padding: 0 }}>
-                <Li><Tag>0</Tag>immediate, unconditional ceasefire</Li>
-                <Li><Tag>25</Tag>conditional de-escalation</Li>
-                <Li><Tag>50</Tag>ambivalent or conditional</Li>
-                <Li><Tag>75</Tag>continued pressure</Li>
-                <Li><Tag>100</Tag>continue or escalate military action</Li>
+                {POSTURE_LABELS.map((l) => (
+                  <Li key={l.code}>
+                    <Tag color={l.color}>{l.min}–{l.max}</Tag>
+                    {l.text}
+                  </Li>
+                ))}
               </ul>
               <P>
-                The same scale is used for every state, whichever side it is on. A Horn of Africa state is scored on the war
-                that concerns it most directly, and its row says so.
+                The labels describe stated aims, not character: they say what a government says it wants, never that a country
+                is &quot;escalatory&quot;. When a government justifies its position by attacks on its own territory, the row
+                carries a <strong style={{ color: 'var(--text-primary)' }}>defensive</strong> flag, so &quot;supports
+                continued pressure, citing attacks on its territory&quot; reads as what it is. The colours run blue → grey →
+                orange (no red or green), so they stay readable with colour-blindness.
+              </P>
+              <P>
+                <strong style={{ color: 'var(--text-primary)' }}>Deliberate silence</strong> is its own category, shown
+                hatched: a government faced a clear trigger (an attack on its territory, a UN vote, an ally&apos;s request) and
+                stated no position for at least 72 hours. Silence is often a deliberate policy, so it is recorded rather than
+                left blank.
               </P>
             </>
           ),
         },
         {
-          q: 'Expressed score and latent band',
+          q: 'What changed in v2, and why (October 2026)',
+          a: (
+            <>
+              <ul style={{ margin: '0 0 10px 0', padding: 0 }}>
+                <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>One position per war, not one number per country.</strong>{' '}
+                  Version 1 gave each country a single number even when countries were scored on different wars (Saudi Arabia
+                  on the Houthi front, the United States on the Iran war, Ethiopia on its own offensive). Version 2 scores each
+                  government separately on each conflict in a small registry: {CONFLICTS_FALLBACK.map((c) => c.short_name).join(', ')}.
+                </Li>
+                <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>Captured once, kept on record.</strong> Version 1 re-opened
+                  every citation every day and blanked a score when a page could not be re-opened: on Day 223, 12 of 25
+                  countries lost their score overnight that way. Version 2 captures the statement once — the exact words, the
+                  speaker, the date, the link, an archived copy and a fingerprint (SHA-256) of the page — and keeps it on record
+                  until a new statement replaces it. A page that later fails to load never blanks a position.
+                </Li>
+                <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>Confidence fades with age instead.</strong> See the decay
+                  schedule below. A position is empty only if no statement was ever captured.
+                </Li>
+                <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>Neutral labels.</strong> &quot;Escalatory&quot; and
+                  &quot;De-escalatory&quot; were dropped: applied to a state under attack, they read as a verdict.
+                </Li>
+                <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>Moves only on new evidence.</strong> Each change is stored
+                  with its reason: new evidence, a re-check of the same evidence, or a correction. Only changes that rest on a
+                  newly captured statement are ever shown as a &quot;move&quot;, so a re-check or a method change never looks
+                  like news.
+                </Li>
+              </ul>
+              <P>
+                Version 1 rows (from Day 221) are kept unchanged and are not relabelled. Until a country has version 2
+                positions, the site shows its version 1 number and says so.
+              </P>
+            </>
+          ),
+        },
+        {
+          q: 'Egypt, the UAE and Saudi Arabia: stated positions only',
+          a: (
+            <>
+              <P>
+                Editorial policy: the desk does not publish a 0–100 War Posture grade, label or category colour for the
+                governments of Egypt, the United Arab Emirates or Saudi Arabia. The desk&apos;s operator works in Egypt and the
+                UAE, and a number on those governments — or on Saudi Arabia, their close neighbour and partner — from this desk
+                would be read as a verdict and would carry a conflict of interest.
+              </P>
+              <P>
+                For these three countries the War Posture view is a ledger of facts instead: what their governments have said,
+                word for word, with the date, the speaker and a link to the source and its archived copy; and what they have
+                done — deployments, basing and overflight decisions, interceptions, UN votes — stated as facts with their
+                source. The rule is enforced in the database, not only on the page: no grade for these countries is stored or
+                served.
+              </P>
+            </>
+          ),
+        },
+        {
+          q: 'Evidence rules',
+          a: (
+            <>
+              <P>
+                A quote is accepted only if it appears word for word in the text of the page it was taken from. Official
+                statements and state media are valid evidence of what a government says. They are never evidence of what its
+                population thinks, and they do not establish disputed facts. Every act belongs to the government that carried it
+                out: an arms-sale notification is the seller&apos;s act, not the buyer&apos;s.
+              </P>
+            </>
+          ),
+        },
+        {
+          q: 'Confidence and how it decays',
+          a: (
+            <>
+              <P>
+                Each position has a starting confidence (high, medium or low). It then halves in weight every 30 days, counted
+                from the date of the statement:
+              </P>
+              <ul style={{ margin: '0 0 10px 0', padding: 0 }}>
+                <Li><Tag>0–14 days</Tag>current</Li>
+                <Li><Tag>15–45 days</Tag>confidence decaying</Li>
+                <Li><Tag>over 45 days</Tag>stale — still on record, shown with its age</Li>
+              </ul>
+              <P>
+                Confidence never rises with age, and age never turns a position into a blank. The 30-day half-life and the
+                day bands are conventions, not empirical findings; changing them requires a new method version.
+              </P>
+            </>
+          ),
+        },
+        {
+          q: 'Society band and gap (subscribers)',
           a: (
             <>
               <P>
@@ -197,7 +299,7 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
           ),
         },
         {
-          q: 'Categories and UNSCORABLE',
+          q: 'Categories and UNSCORABLE (subscribers)',
           a: (
             <>
               <P>For one latent value L, the category is set by the distance |E − L|:</P>
@@ -222,21 +324,14 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
           ),
         },
         {
-          q: 'Posture (official) label',
-          a: <P>{NAI_POSTURE_NOTE}</P>,
-        },
-        {
-          q: 'Sources, confidence and the archive',
+          q: 'Archive',
           a: (
             <>
               <P>
-                Each row lists its sources: the claim, outlet, link, publication date, whether it is a party/state source, and
-                whether it feeds the expressed score or the latent band. Each row carries a confidence of high, medium or low.
-              </P>
-              <P>
                 Days 1–35 used a retired, US-referenced definition (&quot;alignment&quot; with one side). Those rows are
                 archived, read-only and not comparable; they are shown only behind an explicit &quot;archived&quot; toggle on
-                the War Posture page. The War Posture series starts on Day 221.
+                the War Posture page. Version 1 War Posture (one number per country) runs from Day 221; version 2 (per conflict)
+                replaces it country by country as positions are captured.
               </P>
             </>
           ),
@@ -436,7 +531,7 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
                 { feed: 'Social trends', freq: 'Collector scheduled every 12 hours' },
                 { feed: 'Fact-checks (disinformation)', freq: 'Collector scheduled daily at 06:00 UTC' },
                 { feed: 'Scenario probabilities', freq: 'Market job scheduled daily at 05:20 UTC' },
-                { feed: 'War Posture, country reports, daily briefs', freq: 'Once a day by the daily build, after source checks' },
+                { feed: 'War Posture (checked daily; a new position row only when a captured statement changes it), country reports, daily briefs', freq: 'Once a day by the daily build, after source checks' },
               ].map((r) => (
                 <div key={r.feed} style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, width: 220 }}>{r.feed}</span>

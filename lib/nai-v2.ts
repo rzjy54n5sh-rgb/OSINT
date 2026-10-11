@@ -85,54 +85,67 @@ export const NAI_V2_ARCHIVE_NOTE =
   'Archived Days 1–35 used a different, retired definition and are not comparable.';
 
 /**
- * POSTURE LABEL (official) — a display convention derived ONLY from the expressed score E.
+ * POSTURE LABEL (official) — derived ONLY from the expressed score E. War Posture v2 (operator-approved
+ * redesign 2026-10-08) replaced the adjective labels ("Escalatory", "De-escalatory") with five neutral
+ * behavioural labels that say what the government says it wants. The bands are the same as the SQL
+ * function public.posture_label_for_score and lib/posture.ts (anchors 0/25/50/75/100 at the centre):
  *
- * The cut-points below (25 / 50 / 75) and the four wordings are CONVENTIONS chosen by the operator
- * on 2026-10-06. They are not empirical findings and not a statistical classification.
- * This label is ADDITIONAL to the NAI category (which stays generated in Postgres and is never
- * recomputed or replaced here): it describes the official narrative only and says nothing about
- * society or the gap. It exists so the map is not flat grey when the latent band is missing.
+ *   E  0–12  Seeks immediate ceasefire
+ *   E 13–37  Conditional de-escalation
+ *   E 38–62  Ambivalent
+ *   E 63–87  Supports continued pressure
+ *   E 88–100 Supports escalation
  *
- *   E  0–24  Ceasefire-seeking
- *   E 25–49  De-escalatory
- *   E 50–74  Conditional pressure
- *   E 75–100 Escalatory
- *
- * NULL / non-finite / out-of-range (<0 or >100) E => no label.
+ * Cut-points are conventions, not empirical findings. Separate from the War Posture category.
+ * NULL / non-finite / out-of-range E => no label.
  */
-export const NAI_POSTURE_LABELS = ['Ceasefire-seeking', 'De-escalatory', 'Conditional pressure', 'Escalatory'] as const;
+export const NAI_POSTURE_LABELS = [
+  'Seeks immediate ceasefire',
+  'Conditional de-escalation',
+  'Ambivalent',
+  'Supports continued pressure',
+  'Supports escalation',
+] as const;
 export type PostureLabel = (typeof NAI_POSTURE_LABELS)[number];
 
 /** Exclusive upper bound of each label's E range, in NAI_POSTURE_LABELS order (last = 100 inclusive). */
-export const NAI_POSTURE_CUTS = [25, 50, 75] as const;
+export const NAI_POSTURE_CUTS = [13, 38, 63, 88] as const;
 
 /** UI heading for the label. Always shown with this name so it is never confused with the NAI category. */
 export const NAI_POSTURE_HEADING = 'Posture (official)';
 export const NAI_POSTURE_NOTE =
-  'Posture (official) is a display convention derived only from the expressed score (0–24 Ceasefire-seeking, 25–49 De-escalatory, 50–74 Conditional pressure, 75–100 Escalatory). The cut-points are operator conventions (2026-10-06), not empirical findings. It is separate from the War Posture category.';
-export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture (latent evidence insufficient)';
+  'Posture (official) describes what a government says it wants, from its expressed score only: 0–12 Seeks immediate ceasefire, 13–37 Conditional de-escalation, 38–62 Ambivalent, 63–87 Supports continued pressure, 88–100 Supports escalation. The cut-points are conventions, not empirical findings. It is separate from the War Posture category. Egypt, the UAE and Saudi Arabia get no label (stated positions only).';
+export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture';
 
-/**
- * Single-hue (violet) ramp, light -> dark = ceasefire-seeking -> escalatory. Deliberately not in the
- * category palette (green/blue/yellow/orange/red/grey). Contrast vs the dark UI surfaces
- * (#070A0F legend / #0C1018 panel): 11.4, 7.4, 4.6, 3.4 : 1; map dots also carry the existing #8A9BB5 stroke.
- */
+/** Colour-blind-safe diverging scale (blue → grey → orange, no red/green); same as lib/posture.ts. */
 export const NAI_POSTURE_COLOR: Record<PostureLabel, string> = {
-  'Ceasefire-seeking': '#CBBBFF',
-  'De-escalatory': '#A98CF8',
-  'Conditional pressure': '#8A5FEA',
-  Escalatory: '#7048DC',
+  'Seeks immediate ceasefire': '#2F7FD8',
+  'Conditional de-escalation': '#86B4EA',
+  Ambivalent: '#9CA3AF',
+  'Supports continued pressure': '#F0AE6B',
+  'Supports escalation': '#D9711C',
 };
 
 export function postureLabel(e: number | null | undefined): PostureLabel | null {
   if (typeof e !== 'number' || !Number.isFinite(e) || e < 0 || e > 100) return null;
-  const i = NAI_POSTURE_CUTS.findIndex((cut) => e < cut);
+  const v = Math.round(e);
+  const i = NAI_POSTURE_CUTS.findIndex((cut) => v < cut);
   return NAI_POSTURE_LABELS[i === -1 ? NAI_POSTURE_LABELS.length - 1 : i];
 }
 
 export function postureColor(e: number | null | undefined): string | null {
   const l = postureLabel(e);
   return l === null ? null : NAI_POSTURE_COLOR[l];
+}
+
+/**
+ * Editorial policy (War Posture v2, red-team cluster 10): no public 0–100 grade, label, band or category
+ * for Egypt, the UAE or Saudi Arabia. Mirrors public.posture_publication_policy; applied in toNaiV2View
+ * so every consumer withholds them even before the database does.
+ */
+export const NAI_V2_WITHHELD_CODES = ['EG', 'AE', 'SA'] as const;
+export function isNaiV2Withheld(code: string | null | undefined): boolean {
+  return !!code && (NAI_V2_WITHHELD_CODES as readonly string[]).includes(code.toUpperCase());
 }
 
 const CATEGORIES: readonly NaiCategoryV2[] = ['ALIGNED', 'STABLE', 'TENSION', 'FRACTURE', 'INVERSION', 'UNSCORABLE'];
@@ -168,6 +181,8 @@ export interface NaiV2View {
   /** E change vs this country's row on `prevDay` (the previous War Posture day present), else null. */
   delta: number | null;
   prevDay: number | null;
+  /** Stated-positions-only country (EG / AE / SA): every graded field above is null. */
+  withheld: boolean;
 }
 
 const toNum = (v: number | string | null | undefined): number | null => {
@@ -200,6 +215,32 @@ export function toNaiV2View(
   const category: NaiCategoryV2 | null = gap ? (rawCategory ?? 'UNSCORABLE') : rawCategory === 'UNSCORABLE' ? 'UNSCORABLE' : null;
   const sources = cleanSources(row.sources);
   const lSources = sources.filter((s) => s.feeds === 'L');
+  if (isNaiV2Withheld(row.country_code)) {
+    // Positions-ledger-only policy: keep identity, day, confidence and the E-side cited reporting only.
+    return {
+      country_code: row.country_code,
+      conflict_day: row.conflict_day,
+      as_of: row.as_of,
+      expressed_score: null,
+      expressed_basis: null,
+      latent_low: null,
+      latent_high: null,
+      latent_basis: null,
+      latentLocked: false,
+      latentEvidence: 'none',
+      gap: null,
+      gap_size: null,
+      gapLocked: false,
+      category: null,
+      categoryLocked: false,
+      confidence: row.confidence,
+      sources: sources.filter((s) => s.feeds !== 'L'),
+      hiddenLatentSourceCount: 0,
+      delta: null,
+      prevDay: prev ? prev.day : null,
+      withheld: true,
+    };
+  }
   const e = toNum(row.expressed_score);
   const pe = prev ? toNum(prev.expressed) : null;
   return {
@@ -224,6 +265,7 @@ export function toNaiV2View(
     hiddenLatentSourceCount: latent ? 0 : (row.hidden_latent_source_count ?? lSources.length),
     delta: e !== null && pe !== null ? e - pe : null,
     prevDay: prev ? prev.day : null,
+    withheld: false,
   };
 }
 

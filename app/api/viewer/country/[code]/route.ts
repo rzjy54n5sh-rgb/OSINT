@@ -13,7 +13,7 @@ import { NextResponse } from 'next/server';
 import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
 import { parseNarrative } from '@/lib/country-narrative';
-import { getNaiV2CountryLatest } from '@/lib/nai-v2';
+import { getCountryPosture } from '@/lib/posture';
 import { getViewerCountryReport, narrativeUnlocked } from '@/lib/country-report';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +49,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
   // selected only when hasAccess).
   const [reportRes, posture] = await Promise.all([
     hasAccess ? getViewerCountryReport(supabase, code, { withContent: true }) : Promise.resolve({ data: null }),
-    getNaiV2CountryLatest(supabase, code, postureAccess),
+    getCountryPosture(supabase, code, postureAccess),
   ]);
   const report = reportRes.data;
   const narrative = narrativeUnlocked(hasAccess, report) ? parseNarrative(report!.content_json) : null;

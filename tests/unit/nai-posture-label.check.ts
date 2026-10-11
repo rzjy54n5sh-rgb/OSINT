@@ -17,17 +17,20 @@ import {
 } from '../../lib/nai-v2';
 
 const cases: [unknown, PostureLabel | null][] = [
-  [0, 'Ceasefire-seeking'],
-  [10, 'Ceasefire-seeking'],
-  [24, 'Ceasefire-seeking'],
-  [25, 'De-escalatory'],
-  [49, 'De-escalatory'],
-  [50, 'Conditional pressure'],
-  [74, 'Conditional pressure'],
-  [75, 'Escalatory'],
-  [90, 'Escalatory'],
-  [100, 'Escalatory'],
-  [24.5, 'Ceasefire-seeking'], // numeric column may carry decimals: still below the 25 cut-point
+  [0, 'Seeks immediate ceasefire'],
+  [12, 'Seeks immediate ceasefire'],
+  [12.4, 'Seeks immediate ceasefire'], // numeric column may carry decimals: rounded like the SQL integer column
+  [13, 'Conditional de-escalation'],
+  [25, 'Conditional de-escalation'],
+  [37, 'Conditional de-escalation'],
+  [38, 'Ambivalent'],
+  [50, 'Ambivalent'],
+  [62, 'Ambivalent'],
+  [63, 'Supports continued pressure'],
+  [75, 'Supports continued pressure'],
+  [87, 'Supports continued pressure'],
+  [88, 'Supports escalation'],
+  [100, 'Supports escalation'],
   [null, null],
   [undefined, null],
   [-1, null],
@@ -47,12 +50,14 @@ for (const [input, expected] of cases) {
   }
 }
 
-// Every label has exactly one colour, all four colours are distinct, null has none.
+// Every label has exactly one colour, all five colours are distinct, null has none.
 try {
-  assert.equal(new Set(NAI_POSTURE_LABELS.map((l) => NAI_POSTURE_COLOR[l])).size, 4);
+  assert.equal(new Set(NAI_POSTURE_LABELS.map((l) => NAI_POSTURE_COLOR[l])).size, 5);
   assert.equal(postureColor(null), null);
-  assert.equal(postureColor(80), NAI_POSTURE_COLOR['Escalatory']);
-  console.log('ok   colour ramp: 4 distinct steps, null -> null');
+  assert.equal(postureColor(80), NAI_POSTURE_COLOR['Supports continued pressure']);
+  // No adjective labels survive (War Posture v2, editorial seat 08).
+  assert.ok(!NAI_POSTURE_LABELS.some((l) => /escalatory/i.test(l)));
+  console.log('ok   colour ramp: 5 distinct steps, null -> null, no adjective labels');
 } catch (err) {
   failed++;
   console.error(`FAIL colour ramp: ${(err as Error).message.split('\n')[0]}`);

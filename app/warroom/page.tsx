@@ -10,12 +10,18 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { PageShareButton } from '@/components/PageShareButton';
 import { PageShareCard } from '@/components/PageShareCard';
 import { DataAsOf } from '@/components/ui/DataAsOf';
-import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
-import { NaiV2Evidence } from '@/components/nai/NaiV2Evidence';
-import { NaiPostureLabel } from '@/components/nai/NaiPostureLabel';
+import { CitedReporting, EvidenceQuote, PostureAge, PostureChip, stanceText } from '@/components/posture/PostureParts';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { TRACKED_COUNTRY_CODES, NO_SOURCED_DATA_TEXT } from '@/lib/countries';
-import { getNaiV2DayResult, getNaiV2DayRange, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
+import { getNaiV2DayResult, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
+import {
+  POSTURE_WITHHELD_TEXT,
+  conflictName,
+  getPostureBoard,
+  postureMoves,
+  type PostureBoard,
+  type PostureView,
+} from '@/lib/posture';
 import { parseNarrative, type CountryNarrative } from '@/lib/country-narrative';
 import { getViewerCountryReports, type ViewerCountryReport } from '@/lib/country-report';
 import type { ReadVia } from '@/lib/supabase/rpc-fallback';
@@ -131,8 +137,7 @@ export default function WarRoomPage() {
   const [disinfoClaims, setDisinfoClaims] = useState<DisinfoClaim[]>([]);
   const [totalArticleCount, setTotalArticleCount] = useState<number>(0);
   const [pipelineTimestamps, setPipelineTimestamps] = useState<Record<string, string | null>>({});
-  const [naiRows, setNaiRows] = useState<NaiV2View[]>([]);
-  const [naiDay, setNaiDay] = useState<number | null>(null);
+  const [board, setBoard] = useState<PostureBoard | null>(null);
   const [tickerArticles, setTickerArticles] = useState<Article[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -170,7 +175,7 @@ export default function WarRoomPage() {
         { data: socialRows, error: socialErr },
         { data: disinfoRows, error: disinfoErr },
         { data: tickerRows },
-        naiRange,
+        postureBoard,
         reg,
       ] = await Promise.all([
         getViewerCountryReports(supabase),
@@ -187,21 +192,19 @@ export default function WarRoomPage() {
           .order('created_at', { ascending: false })
           .limit(5),
         supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
-        // War Posture (nai_scores_v2) — the same scale /nai and /countries show. Legacy nai_scores is never read.
-        getNaiV2DayRange(supabase),
+        // War Posture: v2 per conflict (viewer_posture_v2, redacted for the session's JWT in SQL) or, before
+        // that migration / while it has no rows, the v1 table — which is NOT read from the browser: the
+        // RPC first, else the server route gates by tier. Legacy nai_scores is never read.
+        getPostureBoard(supabase, {
+          access: { latent: true, gap: true },
+          v1Loader: async (day) => {
+            const res = await getNaiV2DayResult(supabase, day, { latent: true, gap: true }, { tableFallback: false });
+            return res.via === 'missing' ? loadViewerNai(day) : res.rows;
+          },
+        }),
         // Scenario registry: names, measurement state, method-stamped probabilities.
         getScenarioRegistryView(supabase),
       ]);
-      // {latent:true, gap:true} = no extra app-side restriction: viewer_nai_v2 redacts for the session's
-      // JWT and toNaiV2View honours its latent_access / gap_access. If the RPC is missing (before the
-      // migration) the table is NOT read from the browser; the server route gates by tier instead.
-      let wp: NaiV2View[] = [];
-      if (naiRange.latestDay != null) {
-        const res = await getNaiV2DayResult(supabase, naiRange.latestDay, { latent: true, gap: true }, { tableFallback: false });
-        wp = res.rows;
-        if (res.via === 'missing') wp = await loadViewerNai(naiRange.latestDay);
-      }
-
       const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? disinfoErr?.message ?? reg.error;
       if (errMsg) {
         // Raw DB error text goes to the console only; viewers see a neutral notice.
@@ -229,8 +232,7 @@ export default function WarRoomPage() {
       setSocialTrends(social);
       setDisinfoClaims(disinfo);
       setTickerArticles((tickerRows as Article[]) ?? []);
-      setNaiRows(wp);
-      setNaiDay(naiRange.latestDay);
+      setBoard(postureBoard);
       setRegistry(reg);
 
       // Real timestamps from each table's newest row (never the browser clock).
@@ -325,9 +327,28 @@ export default function WarRoomPage() {
     return 'red';
   };
 
-  const naiByCode = new Map(naiRows.map((r) => [r.country_code, r]));
+  // War Posture: every conflict row per country, registry order; the "primary" row is the first coded position.
+  const naiDay = board ? (board.schema === 'v1' ? board.latestDay : board.day) : null;
+  const conflictOrder = new Map((board?.conflicts ?? []).map((c, i) => [c.conflict_code, i]));
+  const postureByCode = new Map<string, PostureView[]>();
+  for (const r of board?.rows ?? []) {
+    const list = postureByCode.get(r.country_code) ?? [];
+    list.push(r);
+    postureByCode.set(r.country_code, list);
+  }
+  for (const list of postureByCode.values()) {
+    list.sort((a, b) => (conflictOrder.get(a.conflict_code ?? '') ?? 99) - (conflictOrder.get(b.conflict_code ?? '') ?? 99));
+  }
+  const primaryFor = (code: string): PostureView | null => {
+    const list = postureByCode.get(code) ?? [];
+    return list.find((r) => r.stance === 'position') ?? list.find((r) => r.stance === 'deliberate_silence') ?? list[0] ?? null;
+  };
+  // Arrows only for changes on NEW evidence (v2); v1 day-to-day differences are never shown as moves.
+  const moveByKey = new Map((board ? postureMoves(board) : []).map((m) => [`${m.row.country_code}|${m.row.conflict_code}`, m.delta]));
   const countries = [...TRACKED_COUNTRY_CODES].sort((a, b) => a.localeCompare(b));
-  const posture = naiByCode.get(activeCountry) ?? null;
+  const postureRows = postureByCode.get(activeCountry) ?? [];
+  const posture = primaryFor(activeCountry);
+  const cName = (code: string | null) => conflictName(board?.conflicts ?? [], code);
 
   // Scenarios: latest published day; sparklines and deltas use ONLY that day's method.
   const scenarioDay = registry?.latestDay ?? null;
@@ -475,10 +496,10 @@ export default function WarRoomPage() {
           <PageShareButton
             label="SHARE"
             getCopyText={() => {
-              const p = naiByCode.get(activeCountry);
+              const p = posture;
               const base = typeof window !== 'undefined' ? window.location.origin : '';
               return p
-                ? `${activeName} War Posture ${p.expressed_score ?? '—'} (0 = ceasefire, 100 = escalate) · ${p.category ?? '—'} · Day ${p.conflict_day} — ${base}/warroom`
+                ? `${activeName} War Posture (${cName(p.conflict_code)}): ${stanceText(p)}${p.expressed_score !== null ? ` ${p.expressed_score}` : ''} (0 = ceasefire, 100 = escalate) · Day ${naiDay ?? '—'} — ${base}/warroom`
                 : `${activeName} War Posture: ${NO_SOURCED_DATA_TEXT} — ${base}/warroom`;
             }}
           />
@@ -502,11 +523,11 @@ export default function WarRoomPage() {
           </div>
           <div>
             {countries.map((code) => {
-              const r = naiByCode.get(code) ?? null;
+              const r = primaryFor(code);
               const name = reportFor(code)?.country_name ?? code;
               const isActive = activeCountry === code;
               const count = articleCountByCountry[code] ?? 0;
-              const d = r?.delta ?? null;
+              const d = r ? (moveByKey.get(`${r.country_code}|${r.conflict_code}`) ?? null) : null;
               return (
                 <button
                   key={code}
@@ -514,12 +535,12 @@ export default function WarRoomPage() {
                   onClick={() => setActiveCountry(code)}
                   className="country-row"
                   data-active={isActive}
-                  data-nai={r?.category ?? 'NONE'}
+                  data-nai={r?.stance ?? 'NONE'}
                   aria-pressed={isActive}
                 >
                   <span
                     translate="no"
-                    title={d === null ? 'No previous War Posture day' : `Expressed score change vs Day ${r?.prevDay}`}
+                    title={d === null ? 'No change on new evidence' : `Changed on new evidence since Day ${r?.previous_day}`}
                     style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
                   >
                     {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
@@ -530,13 +551,15 @@ export default function WarRoomPage() {
                       {name}
                     </div>
                     <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>
-                      {r && r.expressed_score !== null ? (
+                      {r ? (
                         <>
-                          WP {r.expressed_score}
-                          {d !== null && d !== 0 ? ` (${formatGap(d)})` : ''} · {r.category ?? '—'}
+                          {r.conflict_code ? `${cName(r.conflict_code)}: ` : ''}
+                          {stanceText(r)}
+                          {r.expressed_score !== null ? ` ${r.expressed_score}` : ''}
+                          {d !== null && d !== 0 ? ` (${formatGap(d)})` : ''}
                         </>
                       ) : (
-                        <>WP — · {NO_SOURCED_DATA_TEXT}</>
+                        <>{NO_SOURCED_DATA_TEXT}</>
                       )}
                     </div>
                   </div>
@@ -603,11 +626,11 @@ export default function WarRoomPage() {
                 {activeName}
               </span>
               <span style={{ color: 'var(--text-secondary)', fontSize: 11 }} translate="no" data-testid="warroom-wp">
-                WAR POSTURE {posture?.expressed_score ?? '—'}
+                WAR POSTURE{posture?.expressed_score != null ? ` ${posture.expressed_score}` : ''}
               </span>
-              <NaiPostureLabel expressed={posture?.expressed_score ?? null} hideHeading />
+              {posture && <PostureChip row={posture} />}
               <span style={{ color: 'var(--text-muted)', fontSize: 11 }} translate="no">
-                AS OF DAY {posture?.conflict_day ?? naiDay ?? '—'}
+                AS OF DAY {naiDay ?? '—'}
               </span>
             </div>
             <DataAsOf section="WAR POSTURE" latestDay={naiDay} currentDay={CONFLICT_DAY} />
@@ -623,44 +646,45 @@ export default function WarRoomPage() {
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', minHeight: 132 }} data-testid="warroom-posture">
             {!loaded ? (
               <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>LOADING WAR POSTURE…</p>
-            ) : !posture ? (
+            ) : postureRows.length === 0 ? (
               <p style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>
-                No sourced data available{naiDay != null ? ` for Day ${naiDay}` : ''}. No score or category is shown rather than a guessed one.
+                No position on record for this government{board?.schema === 'v1' && naiDay != null ? ` on Day ${naiDay}` : ''}. Nothing is shown in place of a captured statement.
               </p>
+            ) : postureRows[0].withheld ? (
+              <div data-testid="warroom-posture-withheld">
+                <PostureChip row={postureRows[0]} />
+                <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>{POSTURE_WITHHELD_TEXT}</p>
+                {postureRows.find((r) => r.evidence)?.evidence ? (
+                  <div style={{ marginTop: 6 }}>
+                    <EvidenceQuote e={postureRows.find((r) => r.evidence)!.evidence!} compact />
+                  </div>
+                ) : (
+                  <p style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>No verbatim statement captured yet.</p>
+                )}
+              </div>
             ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'center' }}>
-                  <div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>EXPRESSED</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--text-primary)', lineHeight: 1 }}>{posture.expressed_score ?? '—'}</div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>Official posture</div>
-                  </div>
-                  <div style={{ textAlign: 'center', padding: '0 12px', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>GAP</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, lineHeight: 1, color: 'var(--text-primary)' }} data-locked={posture.gapLocked ? 'gap' : undefined}>
-                      {posture.gapLocked ? '◆' : formatGap(posture.gap)}
+              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
+                {postureRows.map((r) => (
+                  <li key={r.conflict_code ?? 'v1'} data-testid="warroom-posture-row" data-stance={r.stance}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 10px' }}>
+                      <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
+                      {r.expressed_score !== null && (
+                        <span style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 }}>{r.expressed_score}</span>
+                      )}
+                      <PostureChip row={r} />
                     </div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>{posture.gapLocked ? 'Informed tier' : 'E − band midpoint'}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 3 }}>LATENT</div>
-                    <div style={{ fontFamily: 'Bebas Neue', fontSize: 28, color: 'var(--text-primary)', lineHeight: 1 }}>
-                      {posture.latentLocked ? '◆' : posture.latent_low === null ? '—' : formatBand(posture.latent_low, posture.latent_high)}
-                    </div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }} data-locked={posture.latentLocked ? 'latent' : undefined}>
-                      {posture.latentLocked ? 'Informed tier' : posture.latent_low === null ? 'No admissible evidence' : 'Society (band)'}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <NaiV2CategoryBadge
-                    category={posture.category}
-                    locked={posture.categoryLocked}
-                    latentEvidence={posture.latentEvidence}
-                    expressed={posture.expressed_score}
-                  />
-                </div>
-              </>
+                    <PostureAge row={r} className="block" />
+                    {r.stance === 'position' && (
+                      <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 2 }}>
+                        <span data-locked={r.latentLocked ? 'latent' : undefined}>
+                          SOCIETY {r.latentLocked ? '◆ Informed tier' : r.latent_low === null ? 'no admissible evidence' : formatBand(r.latent_low, r.latent_high)}
+                        </span>
+                        <span data-locked={r.gapLocked ? 'gap' : undefined}>GAP {r.gapLocked ? '◆ Informed tier' : formatGap(r.gap)}</span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
@@ -771,9 +795,15 @@ export default function WarRoomPage() {
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} aria-label="War Posture evidence">
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
                 <hr className="data-rule" />
-                {posture ? (
-                  <div style={{ marginTop: 8 }}>
-                    <NaiV2Evidence row={posture} compact />
+                {postureRows.length > 0 ? (
+                  <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
+                    {postureRows.map((r) =>
+                      r.evidence ? (
+                        <EvidenceQuote key={`ev-${r.conflict_code ?? 'v1'}`} e={r.evidence} compact />
+                      ) : r.cited.length > 0 ? (
+                        <CitedReporting key={`ci-${r.conflict_code ?? 'v1'}`} sources={r.cited} compact />
+                      ) : null,
+                    )}
                     <Link prefetch={false} href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
                       Full country page →
                     </Link>
