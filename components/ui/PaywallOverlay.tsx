@@ -31,7 +31,7 @@ export function PaywallOverlay({
           className="border px-2 py-0.5 rounded-sm hover:opacity-90 transition-opacity"
           style={{ borderColor: '#E8C547', color: '#E8C547' }}
         >
-          Upgrade →
+          Get access →
         </Link>
       </div>
     );
@@ -67,7 +67,7 @@ export function PaywallOverlay({
           className="inline-block border px-4 py-2 text-sm rounded-sm hover:opacity-90 transition-opacity"
           style={{ borderColor: '#E8C547', color: '#E8C547' }}
         >
-          View Plans →
+          See access options →
         </Link>
       </div>
     </div>

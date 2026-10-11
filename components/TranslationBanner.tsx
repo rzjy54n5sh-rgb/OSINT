@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SITE_URL } from '@/lib/site';
 
 const STORAGE_KEY = 'mena-translation-dismissed';
 
@@ -12,7 +13,7 @@ const STORAGE_KEY = 'mena-translation-dismissed';
 export function TranslationBanner() {
   const [visible, setVisible] = useState(true);
   const [translateHref, setTranslateHref] = useState(
-    `https://translate.google.com/translate?u=${encodeURIComponent('https://mena-intel-desk.com')}`,
+    `https://translate.google.com/translate?u=${encodeURIComponent(SITE_URL)}`,
   );
 
   useEffect(() => {

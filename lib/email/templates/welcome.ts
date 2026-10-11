@@ -15,7 +15,7 @@ export function welcomeEmail(
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
     <p style="margin:0 0 16px;font-size:16px;line-height:1.5;">◆ Welcome, ${name}.</p>
     <p style="margin:0 0 16px;font-size:16px;line-height:1.5;">You now have access to MENA Intel Desk on the <strong style="color:#E8C547;">${tier}</strong> tier.</p>
-    <p style="margin:0 0 16px;font-size:16px;line-height:1.5;">On the free tier you can explore the War Room, NAI map, scenario tracker, and public briefings.</p>
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.5;">On the free tier you can explore the War Room, War Posture map, scenario tracker, and public briefings.</p>
     <p style="margin:0 0 24px;font-size:16px;line-height:1.5;">
       <a href="{{SITE_URL}}" style="color:#E8C547;text-decoration:underline;">Go to platform</a> &nbsp;|&nbsp;
       <a href="{{SITE_URL}}/pricing" style="color:#E8C547;text-decoration:underline;">View pricing & upgrade</a>

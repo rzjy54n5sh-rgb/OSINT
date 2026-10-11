@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createClient, getUser } from '@/utils/supabase/server';
 import { buildTierFlags, tierHasFeature } from '@/lib/tier';
@@ -6,11 +7,12 @@ import { rpcWithFallback } from '@/lib/supabase/rpc-fallback';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
 import AnalyticsClient, { type PostureRow, type ScenarioDayRow } from './AnalyticsClient';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Analytics — War Posture & Scenario Explorer — MENA Intel Desk',
   description:
     'Plot War Posture (expressed, latent band midpoint, gap) and market-anchored scenario probabilities against each other. Current methods only; retired Days 1–35 series are excluded.',
-};
+  path: '/analytics',
+});
 
 const num = (v: unknown): number | null => {
   if (v === null || v === undefined || v === '') return null;

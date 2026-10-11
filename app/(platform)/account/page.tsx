@@ -1,8 +1,18 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import { redirect } from 'next/navigation';
 import { getUser } from '@/utils/supabase/server';
 import { createClient } from '@/utils/supabase/server';
 import { AccountClient } from '@/app/(platform)/account/AccountClient';
 import { SUBSCRIPTION_COLUMNS } from '@/lib/user-profile';
+
+export const metadata: Metadata = pageMetadata({
+  title: 'Account — MENA Intel Desk',
+  description:
+    'Your MENA Intel Desk account, plan and API keys.',
+  path: '/account',
+  noindex: true,
+});
 
 export default async function AccountPage() {
   const user = await getUser();

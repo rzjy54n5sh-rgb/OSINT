@@ -1,9 +1,14 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import Link from 'next/link';
 
-export const metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Unsubscribe · MENA Intel Desk',
-  description: 'Manage email preferences for MENA Intel Desk',
-};
+  description:
+    'Manage email preferences for MENA Intel Desk',
+  path: '/unsubscribe',
+  noindex: true,
+});
 
 export default function UnsubscribePage() {
   return (

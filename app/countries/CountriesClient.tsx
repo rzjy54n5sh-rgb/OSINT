@@ -71,9 +71,9 @@ export default function CountriesClient({ initialScores, naiDay, currentDay, tie
         COUNTRY INTELLIGENCE
       </h1>
       <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-        CONFLICT DAY {currentDay} — NAI WAR POSTURE BY COUNTRY (AS OF DAY {naiDay ?? '—'})
+        CONFLICT DAY {currentDay} — WAR POSTURE BY COUNTRY (AS OF DAY {naiDay ?? '—'})
       </p>
-      <DataAsOf section="NAI WAR POSTURE" latestDay={naiDay} currentDay={currentDay} className="mb-8" />
+      <DataAsOf section="WAR POSTURE" latestDay={naiDay} currentDay={currentDay} className="mb-8" />
       {scores.length === 0 && (
         <p className="font-mono text-xs border px-3 py-2" style={{ color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)' }} data-testid="nai-v2-empty">
           {NAI_V2_EMPTY_TEXT}

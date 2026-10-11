@@ -48,10 +48,10 @@
       "description": "Live OSINT news feed"
     },
     {
-      "name": "NAI Map",
-      "short_name": "NAI Map",
+      "name": "War Posture Map",
+      "short_name": "War Posture",
       "url": "/nai",
-      "description": "Narrative Alignment Index map"
+      "description": "War Posture by country"
     }
   ]
 }

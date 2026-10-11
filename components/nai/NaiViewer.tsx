@@ -96,7 +96,7 @@ export function NaiViewer({
             {conflictDayBadge}
             {latestDay != null && state.conflictDay !== latestDay && (
               <p className="font-mono text-xs mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
-                VIEWING HISTORICAL NAI — DAY {state.conflictDay}
+                VIEWING HISTORICAL WAR POSTURE — DAY {state.conflictDay}
               </p>
             )}
           </>

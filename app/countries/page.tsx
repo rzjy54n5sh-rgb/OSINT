@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { getNaiV2Day, getNaiV2DayRange, type NaiV2View } from '@/lib/nai-v2';
@@ -11,11 +12,12 @@ import CountriesClient from './CountriesClient';
  */
 export const revalidate = 900;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Countries — War Posture by Country — MENA Intel Desk',
   description:
     'War Posture for the 25 tracked countries, including the Horn of Africa & Red Sea theatre, with cited sources and daily country reports.',
-};
+  path: '/countries',
+});
 
 export default async function CountriesPage() {
   // currentDay = calendar (DAY LOCK); naiDay = nai_scores_v2's OWN latest day (War Posture).

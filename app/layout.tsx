@@ -18,6 +18,15 @@ import {
   NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
 } from '@/lib/supabase/env.client.generated';
 import { STALE_BUILD_RECOVERY_SCRIPT } from '@/lib/stale-build-recovery';
+import {
+  ARABIC_ENABLED,
+  SITE_DESCRIPTION,
+  SITE_DESCRIPTOR,
+  SITE_NAME,
+  SITE_URL,
+  RSS_ALTERNATE,
+  pageMetadata,
+} from '@/lib/site';
 
 validateEnv();
 
@@ -33,9 +42,6 @@ validateEnv();
  */
 export const revalidate = 900;
 
-/** Resolves relative OG/Twitter image URLs; silences Next.js metadataBase build warnings. */
-const metadataBaseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mena-intel-desk.com';
-
 const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
 const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
 const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
@@ -49,10 +55,25 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/**
+ * Site-wide defaults. Every public route overrides title/description/openGraph/twitter through
+ * `pageMetadata()` (lib/site.ts) so link previews are per-route. metadataBase comes from
+ * NEXT_PUBLIC_SITE_URL and defaults to the live workers.dev origin (mena-intel-desk.com does not
+ * resolve — never point og:url or canonical at it).
+ */
+const ROOT_DEFAULTS = pageMetadata({
+  title: `${SITE_NAME} — ${SITE_DESCRIPTOR}`,
+  description: SITE_DESCRIPTION,
+  path: '/',
+});
+
 export const metadata: Metadata = {
-  metadataBase: new URL(metadataBaseUrl),
-  title: 'MENA Intel Desk — US-Iran Conflict Intelligence',
-  description: 'Real-time OSINT platform tracking the US-Iran conflict. Narrative Alignment Index, scenario probabilities, disinformation tracker, and live intelligence feed across 29 countries.',
+  metadataBase: new URL(SITE_URL),
+  ...ROOT_DEFAULTS,
+  // Inherited only by routes without their own metadata: no og:url / canonical here, so such a
+  // route never claims to be the home page.
+  openGraph: { ...ROOT_DEFAULTS.openGraph, url: undefined },
+  applicationName: SITE_NAME,
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -60,31 +81,13 @@ export const metadata: Metadata = {
     title: 'Intel Desk',
   },
   icons: {
-    apple: '/icons/icon-192.png',
-    icon: '/icons/icon-192.png',
-  },
-  openGraph: {
-    title: 'MENA Intel Desk — US-Iran Conflict Intelligence',
-    description: 'Real-time OSINT platform tracking the US-Iran conflict. Narrative Alignment Index, scenario probabilities, disinformation tracker, and live intelligence feed across 29 countries.',
-    url: 'https://mena-intel-desk.com',
-    siteName: 'MENA Intel Desk',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'MENA Intel Desk — OSINT Intelligence Platform',
-      },
+    icon: [
+      { url: '/favicon.ico', sizes: '16x16 32x32 48x48' },
+      { url: '/icon.png', type: 'image/png', sizes: '512x512' },
     ],
-    locale: 'en_US',
-    type: 'website',
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'MENA Intel Desk — US-Iran Conflict Intelligence',
-    description: 'Real-time OSINT platform tracking the US-Iran conflict. NAI scores, scenario probabilities, live intel feed across 29 countries.',
-    images: ['/og-image.png'],
-  },
+  alternates: { types: RSS_ALTERNATE },
 };
 
 /**
@@ -93,10 +96,12 @@ export const metadata: Metadata = {
  * The layout deliberately does NOT read cookies on the server: a cookie read makes every route
  * dynamic (`private, no-store`), which is what kept every page from being cached. The server
  * HTML is always the English/LTR document; this runs before paint and I18nProvider switches the
- * UI strings after hydration.
+ * UI strings after hydration. While the Arabic UI is switched off (NEXT_PUBLIC_ENABLE_AR unset),
+ * a stale `lang=ar` cookie is ignored and the page stays English/LTR.
  */
 const LANG_BOOT_SCRIPT =
-  "try{var d=document.documentElement;if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" +
+  'try{var d=document.documentElement;' +
+  (ARABIC_ENABLED ? "if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" : '') +
   // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
   "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}";
 
@@ -155,8 +160,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         ) : null}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
         {process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN && (
           <script
             defer

@@ -1,11 +1,16 @@
 'use client';
 
+/**
+ * NOT RENDERED on the public site since 2026-10-08 (consumer prices deferred; /pricing shows
+ * founding access + Chokepoint Weekly instead). Kept intact so Stripe checkout can be re-enabled.
+ */
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { OsintCard } from '@/components/OsintCard';
-import type { PricingData, PricesByCurrency } from '@/app/(platform)/pricing/page';
+import type { PricingData, PricesByCurrency } from '@/app/(platform)/pricing/pricing-types';
 
 const BASE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_SUPABASE_URL) || '';
 const ANON_KEY =

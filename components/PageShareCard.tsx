@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { SITE_HOST } from '@/lib/site';
 
 interface PageShareCardProps {
-  label: string;        // e.g. "NAI MAP · DAY 11"
+  label: string;        // e.g. "WAR POSTURE · DAY 11"
   summary: string;      // e.g. "Iran: 22 · INVERSION | Egypt: 61 · STABLE | UAE: 72 · ALIGNED"
   url?: string;         // defaults to window.location.href
 }
@@ -12,7 +13,7 @@ export function PageShareCard({ label, summary, url }: PageShareCardProps) {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
 
-  const shareText = `◆ MENA INTEL DESK — ${label}\n${summary}\n\nmena-intel-desk.com`;
+  const shareText = `◆ MENA INTEL DESK — ${label}\n${summary}\n\n${SITE_HOST}`;
   const shareUrl = url ?? (typeof window !== 'undefined' ? window.location.href : '');
 
   const copyText = () => {

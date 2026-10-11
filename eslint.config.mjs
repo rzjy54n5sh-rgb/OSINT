@@ -36,6 +36,7 @@ export default defineConfig([
     "**/.next/**",
     "**/out/**",
     "**/.open-next/**",
+    "**/.wrangler/**",
     "node_modules/**",
     "playwright-report/**",
     "test-results/**",

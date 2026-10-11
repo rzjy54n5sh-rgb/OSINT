@@ -1,3 +1,4 @@
+import { pageMetadata } from '@/lib/site';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
@@ -11,9 +12,12 @@ import type { Article, ScenarioProbability } from '@/types/supabase';
  */
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: 'MENA Intel Desk · Live US-Iran Conflict Dashboard',
-};
+export const metadata: Metadata = pageMetadata({
+  title: 'MENA Intel Desk — Live Conflict & Corridor Risk Dashboard',
+  description:
+    "Today's sourced brief, War Posture by country, market-anchored scenario probabilities and shipping-sensitive market indicators for the US–Iran conflict, the Red Sea and the Horn of Africa.",
+  path: '/',
+});
 
 export default async function Page() {
   const supabase = createPublicClient();

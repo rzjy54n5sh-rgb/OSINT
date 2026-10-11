@@ -1,13 +1,15 @@
+import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import MarketsClient from './MarketsClient';
 import { buildIndicatorViews, type HistoryRow } from './market-views';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Markets & Shipping Indicators — MENA Intel Desk',
   description:
     'Latest conflict-sensitive market and shipping indicators with units, collection times and sources; trend charts never join different units.',
-};
+  path: '/markets',
+});
 
 /** ISR (see app/page.tsx): market collector runs every 30 min; no per-visitor content. */
 export const revalidate = 600;

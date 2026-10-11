@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/site';
 import { createPublicClient } from '@/utils/supabase/server';
 import { OsintCard } from '@/components/OsintCard';
 import { SourcesTable } from '@/components/sources/SourcesTable';
@@ -6,11 +8,12 @@ import { SourcesTierMethodology } from '@/components/sources/SourcesTierMethodol
 /** ISR: the source registry changes rarely; no per-visitor content. */
 export const revalidate = 3600;
 
-export const metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Source Universe · MENA Intel Desk',
   description:
     'Full disclosure of RSS and feed sources used by MENA Intel Desk — tiers, languages, and party-state attribution.',
-};
+  path: '/sources',
+});
 
 type SourceRow = {
   name: string;

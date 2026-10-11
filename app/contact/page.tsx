@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { anonInsert } from '@/lib/supabase/anon-insert';
 import { OsintCard } from '@/components/OsintCard';
 
 const INQUIRY_TYPES = [
-  { value: 'subscription', label: 'Professional subscription / B2B access' },
+  { value: 'subscription', label: 'Chokepoint Weekly / company access' },
   { value: 'media', label: 'Media and press inquiry' },
   { value: 'research', label: 'Academic or research collaboration' },
   { value: 'technical', label: 'Technical issue or data correction' },
@@ -23,29 +23,45 @@ export default function ContactPage() {
   });
   const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
 
+  // Deep link: /contact?inquiry_type=subscription preselects the type (read after hydration so the
+  // page stays static and cacheable).
+  useEffect(() => {
+    try {
+      const wanted = new URLSearchParams(window.location.search).get('inquiry_type');
+      if (wanted && INQUIRY_TYPES.some((t) => t.value === wanted)) {
+        setForm((p) => (p.inquiry_type ? p : { ...p, inquiry_type: wanted }));
+      }
+    } catch {
+      /* ignore malformed URLs */
+    }
+  }, []);
+
   const isValid = form.name.trim() && form.email.includes('@') && form.inquiry_type && form.message.trim().length > 10;
 
   const submit = async () => {
     if (!isValid) return;
     setStatus('submitting');
-    const supabase = createClient();
-    const { error } = await supabase.from('contact_inquiries').insert({
+    // anon role only (see anonInsert): the session client is refused by RLS once signed in.
+    const result = await anonInsert('contact_inquiries', {
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       organization: form.organization.trim() || null,
       inquiry_type: form.inquiry_type,
       message: form.message.trim(),
     });
-    setStatus(error ? 'error' : 'done');
+    setStatus(result === 'done' ? 'done' : 'error');
   };
 
   const field = (key: keyof typeof form, label: string, placeholder: string, required = true, multiline = false) => (
     <div style={{ marginBottom: 16 }}>
-      <label style={{ display: 'block', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6 }}>
+      <label htmlFor={`contact-${key}`} style={{ display: 'block', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6 }}>
         {label}{required && <span style={{ color: 'var(--accent-red)' }}> *</span>}
       </label>
       {multiline ? (
         <textarea
+          id={`contact-${key}`}
+          name={key}
+          required={required}
           value={form[key]}
           onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
           placeholder={placeholder}
@@ -58,6 +74,10 @@ export default function ContactPage() {
         />
       ) : (
         <input
+          id={`contact-${key}`}
+          name={key}
+          required={required}
+          autoComplete={key === 'email' ? 'email' : key === 'name' ? 'name' : key === 'organization' ? 'organization' : undefined}
           type={key === 'email' ? 'email' : 'text'}
           value={form[key]}
           onChange={(e) => setForm((p) => ({ ...p, [key]: e.target.value }))}
@@ -110,10 +130,10 @@ export default function ContactPage() {
             {field('email', 'EMAIL ADDRESS', 'your@email.com')}
             {field('organization', 'ORGANIZATION', 'Company, institution, or publication (optional)', false)}
 
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: 'block', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6 }}>
+            <fieldset style={{ marginBottom: 16, border: 0, padding: 0, minWidth: 0 }}>
+              <legend style={{ display: 'block', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6, padding: 0 }}>
                 INQUIRY TYPE <span style={{ color: 'var(--accent-red)' }}>*</span>
-              </label>
+              </legend>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {INQUIRY_TYPES.map((t) => (
                   <label
@@ -138,7 +158,7 @@ export default function ContactPage() {
                   </label>
                 ))}
               </div>
-            </div>
+            </fieldset>
 
             {field('message', 'MESSAGE', 'Describe your inquiry in detail...', true, true)}
 

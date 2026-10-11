@@ -12,6 +12,7 @@ import { GLOSSARY } from '@/lib/glossary';
 import { GlobeMenu } from '@/components/GlobeMenu';
 import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { useI18n } from '@/components/I18nProvider';
+import { ARABIC_ENABLED } from '@/lib/site';
 import type { UserTier } from '@/types';
 import type { UIStringKey } from '@/lib/i18n';
 
@@ -343,7 +344,7 @@ export function CommandHeader() {
           </div>
           <span style={{ width: 1, height: 14, background: 'var(--border)', flexShrink: 0 }} aria-hidden />
           <GlobeMenu />
-          <LanguageToggle />
+          {ARABIC_ENABLED && <LanguageToggle />}
         </nav>
 
         {/* Mobile hamburger */}
@@ -467,7 +468,7 @@ export function CommandHeader() {
                 </Link>
               )}
               <GlobeMenu />
-              <LanguageToggle />
+              {ARABIC_ENABLED && <LanguageToggle />}
             </div>
           </div>
         </nav>

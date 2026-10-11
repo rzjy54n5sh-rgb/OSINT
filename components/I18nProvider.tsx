@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Lang } from '@/lib/i18n';
 import { t as tFn, type UIStringKey } from '@/lib/i18n';
+import { ARABIC_ENABLED } from '@/lib/site';
 
 type I18nContextValue = {
   lang: Lang;
@@ -14,6 +15,8 @@ type I18nContextValue = {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 function readLangCookie(): Lang {
+  // Arabic UI switched off (NEXT_PUBLIC_ENABLE_AR unset): a stale `lang=ar` cookie is ignored.
+  if (!ARABIC_ENABLED) return 'en';
   try {
     return /(?:^|; )lang=ar(?:;|$)/.test(document.cookie) ? 'ar' : 'en';
   } catch {
@@ -42,7 +45,8 @@ export function I18nProvider({ lang: serverLang, children }: { lang: Lang; child
     applyDocumentLang(fromCookie);
   }, [serverLang]);
 
-  const setLang = useCallback((next: Lang) => {
+  const setLang = useCallback((requested: Lang) => {
+    const next: Lang = ARABIC_ENABLED ? requested : 'en';
     document.cookie = `lang=${next}; path=/; max-age=31536000; SameSite=Lax`;
     setLangState(next);
     applyDocumentLang(next);

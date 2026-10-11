@@ -31,7 +31,7 @@ export function useNaiScores(conflictDay: number | null) {
         else setScores((data as NaiScore[]) ?? []);
       } catch (e) {
         if (cancelled) return;
-        setError(e instanceof Error ? e : new Error('Failed to fetch NAI scores'));
+        setError(e instanceof Error ? e : new Error('Failed to fetch War Posture scores'));
         setScores([]);
       } finally {
         if (!cancelled) setLoading(false);
