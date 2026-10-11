@@ -13,7 +13,8 @@ import { useNewScenarioAlert } from '@/hooks/usePlatformAlert';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
 import {
-  LineChart,
+  ComposedChart,
+  Area,
   Line,
   XAxis,
   YAxis,
@@ -26,6 +27,8 @@ import { useLatestBriefing } from '@/hooks/useBriefing';
 import { useMarketData } from '@/hooks/useMarketData';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { maxConflictDay } from '@/lib/conflict-calendar';
+import { ARCHIVE_TYPES, CURRENT_LINEUP } from '@/lib/brief-types';
+import { residualRange } from '@/lib/scenario-range';
 
 function briefingLeadToPlainText(lead: string | null | undefined): string {
   if (!lead?.trim()) return '';
@@ -57,6 +60,8 @@ interface ServerData {
   topFindingLead: string | null;
   /** conflict_day of the latest general briefing (daily_briefings' own max). */
   briefingDay: number | null;
+  /** report_types that have a row on briefingDay (the strip links only to published briefs). */
+  briefingTypes?: string[];
   marketMetrics: { label: string; value: string; change: string; up: boolean }[];
   /** conflict_day of the market rows shown (market_data's own max). */
   marketDay: number | null;
@@ -93,20 +98,35 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const marketDay = useServerMarkets ? serverData!.marketDay : clientMarket.latestDay;
   const scenariosDay = maxConflictDay(scenarios);
   const briefingsAreCurrent = briefingDay != null && briefingDay === conflictDay;
+  // Home strip: the current line-up (no weekly digest chip), then archived types only if they have a
+  // row on the shown day. Without server data the chips link to /briefings (nothing is assumed).
+  const briefingTypes = serverData?.briefingTypes;
+  const homeStrip = [
+    ...CURRENT_LINEUP.filter((m) => m.code !== 'general_weekly'),
+    ...ARCHIVE_TYPES.filter((m) => briefingTypes?.includes(m.code)),
+  ];
 
   // One chart = ONE method series. scenario_probabilities mixes legacy-desk-v0 (Days 1-35) and
   // market-anchored-v1 (Day 221+); joining them draws a line across a 185-day hole. Plot only the
   // method of the newest row. Unmeasured E stays null (a gap), never 0.
   const chartMethod = scenarios.length > 0 ? scenarioMethodForDay(scenarios[scenarios.length - 1].conflict_day) : null;
   const chartRows = scenarios.filter((s) => scenarioMethodForDay(s.conflict_day) === chartMethod);
-  const scenarioChartData = chartRows.slice(-10).map((s) => ({
-    day: s.conflict_day,
-    A: s.scenario_a,
-    B: s.scenario_b,
-    C: s.scenario_c,
-    D: s.scenario_d,
-    E: s.scenario_e ?? null,
-  }));
+  // Market-anchored days: A, C, D can co-occur, so B (none of them) is drawn as its Fréchet range
+  // [100 − (A+C+D), 100 − max(A,C,D)], never as a single line. Legacy rows keep their published B.
+  const bAsRange = chartMethod === 'market-anchored-v1';
+  const scenarioChartData = chartRows.slice(-10).map((s) => {
+    const r = bAsRange ? residualRange({ A: s.scenario_a, C: s.scenario_c, D: s.scenario_d }) : null;
+    return {
+      day: s.conflict_day,
+      A: s.scenario_a,
+      B: bAsRange ? null : s.scenario_b,
+      B_range: r ? ([Math.round(r.low), Math.round(r.high)] as [number, number]) : null,
+      C: s.scenario_c,
+      D: s.scenario_d,
+      E: s.scenario_e ?? null,
+    };
+  });
+  const latestBRange = bAsRange ? scenarioChartData.at(-1)?.B_range ?? null : null;
   const hasMeasuredE = scenarioChartData.some((r) => r.E != null);
 
   return (
@@ -252,28 +272,33 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           </div>
           <div className="flex gap-2 overflow-x-auto pb-2"
                style={{ scrollbarWidth: 'none' }}>
-            {[
-              { type: 'general', label: 'GENERAL', emoji: '◆' },
-              { type: 'horn', label: 'HORN OF AFRICA', emoji: '◍' },
-              { type: 'egypt', label: 'EGYPT', emoji: '🇪🇬' },
-              { type: 'uae', label: 'UAE', emoji: '🇦🇪' },
-              { type: 'eschatology', label: 'ESCHA\u200BTOLOGY', emoji: '◎' },
-              { type: 'business', label: 'BUSINESS', emoji: '◈' },
-            ].map(({ type, label, emoji }) => (
-              <Link prefetch={false} key={type}
-                    href={`/briefings/${briefingDay ?? conflictDay}/${type}`}
-                    className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
-                    style={{ borderColor: 'var(--border)',
-                             background: 'var(--bg-card)',
-                             minWidth: 'max-content' }}>
-                <span>{emoji}</span>
-                <span className="font-mono"
-                      style={{ fontSize: '11px', letterSpacing: '1.5px',
-                               color: 'var(--text-secondary)' }}>
-                  {label}
+            {homeStrip.map(({ code, shortLabel, emoji, cadence }) => {
+              const published = briefingTypes == null || briefingTypes.includes(code);
+              const body = (
+                <>
+                  <span>{emoji}</span>
+                  <span className="font-mono"
+                        style={{ fontSize: '11px', letterSpacing: '1.5px',
+                                 color: published ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                    {shortLabel}{cadence === 'weekly' ? ' · WEEKLY' : ''}
+                  </span>
+                </>
+              );
+              const style = { borderColor: 'var(--border)', background: 'var(--bg-card)', minWidth: 'max-content' } as const;
+              return published ? (
+                <Link prefetch={false} key={code}
+                      href={briefingTypes == null ? '/briefings' : `/briefings/${briefingDay ?? conflictDay}/${code}`}
+                      className="shrink-0 flex items-center gap-2 px-3 py-2 border transition-colors hover:border-accent-gold/30"
+                      style={style}>
+                  {body}
+                </Link>
+              ) : (
+                <span key={code} className="shrink-0 flex items-center gap-2 px-3 py-2 border opacity-50" style={style}
+                      title={`No ${shortLabel.toLowerCase()} brief on Day ${briefingDay ?? conflictDay}`}>
+                  {body}
                 </span>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -340,8 +365,14 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 Method: {scenarioMethodNote(chartMethod)} · Days {scenarioChartData[0].day}
                 {'\u2013'}{scenarioChartData[scenarioChartData.length - 1].day}
-                {chartMethod === 'market-anchored-v1' ? ' · earlier desk estimates (Days 1\u201335, retired method) are not plotted' : ''}
-                {hasMeasuredE ? '' : ' · E (UAE direct strike) not measured'}
+                {chartMethod === 'market-anchored-v1' ? ' · earlier desk estimates (Days 1\u201335: retired method, cannot be scored) are not plotted' : ''}
+                {hasMeasuredE ? '' : ' · E (Iran targets the UAE) not measured'}
+              </p>
+            )}
+            {latestBRange && (
+              <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-secondary)' }} data-testid="home-b-range">
+                B (none of A, C or D): {latestBRange[0] === latestBRange[1] ? `${latestBRange[0]}%` : `${latestBRange[0]}\u2013${latestBRange[1]}%`}{' '}
+                <span style={{ color: 'var(--text-muted)' }}>· a range, because A, C and D can happen in the same window (shaded)</span>
               </p>
             )}
             {scenarioChartData.length === 0 ? (
@@ -349,7 +380,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
             ) : (
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={scenarioChartData}>
+                  <ComposedChart data={scenarioChartData}>
                     <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                     <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
                     <Tooltip
@@ -359,16 +390,25 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
                         borderRadius: 2,
                       }}
                       labelStyle={{ color: 'var(--text-secondary)' }}
+                      formatter={(v: unknown) =>
+                        Array.isArray(v) ? (v[0] === v[1] ? `${v[0]}%` : `${v[0]}\u2013${v[1]}%`) : v == null ? 'unmeasured' : `${v}%`
+                      }
                     />
                     <Legend />
                     <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={1.5} dot={false} name="A" />
-                    <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
+                    {bAsRange ? (
+                      <Area type="linear" dataKey="B_range" stroke="var(--accent-gold)" strokeWidth={1} strokeDasharray="2 2"
+                            fill="var(--accent-gold)" fillOpacity={0.18} dot={false} activeDot={false} name="B (range)"
+                            isAnimationActive={false} connectNulls={false} />
+                    ) : (
+                      <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
+                    )}
                     <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
                     <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
                     {hasMeasuredE && (
                       <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
                     )}
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             )}

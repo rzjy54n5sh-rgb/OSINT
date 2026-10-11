@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import type { TooltipProps } from 'recharts';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { ScenarioChartRow } from '@/lib/scenario-registry';
 
 export interface ChartSeries {
@@ -13,9 +13,21 @@ export interface ChartSeries {
   dashed?: boolean;
 }
 
+/** A shaded [low, high] band (rows carry `[low, high]` under `key`), e.g. B's Fréchet range. */
+export interface ChartBand {
+  key: string;
+  name: string;
+  color: string;
+}
+
+/** Chart rows: one method's points plus optional band values ([low, high] or null). */
+export type ChartRow = ScenarioChartRow | ({ day: number } & Record<string, number | null | [number, number]>);
+
 interface Props {
   /** ONE method only. Callers split history with seriesByMethod(); methods are never joined. */
-  rows: ScenarioChartRow[];
+  rows: ChartRow[];
+  /** Optional range bands drawn under the lines. */
+  bands?: ChartBand[];
   series: ChartSeries[];
   title: string;
   /** Method label shown under the title (e.g. "market-anchored-v1"). */
@@ -41,11 +53,17 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
       }}
     >
       <p style={{ color: '#E8C547', marginBottom: '8px' }}>DAY {label}</p>
-      {payload.map((entry) => (
-        <p key={String(entry.dataKey)} style={{ color: entry.color, margin: '2px 0' }}>
-          {entry.name}: <strong>{entry.value == null ? 'unmeasured' : `${entry.value}%`}</strong>
-        </p>
-      ))}
+      {payload.map((entry) => {
+        const v = entry.value as unknown;
+        const text = Array.isArray(v)
+          ? v[0] === v[1] ? `${v[0]}%` : `${v[0]}\u2013${v[1]}%`
+          : v == null ? 'unmeasured' : `${v}%`;
+        return (
+          <p key={String(entry.dataKey)} style={{ color: entry.color, margin: '2px 0' }}>
+            {entry.name}: <strong>{text}</strong>
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -59,7 +77,7 @@ async function copy(text: string): Promise<boolean> {
   }
 }
 
-export function ScenarioHistoryChart({ rows, series, title, methodLabel, note, anchorId, shareText, height = 300 }: Props) {
+export function ScenarioHistoryChart({ rows, bands = [], series, title, methodLabel, note, anchorId, shareText, height = 300 }: Props) {
   const [status, setStatus] = useState<string | null>(null);
   const flash = useCallback((msg: string) => {
     setStatus(msg);
@@ -86,7 +104,7 @@ export function ScenarioHistoryChart({ rows, series, title, methodLabel, note, a
 
       <div className="w-full rounded-sm" style={{ background: 'var(--bg-card, #0D1B2A)', height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+          <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#1C3A5E" />
             <XAxis
               dataKey="day"
@@ -106,6 +124,23 @@ export function ScenarioHistoryChart({ rows, series, title, methodLabel, note, a
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono', fontSize: '12px', color: '#B8C4D0' }} />
+            {bands.map((b) => (
+              <Area
+                key={b.key}
+                type="linear"
+                dataKey={b.key}
+                name={b.name}
+                stroke={b.color}
+                strokeWidth={1}
+                strokeDasharray="2 2"
+                fill={b.color}
+                fillOpacity={0.18}
+                connectNulls={false}
+                isAnimationActive={false}
+                dot={false}
+                activeDot={false}
+              />
+            ))}
             {series.map((s) => (
               <Line
                 key={s.code}
@@ -121,7 +156,7 @@ export function ScenarioHistoryChart({ rows, series, title, methodLabel, note, a
                 isAnimationActive={false}
               />
             ))}
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 

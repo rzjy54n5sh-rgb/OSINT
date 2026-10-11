@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { formatRange, residualRange } from '@/lib/scenario-range';
 import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 
@@ -111,9 +112,22 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
       <div className="p-4 space-y-3">
         {scenario ? (
           <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            [Scenario, {scenarioMethodNote(scenarioMethodForDay(conflictDay))}: B {Math.round(Number(scenario.scenario_b))}% | A{' '}
-            {Math.round(Number(scenario.scenario_a))}% | C {Math.round(Number(scenario.scenario_c))}% | D{' '}
-            {Math.round(Number(scenario.scenario_d))}%]
+            {(() => {
+              const method = scenarioMethodForDay(conflictDay);
+              const a = Math.round(Number(scenario.scenario_a));
+              const c = Math.round(Number(scenario.scenario_c));
+              const d = Math.round(Number(scenario.scenario_d));
+              // Market-anchored days: A, C, D can co-occur, so B (none of them) is a range. Legacy desk
+              // days are shown as published, marked as a retired method that cannot be scored.
+              const b =
+                method === 'market-anchored-v1'
+                  ? (() => {
+                      const r = residualRange({ A: a, C: c, D: d });
+                      return r ? `${formatRange(r)} (range)` : '—';
+                    })()
+                  : `${Math.round(Number(scenario.scenario_b))}%`;
+              return `[Scenario, ${scenarioMethodNote(method)}: A ${a}% | B ${b} | C ${c}% | D ${d}%]`;
+            })()}
           </p>
         ) : (
           <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>

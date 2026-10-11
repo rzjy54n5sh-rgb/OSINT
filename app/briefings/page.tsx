@@ -2,15 +2,17 @@ import { pageMetadata } from '@/lib/site';
 import type { Metadata } from 'next';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import BriefingsClient, { type DayAvailability } from './BriefingsClient';
+import { ROUTABLE_BRIEF_TYPES } from '@/lib/brief-types';
 
 export const metadata: Metadata = pageMetadata({
   title: 'Daily Intelligence Briefings · MENA Intel Desk',
   description:
-    'Every conflict-day briefing from Day 1: general, Horn of Africa, Egypt, UAE, eschatology and business briefs plus weekly digests, with per-paragraph source citations.',
+    'Every conflict-day briefing from Day 1: the Overnight, General, Horn of Africa & Red Sea and Egypt & Gulf Economy briefs, the weekly Religion, Ideology & Mobilisation brief, weekly digests and the archived Egypt, UAE and business briefs, with per-paragraph source citations.',
   path: '/briefings',
 });
 
-const REPORT_ORDER = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'];
+/** Current line-up + archive (lib/brief-types.ts). */
+const REPORT_ORDER: readonly string[] = ROUTABLE_BRIEF_TYPES;
 const META_COLS = 'conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at, period_start_day, period_end_day';
 
 /**
@@ -65,7 +67,7 @@ export default async function BriefingsPage() {
     .from('daily_briefings')
     .select(META_COLS)
     .eq('conflict_day', effectiveDay)
-    .in('report_type', REPORT_ORDER);
+    .in('report_type', [...REPORT_ORDER]);
 
   return (
     <BriefingsClient

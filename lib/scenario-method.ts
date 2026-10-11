@@ -17,7 +17,7 @@ export function scenarioMethodForDay(day: number): ScenarioMethod {
 }
 
 export function scenarioMethodNote(m: ScenarioMethod): string {
-  if (m === 'legacy-desk-v0') return 'legacy desk estimate, retired method';
+  if (m === 'legacy-desk-v0') return 'legacy desk estimate \u2014 retired method, cannot be scored';
   if (m === 'market-anchored-v1') return 'market-anchored-v1';
   return 'method unrecorded';
 }

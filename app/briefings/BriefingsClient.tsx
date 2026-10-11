@@ -8,6 +8,7 @@ import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { createClient } from '@/lib/supabase/client';
 import { DataAsOf } from '@/components/ui/DataAsOf';
+import { ARCHIVE_TYPES, CURRENT_LINEUP, ROUTABLE_BRIEF_TYPES, type BriefTypeMeta } from '@/lib/brief-types';
 
 interface BriefingMeta {
   conflict_day: number;
@@ -22,22 +23,8 @@ interface BriefingMeta {
   period_end_day?: number | null;
 }
 
-const REPORT_ORDER = ['general', 'general_weekly', 'horn', 'egypt', 'uae', 'eschatology', 'business'];
-
-const REPORT_META: Record<string, {
-  label: string;
-  emoji: string;
-  color: string;
-  readTime: string;
-}> = {
-  general: { label: 'GENERAL INTELLIGENCE BRIEF', emoji: '\u25C6', color: 'var(--accent-gold)', readTime: '30\u201345 min' },
-  general_weekly: { label: 'WEEKLY GENERAL DIGEST', emoji: '\u25C7', color: 'var(--accent-gold)', readTime: '20\u201330 min' },
-  horn:    { label: 'HORN OF AFRICA & RED SEA',      emoji: '\u25CD', color: '#14b8a6', readTime: '12\u201318 min' },
-  egypt:   { label: 'EGYPT COUNTRY BRIEF',          emoji: '\uD83C\uDDEA\uD83C\uDDEC', color: '#10b981', readTime: '15\u201320 min' },
-  uae:     { label: 'UAE COUNTRY BRIEF',             emoji: '\uD83C\uDDE6\uD83C\uDDEA', color: '#3b82f6', readTime: '12\u201318 min' },
-  eschatology: { label: 'ESCHATOLOGY & GEOPOLITICS', emoji: '\u25CE', color: '#a855f7', readTime: '10\u201315 min' },
-  business: { label: 'BUSINESS OPPORTUNITIES',       emoji: '\u25C8', color: '#f59e0b', readTime: '10\u201315 min' },
-};
+/** Every routable type (current line-up + archive), in display order. */
+const REPORT_ORDER: readonly string[] = ROUTABLE_BRIEF_TYPES;
 
 /** "Days 36\u201342" for a weekly digest. Uses period_start_day/period_end_day when the row has them
  *  (added by the report-registry migration); falls back to the legacy
@@ -134,7 +121,7 @@ export default function BriefingsClient({
           .from('daily_briefings')
           .select('conflict_day, report_type, title, lead, cover_stats, quality, source, generated_at, period_start_day, period_end_day')
           .eq('conflict_day', selectedDay)
-          .in('report_type', REPORT_ORDER);
+          .in('report_type', [...REPORT_ORDER]);
         if (cancelled) return;
         if (error) setBriefings([]);
         else setBriefings((data as BriefingMeta[]) ?? []);
@@ -159,7 +146,7 @@ export default function BriefingsClient({
       </Suspense>
       <PageBriefing
         title="DAILY INTELLIGENCE BRIEFINGS"
-        description="Structured reports for every conflict day from Day 1: a general brief plus Horn of Africa, Egypt, UAE, eschatology and business briefs (not every type exists for every day), and weekly digests that cover the days between full briefs. From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
+        description="Structured reports for every conflict day from Day 1. The daily line-up (from October 2026) is the Overnight brief, the General Intelligence Brief, the Horn of Africa & Red Sea brief and the Egypt & Gulf Economy brief, plus a weekly Religion, Ideology & Mobilisation brief and weekly digests that cover the days between full briefs. Earlier Egypt, UAE and business briefs stay readable under Archive (not every type exists for every day). From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
         note="Reports marked PLATFORM are editorial-grade. Reports marked AUTO are generated from the platform's daily analysis database. Historical reports marked RECONSTRUCTED are regenerated from archived DB data."
       />
 
@@ -278,86 +265,119 @@ export default function BriefingsClient({
         </p>
       )}
 
-      {/* Report grid — 2 cols on mobile, 3 on desktop */}
+      {/* Report grid: the current line-up, then archived types that have a row on this day */}
       {!loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
-          {REPORT_ORDER.filter(type => type !== 'general_weekly' || byType[type]).map((type, i) => {
-            const b = byType[type];
-            const meta = REPORT_META[type];
-            return (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {CURRENT_LINEUP.filter((m) => m.code !== 'general_weekly' || byType[m.code]).map((meta, i) => (
               <motion.div
-                key={type}
+                key={meta.code}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: i * 0.06 }}
               >
-                {b ? (
-                  <Link prefetch={false} href={`/briefings/${day}/${type}`}>
-                    <OsintCard className="block h-full hover:border-border-bright active:scale-[0.98] transition-transform"
-                               style={{ minHeight: '180px' }}>
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <span className="text-base mr-2">{meta.emoji}</span>
-                          <span className="font-mono text-xs uppercase"
-                                style={{ color: meta.color }}>
-                            {meta.label}
-                          </span>
-                          {type === 'general_weekly' && periodLabel(b) && (
-                            <span className="font-mono text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
-                              {periodLabel(b)}
-                            </span>
-                          )}
-                        </div>
-                        <QualityBadge quality={b.quality} />
-                      </div>
-
-                      {/* Lead text */}
-                      {b.lead && (
-                        <p className="font-body text-xs leading-relaxed mb-3 line-clamp-3"
-                           style={{ color: 'var(--text-secondary)' }}>
-                          {b.lead}
-                        </p>
-                      )}
-
-                      {/* Cover stats */}
-                      {b.cover_stats && (
-                        <CoverStats stats={b.cover_stats} type={type} />
-                      )}
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between mt-3 pt-3"
-                           style={{ borderTop: '1px solid var(--border)' }}>
-                        <span className="font-mono text-xs"
-                              style={{ color: 'var(--text-muted)' }}>
-                          {meta.readTime}
-                        </span>
-                        <span className="font-mono text-xs"
-                              style={{ color: meta.color }}>
-                          READ {'\u2192'}
-                        </span>
-                      </div>
-                    </OsintCard>
-                  </Link>
+                {byType[meta.code] ? (
+                  <BriefCard b={byType[meta.code]} meta={meta} day={day} />
                 ) : (
-                  <OsintCard className="h-full opacity-40"
-                             style={{ minHeight: '180px' }}>
-                    <span className="text-base mr-2">{meta.emoji}</span>
-                    <span className="font-mono text-xs uppercase"
-                          style={{ color: 'var(--text-muted)' }}>
-                      {meta.label}
-                    </span>
-                    <p className="font-mono text-xs mt-4 redacted">
-                      NOT AVAILABLE {'\u2014'} DAY {day}
-                    </p>
-                  </OsintCard>
+                  <MissingBriefCard meta={meta} day={day} availability={availability} onPick={goToDay} />
                 )}
               </motion.div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+          {ARCHIVE_TYPES.some((m) => byType[m.code]) && (
+            <section aria-label="Archived brief types" className="mb-10" data-testid="briefings-archive">
+              <p className="font-mono text-xs mb-3" style={{ color: 'var(--text-muted)', letterSpacing: '1px' }}>
+                ARCHIVE {'\u2014'} TYPES REPLACED BY THE EGYPT &amp; GULF ECONOMY BRIEF (SHOWN AS PUBLISHED)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {ARCHIVE_TYPES.filter((m) => byType[m.code]).map((meta) => (
+                  <BriefCard key={meta.code} b={byType[meta.code]} meta={meta} day={day} />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+function BriefCard({ b, meta, day }: { b: BriefingMeta; meta: BriefTypeMeta; day: number }) {
+  const type = meta.code;
+  return (
+    <Link prefetch={false} href={`/briefings/${day}/${type}`}>
+      <OsintCard className="block h-full hover:border-border-bright active:scale-[0.98] transition-transform"
+                 style={{ minHeight: '180px' }}>
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <span className="text-base mr-2">{meta.emoji}</span>
+            <span className="font-mono text-xs uppercase" style={{ color: meta.color }}>
+              {meta.label}
+            </span>
+            {meta.cadence === 'weekly' && type !== 'general_weekly' && (
+              <span className="font-mono text-xs ml-2" style={{ color: 'var(--text-muted)' }}>WEEKLY</span>
+            )}
+            {type === 'general_weekly' && periodLabel(b) && (
+              <span className="font-mono text-xs ml-2" style={{ color: 'var(--text-muted)' }}>
+                {periodLabel(b)}
+              </span>
+            )}
+          </div>
+          <QualityBadge quality={b.quality} />
+        </div>
+        {b.lead && (
+          <p className="font-body text-xs leading-relaxed mb-3 line-clamp-3" style={{ color: 'var(--text-secondary)' }}>
+            {b.lead}
+          </p>
+        )}
+        {b.cover_stats && <CoverStats stats={b.cover_stats} type={type} />}
+        <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+          <span className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>{meta.readTime}</span>
+          <span className="font-mono text-xs" style={{ color: meta.color }}>READ {'\u2192'}</span>
+        </div>
+      </OsintCard>
+    </Link>
+  );
+}
+
+/**
+ * A line-up slot with no row on this day. Says which of three things is true, never fills a gap:
+ * the type has never been published yet; it is weekly and this day has no issue (link to the latest);
+ * or this day simply has none.
+ */
+function MissingBriefCard({
+  meta, day, availability, onPick,
+}: { meta: BriefTypeMeta; day: number; availability: DayAvailability[]; onPick: (d: number) => void }) {
+  const daysWithType = availability.filter((a) => a.types.includes(meta.code)).map((a) => a.day);
+  const neverPublished = daysWithType.length === 0;
+  const latest = daysWithType.length ? Math.max(...daysWithType) : null;
+  const weeklyPointer = !neverPublished && meta.cadence === 'weekly' && latest != null;
+  return (
+    <OsintCard className={neverPublished || weeklyPointer ? 'h-full' : 'h-full opacity-40'} style={{ minHeight: '180px' }}>
+      <span className="text-base mr-2">{meta.emoji}</span>
+      <span className="font-mono text-xs uppercase" style={{ color: neverPublished ? meta.color : 'var(--text-muted)' }}>
+        {meta.label}
+      </span>
+      {neverPublished ? (
+        <>
+          <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-secondary)' }} data-testid={`brief-first-edition-pending-${meta.code}`}>
+            FIRST EDITION NOT YET PUBLISHED
+          </p>
+          <p className="font-body text-xs mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>{meta.blurb}</p>
+        </>
+      ) : weeklyPointer ? (
+        <p className="font-mono text-xs mt-4" style={{ color: 'var(--text-secondary)' }}>
+          WEEKLY {'\u2014'} NO ISSUE ON DAY {day}.{' '}
+          <button type="button" onClick={() => onPick(latest)} className="underline" style={{ color: meta.color }}>
+            LATEST: DAY {latest}
+          </button>
+        </p>
+      ) : (
+        <p className="font-mono text-xs mt-4 redacted">
+          NOT AVAILABLE {'\u2014'} DAY {day}
+        </p>
+      )}
+    </OsintCard>
   );
 }
 

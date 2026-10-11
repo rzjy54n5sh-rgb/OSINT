@@ -6,18 +6,30 @@ import { OsintCard } from '@/components/OsintCard';
 import { PageBriefing } from '@/components/PageBriefing';
 import { SentimentBar } from '@/components/SentimentBar';
 import { PageShareButton } from '@/components/PageShareButton';
-import { ScenarioHistoryChart, type ChartSeries } from '@/components/scenarios/ScenarioHistoryChart';
+import { ScenarioHistoryChart, type ChartRow, type ChartSeries } from '@/components/scenarios/ScenarioHistoryChart';
 import { ScenarioMethodPanel } from '@/components/scenarios/ScenarioMethodPanel';
 import {
   CURRENT_SCENARIO_METHOD,
+  LEGACY_SCENARIO_METHOD,
+  LEGACY_SERIES_MARKER,
+  RESIDUAL_SCENARIO_CODE,
   deltaWithinMethod,
+  isResidual,
   probabilityOn,
+  residualComponentCodes,
+  residualRange30,
+  residualRangeFromRow,
+  residualRangeOn,
   scenarioColor,
+  scenarioDisplay,
   seriesByMethod,
+  thirtyDayReadings,
   unmeasuredFlag,
   type RegistryScenario,
   type ScenarioRegistryView,
+  type ThirtyDayReading,
 } from '@/lib/scenario-registry';
+import { formatRange } from '@/lib/scenario-range';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://mena-intel-desk.mores-cohorts9x.workers.dev';
 
@@ -40,19 +52,26 @@ function ScenarioCard({
   s,
   registry,
   index,
+  readings,
 }: {
   s: RegistryScenario;
   registry: ScenarioRegistryView;
   index: number;
+  readings: Record<string, ThirtyDayReading>;
 }) {
   const day = registry.latestDay;
   const p = probabilityOn(registry.history, s.code, day);
   const color = scenarioColor(s.code, index);
   const independent = s.group_code !== 'core';
-  const unmeasured = p === null || s.measurement_state === 'unmeasured';
+  const residual = isResidual(s.code);
+  const range = residual ? residualRangeOn(registry, day) : null;
+  const unmeasured = p === null || s.measurement_state === 'unmeasured' || (residual && range === null);
   const point = registry.history.find((x) => x.code === s.code && x.conflict_day === day);
   const reason = unmeasured ? (unmeasuredFlag(registry.run, s.code) ?? point?.null_reason ?? null) : null;
-  const delta = deltaWithinMethod(registry.history, s.code, day);
+  const delta = residual ? null : deltaWithinMethod(registry.history, s.code, day);
+  const r30 = readings[s.code] ?? null;
+  const range30 = residual ? residualRange30(registry.scenarios, readings) : null;
+  const components = residualComponentCodes(registry.scenarios);
 
   return (
     <OsintCard
@@ -81,12 +100,40 @@ function ScenarioCard({
               </p>
             )}
           </>
+        ) : residual && range ? (
+          <>
+            <p className="font-display text-2xl" style={{ color }} translate="no" data-testid="scenario-b-range">
+              {formatRange(range)}
+            </p>
+            <RangeBar low={range.low} high={range.high} color={color} />
+            <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              A range, not a forecast point: {components.join(', ')} can happen in the same window, so &quot;none of them&quot; lies
+              between 100 − ({components.join(' + ')}) = {Math.round(range.low)}% and 100 − the largest of them ={' '}
+              {Math.round(range.high)}%.
+              {range.missing.length > 0 ? ` ${range.missing.join(', ')} unmeasured, so the low end is 0.` : ''} The single
+              number the method computes ({p}%) is the low end.
+            </p>
+            {range30 && (
+              <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid="scenario-p30-B">
+                FIXED 30-DAY READING: {formatRange(range30)}
+              </p>
+            )}
+          </>
         ) : (
           <>
             <p className="font-display text-2xl" style={{ color }} translate="no">
               {p}%
+              <span className="font-mono text-[11px] ml-2 align-middle" style={{ color: 'var(--text-muted)' }}>
+                {registry.run?.horizon_end ? `BY ${registry.run.horizon_end}` : 'AT MARKET HORIZON'}
+              </span>
             </p>
             <SentimentBar value={(p ?? 0) / 100} className="mt-2" />
+            {r30 && (
+              <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid={`scenario-p30-${s.code}`}>
+                FIXED 30-DAY READING: {Math.round(r30.p30 * 100)}%
+                <span style={{ color: 'var(--text-muted)' }}> · market closes in {r30.daysToHorizon.toFixed(1)} days</span>
+              </p>
+            )}
             <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
               {delta
                 ? `${delta.delta > 0 ? '+' : ''}${delta.delta} pts since Day ${delta.sinceDay} (same method)`
@@ -107,32 +154,62 @@ function ScenarioCard({
   );
 }
 
+/** 0-100 track with the [low, high] segment filled (B's range). */
+function RangeBar({ low, high, color }: { low: number; high: number; color: string }) {
+  const lo = Math.max(0, Math.min(100, low));
+  const hi = Math.max(lo, Math.min(100, high));
+  return (
+    <div
+      className="mt-2 h-1.5 w-full relative rounded-sm"
+      style={{ background: 'var(--border)' }}
+      role="img"
+      aria-label={`Range ${Math.round(lo)} to ${Math.round(hi)} percent`}
+    >
+      <div className="absolute top-0 h-full rounded-sm" style={{ left: `${lo}%`, width: `${Math.max(hi - lo, 0.8)}%`, background: color, opacity: 0.85 }} />
+    </div>
+  );
+}
+
 export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflictDayBadge }: ScenariosClientProps) {
   const visible = registry.scenarios.filter((s) => s.status !== 'retired');
   const retired = registry.scenarios.filter((s) => s.status === 'retired');
   const core = visible.filter((s) => s.group_code === 'core');
   const independent = visible.filter((s) => s.group_code !== 'core');
   const day = registry.latestDay;
+  const readings = thirtyDayReadings(registry.run);
+  const componentCodes = residualComponentCodes(registry.scenarios);
+  const hasResidual = core.some((s) => isResidual(s.code));
 
   const methodSeries = seriesByMethod(registry.history);
   const current = methodSeries.find((m) => m.method === (registry.latestMethod ?? CURRENT_SCENARIO_METHOD)) ?? null;
   const archived = methodSeries.filter((m) => m !== current);
   const methodDesc = (m: string) => registry.methods.find((x) => x.method_version === m)?.description ?? '';
 
-  const chartSeries = (codes: string[]): ChartSeries[] =>
+  const chartSeries = (codes: string[], dropResidual = false): ChartSeries[] =>
     registry.scenarios
-      .filter((s) => codes.includes(s.code))
+      .filter((s) => codes.includes(s.code) && !(dropResidual && isResidual(s.code)))
       .map((s, i) => ({ code: s.code, name: s.name_en, color: scenarioColor(s.code, i), dashed: s.group_code !== 'core' }));
   const codesIn = (rows: { [k: string]: unknown }[]) =>
     Array.from(new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== 'day'))));
 
+  // Current-method chart rows get B's [low, high] band; the B line itself is not drawn (a point would
+  // imply the low end is the estimate).
+  const bandKey = `${RESIDUAL_SCENARIO_CODE}_range`;
+  const currentRows: ChartRow[] = current
+    ? current.rows.map((r) => {
+        const rr = residualRangeFromRow(r, componentCodes);
+        return { ...r, [bandKey]: rr ? ([Math.round(rr.low), Math.round(rr.high)] as [number, number]) : null };
+      })
+    : [];
+  const residualScenario = registry.scenarios.find((s) => isResidual(s.code));
+
   const shareText =
     day != null
-      ? `Day ${day} scenarios (${registry.latestMethod ?? ''}): ` +
+      ? `Day ${day} scenarios (${registry.latestMethod ?? ''}${registry.run?.horizon_end ? `, by ${registry.run.horizon_end}` : ''}): ` +
         visible
           .map((s) => {
-            const p = probabilityOn(registry.history, s.code, day);
-            return `${s.code} ${s.name_en} ${p === null ? 'unmeasured' : `${p}%`}`;
+            const d = scenarioDisplay(registry, s.code, day);
+            return `${s.code} ${s.name_en} ${d.kind === 'range' ? `${d.text} (range)` : d.text}`;
           })
           .join(' · ') +
         ` — ${SITE}/scenarios`
@@ -142,8 +219,8 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
     <div className="max-w-6xl mx-auto px-4 py-8">
       <PageBriefing
         title="CONFLICT SCENARIO PROBABILITIES"
-        description="The scenarios, their names and definitions come from the scenario registry. The core set (A–D) is mutually exclusive over the method horizon and sums to 100; independent scenarios (E) can overlap and are not part of the 100. Each day's numbers are computed by the market-anchored method from public prediction-market prices, and the markets used are listed below with links."
-        note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs were not stored; they are shown only as a separate, archived series."
+        description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
+        note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
       />
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-4">
@@ -172,12 +249,19 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       {core.length > 0 && (
         <section aria-label="Core scenarios" className="mb-4">
-          <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
-            CORE SET — {core.map((s) => s.code).join(' + ')} = 100% each day
+          <p className="font-mono text-[11px] mb-2 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="core-set-caption">
+            {hasResidual
+              ? `CORE SET — ${componentCodes.join(', ')} measured from markets and can co-occur · ${RESIDUAL_SCENARIO_CODE} = none of them, shown as a range`
+              : `CORE SET — ${core.map((s) => s.code).join(', ')}`}
+          </p>
+          <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="horizon-caption">
+            Each percentage is the market price for that market&apos;s own closing date
+            {registry.run?.horizon_end ? ` (${registry.run.horizon_end})` : ''}. The fixed 30-day reading converts it to a common
+            30-day horizon assuming a constant daily hazard: a conversion, not a market price.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {core.map((s, i) => (
-              <ScenarioCard key={s.code} s={s} registry={registry} index={i} />
+              <ScenarioCard key={s.code} s={s} registry={registry} index={i} readings={readings} />
             ))}
           </div>
         </section>
@@ -189,7 +273,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {independent.map((s, i) => (
-              <ScenarioCard key={s.code} s={s} registry={registry} index={core.length + i} />
+              <ScenarioCard key={s.code} s={s} registry={registry} index={core.length + i} readings={readings} />
             ))}
           </div>
         </section>
@@ -213,10 +297,15 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
             anchorId="scenario-history"
             title={`Scenario probabilities — Day ${current.firstDay} to ${current.lastDay}`}
             methodLabel={current.method}
-            rows={current.rows}
-            series={chartSeries(codesIn(current.rows))}
+            rows={currentRows}
+            series={chartSeries(codesIn(current.rows), true)}
+            bands={
+              residualScenario
+                ? [{ key: bandKey, name: `${RESIDUAL_SCENARIO_CODE}: ${residualScenario.name_en} (range)`, color: scenarioColor(RESIDUAL_SCENARIO_CODE) }]
+                : []
+            }
             shareText={shareText}
-            note={`Only days computed by ${current.method} are drawn here. An unmeasured scenario is a gap, not zero.`}
+            note={`Only days computed by ${current.method} are drawn here. ${RESIDUAL_SCENARIO_CODE} is drawn as its range (shaded), not a line. Each point is the price for the market's own closing date. An unmeasured scenario is a gap, not zero.`}
           />
           {archived.length > 0 && (
             <div
@@ -232,16 +321,21 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
           {archived.map((m) => (
             <details key={m.method} className="mt-4" data-testid={`archived-${m.method}`}>
               <summary className="font-mono text-xs cursor-pointer py-2" style={{ color: 'var(--text-secondary)' }}>
-                ARCHIVED — Days {m.firstDay}–{m.lastDay} · {m.method} (not comparable)
+                ARCHIVED — Days {m.firstDay}–{m.lastDay} · {m.method}
+                {m.method === LEGACY_SCENARIO_METHOD ? ` · ${LEGACY_SERIES_MARKER}` : ' (not comparable)'}
               </summary>
               <div className="mt-3">
                 <ScenarioHistoryChart
                   anchorId={`scenario-history-${m.method}`}
-                  title={`Archived — Days ${m.firstDay} to ${m.lastDay}`}
+                  title={`Archived — Days ${m.firstDay} to ${m.lastDay}${m.method === LEGACY_SCENARIO_METHOD ? ` — ${LEGACY_SERIES_MARKER}` : ''}`}
                   methodLabel={m.method}
                   rows={m.rows}
                   series={chartSeries(codesIn(m.rows))}
-                  note={methodDesc(m.method)}
+                  note={
+                    m.method === LEGACY_SCENARIO_METHOD
+                      ? `Retired method, cannot be scored: these desk estimates had no stated horizon and their inputs were not stored, so no outcome can ever be checked against them. ${methodDesc(m.method)}`
+                      : methodDesc(m.method)
+                  }
                   height={240}
                 />
               </div>

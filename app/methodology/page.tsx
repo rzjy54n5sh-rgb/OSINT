@@ -302,16 +302,25 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
                 across venues are averaged by venue weight first.
               </Li>
               <Li>
-                <strong>C (Cascade):</strong> a Hormuz gate — if the market puts the chance that Hormuz is NOT back to normal by
+                <strong>C (Bab el-Mandeb closed while Hormuz is shut):</strong> a Hormuz gate — if the market puts the chance that Hormuz is NOT back to normal by
                 the horizon at 90% or more, C is the Bab el-Mandeb closure price; otherwise C is scaled by that chance and the
                 run is flagged.
               </Li>
               <Li>
-                <strong>B (Prolonged War)</strong> is the residual: 100 − A − C − D.
+                <strong>B (none of A, C or D)</strong> is computed as the residual 100 − A − C − D, with largest-remainder
+                (Hamilton) rounding so that A + B + C + D = 100. Because A, C and D can happen in the same window, that number is
+                only the low end: the site shows B as the range from 100 − (A + C + D) to 100 − the largest of A, C and D
+                (Fréchet bounds).
               </Li>
               <Li>
-                <strong>Rounding:</strong> largest-remainder (Hamilton) rounding to whole numbers, so the core set sums to
-                exactly 100.
+                <strong>Fixed 30-day reading:</strong> each market price is for its own closing date. Alongside it the site shows
+                a constant-hazard conversion to a 30-day horizon, p30 = 1 − (1 − p)^(30 / days until the market closes), labelled
+                as a conversion, not a market price.
+              </Li>
+              <Li>
+                <strong>Names:</strong> each scenario name says what its markets measure (for example &quot;US ends blockade or a
+                deal is announced&quot;, not &quot;Managed Exit&quot;). The Days 1–35 desk estimates are a retired method and
+                cannot be scored: they had no stated horizon and their inputs were not stored.
               </Li>
               <Li>
                 <strong>KEEP_FROZEN:</strong> if A or D has no qualifying market, if A + C + D would exceed 100, or if a core

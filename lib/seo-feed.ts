@@ -4,7 +4,7 @@
  * yields an empty list so the static part of the sitemap / an empty feed is still served.
  */
 import { createPublicClient } from '@/utils/supabase/server';
-import { ROUTABLE_BRIEF_TYPES } from '@/lib/site';
+import { ROUTABLE_BRIEF_TYPES } from '@/lib/brief-types';
 
 export type FeedBrief = {
   conflict_day: number;

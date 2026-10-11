@@ -40,18 +40,32 @@ function catColor(cat: string): string {
   return map[cat.toUpperCase()] || '#6C7A8A';
 }
 
+/**
+ * B ("none of A, C or D") as its Fréchet range [max(0, 100 − (A+C+D)), 100 − max(A,C,D)]: A, C and D
+ * can happen in the same window, so B is bounded, not a point. Mirrors lib/scenario-range.ts.
+ */
+function bRangeText(data: DigestData): string {
+  const lo = Math.max(0, 100 - data.scenarioA - data.scenarioC - data.scenarioD);
+  const hi = 100 - Math.max(data.scenarioA, data.scenarioC, data.scenarioD);
+  return lo === hi ? `${lo}%` : `${lo}\u2013${hi}%`;
+}
+
 function scenarioRowHtml(data: DigestData): string {
-  const vals = [data.scenarioA, data.scenarioB, data.scenarioC, data.scenarioD];
-  const max = Math.max(...vals);
-  const letters = ['A', 'B', 'C', 'D'];
-  const names = ['Ceasefire', 'Prolonged', 'Cascade', 'Escalation'];
-  return letters
-    .map((s, i) => {
-      const isLead = vals[i] === max;
+  // The lead is the largest MEASURED scenario (A, C, D); B is a range and never "leads".
+  const measured = [data.scenarioA, data.scenarioC, data.scenarioD];
+  const max = Math.max(...measured);
+  const cells = [
+    { s: 'A', v: `${data.scenarioA}%`, lead: data.scenarioA === max, name: 'Blockade end / deal' },
+    { s: 'B', v: bRangeText(data), lead: false, name: 'None of A, C, D (range)' },
+    { s: 'C', v: `${data.scenarioC}%`, lead: data.scenarioC === max, name: 'Bab el-Mandeb closed' },
+    { s: 'D', v: `${data.scenarioD}%`, lead: data.scenarioD === max, name: 'Strike on Iran' },
+  ];
+  return cells
+    .map(({ s, v, lead: isLead, name }) => {
       return `<td style="text-align:center;padding:8px;">
                   <div style="color:${isLead ? '#E8C547' : '#6C7A8A'};font-size:11px;">SCN ${s}</div>
-                  <div style="color:${isLead ? '#E8C547' : '#ffffff'};font-size:${isLead ? '22px' : '18px'};font-weight:${isLead ? 'bold' : 'normal'};">${vals[i]}%</div>
-                  <div style="color:#6C7A8A;font-size:10px;">${names[i]}</div>
+                  <div style="color:${isLead ? '#E8C547' : '#ffffff'};font-size:${isLead ? '22px' : '18px'};font-weight:${isLead ? 'bold' : 'normal'};">${v}</div>
+                  <div style="color:#6C7A8A;font-size:10px;">${name}</div>
                 </td>`;
     })
     .join('');
@@ -61,7 +75,7 @@ export function dailyDigestTemplate(
   data: DigestData,
   siteUrl: string = DEFAULT_SITE
 ): { subject: string; html: string } {
-  const maxPct = Math.max(data.scenarioA, data.scenarioB, data.scenarioC, data.scenarioD);
+  const maxPct = Math.max(data.scenarioA, data.scenarioC, data.scenarioD);
   const subject = `Day ${data.conflictDay} — ${data.leadScenario} leads at ${maxPct}% · Brent $${data.brentPrice}`;
 
   const biggestMoveHtml = data.biggestMove
