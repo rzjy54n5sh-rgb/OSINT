@@ -36,7 +36,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 const LEAD_LABELS = [
   "A — US announces blockade end or a deal",
   "C — Bab el-Mandeb closed while Hormuz is shut",
-  "D — US or Israeli strike on Iran",
+  "D — US strike on Iran or Israel–Iran strike",
 ];
 
 function getSupabaseUrl(): string {

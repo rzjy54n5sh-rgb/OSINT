@@ -405,7 +405,8 @@ export function fromV1View(v: NaiV2View, refIso: string): PostureView {
     freshness: withheld || e !== null ? freshnessFor(age) : null,
     evidence_date: withheld || e !== null ? newest : null,
     evidence: null,
-    cited: eSources,
+    // EG / AE / SA: verbatim statements and acts only — never the desk's outlet summaries that fed a grade.
+    cited: withheld ? [] : eSources,
     expressed_basis: withheld ? null : v.expressed_basis,
     change_reason: null,
     note: null,
@@ -553,6 +554,8 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
         !r.withheld &&
         r.stance === 'position' &&
         r.change_reason === 'new_evidence' &&
+        // a statement made weeks ago and captured today is not news: only current evidence drives a move
+        r.freshness === 'current' &&
         r.score_day != null &&
         r.score_day >= from &&
         r.expressed_score != null &&

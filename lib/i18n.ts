@@ -4,11 +4,6 @@ export const UI_STRINGS = {
   en: {
     conflictDay: 'CONFLICT DAY',
     scenarios: 'SCENARIO PROBABILITY TRACKER',
-    scenarioA: 'US announces blockade end or a deal',
-    scenarioB: 'None of A, C or D',
-    scenarioC: 'Bab el-Mandeb closed while Hormuz is shut',
-    scenarioD: 'US or Israeli strike on Iran (ceasefire breaks)',
-    scenarioE: 'Iran targets the UAE',
     nai: 'WAR POSTURE',
     aligned: 'ALIGNED',
     stable: 'STABLE',
@@ -63,11 +58,6 @@ export const UI_STRINGS = {
   ar: {
     conflictDay: 'يوم الصراع',
     scenarios: 'متتبع احتمالية السيناريو',
-    scenarioA: 'وقف إطلاق النار',
-    scenarioB: 'حرب مطولة',
-    scenarioC: 'التصعيد المتتالي',
-    scenarioD: 'التصعيد الإقليمي',
-    scenarioE: 'ضربة إماراتية مباشرة',
     nai: 'الموقف من الحرب',
     aligned: 'متوافق',
     stable: 'مستقر',

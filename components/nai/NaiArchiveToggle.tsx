@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { NAI_ARCHIVE_LABEL } from '@/lib/nai-v2';
+import { NAI_ARCHIVE_LABEL, isNaiV2Withheld } from '@/lib/nai-v2';
 
 type ArchivedRow = {
   country_code: string;
@@ -35,7 +35,9 @@ export function NaiArchiveToggle() {
         .order('conflict_day', { ascending: false })
         .order('country_code', { ascending: true });
       if (e) throw new Error(e.message);
-      const list = (data as ArchivedRow[] | null) ?? [];
+      // EG / AE / SA: no grade is published, archived ones included (War Posture v2 editorial policy;
+      // the database hides them from anon too — this is defence in depth for a pre-migration database).
+      const list = ((data as ArchivedRow[] | null) ?? []).filter((r) => !isNaiV2Withheld(r.country_code));
       setRows(list);
       setDay(list[0]?.conflict_day ?? null);
     } catch (e) {
@@ -62,7 +64,8 @@ export function NaiArchiveToggle() {
         <div className="mt-2 font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
           <p className="border px-2 py-1 mb-2" style={{ borderColor: 'var(--accent-orange)', color: 'var(--accent-orange)' }}>
             {NAI_ARCHIVE_LABEL.toUpperCase()}. Days 1–35 were scored on a retired, US-referenced axis. These numbers and
-            labels are NOT comparable with War Posture scores; the same label names meant something different.
+            labels are NOT comparable with War Posture scores; the same label names meant something different. Egypt, the UAE
+            and Saudi Arabia are not shown (no grade is published for them).
           </p>
           {error && <p>Archive unavailable: {error}</p>}
           {rows === null && !error && <p>LOADING…</p>}

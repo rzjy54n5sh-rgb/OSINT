@@ -36,7 +36,7 @@ END $$;
 SELECT pg_temp.chk('scenario labels renamed A-E',
   (SELECT array_agg(name_en ORDER BY code) FROM public.scenarios) = ARRAY[
     'US announces blockade end or a deal', 'None of A, C or D', 'Bab el-Mandeb closed while Hormuz is shut',
-    'US or Israeli strike on Iran (ceasefire breaks)', 'Iran targets the UAE']);
+    'US strike on Iran or Israel–Iran strike', 'Iran targets the UAE']);
 SELECT pg_temp.chk('former names kept',
   (SELECT array_agg(former_name_en ORDER BY code) FROM public.scenarios) = ARRAY['Managed Exit', 'Prolonged War', 'Cascade', 'Escalation Spiral', 'UAE Direct Strike']);
 SELECT pg_temp.chk('B definition explains the Frechet range; former definition kept',

@@ -83,7 +83,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const { data } = await getBrief(day, type);
     if (!data) {
-      if (await showsEmptyState(type)) {
+      if (day <= (await getConflictDay()) && (await showsEmptyState(type))) {
         return {
           title: `${briefTitle(type)}: first edition not yet published · ${DESK_NAME}`,
           description: briefTypeMeta(type)?.blurb ?? fallbackDescription,

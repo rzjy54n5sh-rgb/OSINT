@@ -134,6 +134,7 @@ ok('v1: posture view = label from E, age from newest E source, cited reporting k
   assert.equal(s.stance, 'withheld');
   assert.equal(s.label, null);
   assert.equal(s.expressed_basis, null);
+  assert.deepEqual(s.cited, []); // EG / AE / SA: no outlet summaries, verbatim ledger only
 });
 
 // 5. Moves: new evidence only --------------------------------------------------------------------------
@@ -142,6 +143,8 @@ ok('moves: only new_evidence changes, never reverification, never v1', () => {
     fromV2Row(irRow, ANON),
     fromV2Row({ ...irRow, country_code: 'YE', conflict_code: 'red-sea-houthi', change_reason: 'reverification', note: 'x', previous_score: 90, expressed_score: 75 }, ANON),
     fromV2Row({ ...irRow, country_code: 'US', change_reason: 'new_evidence', previous_score: 75, previous_label: 'continued_pressure', expressed_score: 78 }, ANON),
+    // an old statement captured today: new_evidence, big jump, but stale -> never a move
+    fromV2Row({ ...irRow, country_code: 'TR', freshness: 'stale', evidence_age_days: 60, previous_score: 20, previous_label: 'conditional_deescalation', expressed_score: 95, label: 'escalation' }, ANON),
   ];
   const board: PostureBoard = { schema: 'v2', day: 226, firstDay: 221, latestDay: 226, conflicts: [], rows, hasLatentAccess: false, hasGapAccess: false };
   const m = postureMoves(board);
