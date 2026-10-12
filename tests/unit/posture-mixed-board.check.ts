@@ -150,7 +150,8 @@ async function main() {
 
   await check('mixed board: every v2 row is kept', () => {
     const v2 = board.rows.filter((r) => r.method === 'war-posture-v2').map((r) => `${r.country_code}|${r.conflict_code}`);
-    assert.deepEqual(v2.sort(), ['EG|us-iran', 'IR|us-iran', 'YE|red-sea-houthi']);
+    // + AE / SA: no v2 row at all -> policy-only withheld rows (see check (c) below)
+    assert.deepEqual(v2.sort(), ['AE|us-iran', 'EG|us-iran', 'IR|us-iran', 'SA|us-iran', 'YE|red-sea-houthi']);
   });
 
   await check('mixed board: countries with no v2 row get their latest v1 row on or before the day (own day kept)', () => {
@@ -170,13 +171,15 @@ async function main() {
     }
   });
 
-  await check('mixed board: EG / AE / SA show no grade from either path; their v1 rows are excluded', () => {
+  await check('mixed board: EG / AE / SA show no grade from either path; their v1 rows are never shown', () => {
     for (const r of board.rows.filter((x) => WITHHELD.includes(x.country_code))) {
       assert.equal(r.withheld, true, r.country_code);
+      assert.equal(r.stance, 'withheld', r.country_code);
       assert.ok(noGrade(r), `${r.country_code} carries a grade`);
       assert.notEqual(r.method, 'war-posture-v1', `${r.country_code} v1 row on a v2 board`);
     }
-    assert.equal(board.rows.some((r) => r.country_code === 'AE' || r.country_code === 'SA'), false);
+    // EG has a v2 withheld row: exactly that row, nothing else.
+    assert.deepEqual(board.rows.filter((r) => r.country_code === 'EG').map((r) => `${r.method}|${r.conflict_code}`), ['war-posture-v2|us-iran']);
   });
 
   await check('mixed board: v1 fallback read is the tier-gated RPC (never the raw table)', () => {
@@ -223,7 +226,10 @@ async function main() {
       history: [v1('US', 224, 85), v1('TR', 222, 50)],
     });
     const b = await posture.getPostureBoard(all.client, { day: 227, access: ANON });
-    assert.deepEqual(b.rows.map(key).sort(), ['TR:v2:227', 'US:v2:227']);
+    assert.deepEqual(b.rows.filter((r) => !r.withheld).map(key).sort(), ['TR:v2:227', 'US:v2:227']);
+    // EG / AE / SA have no v2 row here: policy-only withheld rows, no grade, never v1
+    assert.deepEqual(b.rows.filter((r) => r.withheld).map(key).sort(), ['AE:v2:-', 'EG:v2:-', 'SA:v2:-']);
+    assert.ok(b.rows.filter((r) => r.withheld).every(noGrade));
     assert.deepEqual(posture.boardConflicts(b).map((c) => c.conflict_code), ['us-iran']);
   });
 
@@ -252,6 +258,77 @@ async function main() {
     const eg = b.rows.find((r) => r.country_code === 'EG')!;
     assert.equal(eg.stance, 'withheld');
     for (const r of b.rows.filter((x) => WITHHELD.includes(x.country_code))) assert.ok(noGrade(r), `${r.country_code} carries a grade`);
+  });
+
+  // --- Coordinator rule (2026-10-12): only a CODED v2 row (anything but 'uncoded') counts as "has v2" ---------
+  // Day 228 fixture: KW coded (position, us-iran) + uncoded (red-sea); US only uncoded (us-iran, red-sea);
+  // OM only uncoded and no v1 history; EG has a v2 withheld row; AE / SA have no v2 row at all.
+  const unc = (cc: string, conflict: string) => ({
+    ...v2Base, country_code: cc, conflict_code: conflict, score_id: null, score_day: null, as_of: null, stance: 'uncoded', label: null,
+    expressed_score: null, confidence_base: null, confidence_now: null, decay_factor: null, change_reason: null, previous_day: null,
+    previous_stance: null, previous_label: null, previous_score: null,
+  });
+  const d228 = fakeClient({
+    v2: {
+      data: [
+        { ...v2Base, country_code: 'KW' },
+        unc('KW', 'red-sea-houthi'),
+        unc('US', 'us-iran'),
+        unc('US', 'red-sea-houthi'),
+        unc('OM', 'us-iran'),
+        { ...v2Base, country_code: 'EG', withheld: true, stance: 'withheld', label: null, expressed_score: null, score_day: null, change_reason: null },
+      ],
+      error: null,
+    },
+    naiRpc: true,
+    history: [v1('KW', 224, 35), v1('US', 224, 85), v1('EG', 224, null), v1('AE', 224, 45), v1('SA', 224, 80)],
+  });
+  const b228: PostureBoard = await posture.getPostureBoard(d228.client, { day: 228, access: ANON });
+
+  await check('(a) uncoded-only country falls back to its latest v1 row (frozen, own day) with the "captured, not yet coded" note', () => {
+    const us = b228.rows.filter((r) => r.country_code === 'US');
+    assert.deepEqual(us.map(key), ['US:v1:224'], 'US should be exactly its v1 row');
+    assert.equal(us[0].expressed_score, 85);
+    assert.equal(posture.isV1Fallback(b228, us[0]), true);
+    assert.equal(posture.v1FrozenText(us[0]), 'War Posture v1 — frozen, Day 224');
+    assert.deepEqual([...us[0].v2UncodedConflicts].sort(), ['red-sea-houthi', 'us-iran']);
+    assert.equal(posture.POSTURE_UNCODED_TEXT, 'Statement captured, not yet coded');
+    const note = posture.v2UncodedNote(us[0]);
+    assert.ok(note && note.includes(posture.POSTURE_UNCODED_TEXT), `note: ${note}`);
+    assert.equal(posture.postureMoves(b228).some((m) => m.row.country_code === 'US'), false);
+  });
+
+  await check('(a2) uncoded-only country with NO v1 history keeps its uncoded v2 rows (never dropped)', () => {
+    assert.deepEqual(b228.rows.filter((r) => r.country_code === 'OM').map((r) => `${r.method}|${r.stance}`), ['war-posture-v2|uncoded']);
+  });
+
+  await check('(b) a country with any coded v2 row gets v2 only (its uncoded rows too), never v1', () => {
+    const kw = b228.rows.filter((r) => r.country_code === 'KW');
+    assert.deepEqual(kw.map((r) => `${r.method}|${r.conflict_code}|${r.stance}`).sort(), [
+      'war-posture-v2|red-sea-houthi|uncoded',
+      'war-posture-v2|us-iran|position',
+    ]);
+    for (const r of kw) assert.deepEqual(r.v2UncodedConflicts, []);
+    assert.equal(posture.v2UncodedNote(kw[0]), null);
+  });
+
+  await check('(c) EG / AE / SA with no v2 row: withheld ("Stated positions only") row, never v1, never "nothing on record"', () => {
+    for (const cc of ['AE', 'SA']) {
+      const rows = b228.rows.filter((r) => r.country_code === cc);
+      assert.equal(rows.length, 1, `${cc}: expected one withheld row, got ${rows.length}`);
+      const r = rows[0];
+      assert.equal(r.stance, 'withheld', cc);
+      assert.equal(r.withheld, true, cc);
+      assert.equal(r.method, 'war-posture-v2', cc);
+      assert.ok(noGrade(r), `${cc} carries a grade`);
+      assert.equal(r.evidence, null, cc);
+      assert.equal(r.score_day, null, cc);
+      // Filed under the panel-wide tab (us-iran), where "nothing on record" is computed -> listed as withheld there.
+      assert.equal(posture.postureGroupCode(b228, r), 'us-iran', cc);
+    }
+    // EG keeps its own v2 withheld row (no extra placeholder, no v1 row).
+    assert.deepEqual(b228.rows.filter((r) => r.country_code === 'EG').map((r) => `${r.method}|${r.conflict_code}`), ['war-posture-v2|us-iran']);
+    assert.equal(b228.rows.some((r) => WITHHELD.includes(r.country_code) && r.method === 'war-posture-v1'), false);
   });
 
   const failed = results.filter((r) => r.err);

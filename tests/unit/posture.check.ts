@@ -215,7 +215,9 @@ async function asyncChecks() {
   const b3 = await getPostureBoard(post, { day: 226, access: ANON });
   assert.equal(b3.schema, 'v2');
   assert.equal(b3.day, 226);
-  assert.deepEqual(b3.rows.map((r) => r.stance), ['position', 'withheld']);
+  // IR position, EG withheld (v2 row), then AE / SA: no v2 row -> policy-only withheld rows (no grade)
+  assert.deepEqual(b3.rows.map((r) => `${r.country_code}:${r.stance}`), ['IR:position', 'EG:withheld', 'AE:withheld', 'SA:withheld']);
+  assert.ok(b3.rows.filter((r) => r.withheld).every((r) => r.expressed_score === null && r.label === null));
   console.log('ok   v2 board from viewer_posture_v2');
 
   // (d) Country posture: v2 rows + ledger from posture_evidence (pre-migration columns only).

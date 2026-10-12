@@ -12,12 +12,14 @@ import {
   POSTURE_LABELS,
   POSTURE_NODATA_COLOR,
   POSTURE_SILENCE_COLOR,
+  POSTURE_UNCODED_TEXT,
   POSTURE_WITHHELD_TEXT,
   POSTURE_WITHHELD_TITLE,
   ageLine,
   postureLabelDef,
   shortDate,
   v1FrozenText,
+  v2UncodedNote,
   type PostureEvidenceView,
   type PostureView,
 } from '@/lib/posture';
@@ -51,7 +53,7 @@ export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>
     case 'withheld':
       return POSTURE_WITHHELD_TITLE;
     default:
-      return row.method === 'war-posture-v1' ? 'No position coded this day' : 'Statement captured, not yet coded';
+      return row.method === 'war-posture-v1' ? 'No position coded this day' : POSTURE_UNCODED_TEXT;
   }
 }
 
@@ -75,17 +77,22 @@ export function PostureChip({ row, className = '' }: { row: PostureView; classNa
   );
 }
 
-/** Marker for a War Posture v1 row on a v2 board: "War Posture v1 — frozen, Day 224" (own day). */
-export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 'score_day'>; className?: string }) {
+/**
+ * Marker for a War Posture v1 row on a v2 board: "War Posture v1 — frozen, Day 224" (own day), plus
+ * "War Posture v2: Statement captured, not yet coded" when a v2 statement awaits coding.
+ */
+export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 'score_day' | 'v2UncodedConflicts'>; className?: string }) {
+  const note = v2UncodedNote(row);
   return (
     <span
-      className={`font-mono text-[11px] uppercase ${className}`}
+      className={`font-mono text-[11px] ${className}`}
       style={{ color: 'var(--text-muted)' }}
       data-testid="posture-v1-frozen"
       title="Not yet re-coded under War Posture v2: the last War Posture v1 number (one blended number across wars), frozen, never counted as a move."
       translate="no"
     >
-      {v1FrozenText(row)}
+      <span className="uppercase">{v1FrozenText(row)}</span>
+      {note && <span data-testid="posture-v2-uncoded-note"> · {note}</span>}
     </span>
   );
 }
