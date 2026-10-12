@@ -131,8 +131,8 @@ export function PostureCountryPanel({
         <>
           {posture?.schema === 'v1' && (
             <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              This country is still shown on the v1 method: one number across wars, re-checked daily. Per-conflict positions
-              replace it once captured.
+              This country is still shown on the v1 method: one number across wars, frozen since Day 227 (no longer updated).
+              Per-conflict positions replace it once coded.
             </p>
           )}
           <div className="grid grid-cols-1 gap-3">

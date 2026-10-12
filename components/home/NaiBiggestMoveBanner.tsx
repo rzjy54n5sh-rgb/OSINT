@@ -49,7 +49,8 @@ export async function NaiBiggestMoveBanner() {
   if (moves.length === 0) {
     const v2Positions = positions.filter((r) => !isV1Fallback(board, r));
     const v2Countries = new Set(v2Positions.map((r) => r.country_code)).size;
-    const frozen = new Set(board.rows.filter((r) => isV1Fallback(board, r)).map((r) => r.country_code)).size;
+    // Only frozen v1 rows that carry a number ("shows a frozen method-v1 number" must be true of each one).
+    const frozen = new Set(board.rows.filter((r) => isV1Fallback(board, r) && r.expressed_score !== null).map((r) => r.country_code)).size;
     return (
       <div className={box} style={{ color: 'var(--text-muted)' }} data-testid="nai-biggest-move" data-freshness="current" data-schema="v2">
         ◆ WAR POSTURE — DAY {board.day}: {v2Positions.length} positions on record across {v2Countries} governments; no position

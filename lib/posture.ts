@@ -36,7 +36,7 @@ export const POSTURE_V1_METHOD = 'war-posture-v1';
 // ---------------------------------------------------------------------------------------------------
 export const POSTURE_WITHHELD_CODES = ['EG', 'AE', 'SA'] as const;
 export function isPostureWithheld(code: string | null | undefined): boolean {
-  return !!code && (POSTURE_WITHHELD_CODES as readonly string[]).includes(code.toUpperCase());
+  return !!code && (POSTURE_WITHHELD_CODES as readonly string[]).includes(code.trim().toUpperCase());
 }
 export const POSTURE_WITHHELD_TITLE = 'Stated positions only';
 /** Stance text for a v2 'uncoded' row (evidence captured, no score yet). */
@@ -591,12 +591,17 @@ export async function getPostureBoard(
       fallback = { rows: viaLoader, via: 'table' };
     }
     const refIso = dayToIsoDate(boardDay);
+    // Countries whose only v2 rows are 'uncoded' (statement captured, not yet coded).
+    const uncodedOnly = new Set(v2All.filter((r) => !coded.has(r.country_code)).map((r) => r.country_code));
     const v1Rows = fallback.rows
       .filter((v) => !coded.has(v.country_code.toUpperCase()))
       // EG / AE / SA: no v1 row at all on a v2 board (their v2 rows, or the policy row, carry them).
       .filter((v) => !v.withheld && !isPostureWithheld(v.country_code))
       .map((v) => fromV1View(v, refIso))
       .filter((r) => !r.withheld)
+      // An uncoded-only country keeps its frozen v1 row only when that row carries a number: a v1 row with no E
+      // ("No position coded this day") must never hide the verbatim statement already captured under v2.
+      .filter((r) => !uncodedOnly.has(r.country_code) || r.stance === 'position')
       .map((r) => ({
         ...r,
         v2UncodedConflicts: v2All
@@ -606,8 +611,10 @@ export async function getPostureBoard(
     const v1Countries = new Set(v1Rows.map((r) => r.country_code));
     // An uncoded-only country with a v1 row shows that v1 row (plus the note) instead of its uncoded v2 rows.
     const v2Rows = v2All.filter((r) => coded.has(r.country_code) || !v1Countries.has(r.country_code));
-    const present = new Set([...v2Rows, ...v1Rows].map((r) => r.country_code));
-    const policyRows = POSTURE_WITHHELD_CODES.filter((c) => !present.has(c)).map((c) => withheldPolicyRow(c));
+    // Policy row wherever EG / AE / SA have no row on the panel-wide conflict (where "nothing on record" is listed),
+    // even if they have withheld evidence on another conflict.
+    const onPanel = new Set([...v2Rows, ...v1Rows].filter((r) => r.conflict_code === POSTURE_PANEL_CONFLICT).map((r) => r.country_code));
+    const policyRows = POSTURE_WITHHELD_CODES.filter((c) => !onPanel.has(c)).map((c) => withheldPolicyRow(c));
     return {
       schema: 'v2',
       day: boardDay,
@@ -675,7 +682,8 @@ export async function getCountryPosture(supabase: Sb, code: string, access: Acce
   const v1 = latest ? fromV1View(latest, new Date().toISOString().slice(0, 10)) : null;
   if (v2Rows.length > 0) {
     // Uncoded-only: keep the frozen v1 number until a v2 position is coded (never for EG / AE / SA).
-    if (!v1 || v1.withheld || isPostureWithheld(cc)) return { schema: 'v2', rows: v2Rows, ledger };
+    // ...and only a v1 row that carries a number: a no-E v1 row would hide the captured statement.
+    if (!v1 || v1.withheld || isPostureWithheld(cc) || v1.stance !== 'position') return { schema: 'v2', rows: v2Rows, ledger };
     const pending = v2Rows.map((r) => r.conflict_code).filter((c): c is string => c !== null);
     return { schema: 'v1', rows: [{ ...v1, v2UncodedConflicts: pending }], ledger };
   }
