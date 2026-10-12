@@ -77,8 +77,9 @@ BEGIN
   IF NEW.report_type IS NULL THEN
     RETURN NEW;                                   -- NOT NULL constraint reports it
   END IF;
-  IF TG_OP = 'UPDATE' AND NEW.report_type IS NOT DISTINCT FROM OLD.report_type THEN
-    RETURN NEW;                                   -- type unchanged (e.g. upsert SET report_type = EXCLUDED.report_type)
+  IF TG_OP = 'UPDATE' AND NEW.report_type IS NOT DISTINCT FROM OLD.report_type
+     AND NEW.conflict_day IS NOT DISTINCT FROM OLD.conflict_day THEN
+    RETURN NEW;                                   -- same (conflict_day, report_type): not a new brief
   END IF;
 
   SELECT rt.status INTO v_status FROM public.report_types rt WHERE rt.code = NEW.report_type;
@@ -101,7 +102,7 @@ BEGIN
   RAISE EXCEPTION 'daily_briefings: report type "%" is % — %',
     NEW.report_type, v_status,
     CASE WHEN TG_OP = 'INSERT' THEN format('no new briefs of this type (Day %s).', NEW.conflict_day)
-         ELSE format('a brief cannot be re-pointed to it (brief %s, Day %s).', OLD.id, OLD.conflict_day) END
+         ELSE format('a brief cannot be re-pointed to it or moved to Day %s (brief %s, Day %s).', NEW.conflict_day, OLD.id, OLD.conflict_day) END
     USING ERRCODE = 'check_violation',
           DETAIL = CASE WHEN TG_OP = 'INSERT'
                         THEN 'A new brief may only be created for a report type whose report_types.status = ''active''.'
@@ -122,7 +123,7 @@ COMMENT ON FUNCTION public.daily_briefings_reject_inactive_type() IS
 -- §2 trigger ---------------------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS daily_briefings_reject_inactive_type ON public.daily_briefings;
 CREATE TRIGGER daily_briefings_reject_inactive_type
-  BEFORE INSERT OR UPDATE OF report_type ON public.daily_briefings
+  BEFORE INSERT OR UPDATE OF report_type, conflict_day ON public.daily_briefings
   FOR EACH ROW EXECUTE FUNCTION public.daily_briefings_reject_inactive_type();
 
 -- §3 grants: trigger functions are not callable through the API -------------------------------------

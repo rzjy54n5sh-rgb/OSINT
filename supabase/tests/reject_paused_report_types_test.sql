@@ -126,10 +126,18 @@ SELECT pg_temp.probe('UPDATE OLD general Day 101 SET report_type = ''business'' 
 SELECT pg_temp.probe('UPDATE in-window general Day 222 SET report_type = ''egypt_gulf_economy'' (active) -> ok', 'ok',
   ARRAY[$$UPDATE public.daily_briefings SET report_type = 'egypt_gulf_economy' WHERE conflict_day = 222 AND report_type = 'general'$$]);
 
+SELECT pg_temp.probe('UPDATE in-window egypt Day 222 SET conflict_day = 228 (moves a paused brief to a new day) -> refused', '23514',
+  ARRAY[$$UPDATE public.daily_briefings SET conflict_day = 228 WHERE conflict_day = 222 AND report_type = 'egypt'$$]);
+SELECT pg_temp.probe('upsert on existing egypt Day 222 DO UPDATE SET conflict_day = 229 -> refused', '23514',
+  ARRAY[$$INSERT INTO public.daily_briefings (conflict_day, report_type, title, sections, provenance) VALUES (222, 'egypt', 'x', '[]', 'contemporaneous')
+          ON CONFLICT (conflict_day, report_type) DO UPDATE SET conflict_day = 229$$]);
+SELECT pg_temp.probe('UPDATE in-window general Day 222 SET conflict_day = 228 (active type) -> ok', 'ok',
+  ARRAY[$$UPDATE public.daily_briefings SET conflict_day = 228 WHERE conflict_day = 222 AND report_type = 'general'$$]);
+
 -- ---- 5. installation -------------------------------------------------------------------------------------
 SELECT pg_temp.probe('trigger installed, enabled, BEFORE INSERT OR UPDATE OF report_type', 'ok', ARRAY['SELECT 1'],
   $$SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.daily_briefings'::regclass AND tgname = 'daily_briefings_reject_inactive_type'
-                    AND tgenabled = 'O' AND pg_get_triggerdef(oid) LIKE '%BEFORE INSERT OR UPDATE OF report_type ON public.daily_briefings FOR EACH ROW%')$$);
+                    AND tgenabled = 'O' AND pg_get_triggerdef(oid) LIKE '%BEFORE INSERT OR UPDATE OF report_type, conflict_day ON public.daily_briefings FOR EACH ROW%')$$);
 SELECT pg_temp.probe('function: search_path pinned, not SECURITY DEFINER, not executable by anon/authenticated', 'ok', ARRAY['SELECT 1'],
   $$SELECT p.proconfig = ARRAY['search_path=""'] AND NOT p.prosecdef
             AND NOT has_function_privilege('anon', p.oid, 'EXECUTE') AND NOT has_function_privilege('authenticated', p.oid, 'EXECUTE')
