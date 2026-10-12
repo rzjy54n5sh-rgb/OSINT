@@ -17,6 +17,7 @@ import {
   ageLine,
   postureLabelDef,
   shortDate,
+  v1FrozenText,
   type PostureEvidenceView,
   type PostureView,
 } from '@/lib/posture';
@@ -70,6 +71,21 @@ export function PostureChip({ row, className = '' }: { row: PostureView; classNa
           · defensive ({POSTURE_DEFENSIVE_TEXT})
         </span>
       )}
+    </span>
+  );
+}
+
+/** Marker for a War Posture v1 row on a v2 board: "War Posture v1 — frozen, Day 224" (own day). */
+export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 'score_day'>; className?: string }) {
+  return (
+    <span
+      className={`font-mono text-[11px] uppercase ${className}`}
+      style={{ color: 'var(--text-muted)' }}
+      data-testid="posture-v1-frozen"
+      title="Not yet re-coded under War Posture v2: the last War Posture v1 number (one blended number across wars), frozen, never counted as a move."
+      translate="no"
+    >
+      {v1FrozenText(row)}
     </span>
   );
 }

@@ -6,9 +6,12 @@
  * posture_publication_policy, viewer_posture_v2). Every function here that mirrors SQL (labels, decay,
  * freshness) must give the same answer as its SQL twin — see tests/unit/posture.test.ts.
  *
- * Until that migration is applied (or while posture_scores has no rows) the reads fall back to the
- * War Posture v1 table (nai_scores_v2: one blended number per country) and say so. In BOTH modes the
- * EG / AE / SA rule is applied here too, so the page never shows a grade for them, whatever the DB holds.
+ * Until that migration is applied (or while viewer_posture_v2 returns no rows) the board falls back to the
+ * War Posture v1 table (nai_scores_v2: one blended number per country) and says so. Once v2 rows exist
+ * the board is v2, and every country with NO v2 row that day keeps its latest v1 row (v1 is frozen: no
+ * new rows), marked "War Posture v1 — frozen, Day N" and grouped under V1_FROZEN_CONFLICT. A country
+ * never gets both. In EVERY mode the EG / AE / SA rule is applied here too, so the page never shows a
+ * grade for them, whatever the DB holds; their v1 rows are dropped from a v2 board altogether.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiSourceV2 } from '@/types/supabase';
@@ -18,6 +21,7 @@ import {
   getNaiV2CountryLatest,
   getNaiV2DayRange,
   getNaiV2DayResult,
+  getNaiV2LatestPerCountry,
   type NaiV2View,
 } from '@/lib/nai-v2';
 
@@ -201,6 +205,28 @@ export const BLENDED_CONFLICT: ConflictDef = {
   sort_order: 0,
 };
 
+/**
+ * Pseudo-conflict (group) for War Posture v1 rows on a v2 board: countries not yet re-coded under v2
+ * keep their last v1 number, frozen, with its own day. Not a war: v1 blended different wars into one
+ * number, so these rows are never filed under a real conflict (e.g. us-iran). Sorted after the conflicts.
+ */
+export const V1_FROZEN_CONFLICT: ConflictDef = {
+  conflict_code: 'v1-frozen',
+  name: 'War Posture v1 — frozen, not yet re-coded',
+  short_name: 'v1 (frozen, not yet re-coded)',
+  description:
+    'Governments not yet re-coded under War Posture v2 keep their last War Posture v1 number: one blended number per country across different wars, frozen (no new v1 rows are written) and shown with the day it was scored. Each is replaced as soon as the government has a v2 row; v1 numbers never count as moves.',
+  theatre: '—',
+  started_on: null,
+  status: 'frozen',
+  sort_order: 10_000,
+};
+
+/** "War Posture v1 — frozen, Day 224" — the marker for a v1 row shown on a v2 board. */
+export function v1FrozenText(row: Pick<PostureView, 'score_day'>): string {
+  return `War Posture v1 — frozen, Day ${row.score_day ?? '—'}`;
+}
+
 // ---------------------------------------------------------------------------------------------------
 // View types
 // ---------------------------------------------------------------------------------------------------
@@ -227,6 +253,7 @@ export interface PostureView {
   country_code: string;
   /** null = War Posture v1 (blended across wars). */
   conflict_code: string | null;
+  /** Per-row schema: a v2 board can carry frozen v1 rows (see isV1Fallback). */
   method: typeof POSTURE_V2_METHOD | typeof POSTURE_V1_METHOD;
   /** Day of the coded row (v2: may be earlier than the viewed day = carried forward). */
   score_day: number | null;
@@ -266,6 +293,11 @@ export interface PostureView {
 }
 
 export interface PostureBoard {
+  /**
+   * 'v1' = every row is War Posture v1 for one day (no v2 rows yet). 'v2' = viewer_posture_v2 rows PLUS,
+   * for each country with no v2 row, its latest frozen v1 row on or before `day` (row.method says which;
+   * those rows keep their own score_day, conflict_code null, never withheld countries).
+   */
   schema: 'v2' | 'v1';
   /** Day the board shows (v2: state on that day, rows carried forward). */
   day: number | null;
@@ -467,8 +499,11 @@ export function currentConflictDayUtc(now = new Date()): number {
 }
 
 /**
- * The /nai board. v2 when viewer_posture_v2 exists AND has rows; otherwise v1 (nai_scores_v2) for its
- * latest day (or `day`). `v1Loader` lets a browser caller replace the v1 read (see /warroom).
+ * The /nai board. v2 when viewer_posture_v2 exists AND has rows: every v2 row plus, per country with no
+ * v2 row (any conflict, any stance) that day, its latest v1 row on or before that day (frozen fallback,
+ * EG / AE / SA excluded). Otherwise v1 (nai_scores_v2) for its latest day (or `day`). `v1Loader` lets a
+ * browser caller replace the v1 day read (see /warroom); the frozen fallback reads the tier-gated RPC
+ * only (never the table from a browser), and uses `v1Loader` only if that RPC is missing.
  */
 export async function getPostureBoard(
   supabase: Sb,
@@ -477,13 +512,30 @@ export async function getPostureBoard(
   const today = currentConflictDayUtc();
   const [v2, conflicts] = await Promise.all([readPostureV2(supabase, { day: day ?? today }), getConflicts(supabase)]);
   if (!v2.missing && v2.rows.length > 0) {
+    const boardDay = day ?? today;
+    const v2Rows = v2.rows.map((r) => fromV2Row(r, access));
+    const v2Countries = new Set(v2Rows.map((r) => r.country_code));
+    // Frozen v1 fallback for countries not yet coded in v2. When viewer_posture_v2 exists, viewer_nai_v2
+    // exists too (same migration chain), so the browser never needs the table read here.
+    let fallback = await getNaiV2LatestPerCountry(supabase, boardDay, access, { tableFallback: !v1Loader });
+    if (fallback.via === 'missing' && v1Loader) {
+      const viaLoader = (await v1Loader(boardDay)).filter((v) => v.conflict_day <= boardDay);
+      fallback = { rows: viaLoader, via: 'table' };
+    }
+    const refIso = dayToIsoDate(boardDay);
+    const v1Rows = fallback.rows
+      .filter((v) => !v2Countries.has(v.country_code.toUpperCase()))
+      // EG / AE / SA: no v1 row at all on a v2 board (their v2 ledger rows, if any, carry the words).
+      .filter((v) => !v.withheld && !isPostureWithheld(v.country_code))
+      .map((v) => fromV1View(v, refIso))
+      .filter((r) => !r.withheld);
     return {
       schema: 'v2',
-      day: day ?? today,
+      day: boardDay,
       firstDay: NAI_V2_START_DAY,
       latestDay: today,
       conflicts,
-      rows: v2.rows.map((r) => fromV2Row(r, access)),
+      rows: [...v2Rows, ...v1Rows],
       hasLatentAccess: access.latent,
       hasGapAccess: access.gap,
     };
@@ -551,6 +603,8 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
   return board.rows
     .filter(
       (r) =>
+        // v2 rows only: the frozen v1 fallback rows on a v2 board never count as moves
+        r.method === POSTURE_V2_METHOD &&
         !r.withheld &&
         r.stance === 'position' &&
         r.change_reason === 'new_evidence' &&
@@ -566,11 +620,27 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.row.country_code.localeCompare(b.row.country_code));
 }
 
-/** Conflicts present on a board, registry order; v1 = the single blended pseudo-conflict. */
+/** true = a frozen War Posture v1 row shown on a v2 board (country not yet re-coded in v2). */
+export function isV1Fallback(board: Pick<PostureBoard, 'schema'>, row: Pick<PostureView, 'method'>): boolean {
+  return board.schema === 'v2' && row.method === POSTURE_V1_METHOD;
+}
+
+/** Group (tab) a row belongs to: its conflict (v2), the blended pseudo-conflict (v1 board), or v1-frozen. */
+export function postureGroupCode(board: Pick<PostureBoard, 'schema'>, row: Pick<PostureView, 'method' | 'conflict_code'>): string {
+  if (board.schema === 'v1') return BLENDED_CONFLICT.conflict_code;
+  if (row.method === POSTURE_V1_METHOD || row.conflict_code === null) return V1_FROZEN_CONFLICT.conflict_code;
+  return row.conflict_code;
+}
+
+/**
+ * Groups present on a board, registry order; v1 board = the single blended pseudo-conflict; a v2 board
+ * with frozen v1 rows ends with V1_FROZEN_CONFLICT.
+ */
 export function boardConflicts(board: PostureBoard): ConflictDef[] {
   if (board.schema === 'v1') return [BLENDED_CONFLICT];
-  const present = new Set(board.rows.map((r) => r.conflict_code));
-  return board.conflicts.filter((c) => present.has(c.conflict_code));
+  const present = new Set(board.rows.map((r) => postureGroupCode(board, r)));
+  const real = board.conflicts.filter((c) => present.has(c.conflict_code));
+  return present.has(V1_FROZEN_CONFLICT.conflict_code) ? [...real, V1_FROZEN_CONFLICT] : real;
 }
 export function conflictName(conflicts: readonly ConflictDef[], code: string | null): string {
   if (code === null) return BLENDED_CONFLICT.short_name;
