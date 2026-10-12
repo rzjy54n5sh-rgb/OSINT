@@ -13,7 +13,7 @@ import {
   type CountryPosture,
   type PostureView,
 } from '@/lib/posture';
-import { CitedReporting, EvidenceQuote, PositionsLedger, PostureAge, PostureChip } from '@/components/posture/PostureParts';
+import { CitedReporting, EvidenceQuote, PositionsLedger, PostureAge, PostureChip, V1FrozenTag } from '@/components/posture/PostureParts';
 
 function ConflictCard({ r, conflicts }: { r: PostureView; conflicts: readonly ConflictDef[] }) {
   const title = r.conflict_code === null ? BLENDED_CONFLICT.name : (conflicts.find((c) => c.conflict_code === r.conflict_code)?.name ?? r.conflict_code);
@@ -38,6 +38,8 @@ function ConflictCard({ r, conflicts }: { r: PostureView; conflicts: readonly Co
         )}
         <PostureChip row={r} />
       </div>
+      {/* v1 row kept while a v2 statement awaits coding: "War Posture v1 — frozen, Day N · … not yet coded" */}
+      {r.method === 'war-posture-v1' && r.v2UncodedConflicts.length > 0 && <V1FrozenTag row={r} className="block mt-1" />}
       <PostureAge row={r} className="block mt-1" />
       {r.change_reason === 'new_evidence' && r.previous_score != null && r.expressed_score != null && (
         <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }} translate="no">

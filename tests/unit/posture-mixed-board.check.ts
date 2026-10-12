@@ -74,7 +74,7 @@ type Calls = { rpc: { fn: string; args: Record<string, unknown> }[]; tables: { t
 const MISSING = (fn: string): Res => ({ data: null, error: { code: 'PGRST202', message: `Could not find the function public.${fn}` } });
 
 /** PostgREST fake that honours the arguments the posture/nai-v2 readers actually send. */
-function fakeClient(opts: { v2: Res; naiRpc: boolean; history: NaiScoreV2[] }) {
+function fakeClient(opts: { v2: Res; naiRpc: boolean; history: NaiScoreV2[]; evidence?: Record<string, unknown>[] }) {
   const calls: Calls = { rpc: [], tables: [] };
   const builder = (table: string) => {
     const ops: string[] = [];
@@ -84,6 +84,10 @@ function fakeClient(opts: { v2: Res; naiRpc: boolean; history: NaiScoreV2[] }) {
     let lim: number | null = null;
     const run = (): Res => {
       if (table === 'conflicts') return { data: [...posture.CONFLICTS_FALLBACK], error: null };
+      if (table === 'posture_evidence') {
+        const cc = filters.find((f) => f.col === 'country_code')?.val;
+        return { data: (opts.evidence ?? []).filter((e) => cc === undefined || e.country_code === cc), error: null };
+      }
       if (table !== 'nai_scores_v2') return { data: null, error: { code: 'PGRST205', message: 'no table' } };
       let rows = opts.history.slice();
       for (const f of filters) {
@@ -329,6 +333,65 @@ async function main() {
     // EG keeps its own v2 withheld row (no extra placeholder, no v1 row).
     assert.deepEqual(b228.rows.filter((r) => r.country_code === 'EG').map((r) => `${r.method}|${r.conflict_code}`), ['war-posture-v2|us-iran']);
     assert.equal(b228.rows.some((r) => WITHHELD.includes(r.country_code) && r.method === 'war-posture-v1'), false);
+  });
+
+  // --- Country page (getCountryPosture): same coded-only rule as the board -----------------------------
+  const ledgerRow = (cc: string) => ({
+    id: `ev-${cc}`, country_code: cc, conflict_code: 'us-iran', evidence_kind: 'statement', position_quote: `TEST ${cc} quote`,
+    speaker: null, source_url: `https://example.test/${cc.toLowerCase()}`, archive_url: null, page_sha256: null,
+    stated_at: '2026-10-13T06:00:00+00:00', captured_at: '2026-10-13T07:00:00+00:00', method_version: 'war-posture-v2',
+  });
+  const country = (v2: Record<string, unknown>[], history: NaiScoreV2[], evidence: Record<string, unknown>[]) =>
+    fakeClient({ v2: { data: v2, error: null }, naiRpc: true, history, evidence }).client;
+
+  await check('country page (a): uncoded-only country gets its latest v1 row + "captured, not yet coded" note; ledger unchanged', async () => {
+    const cp = await posture.getCountryPosture(
+      country([unc('US', 'us-iran')], [v1('US', 224, 85), v1('US', 223, 70)], [ledgerRow('US')]),
+      'US',
+      ANON,
+    );
+    assert.deepEqual(cp.rows.map(key), ['US:v1:224'], 'US should be exactly its latest v1 row');
+    assert.equal(cp.rows[0].expressed_score, 85);
+    assert.deepEqual(cp.rows[0].v2UncodedConflicts, ['us-iran']);
+    assert.ok(posture.v2UncodedNote(cp.rows[0])?.includes(posture.POSTURE_UNCODED_TEXT));
+    assert.equal(posture.v1FrozenText(cp.rows[0]), 'War Posture v1 — frozen, Day 224');
+    assert.equal(cp.schema, 'v1');
+    assert.deepEqual(cp.ledger.map((e) => e.quote), ['TEST US quote']);
+  });
+
+  await check('country page (b): a coded v2 row -> v2 rows only (uncoded ones kept), never v1', async () => {
+    const cp = await posture.getCountryPosture(
+      country([{ ...v2Base, country_code: 'KW' }, unc('KW', 'red-sea-houthi')], [v1('KW', 224, 35)], [ledgerRow('KW')]),
+      'KW',
+      ANON,
+    );
+    assert.equal(cp.schema, 'v2');
+    assert.deepEqual(cp.rows.map((r) => `${r.method}|${r.conflict_code}|${r.stance}`).sort(), [
+      'war-posture-v2|red-sea-houthi|uncoded',
+      'war-posture-v2|us-iran|position',
+    ]);
+    assert.equal(cp.ledger.length, 1);
+  });
+
+  await check('country page (a2): uncoded-only country with no v1 row keeps its uncoded v2 rows', async () => {
+    const cp = await posture.getCountryPosture(country([unc('OM', 'us-iran')], [], []), 'OM', ANON);
+    assert.equal(cp.schema, 'v2');
+    assert.deepEqual(cp.rows.map((r) => `${r.method}|${r.stance}`), ['war-posture-v2|uncoded']);
+  });
+
+  await check('country page (c): EG / AE / SA stay withheld (v2 withheld row, or v1 row with no grade), never graded', async () => {
+    const eg = await posture.getCountryPosture(
+      country([{ ...v2Base, country_code: 'EG', withheld: true, stance: 'withheld', label: null, expressed_score: null, score_day: null }], [v1('EG', 224, null)], [ledgerRow('EG')]),
+      'EG',
+      ANON,
+    );
+    assert.deepEqual(eg.rows.map((r) => `${r.method}|${r.stance}`), ['war-posture-v2|withheld']);
+    assert.equal(eg.ledger.length, 1);
+    const sa = await posture.getCountryPosture(country([], [v1('SA', 224, 80)], []), 'SA', ANON);
+    assert.equal(sa.rows.length, 1);
+    assert.equal(sa.rows[0].stance, 'withheld');
+    assert.ok(noGrade(sa.rows[0]), 'SA carries a grade');
+    assert.deepEqual(sa.rows[0].v2UncodedConflicts, []);
   });
 
   const failed = results.filter((r) => r.err);

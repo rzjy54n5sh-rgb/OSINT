@@ -658,15 +658,28 @@ export async function getPositionsLedger(supabase: Sb, code: string, limit = 12)
   }
 }
 
+/**
+ * Country page posture: the same rule as the /nai board. A CODED v2 row (any stance but 'uncoded'; EG /
+ * AE / SA rows are always 'withheld') -> the v2 rows. Only 'uncoded' v2 rows -> the latest v1 row (frozen,
+ * own day) with v2UncodedConflicts set, unless there is no v1 row (then the uncoded rows) or the country is
+ * withheld. No v2 row -> the latest v1 row (withheld for EG / AE / SA by fromV1View). Ledger unchanged.
+ */
 export async function getCountryPosture(supabase: Sb, code: string, access: Access): Promise<CountryPosture> {
   const cc = code.toUpperCase();
   const [v2, ledger] = await Promise.all([readPostureV2(supabase, { country: cc }), getPositionsLedger(supabase, cc)]);
-  if (!v2.missing && v2.rows.length > 0) {
-    return { schema: 'v2', rows: v2.rows.map((r) => fromV2Row(r, access)), ledger };
+  const v2Rows = !v2.missing ? v2.rows.map((r) => fromV2Row(r, access)) : [];
+  if (v2Rows.some((r) => r.stance !== 'uncoded')) {
+    return { schema: 'v2', rows: v2Rows, ledger };
   }
   const latest = await getNaiV2CountryLatest(supabase, cc, access);
-  const rows = latest ? [fromV1View(latest, new Date().toISOString().slice(0, 10))] : [];
-  return { schema: 'v1', rows, ledger };
+  const v1 = latest ? fromV1View(latest, new Date().toISOString().slice(0, 10)) : null;
+  if (v2Rows.length > 0) {
+    // Uncoded-only: keep the frozen v1 number until a v2 position is coded (never for EG / AE / SA).
+    if (!v1 || v1.withheld || isPostureWithheld(cc)) return { schema: 'v2', rows: v2Rows, ledger };
+    const pending = v2Rows.map((r) => r.conflict_code).filter((c): c is string => c !== null);
+    return { schema: 'v1', rows: [{ ...v1, v2UncodedConflicts: pending }], ledger };
+  }
+  return { schema: 'v1', rows: v1 ? [v1] : [], ledger };
 }
 
 // ---------------------------------------------------------------------------------------------------
