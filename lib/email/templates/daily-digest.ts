@@ -1,3 +1,5 @@
+import { isPostureWithheld } from '@/lib/posture';
+
 export interface DigestData {
   conflictDay: number;
   date: string;
@@ -16,6 +18,26 @@ export interface DigestData {
   brentPrice: number;
   topHeadlines: Array<{ title: string; source: string }>;
   tier: 'free' | 'informed' | 'professional';
+}
+
+/** Display names of EG / AE / SA (lower-case); mirror of supabase/functions/_shared/digest-biggest-move.ts. */
+const WITHHELD_POSTURE_NAMES = [
+  'egypt',
+  'arab republic of egypt',
+  'uae',
+  'united arab emirates',
+  'saudi arabia',
+  'kingdom of saudi arabia',
+  'ksa',
+];
+
+/** EG / AE / SA editorial policy: never a score, category, colour or rank, by code or by display name. */
+function isWithheldMove(move: DigestData['biggestMove']): boolean {
+  if (!move) return false;
+  return (
+    isPostureWithheld(move.countryCode?.trim()) ||
+    WITHHELD_POSTURE_NAMES.includes(String(move.countryName ?? '').trim().toLowerCase())
+  );
 }
 
 const DEFAULT_SITE =
@@ -78,13 +100,15 @@ export function dailyDigestTemplate(
   const maxPct = Math.max(data.scenarioA, data.scenarioC, data.scenarioD);
   const subject = `Day ${data.conflictDay} — ${data.leadScenario} leads at ${maxPct}% · Brent $${data.brentPrice}`;
 
-  const biggestMoveHtml = data.biggestMove
+  // Defence in depth: EG / AE / SA are never rendered with a score, category or colour, even if passed one.
+  const move = data.biggestMove && !isWithheldMove(data.biggestMove) ? data.biggestMove : null;
+  const biggestMoveHtml = move
     ? `<tr><td style="padding:12px;border-bottom:1px solid #1C3A5E;">
         <strong style="color:#E8C547;">◆ BIGGEST MOVE</strong><br/>
-        <span style="color:#ffffff;">${esc(data.biggestMove.countryName)}:
-          ${data.biggestMove.delta > 0 ? '↑' : '↓'}${Math.abs(data.biggestMove.delta)} pts
-          → ${data.biggestMove.newScore}
-          <span style="color:${catColor(data.biggestMove.category)};">[${esc(data.biggestMove.category)}]</span>
+        <span style="color:#ffffff;">${esc(move.countryName)}:
+          ${move.delta > 0 ? '↑' : '↓'}${Math.abs(move.delta)} pts
+          → ${move.newScore}
+          <span style="color:${catColor(move.category)};">[${esc(move.category)}]</span>
         </span>
       </td></tr>`
     : '';

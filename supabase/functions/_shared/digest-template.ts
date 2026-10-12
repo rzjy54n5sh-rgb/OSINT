@@ -1,4 +1,5 @@
 /** Mirrors lib/email/templates/daily-digest.ts for Edge Functions (Deno). Keep in sync. */
+import { isWithheldPostureMove } from "./digest-biggest-move.ts";
 
 export interface DigestData {
   conflictDay: number;
@@ -114,13 +115,16 @@ export function dailyDigestTemplate(
       ? " · Brent n/a"
       : ` · Brent $${data.brentPrice}` + (brentStale ? ` (Day ${data.asOf!.brent})` : ""));
 
-  const biggestMoveHtml = data.biggestMove
+  // Defence in depth: EG / AE / SA are never given a score, category or colour, and never ranked, even if a
+  // caller passes one (send-digest already excludes them in pickBiggestMove).
+  const move = data.biggestMove && !isWithheldPostureMove(data.biggestMove) ? data.biggestMove : null;
+  const biggestMoveHtml = move
     ? `<tr><td style="padding:12px;border-bottom:1px solid #1C3A5E;">
         <strong style="color:#E8C547;">◆ BIGGEST MOVE${data.asOf?.nai != null ? ` — NAI DAY ${data.asOf.nai}` : ""}</strong>${asOfNote(data.asOf?.nai, cd)}<br/>
-        <span style="color:#ffffff;">${esc(data.biggestMove.countryName)}:
-          ${data.biggestMove.delta > 0 ? "↑" : "↓"}${Math.abs(data.biggestMove.delta)} pts
-          → ${data.biggestMove.newScore}
-          <span style="color:${catColor(data.biggestMove.category)};">[${esc(data.biggestMove.category)}]</span>
+        <span style="color:#ffffff;">${esc(move.countryName)}:
+          ${move.delta > 0 ? "↑" : "↓"}${Math.abs(move.delta)} pts
+          → ${move.newScore}
+          <span style="color:${catColor(move.category)};">[${esc(move.category)}]</span>
         </span>
       </td></tr>`
     : "";

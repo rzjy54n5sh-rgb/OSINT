@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { dailyDigestTemplate, type DigestData } from "../_shared/digest-template.ts";
+import { pickBiggestMove } from "../_shared/digest-biggest-move.ts";
 
 type UserTier = "free" | "informed" | "professional";
 
@@ -171,42 +172,8 @@ Deno.serve(async (req: Request) => {
         .select("country_code, conflict_day, expressed_score, category")
         .in("conflict_day", [naiDay, prevDay]);
       if (!naiErr && naiRows?.length) {
-        const yesterdayMap = new Map<string, { score: number; category: string }>();
-        for (const r of naiRows) {
-          if (r.conflict_day === prevDay) {
-            yesterdayMap.set(r.country_code as string, {
-              score: Number(r.expressed_score),
-              category: String(r.category ?? "STABLE"),
-            });
-          }
-        }
-        let best: { code: string; delta: number; newScore: number; category: string } | null = null;
-        for (const r of naiRows) {
-          if (r.conflict_day !== naiDay) continue;
-          const code = r.country_code as string;
-          const newScore = Number(r.expressed_score);
-          const prev = yesterdayMap.get(code);
-          if (prev === undefined) continue;
-          const delta = Math.round((newScore - prev.score) * 10) / 10;
-          const abs = Math.abs(delta);
-          if (best == null || abs > Math.abs(best.delta)) {
-            best = {
-              code,
-              delta,
-              newScore: Math.round(newScore),
-              category: String(r.category ?? prev.category ?? "STABLE"),
-            };
-          }
-        }
-        if (best) {
-          biggestMove = {
-            countryCode: best.code,
-            countryName: COUNTRY_NAMES[best.code] ?? best.code,
-            delta: best.delta,
-            newScore: best.newScore,
-            category: best.category,
-          };
-        }
+        // EG / AE / SA are excluded inside pickBiggestMove (never ranked, never given a score/category).
+        biggestMove = pickBiggestMove(naiRows, naiDay, prevDay, COUNTRY_NAMES);
       }
     }
 
