@@ -74,26 +74,47 @@ body {
   overflow-x: hidden;
 }
 
-/* ── GRAIN OVERLAY ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  opacity: 0.35;
-}
-
-/* All page content must sit above grain */
+/* The full-viewport SVG-turbulence grain overlay (body::before) was removed (perf batch 1,
+   2026-10-13): a fixed feTurbulence layer is re-rasterised over every page, data pages included,
+   for a 1 % texture. The rule below stays so existing stacking (page above any backdrop) is unchanged. */
 body > * { position: relative; z-index: 1; }
+
+/* ── HOME HERO BACKDROP ──
+   Static layer for everyone (and the fallback when the WebGL field is skipped: reduced motion,
+   Save-Data, < 4 GB device memory, no hardware WebGL). components/home/HeroScene.tsx.
+   Absolutely positioned with a fixed height: never shifts layout. */
+.hero-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 440px;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 18% 0%, rgba(78, 201, 138, 0.10), transparent 70%),
+    radial-gradient(45% 60% at 85% 10%, rgba(232, 197, 71, 0.07), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+@media (max-width: 639px) {
+  .hero-scene { height: 320px; }
+}
+.hero-scene__canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.hero-scene__canvas[data-ready] { opacity: 0.75; }
 
 /* ── TYPOGRAPHY ── */
 .font-display { font-family: var(--font-bebas), 'Bebas Neue', sans-serif; letter-spacing: 0.02em; }
 .font-mono    { font-family: var(--font-mono), 'IBM Plex Mono', monospace; }
 .font-body    { font-family: var(--font-dm), 'DM Sans', sans-serif; }
 
-/* ── SCANLINES ── */
+/* ── SCANLINES ── (home cards only; removed from data pages in perf batch 1. A plain gradient, no filter.) */
 .scanlines {
   position: relative;
 }

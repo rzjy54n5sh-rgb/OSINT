@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useConflictDay } from '@/hooks/useConflictDay';
-import { countryCodeFromValue, countryMatches, formatEngagement, parseEngagementEstimate } from '@/lib/utils';
+import { countryCodeFromValue, countryMatches, countryQueryValues, formatEngagement, parseEngagementEstimate } from '@/lib/utils';
+import { formatArticleCount } from '@/lib/article-count';
 import { PageBriefing } from '@/components/PageBriefing';
 import { ReactionBar } from '@/components/ReactionBar';
 import { PageShareButton } from '@/components/PageShareButton';
@@ -142,19 +143,87 @@ const MOBILE_CSS = `
 }
 `;
 
+/**
+ * Article reads (UX audit 2026-10-13: the page loaded 500 FULL rows — ~520 KB of JSON, summaries
+ * and all — every 60 s to show 30 of them). Now:
+ *  - the feed reads only the columns it renders, for the selected country only, 30 at a time
+ *    ("Load more" adds 30, up to FEED_MAX);
+ *  - the per-country counts read two columns of the newest ARTICLE_WINDOW rows (same meaning as
+ *    before: "articles in the last 500 collected");
+ *  - breaking alerts are filtered in the database (official/military, negative, last 2 h).
+ */
+const ARTICLE_WINDOW = 500;
+const FEED_PAGE = 30;
+const FEED_MAX = 300;
+const FEED_COLUMNS = 'id, title, url, summary, tags, source_name, source_type, sentiment, published_at, country';
+type IndexRow = Pick<Article, 'country' | 'published_at'>;
+
+/** Fixed-size placeholder grid shown until the first read completes (same classes as the real grid). */
+function WarRoomSkeleton() {
+  const bar = (w: string, h = 10) => (
+    <div style={{ width: w, height: h, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }} />
+  );
+  return (
+    <div className="warroom-grid" aria-busy="true" aria-label="Loading War Room data">
+      <div className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }}>
+        <div className="warroom-panel-header"><span>◆ THEATRE COUNTRIES</span></div>
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="country-row" style={{ minHeight: 77, display: 'grid', gap: 6, alignContent: 'center' }}>
+            {bar('45%', 11)}
+            {bar('80%', 9)}
+          </div>
+        ))}
+      </div>
+      <div className="warroom-panel" style={{ display: 'flex', flexDirection: 'column', borderRight: 'none' }}>
+        <div className="warroom-panel-header" style={{ minHeight: 44 }}>
+          <span>LOADING<span className="blink-cursor" style={{ color: 'var(--accent-gold)' }}>█</span></span>
+        </div>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', minHeight: 132, display: 'grid', gap: 8, alignContent: 'start' }}>
+          {bar('30%')}
+          {bar('60%', 18)}
+          {bar('40%')}
+        </div>
+        <div style={{ flex: 1, padding: 14, display: 'grid', gap: 14, alignContent: 'start' }}>
+          {Array.from({ length: 5 }, (_, i) => (
+            <div key={i} style={{ display: 'grid', gap: 6 }}>
+              {bar('25%', 9)}
+              {bar('90%', 12)}
+              {bar('70%', 9)}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="warroom-panel warroom-right-panel" style={{ width: 300 }}>
+        <div className="warroom-panel-header"><span>▸ MARKETS</span></div>
+        <div style={{ padding: 14, display: 'grid', gap: 10 }}>
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i}>{bar(`${60 + ((i * 13) % 35)}%`)}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WarRoomPage() {
   // Calendar day (DAY LOCK); each section labels its OWN table's latest day via DataAsOf.
   const CONFLICT_DAY = useConflictDay();
   const [activeCountry, setActiveCountry] = useState<string>('IR');
   const [lastRefresh, setLastRefresh] = useState<string>('--:--');
   const [countryReports, setCountryReports] = useState<CountryRow[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
+  /** Newest ARTICLE_WINDOW rows, two columns only: per-country counts and the 24 h coverage figure. */
+  const [articleIndex, setArticleIndex] = useState<IndexRow[]>([]);
+  /** Feed of the selected country (FEED_COLUMNS only). */
+  const [feed, setFeed] = useState<Article[]>([]);
+  const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [breakingAlerts, setBreakingAlerts] = useState<Article[]>([]);
   const [articleCountByCountry, setArticleCountByCountry] = useState<Record<string, number>>({});
   const [marketData, setMarketData] = useState<MarketData[]>([]);
   const [socialTrends, setSocialTrends] = useState<SocialTrend[]>([]);
   const [registry, setRegistry] = useState<ScenarioRegistryView | null>(null);
   const [disinfoClaims, setDisinfoClaims] = useState<DisinfoClaim[]>([]);
-  const [totalArticleCount, setTotalArticleCount] = useState<number>(0);
+  const [totalArticleCount, setTotalArticleCount] = useState<number | null>(null);
   const [pipelineTimestamps, setPipelineTimestamps] = useState<Record<string, string | null>>({});
   const [board, setBoard] = useState<PostureBoard | null>(null);
   const [tickerArticles, setTickerArticles] = useState<Article[]>([]);
@@ -182,24 +251,55 @@ export default function WarRoomPage() {
     }
   };
 
+  // The feed follows the selected country and the "Load more" limit; refs let the 60 s refresh read
+  // the current values without re-creating its interval.
+  const activeCountryRef = useRef(activeCountry);
+  activeCountryRef.current = activeCountry;
+  const feedLimitRef = useRef(feedLimit);
+  feedLimitRef.current = feedLimit;
+  const feedSeq = useRef(0);
+  const loadFeed = async () => {
+    const seq = ++feedSeq.current;
+    const code = activeCountryRef.current;
+    const limit = feedLimitRef.current;
+    setFeedLoading(true);
+    try {
+      const { data, error } = await createClient()
+        .from('articles')
+        .select(FEED_COLUMNS)
+        .in('country', countryQueryValues(code))
+        .order('published_at', { ascending: false, nullsFirst: false })
+        .limit(limit);
+      if (seq !== feedSeq.current) return; // a newer request (country switch) superseded this one
+      if (error) console.error('[warroom] feed read failed:', error.message);
+      else setFeed((data as unknown as Article[]) ?? []);
+    } catch (e) {
+      if (seq === feedSeq.current) console.error('[warroom] feed read failed:', e);
+    } finally {
+      if (seq === feedSeq.current) setFeedLoading(false);
+    }
+  };
+
   const fetchAll = async () => {
     const supabase = createClient();
     setFetchError(null);
     try {
       const [
         { data: reports, error: reportsErr, via: reportsVia_ },
-        { data: articlesData, error: articlesErr },
-        { count: totalCount },
+        { data: indexData, error: articlesErr },
+        { count: totalCount, error: countErr },
         { data: marketRows, error: marketErr },
         { data: socialRows, error: socialErr },
         { data: disinfoRows, error: disinfoErr },
         { data: tickerRows },
         postureBoard,
         reg,
+        { data: breakingRows },
       ] = await Promise.all([
         getViewerCountryReports(supabase),
-        supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
-        supabase.from('articles').select('*', { count: 'exact', head: true }),
+        supabase.from('articles').select('country, published_at').order('published_at', { ascending: false }).limit(ARTICLE_WINDOW),
+        // Estimated (planner) total, shown with "≈": an exact COUNT(*) every 60 s was a needless DB cost.
+        supabase.from('articles').select('id', { count: 'estimated', head: true }),
         // Same read and rule as the home tiles (lib/market-latest.ts): newest row per indicator by created_at.
         supabase
           .from('market_data')
@@ -216,7 +316,7 @@ export default function WarRoomPage() {
           .order('published_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
           .limit(5),
-        supabase.from('articles').select('id, title, url, country, source_name, published_at').order('published_at', { ascending: false }).limit(20),
+        supabase.from('articles').select('id, title, url, country, source_name, published_at, fetched_at').order('published_at', { ascending: false }).limit(20),
         // War Posture: v2 per conflict (viewer_posture_v2, redacted for the session's JWT in SQL) or, before
         // that migration / while it has no rows, the v1 table — which is NOT read from the browser: the
         // RPC first, else the server route gates by tier. Legacy nai_scores is never read.
@@ -229,6 +329,17 @@ export default function WarRoomPage() {
         }),
         // Scenario registry: names, measurement state, method-stamped probabilities.
         getScenarioRegistryView(supabase),
+        // Breaking: official/military, negative, published in the last 2 hours (filtered in the DB).
+        supabase
+          .from('articles')
+          .select('id, title, url, source_name, published_at')
+          .in('source_type', ['official', 'military'])
+          .eq('sentiment', 'negative')
+          .gte('published_at', new Date(Date.now() - 120 * 60_000).toISOString())
+          .not('url', 'is', null)
+          .order('published_at', { ascending: false })
+          .limit(2),
+        loadFeed(),
       ]);
       const errMsg = reportsErr?.message ?? articlesErr?.message ?? marketErr?.message ?? socialErr?.message ?? disinfoErr?.message ?? reg.error;
       if (errMsg) {
@@ -239,10 +350,11 @@ export default function WarRoomPage() {
 
       setCountryReports((reports as CountryRow[]) ?? []);
       setReportsVia(reportsVia_);
-      setTotalArticleCount(totalCount ?? 0);
+      setTotalArticleCount(countErr ? null : totalCount ?? null);
 
-      const arts = (articlesData as Article[]) ?? [];
-      setArticles(arts);
+      const arts = (indexData as IndexRow[]) ?? [];
+      setArticleIndex(arts);
+      setBreakingAlerts((breakingRows as Article[]) ?? []);
       const byCountry: Record<string, number> = {};
       arts.forEach((a) => {
         const c = countryCodeFromValue(a.country) ?? 'OTHER';
@@ -256,13 +368,15 @@ export default function WarRoomPage() {
       setMarketData(markets);
       setSocialTrends(social);
       setDisinfoClaims(disinfo);
-      setTickerArticles((tickerRows as Article[]) ?? []);
+      const ticker = (tickerRows as Article[]) ?? [];
+      setTickerArticles(ticker);
       setBoard(postureBoard);
       setRegistry(reg);
 
       // Real timestamps from each table's newest row (never the browser clock).
       setPipelineTimestamps({
-        articles: arts[0]?.fetched_at ?? arts[0]?.published_at ?? null,
+        // Same row as before (newest by published_at): the ticker query reads it with fetched_at.
+        articles: ticker[0]?.fetched_at ?? ticker[0]?.published_at ?? null,
         markets: markets[0]?.created_at ?? null,
         social: social.reduce<string | null>((m, s) => (s.created_at && (!m || s.created_at > m) ? s.created_at : m), null),
         disinfo: disinfo[0]?.published_at ?? null,
@@ -302,9 +416,20 @@ export default function WarRoomPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchAll uses CONFLICT_DAY from closure
   }, [CONFLICT_DAY]);
 
-  const filteredArticles = activeCountry
-    ? articles.filter((a) => countryMatches(a.country, activeCountry)).slice(0, 30)
-    : articles.slice(0, 30);
+  // Country switch or "Load more": re-read the feed only (the first read is part of fetchAll).
+  const feedKey = `${activeCountry}|${feedLimit}`;
+  const feedEffectRan = useRef(false);
+  useEffect(() => {
+    if (!feedEffectRan.current) {
+      feedEffectRan.current = true;
+      return;
+    }
+    void loadFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadFeed reads the current values through refs
+  }, [feedKey]);
+
+  // Rows of a previous country can be on screen for a moment after a switch: show only matches.
+  const filteredArticles = feed.filter((a) => countryMatches(a.country, activeCountry));
 
   const reportFor = (code: string) => countryReports.find((r) => r.country_code.toUpperCase() === code) ?? null;
   const activeReport = reportFor(activeCountry);
@@ -405,24 +530,15 @@ export default function WarRoomPage() {
 
   const marketDay = maxConflictDay(marketData);
 
-  const breakingAlerts = (articles ?? []).filter((a) => {
-    if (!a.published_at || !a.url) return false;
-    const ageMinutes = (Date.now() - new Date(a.published_at).getTime()) / 60000;
-    return (
-      ageMinutes < 120 &&
-      (a.source_type === 'official' || a.source_type === 'military') &&
-      a.sentiment === 'negative'
-    );
-  });
 
-  const countryRecentCount = (articles ?? []).filter((a) => {
+  const countryRecentCount = articleIndex.filter((a) => {
     if (!a.published_at) return false;
     return countryMatches(a.country, activeCountry) && Date.now() - new Date(a.published_at).getTime() < 86400000;
   }).length;
   const confidence = countryRecentCount > 15 ? 'HIGH' : countryRecentCount > 5 ? 'MEDIUM' : 'LOW';
   const confColor = confidence === 'HIGH' ? 'var(--nai-safe)' : confidence === 'MEDIUM' ? 'var(--accent-gold)' : 'var(--accent-red)';
 
-  const mono = { fontFamily: 'IBM Plex Mono' } as const;
+  const mono = { fontFamily: 'var(--font-mono), monospace' } as const;
 
   return (
     <div className="warroom-page">
@@ -433,73 +549,13 @@ export default function WarRoomPage() {
             padding: '10px 16px',
             background: 'rgba(224,82,82,0.1)',
             borderBottom: '1px solid var(--accent-red)',
-            fontFamily: 'IBM Plex Mono',
+            fontFamily: 'var(--font-mono), monospace',
             fontSize: 11,
             color: 'var(--accent-red)',
           }}
           role="alert"
         >
           Some War Room data could not be loaded just now. Panels show the last data available; the page retries every 60 seconds.
-        </div>
-      )}
-      {breakingAlerts.length > 0 && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            padding: '7px 16px',
-            background: 'rgba(224,82,82,0.08)',
-            borderBottom: '1px solid rgba(224,82,82,0.3)',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'IBM Plex Mono',
-              fontSize: 11,
-              color: 'var(--accent-red)',
-              letterSpacing: '2px',
-              border: '1px solid var(--accent-red)',
-              padding: '2px 7px',
-              animation: 'blink 1s step-end infinite',
-              flexShrink: 0,
-            }}
-          >
-            ◉ BREAKING
-          </span>
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {breakingAlerts.slice(0, 2).map((a) => (
-              <a
-                key={a.id}
-                href={a.url ?? '#'}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'block',
-                  fontFamily: 'IBM Plex Mono',
-                  fontSize: 12,
-                  color: 'var(--text-primary)',
-                  textDecoration: 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  marginBottom: breakingAlerts.length > 1 ? 2 : 0,
-                }}
-              >
-                <span style={{ color: 'var(--accent-teal)' }}>[{a.source_name}]</span> {a.title}
-              </a>
-            ))}
-          </div>
-          <span
-            style={{
-              fontFamily: 'IBM Plex Mono',
-              fontSize: 11,
-              color: 'var(--text-muted)',
-              flexShrink: 0,
-            }}
-          >
-            {Math.round((Date.now() - new Date(breakingAlerts[0].published_at!).getTime()) / 60000)}m ago
-          </span>
         </div>
       )}
       {/* Top status bar */}
@@ -511,7 +567,7 @@ export default function WarRoomPage() {
           alignItems: 'center',
           justifyContent: 'center',
           gap: 16,
-          fontFamily: 'IBM Plex Mono, monospace',
+          fontFamily: 'var(--font-mono), monospace',
           fontSize: 11,
           letterSpacing: '1.5px',
           color: 'var(--text-muted)',
@@ -524,7 +580,7 @@ export default function WarRoomPage() {
         <span>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
         <span>|</span>
         {/* min-widths (incl. 1.5px letter-spacing) reserve the loaded text width so the wrapped mobile bar does not shift (CLS) */}
-        <span style={{ display: 'inline-block', minWidth: '25ch' }}>{loaded ? totalArticleCount : '—'} ITEMS IN DB</span>
+        <span style={{ display: 'inline-block', minWidth: '25ch' }}>{loaded ? formatArticleCount(totalArticleCount) : '—'} ITEMS IN DB</span>
         <span>|</span>
         <span style={{ display: 'inline-block', minWidth: '32ch' }}>PAGE REFRESHED: {lastRefresh}</span>
         <span>|</span>
@@ -559,6 +615,73 @@ export default function WarRoomPage() {
         note={`War Posture uses one party-neutral scale for every state: ${NAI_V2_SCALE_TEXT}. Scenario changes are only compared within one method.`}
       />
 
+      {/* Layout stability (CLS was 0.53–0.72 on desktop): until the first read completes the grid is a
+          fixed-size skeleton; the real panels then mount as NEW nodes in the same fixed-height grid
+          (and the breaking banner with them), so nothing already on screen is pushed down. */}
+      {!loaded ? (
+        <WarRoomSkeleton key="loading" />
+      ) : (
+      <Fragment key="ready">
+        {breakingAlerts.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              padding: '7px 16px',
+              background: 'rgba(224,82,82,0.08)',
+              borderBottom: '1px solid rgba(224,82,82,0.3)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-mono), monospace',
+                fontSize: 11,
+                color: 'var(--accent-red)',
+                letterSpacing: '2px',
+                border: '1px solid var(--accent-red)',
+                padding: '2px 7px',
+                animation: 'blink 1s step-end infinite',
+                flexShrink: 0,
+              }}
+            >
+              ◉ BREAKING
+            </span>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              {breakingAlerts.slice(0, 2).map((a) => (
+                <a
+                  key={a.id}
+                  href={a.url ?? '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'block',
+                    fontFamily: 'var(--font-mono), monospace',
+                    fontSize: 12,
+                    color: 'var(--text-primary)',
+                    textDecoration: 'none',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    marginBottom: breakingAlerts.length > 1 ? 2 : 0,
+                  }}
+                >
+                  <span style={{ color: 'var(--accent-teal)' }}>[{a.source_name}]</span> {a.title}
+                </a>
+              ))}
+            </div>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono), monospace',
+                fontSize: 11,
+                color: 'var(--text-muted)',
+                flexShrink: 0,
+              }}
+            >
+              {Math.round((Date.now() - new Date(breakingAlerts[0].published_at!).getTime()) / 60000)}m ago
+            </span>
+          </div>
+        )}
       <div className="warroom-grid">
         {/* LEFT PANEL */}
         <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }} aria-label="Theatre countries">
@@ -581,7 +704,11 @@ export default function WarRoomPage() {
                 <button
                   key={code}
                   type="button"
-                  onClick={() => setActiveCountry(code)}
+                  onClick={() => {
+                    if (code === activeCountry) return;
+                    setActiveCountry(code);
+                    setFeedLimit(FEED_PAGE);
+                  }}
                   className="country-row"
                   data-active={isActive}
                   data-nai={dual ? lines.map((l) => l?.stance ?? 'NONE').join(' ') : (r?.stance ?? 'NONE')}
@@ -590,7 +717,7 @@ export default function WarRoomPage() {
                   <span
                     translate="no"
                     title={d === null ? 'No change on new evidence' : `Changed on new evidence since Day ${r?.previous_day}`}
-                    style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
+                    style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
                   >
                     {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
                     {d === null ? '·' : d > 0 ? '↑' : d < 0 ? '↓' : '→'}
@@ -633,7 +760,7 @@ export default function WarRoomPage() {
                       )}
                     </div>
                   </div>
-                  <span className="article-count" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)' }} title="Articles in the last 500 collected">
+                  <span className="article-count" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)' }} title="Articles in the last 500 collected">
                     {count}
                   </span>
                 </button>
@@ -641,7 +768,7 @@ export default function WarRoomPage() {
             })}
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-            <h2 className="warroom-h2" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
+            <h2 className="warroom-h2" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
               SCENARIOS — DAY {scenarioDay ?? '—'}
             </h2>
             <DataAsOf section="SCENARIOS" latestDay={scenarioDay} currentDay={CONFLICT_DAY} className="mx-3 mb-2" />
@@ -660,7 +787,7 @@ export default function WarRoomPage() {
                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderBottom: '1px solid var(--border)' }}
                     data-testid={`warroom-scenario-${s.code}`}
                   >
-                    <span style={{ fontFamily: 'Bebas Neue', fontSize: 14, color, width: 12, flexShrink: 0 }}>{s.code}</span>
+                    <span style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 14, color, width: 12, flexShrink: 0 }}>{s.code}</span>
                     <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.name_en}
                     </span>
@@ -681,7 +808,7 @@ export default function WarRoomPage() {
                   </div>
                 );
               })}
-            <div style={{ padding: '6px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
+            <div style={{ padding: '6px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
               {currentSeries
                 ? `Changes since Day ${currentSeries.firstDay}, ${currentSeries.method} only. Earlier days used a retired method and are not compared.`
                 : 'No published scenario day yet.'}{' '}
@@ -698,7 +825,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header warroom-center-head" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '6px 12px', minHeight: 44 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
               <span style={{ fontSize: 18 }} aria-hidden="true">{COUNTRY_EMOJI[activeCountry] ?? '🏳️'}</span>
-              <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'Bebas Neue' }} data-testid="warroom-country">
+              <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-bebas), sans-serif' }} data-testid="warroom-country">
                 {activeName}
               </span>
               <span style={{ color: 'var(--text-secondary)', fontSize: 11 }} translate="no" data-testid="warroom-wp">
@@ -713,9 +840,9 @@ export default function WarRoomPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>FEED COVERAGE</span>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
-            <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} articles / 24h</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>FEED COVERAGE</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} articles / 24h</span>
           </div>
 
           {/* War Posture block — fixed min-height so loading never shifts the feed below it */}
@@ -750,7 +877,7 @@ export default function WarRoomPage() {
                         <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
                       )}
                       {r.expressed_score !== null && (
-                        <span style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 }}>{r.expressed_score}</span>
+                        <span style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 }}>{r.expressed_score}</span>
                       )}
                       <PostureChip row={r} />
                     </div>
@@ -786,7 +913,7 @@ export default function WarRoomPage() {
                 style={{
                   flexShrink: 0,
                   padding: '0 10px',
-                  fontFamily: 'IBM Plex Mono',
+                  fontFamily: 'var(--font-mono), monospace',
                   fontSize: 11,
                   color: 'var(--accent-red)',
                   letterSpacing: '2px',
@@ -813,7 +940,7 @@ export default function WarRoomPage() {
                         textDecoration: 'none',
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
-                        fontFamily: 'IBM Plex Mono',
+                        fontFamily: 'var(--font-mono), monospace',
                         fontSize: 11,
                         color: 'var(--text-secondary)',
                         letterSpacing: '0.3px',
@@ -830,12 +957,16 @@ export default function WarRoomPage() {
             </div>
             {/* Live feed - top ~55% */}
             <div className="warroom-feed" style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '8px 14px', fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
+              <div style={{ padding: '8px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
                 ▸ LIVE INTELLIGENCE — {activeName} — REFRESHES EVERY 60s
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filteredArticles.length === 0 ? (
-                  <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
+                  feedLoading ? (
+                    <p style={{ padding: 14, fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>LOADING FEED…</p>
+                  ) : (
+                    <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
+                  )
                 ) : (
                   filteredArticles.map((a) => (
                     <div key={a.id} className="warroom-item">
@@ -868,13 +999,27 @@ export default function WarRoomPage() {
                     </div>
                   ))
                 )}
+                {/* Only when the last read filled the limit (there may be more) and below the cap. */}
+                {feed.length >= feedLimit && feedLimit < FEED_MAX && (
+                  <div style={{ padding: '10px 14px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setFeedLimit((l) => Math.min(l + FEED_PAGE, FEED_MAX))}
+                      disabled={feedLoading}
+                      className="font-mono text-xs border px-3 py-2 min-h-[36px]"
+                      style={{ borderColor: 'var(--border-bright)', color: 'var(--accent-gold)', background: 'transparent', opacity: feedLoading ? 0.6 : 1 }}
+                    >
+                      {feedLoading ? 'LOADING…' : `LOAD ${FEED_PAGE} MORE`}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Bottom row — War Posture evidence, risks/stabilizers (daily build), social */}
             <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="War Posture evidence">
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
                 <hr className="data-rule" />
                 {postureRows.length > 0 ? (
                   <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
@@ -895,7 +1040,7 @@ export default function WarRoomPage() {
                 )}
               </div>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="Key risks and stabilizers">
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
                   ▸ KEY RISKS{activeReport?.conflict_day != null && narrative ? ` · DAY ${activeReport.conflict_day}` : ''}
                 </div>
                 <hr className="data-rule" />
@@ -905,12 +1050,12 @@ export default function WarRoomPage() {
                   </div>
                 )}
                 {narrativeLocked ? null : keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
                 {narrativeLocked ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// LOCKED'}</p> : stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
               </div>
               <div style={{ overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
                 <hr className="data-rule" />
                 {!socialForCountry ? (
                   <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
@@ -919,7 +1064,7 @@ export default function WarRoomPage() {
                     <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>Trend: {socialForCountry.trend ?? '—'}</div>
                     <div style={{ marginTop: 4 }}>
-                      <span style={{ fontSize: 11, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'IBM Plex Mono', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
+                      <span style={{ fontSize: 11, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
                     </div>
                     {socialForCountry.engagement_estimate != null && (
                       <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
@@ -979,7 +1124,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <h2 className="warroom-h2">▸ SENTIMENT MATRIX</h2>
           </div>
-          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
+          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'var(--font-mono), monospace' }}>
             {countries.slice(0, 12).map((code) => {
               const sentRaw = sentimentByCountry[code] ?? null;
               const { label, color } = mapSentimentDisplay(sentRaw);
@@ -1021,7 +1166,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <h2 className="warroom-h2">▸ LATEST ROW PER FEED</h2>
           </div>
-          <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
+          <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'var(--font-mono), monospace' }}>
             {['articles', 'markets', 'social', 'disinfo'].map((key) => {
               const status = pipelineStatus(key);
               const color = status === 'green' ? 'var(--accent-green)' : status === 'orange' ? 'var(--accent-orange)' : 'var(--accent-red)';
@@ -1036,6 +1181,8 @@ export default function WarRoomPage() {
           </div>
         </aside>
       </div>
+      </Fragment>
+      )}
     </div>
   );
 }

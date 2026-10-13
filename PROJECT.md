@@ -28,7 +28,7 @@ Authoritative detail lives in **`CLAUDE.md`** ("Operating Model", "Hard Bans", "
 | **Maps** | MapLibre GL JS |
 | **Charts** | Recharts |
 | **Animation** | Framer Motion |
-| **3D / Background** | Three.js (optional, in `BackgroundCanvas`) |
+| **3D / Background** | Three.js, home hero only (`components/home/HeroScene.tsx`, lazy, gated by `lib/hero-3d.ts`); never on data pages |
 | **Deploy** | Cloudflare (OpenNext adapter + Wrangler); GitHub Actions for deploy and data pipelines |
 | **Data pipelines** | Python 3.11 (feedparser, requests, pytrends, etc.) in `.github/workflows/scripts/` |
 
@@ -139,7 +139,7 @@ TypeScript interfaces live in **`types/supabase.ts`**. Table names and shapes us
 ```
 OSINT/
 ├── app/                          # Next.js App Router
-│   ├── layout.tsx                # Root layout: fonts (Bebas, IBM Plex Mono, DM Sans), BackgroundCanvas, CommandHeader, {children}
+│   ├── layout.tsx                # Root layout: fonts (Bebas, IBM Plex Mono, DM Sans; only DM Sans roman + Plex Mono 300 preloaded), CommandHeader, {children}
 │   ├── globals.css               # Design system (CSS vars), base styles, card/scanlines, Media Room / War Room styles
 │   ├── page.tsx                  # Home / Command dashboard: AsciiHero, quick links, useRealtimeCount, useArticles, useScenarios
 │   ├── api/                      # Server-side API routes (no Supabase here)
@@ -161,7 +161,7 @@ OSINT/
 │   └── warroom/page.tsx          # Unified war room: all Supabase tables, useConflictDay, scenario_probs + fallback to scenario_probabilities
 ├── components/
 │   ├── AsciiHero.tsx             # Hero with article count, conflict day, countries tracked
-│   ├── BackgroundCanvas.tsx       # Optional Three.js / canvas background
+│   ├── home/HeroScene.tsx         # Home hero backdrop: static gradient + lazy three.js field (capable devices only)
 │   ├── CommandHeader.tsx         # Sticky nav: logo, conflict day, last update, article count, NAV_LINKS
 │   ├── OsintCard.tsx             # Card with gold bracket styling
 │   ├── SourceBadge.tsx           # Source type badge for articles

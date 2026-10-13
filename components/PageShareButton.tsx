@@ -28,7 +28,7 @@ export function PageShareButton({ getCopyText, label = 'SHARE PAGE', className =
       onClick={handleClick}
       className={className}
       style={{
-        fontFamily: 'IBM Plex Mono',
+        fontFamily: 'var(--font-mono), monospace',
         fontSize: 11,
         letterSpacing: '1px',
         padding: '4px 10px',

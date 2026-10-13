@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/track-record' },
 };
 
-const mono = { fontFamily: 'IBM Plex Mono', fontSize: 12 } as const;
+const mono = { fontFamily: 'var(--font-mono), monospace', fontSize: 12 } as const;
 const pct = (p: number) => `${Math.round(p * 1000) / 10}%`;
 
 function ChainStatus({ chain }: { chain: Record<string, unknown> | null | 'unknown' }) {

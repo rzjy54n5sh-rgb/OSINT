@@ -26,7 +26,7 @@ export default function CharterPage() {
         <>
           The rules this desk holds itself to. If we break one, tell us through the <A href="/contact">contact form</A> and we
           will answer in public in the <A href="/corrections">corrections log</A>.
-          <span style={{ display: 'block', marginTop: 10, fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)' }}>
+          <span style={{ display: 'block', marginTop: 10, fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-muted)' }}>
             {CHARTER_VERSION} · English · <span lang="ar" dir="rtl">النسخة العربية</span> (Arabic version): coming
           </span>
         </>

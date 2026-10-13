@@ -109,7 +109,7 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
           </label>
         </div>
       </OsintCard>
-      <OsintCard className="scanlines">
+      <OsintCard>
         {mixed ? (
           <p className="font-mono text-xs py-12" style={{ color: 'var(--text-secondary)' }}>
             War Posture is per country and scenarios are per day, so they cannot be paired point by point. Plot scenarios

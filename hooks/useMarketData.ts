@@ -12,12 +12,14 @@ export type KeyMetric = HomeMarketMetric;
  * Same read and the same rule as app/page.tsx and the War Room: the newest market_data row per
  * indicator by created_at (lib/market-latest.ts), one rounding rule, each tile with its own timestamp.
  */
-export function useMarketData(): { metrics: KeyMetric[]; loading: boolean; latestDay: number | null } {
+/** `enabled = false` skips the read (e.g. Home, whose server render already has the rows). */
+export function useMarketData(enabled = true): { metrics: KeyMetric[]; loading: boolean; latestDay: number | null } {
   const [metrics, setMetrics] = useState<KeyMetric[]>([]);
   const [latestDay, setLatestDay] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const supabase = createClient();
     void (async () => {
@@ -45,7 +47,7 @@ export function useMarketData(): { metrics: KeyMetric[]; loading: boolean; lates
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return { metrics, loading, latestDay };
 }

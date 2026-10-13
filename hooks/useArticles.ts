@@ -11,13 +11,15 @@ export interface UseArticlesFilters {
   conflict_day?: number | null;
 }
 
-export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20) {
+/** `enabled = false` skips the read (e.g. Home, whose server render already has the rows). */
+export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20, enabled = true) {
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
   const [page, setPage] = useState(0);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -48,7 +50,7 @@ export function useArticles(filters: UseArticlesFilters = {}, pageSize = 20) {
     return () => {
       cancelled = true;
     };
-  }, [filters.region, filters.sentiment, filters.source_type, filters.conflict_day, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters.region, filters.sentiment, filters.source_type, filters.conflict_day, page, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { articles, loading, error, page, setPage };
 }

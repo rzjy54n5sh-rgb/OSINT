@@ -3,7 +3,6 @@ import { Bebas_Neue, IBM_Plex_Mono, DM_Sans, Noto_Sans_Arabic } from 'next/font/
 import Script from 'next/script';
 import './globals.css';
 import { validateEnv } from '@/lib/env';
-import { BackgroundCanvasLazy } from '@/components/BackgroundCanvasLazy';
 import { CommandHeader } from '@/components/CommandHeader';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
@@ -42,10 +41,33 @@ validateEnv();
  */
 export const revalidate = 900;
 
-const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
-const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
-const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
-const notoArabic = Noto_Sans_Arabic({ weight: ['400', '500', '600'], subsets: ['arabic'], variable: '--font-arabic' });
+/**
+ * Fonts (perf batch 1, 2026-10-13). Every next/font call used to preload all of its files: 8 woff2,
+ * 292 KB on every page, 163 KB of it Noto Sans Arabic while the Arabic UI is off. Now only the two
+ * faces used above the fold on every page are preloaded:
+ *  - DM Sans roman (body text; one variable file covers 300–500), and
+ *  - IBM Plex Mono 300 (the mono labels: they inherit body's font-weight 300, so 300 — not 400 —
+ *    is the mono face that renders above the fold; measured on /, /nai, /warroom, /scenarios,
+ *    /countries/ir, /corrections and a brief, 2026-10-13).
+ * The other faces keep their @font-face rules (same family names, so weights/styles still combine)
+ * but are not preloaded: the browser fetches each one only when text actually uses it. Noto Sans
+ * Arabic therefore downloads only when Arabic text is rendered in it (`.font-arabic-ui`, set by
+ * I18nProvider for the Arabic UI). All faces use font-display: swap (the next/font default).
+ */
+const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas', display: 'swap', preload: false });
+const ibmPlexMono = IBM_Plex_Mono({ weight: '300', subsets: ['latin'], variable: '--font-mono', display: 'swap' });
+// Same family, other weights: the @font-face rules join the family above (the `variable` only keeps
+// the call referenced on <html>; nothing reads it).
+const ibmPlexMonoOther = IBM_Plex_Mono({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-mono-other', display: 'swap', preload: false });
+const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: 'normal', subsets: ['latin'], variable: '--font-dm', display: 'swap' });
+const dmSansItalic = DM_Sans({ weight: ['300', '400', '500'], style: 'italic', subsets: ['latin'], variable: '--font-dm-italic', display: 'swap', preload: false });
+const notoArabic = Noto_Sans_Arabic({
+  weight: ['400', '500', '600'],
+  subsets: ['arabic'],
+  variable: '--font-arabic',
+  display: 'swap',
+  preload: false,
+});
 
 export const viewport: Viewport = {
   themeColor: '#070A0F',
@@ -144,7 +166,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       dir="ltr"
       translate="yes"
       suppressHydrationWarning
-      className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
+      className={`${bebas.variable} ${ibmPlexMono.variable} ${ibmPlexMonoOther.variable} ${dmSans.variable} ${dmSansItalic.variable} ${notoArabic.variable}`}
     >
       <head>
         {/* First script in <head>: recovers from cached HTML whose build assets are gone. */}
@@ -177,7 +199,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to main content
         </a>
         <TranslationBanner />
-        <BackgroundCanvasLazy />
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
             <CommandHeader />
