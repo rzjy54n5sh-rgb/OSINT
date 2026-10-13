@@ -1,0 +1,380 @@
+/*
+ * Site header (design system v2: Main.dc.html desktop, Home-Mobile.dc.html mobile).
+ * Hairlines, no shadows, no blur; 44 × 44 targets; gold only for the logo, the focus ring and the one
+ * primary CTA. Logical properties only (RTL-safe). Desktop from 1200 px, where the bar's content box is a
+ * fixed 1152 px; below it, the menu button. Nothing in the bar shrinks below its content (no clipping, no
+ * overlap): the nav keeps its width and the right cluster drops optional parts instead — the stamp's
+ * "Day N ·" when the stale chip shows or in the Arabic UI (longer nav labels; there the stamp also yields
+ * to the stale chip), the stale chip's word (glyph only; the word stays for screen readers and the
+ * title); the language toggle lives in More on desktop.
+ * tests/e2e/header-layout.spec.ts checks 1024 / 1280 / 1440 px for overlaps and centre hit-tests.
+ */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  border-block-end: 1px solid var(--line);
+  font-family: var(--font-ui);
+}
+.bar {
+  position: relative;
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  min-block-size: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: var(--target);
+  flex: none;
+  color: var(--text);
+  text-decoration: none;
+}
+.logo svg {
+  flex: none;
+}
+.logoText {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: 0.005em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* ---- Primary nav (desktop) ----------------------------------------------------------------- */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto; /* content width, never shrunk under the right cluster */
+}
+.navLink,
+.moreButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: var(--target);
+  padding-inline: 10px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.navLink:hover,
+.moreButton:hover {
+  color: var(--text);
+}
+.navLink[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+}
+.moreButton svg {
+  inline-size: 14px;
+  block-size: 14px;
+  transition: transform var(--dur-med) var(--ease);
+}
+.moreButton[aria-expanded='true'] {
+  color: var(--text);
+}
+.moreButton[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* The More panel spans the header bar (positioned against .bar), so it never runs off-screen. */
+.morePanel {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 24px;
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 24px;
+}
+
+/* ---- Groups (More panel and mobile menu) ------------------------------------------------------ */
+.group {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.groupLabel {
+  margin: 0 0 4px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--muted);
+}
+.groupList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.groupLink {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--target);
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.groupLink:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.groupLink[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+}
+.planLine {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  padding-block: 4px;
+}
+
+/* ---- Right cluster ------------------------------------------------------------------------------ */
+.right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.right > * {
+  flex: none;
+}
+/* Stale data: the chip shows its clock glyph only in the bar (word kept for screen readers and the title)
+   and the stamp drops its date, so both fit beside the nav. */
+.bar .staleChip {
+  padding-inline: 8px;
+}
+.bar .staleWord {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+/* Stale: the stamp drops "Day N ·" but keeps its date, so an old time never reads as today's. */
+.right:has([data-kind='stale']) .stampDay,
+.right:has([data-kind='stale']) .sep {
+  display: none;
+}
+/* Arabic UI: the nav labels are longer: the stamp drops "Day N ·" (date and time stay); with stale data
+   the chip alone carries the state (the reasons are in its title). */
+:global(html[lang='ar']) .bar .stampDay,
+:global(html[lang='ar']) .bar .sep,
+:global(html[lang='ar']) .right:has([data-kind='stale']) .stamp {
+  display: none;
+}
+.stamp {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target);
+  block-size: var(--target);
+  flex: none;
+  padding: 0;
+  color: var(--text-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.iconButton:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+/* Theme toggle: the icon follows [data-theme] in CSS, so it is right before hydration (no flash). */
+.iconSun {
+  display: none;
+}
+:global(:root[data-theme='light']) .iconSun {
+  display: block;
+}
+:global(:root[data-theme='light']) .iconMoon {
+  display: none;
+}
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 16px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius);
+}
+.cta:hover {
+  color: var(--on-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lang {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 6px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.lang:hover {
+  color: var(--text);
+}
+
+.menuButton {
+  display: none;
+}
+@media (min-width: 1200px) {
+  .menu {
+    display: none;
+  }
+}
+
+/* ---- Mobile menu ---------------------------------------------------------------------------------- */
+.menu {
+  border-block-start: 1px solid var(--line);
+  background: var(--bg);
+  max-block-size: calc(100dvh - 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.menuInner {
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding: 8px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.menuPrimary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block-end: 1px solid var(--line);
+  padding-block-end: 8px;
+}
+.menuPrimary .groupLink {
+  font-size: 17px;
+  color: var(--text);
+}
+.menuGroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 16px;
+}
+.menuTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border-block-start: 1px solid var(--line);
+  padding-block-start: 12px;
+}
+.toolLabel {
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+@media (max-width: 1199px) {
+  .bar {
+    min-block-size: 56px;
+    padding-inline: 16px 8px;
+    gap: 8px;
+  }
+  .logo {
+    gap: 8px;
+  }
+  .logo svg {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+  .logoText {
+    font-size: 19px;
+  }
+  .nav,
+  .desktopOnly {
+    display: none;
+  }
+  .right {
+    gap: 4px;
+  }
+  /* Phones: day over time, right-aligned, so the logo, stamp and menu button fit at 360 px. */
+  .bar .stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+  }
+  .sep {
+    display: none;
+  }
+  .menuButton {
+    display: inline-flex;
+  }
+  .menuButton {
+    color: var(--text);
+  }
+}
+@media (max-width: 419px) {
+  .bar .stampDate {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .bar .stamp {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .moreButton svg {
+    transition: none;
+  }
+}
+@media print {
+  .header {
+    position: static;
+  }
+  .nav,
+  .right,
+  .menu {
+    display: none;
+  }
+}

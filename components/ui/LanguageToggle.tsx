@@ -17,7 +17,7 @@ export function LanguageToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="font-mono text-xs text-white/50 hover:text-[#E8C547] transition-colors px-2 py-1 border border-white/20 hover:border-[#E8C547]/40 shrink-0"
+      className="inline-flex items-center min-h-[44px] px-2 text-[15px] text-text-secondary hover:text-text-primary transition-colors shrink-0"
       aria-label={lang === 'en' ? 'Switch to Arabic' : 'Switch to English'}
     >
       {lang === 'en' ? 'العربية' : 'English'}
