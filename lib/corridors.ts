@@ -48,7 +48,10 @@ const LANE_META: Record<LaneId, { name: string; short: string; sub: string; port
 };
 
 const DEFAULT_CREDIT = 'Transits: IMF PortWatch (UN Global Platform), AIS-based';
-const DEFAULT_LICENCE = 'USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.';
+const DEFAULT_LICENCE = 'USE (operator ruling 2026-10-13). Do not resell the raw series.';
+/** Printed source/licence line for IMF PortWatch transit data (operator ruling 2026-10-13: licence USE). */
+export const PORTWATCH_LICENCE_LINE =
+  'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.';
 const DEFAULT_HOME = 'https://portwatch.imf.org';
 
 // ---------------------------------------------------------------------------------------------
@@ -122,9 +125,12 @@ export function formatShortDay(iso: string): string {
 export const fmtInt = (n: number): string => n.toLocaleString('en-GB');
 export const fmtPct = (n: number): string => `${n.toFixed(1)}%`;
 
-/** "PortWatch USE-PROVISIONAL: do not resell the raw series." for the published licence status. */
+/**
+ * The printed licence line. Any PortWatch licence status ("USE (operator ruling 2026-10-13) ...", or the
+ * pre-ruling "USE-PROVISIONAL ..." still in older files) prints the plain wording; anything else verbatim.
+ */
 export function licenceLine(licence: string): string {
-  if (/USE-PROVISIONAL/.test(licence)) return 'IMF PortWatch data, licence status USE-PROVISIONAL: do not resell the raw series.';
+  if (/^USE\b/.test(licence.trim())) return PORTWATCH_LICENCE_LINE;
   return licence;
 }
 

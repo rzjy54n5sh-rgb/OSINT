@@ -179,7 +179,7 @@ export function CorridorsPageBody({ view }: { view: CorridorsView }) {
             </a>{' '}
             counts vessel transits through each chokepoint from AIS position signals.
           </p>
-          <p className={s.prose}>Licence: {view.licenceLine}</p>
+          <p className={s.prose}>{view.licenceLine}</p>
         </section>
 
         <section id="weekly" aria-labelledby="weekly-h" className={s.cta}>

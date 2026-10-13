@@ -18,6 +18,7 @@ import {
   formatDay,
   formatWeek,
   indexPct,
+  licenceLine,
   parseHistory,
   wowDelta,
   LANE_ORDER,
@@ -96,7 +97,14 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
   eq(v.staleMessage, null, 'no stale message when current');
   ok(/IMF PortWatch \(UN Global Platform\), AIS-based/.test(v.sourceCredit), 'source credit');
   ok(/Do not resell the raw series/.test(v.licence), 'licence line');
-  eq(v.licenceLine, 'IMF PortWatch data, licence status USE-PROVISIONAL: do not resell the raw series.', 'printed licence line');
+  eq(v.licenceLine, 'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.', 'printed licence line (pre-ruling USE-PROVISIONAL file)');
+  ok(!/provisional/i.test(v.licenceLine), 'no "provisional" wording printed');
+  eq(
+    buildCorridors(latest, history, new Date('2026-10-13T09:00:00Z')).licenceLine,
+    'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.',
+    'printed licence line (latest.json, licence USE per operator ruling 2026-10-13)',
+  );
+  eq(licenceLine('Some other licence text.'), 'Some other licence text.', 'a non-PortWatch licence prints verbatim');
   eq(
     corridorHeadline(v),
     'Two of three lanes are DISRUPTED; Suez is ELEVATED. Hormuz had 19 transits, against 669 in an average 2023 week.',

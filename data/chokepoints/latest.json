@@ -8,7 +8,7 @@
   "source_name": "IMF PortWatch",
   "source_credit": "Transits: IMF PortWatch (UN Global Platform), AIS-based",
   "source_home": "https://portwatch.imf.org",
-  "licence": "USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.",
+  "licence": "USE (operator ruling 2026-10-13). Do not resell the raw series.",
   "lanes": [
     {
       "lane": "suez",
