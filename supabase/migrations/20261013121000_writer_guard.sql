@@ -26,12 +26,18 @@
 --
 -- Forbidden characters (all invisible or direction-changing; production had ZERO of them in daily_briefings
 -- and country_reports on 2026-10-13, read-only check):
---   U+007F-U+009F (DEL, C1 controls)  U+00AD soft hyphen       U+061C Arabic letter mark   U+180E
+--   U+0001-U+001F C0 controls except TAB, LF, CR      U+007F-U+009F (DEL, C1 controls)  U+00AD soft hyphen
+--   U+034F combining grapheme joiner   U+061C Arabic letter mark   U+115F / U+1160 / U+3164 / U+FFA0 Hangul fillers
+--   U+17B4-U+17B5 Khmer inherent vowels   U+180B-U+180F Mongolian selectors / vowel separator   U+2800 braille blank
 --   U+200B ZWSP  U+200C ZWNJ (*)  U+200D ZWJ  U+200E LRM  U+200F RLM
 --   U+202A-U+202E bidi embeddings / overrides (incl. U+202E RLO)   U+2028 / U+2029 line / paragraph separator
 --   U+2060-U+206F word joiner, invisible operators, bidi isolates (U+2066-U+2069), deprecated format chars
---   U+FEFF BOM / ZWNBSP   U+FFF9-U+FFFB interlinear annotation   U+E0000-U+E007F tag characters
---   (*) U+200C ZWNJ is allowed only BETWEEN two Arabic-script characters: Persian orthography needs it
+--   U+FE00-U+FE0F and U+E0100-U+E01EF variation selectors (they carry arbitrary hidden bytes after any character)
+--   U+FEFF BOM / ZWNBSP   U+FFF0-U+FFFB (incl. interlinear annotation)   U+1BCA0-U+1BCA3, U+1D173-U+1D17A format controls
+--   U+E0000-U+E0FFF tag characters + the rest of plane 14   private use U+E000-U+F8FF, U+F0000-U+10FFFF
+--   noncharacters U+FDD0-U+FDEF, U+FFFE, U+FFFF
+--   (= Unicode Default_Ignorable_Code_Point + controls + private use; production had none of the added ones either.)
+--   (*) U+200C ZWNJ is allowed only BETWEEN two Arabic-script letters / marks (not digits or punctuation): Persian orthography needs it
 --       (e.g. the Persian verb mi<ZWNJ>khaham), and Iranian sources are quoted. Anywhere else (e.g. inside a Latin word, where it
 --       splits keywords for filter evasion) it is refused. Arabic letters, harakat (U+064B-U+0652), shadda,
 --       tatweel (U+0640) and Arabic punctuation are ordinary visible text and pass.
@@ -66,6 +72,12 @@
 -- Errors: SQLSTATE 23514 check_violation (PostgREST: HTTP 400), MESSAGE names the field + problem (+ code
 --   point), DETAIL gives the path (e.g. sections[2].subsections[0].paragraphs[3].sources) and how many further
 --   problems exist, HINT says how to fix it.
+--
+-- Legacy briefs (196 of 235 in production on 2026-10-13, incl. Days 1-220) have no per-paragraph sources. On an UPDATE
+-- that keeps (conflict_day, report_type), a paragraph EQUAL to one the row already publishes is not re-checked, so a
+-- correction can delete paragraphs (e.g. the AVOID-licence citations of Day 220) or replace them with a fixed line
+-- without re-sourcing the whole brief; every new or edited paragraph is checked in full. No new text can enter that way,
+-- and edits more than 2 h old already need a corrections row (no_silent_edit), so no extra correction_id test is needed.
 --
 -- The no-silent-edit correction path (SET LOCAL app.correction_id, then INSERT … ON CONFLICT
 -- (conflict_day, report_type) DO UPDATE, or a plain UPDATE) keeps working: a BEFORE INSERT trigger fires
@@ -147,14 +159,16 @@ AS $f$
               WHEN ascii(m) < 65536 THEN 'U+' || upper(lpad(to_hex(ascii(m)), 4, '0'))   -- lpad would truncate 5 hex digits
               ELSE 'U+' || upper(to_hex(ascii(m))) END
     FROM regexp_substr(p_text,
-      '[\u007F-\u009F\u00AD\u061C\u180E\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\uFEFF\uFFF9-\uFFFB\U000E0000-\U000E007F]'
-      || '|(?<![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])\u200C'
-      || '|\u200C(?![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])') AS m
+      '[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\u2800\u3164\uE000-\uF8FF\uFDD0-\uFDEF\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFFB\uFFFE\uFFFF\U0001BCA0-\U0001BCA3\U0001D173-\U0001D17A\U000E0000-\U000E0FFF\U000F0000-\U0010FFFF]'
+      || '|(?<![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])\u200C'
+      || '|\u200C(?![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])') AS m
 $f$;
 COMMENT ON FUNCTION public.first_hidden_char(text) IS
   'Writer guard (20261013121000): ''U+XXXX'' of the first forbidden invisible / direction-changing character in the text, or NULL. '
-  'Forbidden: U+007F-009F, U+00AD, U+061C, U+180E, U+200B, U+200D-200F, U+202A-202E, U+2028-2029, U+2060-206F, U+FEFF, U+FFF9-FFFB, '
-  'U+E0000-E007F, and U+200C (ZWNJ) unless it sits between two Arabic-script characters (Persian orthography).';
+  'Forbidden: U+0001-001F except TAB/LF/CR, U+007F-009F, U+00AD, U+034F, U+061C, U+115F-1160, U+17B4-17B5, U+180B-180F, U+200B, '
+  'U+200D-200F, U+202A-202E, U+2028-2029, U+2060-206F, U+2800, U+3164, U+E000-F8FF, U+FDD0-FDEF, U+FE00-FE0F, U+FEFF, U+FFA0, '
+  'U+FFF0-FFFB, U+FFFE-FFFF, U+1BCA0-1BCA3, U+1D173-1D17A, U+E0000-E0FFF, U+F0000-10FFFF, and U+200C (ZWNJ) unless it sits '
+  'between two Arabic-script letters / marks (Persian orthography).';
 
 CREATE OR REPLACE FUNCTION public.strip_hidden_chars(p_text text)
 RETURNS text
@@ -163,9 +177,9 @@ IMMUTABLE STRICT PARALLEL SAFE
 SET search_path TO ''
 AS $f$
   SELECT regexp_replace(p_text,
-      '[\u007F-\u009F\u00AD\u061C\u180E\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\uFEFF\uFFF9-\uFFFB\U000E0000-\U000E007F]'
-      || '|(?<![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])\u200C'
-      || '|\u200C(?![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])', '', 'g')
+      '[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\u2800\u3164\uE000-\uF8FF\uFDD0-\uFDEF\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFFB\uFFFE\uFFFF\U0001BCA0-\U0001BCA3\U0001D173-\U0001D17A\U000E0000-\U000E0FFF\U000F0000-\U0010FFFF]'
+      || '|(?<![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])\u200C'
+      || '|\u200C(?![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])', '', 'g')
 $f$;
 COMMENT ON FUNCTION public.strip_hidden_chars(text) IS
   'Writer guard (20261013121000): returns the text with every character public.first_hidden_char() forbids removed (ZWNJ between '
@@ -178,9 +192,11 @@ LANGUAGE sql
 IMMUTABLE STRICT PARALLEL SAFE
 SET search_path TO ''
 AS $f$
-  -- jsonb::text prints every forbidden character literally (jsonb escapes only ", \ and U+0000-U+001F), and none of
-  -- them is JSON syntax, so removing them from the text form keeps the document valid and only changes strings / keys.
-  SELECT public.strip_hidden_chars(p_doc::text)::jsonb
+  -- jsonb::text prints every forbidden character >= U+007F literally, and none of them is JSON syntax, so removing
+  -- them from the text form keeps the document valid and only changes strings / keys. Forbidden C0 controls are
+  -- printed as escapes (\b \f \u0001 …): drop those escapes, keeping escaped backslashes (\\) intact (group 1).
+  SELECT regexp_replace(public.strip_hidden_chars(p_doc::text),
+                        '(\\\\)|\\(?:[bf]|u00(?:0[0-8bcefBCEF]|1[0-9a-fA-F]))', '\1', 'g')::jsonb
 $f$;
 COMMENT ON FUNCTION public.strip_hidden_chars_jsonb(jsonb) IS
   'Writer guard (20261013121000): public.strip_hidden_chars() applied to every string value and key of a JSON document '
@@ -199,8 +215,11 @@ DECLARE
   v_cp   text;
   v_hit  text[];
 BEGIN
-  IF p_doc IS NULL OR public.first_hidden_char(p_doc::text) IS NULL THEN
-    RETURN NULL;                                    -- fast path: nothing anywhere below this node
+  -- fast path: nothing anywhere below this node. jsonb::text prints C0 controls as escapes (\b \f \u0001 …), so
+  -- look for those escapes too (a false positive only costs the exact per-string descent below).
+  IF p_doc IS NULL OR (public.first_hidden_char(p_doc::text) IS NULL
+                       AND p_doc::text !~ '\\([bf]|u00(0[0-8bcefBCEF]|1[0-9a-fA-F]))') THEN
+    RETURN NULL;
   END IF;
   CASE jsonb_typeof(p_doc)
     WHEN 'object' THEN
@@ -223,7 +242,7 @@ BEGIN
     ELSE
       NULL;
   END CASE;
-  RETURN ARRAY[p_path, public.first_hidden_char(p_doc::text)];   -- not reached in practice; never lose a hit
+  RETURN NULL;   -- the descent above checks every key and every decoded string: nothing found
 END $f$;
 COMMENT ON FUNCTION public.jsonb_first_hidden_char(jsonb, text) IS
   'Writer guard (20261013121000): {path, ''U+XXXX''} of the first string value or key (keys sorted) holding a forbidden character, or NULL.';
@@ -237,26 +256,39 @@ SET search_path TO ''
 AS $f$
   -- The desk's fixed lines: the only paragraphs that may carry ZERO sources (and only with perspective 'neutral').
   -- Built from every zero-source paragraph in production (Days 221-228, read-only 2026-10-13) plus the two lines the
-  -- routine prompt prescribes. Each is anchored at both ends and length-capped.
+  -- routine prompt prescribes. Each is anchored at both ends, length-capped, and has NO free-text tail: a zero-source
+  -- line may say that something is missing or was removed, never assert a new fact (no digits, no sentence break in
+  -- the variable parts; the only follow-on sentences are fixed wording). A correction that states the corrected fact
+  -- ("an earlier version said X. It is Y.") must carry the source of Y like any other paragraph.
   SELECT coalesce(
-       t ~ '^No sourced data available for Day [0-9]{1,4}\.$'                                    -- prescribed empty-day line
+       t ~ '^No sourced data available for Day [1-9][0-9]{0,3}\.$'                               -- prescribed empty-day line
     OR t ~ '^No further sourced changes between ([01][0-9]|2[0-3]):[0-5][0-9] and ([01][0-9]|2[0-3]):[0-5][0-9] UTC\.$'  -- quiet window
-    OR (length(t) <= 400                                                                         -- correction note
-        AND t ~ '^Corrected [0-3]?[0-9] (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) 20[0-9]{2}, ([01][0-9]|2[0-3]):[0-5][0-9] UTC: [^\n]+$')
+    OR (length(t) <= 400                                                                         -- correction note (removal)
+        AND t ~ ('^Corrected ([1-9]|[12][0-9]|3[01]) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) 20[0-9]{2}, ([01][0-9]|2[0-3]):[0-5][0-9] UTC: '
+                 || 'an earlier version [a-z][a-z ,''’-]{2,200}; the affected (statements?|sentences?|figures?|passages?|paragraphs?|citations?|quotes?|quotations?) '
+                 || '(has|have) been (removed|withdrawn)\.$'))
     OR (length(t) <= 400                                                                         -- gap statement
-        AND t ~ '^No [^.\n]{3,240} (could|can) be (opened|sourced|found|verified|confirmed)( at source)?( in this (run|edition window|reporting window|window|cycle))?\.( [^\n]+)?$')
+        AND t ~ ('^No [A-Za-z][A-Za-z ,''’/&()-]{2,200} (could|can) be (opened|sourced|found|verified|confirmed)( at source)?'
+                 || '( in this (run|edition window|reporting window|window|cycle))?\.'
+                 || '( The desk publishes none rather than carrying forward an older [a-z -]{2,40}, and records the gap as an open item\.)?$'))
     OR (length(t) <= 600                                                                         -- desk market collector row
-        AND t ~ '^On the collector row timestamped [0-9]{4}-[0-9]{2}-[0-9]{2} ([01][0-9]|2[0-3]):[0-5][0-9] UTC, [^\n]+$'),
+        AND t ~ ('^On the collector row timestamped [0-9]{4}-[0-9]{2}-[0-9]{2} ([01][0-9]|2[0-3]):[0-5][0-9] UTC, '
+                 || '(the )?[A-Z][A-Za-z0-9&/.-]*( [A-Za-z0-9&/().-]+){0,4} (stood )?at [0-9][0-9,]*(\.[0-9]+)?( [a-z]+){0,4}, ((up|down) [0-9]+(\.[0-9]+)? percent|unchanged)'
+                 || '(; (and )?(the )?[A-Z][A-Za-z0-9&/.-]*( [A-Za-z0-9&/().-]+){0,4} (stood )?at [0-9][0-9,]*(\.[0-9]+)?( [a-z]+){0,4}, ((up|down) [0-9]+(\.[0-9]+)? percent|unchanged)){0,9}\.'
+                 || '( The [a-z ,-]{3,80} values? (is|are) unchanged from the Day [0-9]{1,4} row(, so [a-z ,''’-]{3,200})?\.)?$')),
     false)
     FROM (SELECT btrim(p_text) AS t) s
 $f$;
 COMMENT ON FUNCTION public.brief_fixed_line_ok(text) IS
   'Writer guard (20261013121000): true when a paragraph text is one of the desk''s fixed lines that may be published with zero sources '
   '(perspective must also be ''neutral''): "No sourced data available for Day <n>."; "No further sourced changes between HH:MM and HH:MM UTC."; '
-  '"Corrected <d Mon yyyy>, HH:MM UTC: …" (<= 400 chars); a gap statement "No … could be opened|sourced|found|verified|confirmed [at source] [in this run|…]. …" '
-  '(<= 400 chars); "On the collector row timestamped yyyy-mm-dd HH:MM UTC, …" (<= 600 chars). Anything else needs >= 1 source.';
+  '"Corrected <d Mon yyyy>, HH:MM UTC: an earlier version <lower-case words>; the affected statements have been removed." (<= 400 chars); '
+  'a gap statement "No <words, no digits> could be opened|sourced|found|verified|confirmed [at source] [in this run|…]." optionally followed by '
+  '"The desk publishes none rather than carrying forward an older <word>, and records the gap as an open item." (<= 400 chars); '
+  '"On the collector row timestamped yyyy-mm-dd HH:MM UTC, <Indicator> [stood] at <n> [unit], up|down <n> percent[; …]." optionally followed by '
+  '"The <words> values are unchanged from the Day <n> row[, so <lower-case words>]." (<= 600 chars). No free-text tails. Anything else needs >= 1 source.';
 
-CREATE OR REPLACE FUNCTION public.brief_sections_problems(p_sections jsonb, p_field text DEFAULT 'sections')
+CREATE OR REPLACE FUNCTION public.brief_sections_problems(p_sections jsonb, p_field text DEFAULT 'sections', p_keep jsonb DEFAULT NULL)
 RETURNS TABLE (path text, problem text)
 LANGUAGE plpgsql
 IMMUTABLE PARALLEL SAFE
@@ -268,6 +300,11 @@ DECLARE
   si int; ui int; pi int; ri int;
   v_sec jsonb; v_sub jsonb; v_par jsonb; v_src jsonb;
   v_sp text; v_up text; v_pp text; v_rp text;
+  -- p_keep: paragraphs already published in the row being updated (a JSON array). A paragraph EQUAL to one of them is
+  -- not re-checked, so a correction can delete or reorder paragraphs of a legacy brief (Days 1-220 carry no per-paragraph
+  -- sources) without re-sourcing the whole brief. Any new or edited paragraph is checked in full.
+  v_keep text[] := CASE WHEN jsonb_typeof(p_keep) = 'array'
+                        THEN ARRAY(SELECT md5(e::text) FROM jsonb_array_elements(p_keep) e) END;
 BEGIN
   IF p_sections IS NULL THEN RETURN; END IF;
   IF jsonb_typeof(p_sections) <> 'array' THEN
@@ -312,6 +349,7 @@ BEGIN
       IF v_n >= v_max THEN RETURN; END IF;
       FOR pi IN 0 .. jsonb_array_length(v_sub -> 'paragraphs') - 1 LOOP
         v_par := v_sub -> 'paragraphs' -> pi; v_pp := format('%s.paragraphs[%s]', v_up, pi);
+        CONTINUE WHEN v_keep IS NOT NULL AND md5(v_par::text) = ANY (v_keep);   -- unchanged published paragraph
         IF jsonb_typeof(v_par) <> 'object' THEN
           path := v_pp; problem := format('paragraph must be an object {text, perspective, sources}, got %s', jsonb_typeof(v_par)); RETURN NEXT;
           v_n := v_n + 1; IF v_n >= v_max THEN RETURN; END IF; CONTINUE;
@@ -361,13 +399,15 @@ BEGIN
     END LOOP;
   END LOOP;
 END $f$;
-COMMENT ON FUNCTION public.brief_sections_problems(jsonb, text) IS
+COMMENT ON FUNCTION public.brief_sections_problems(jsonb, text, jsonb) IS
   'Writer guard (20261013121000): every shape / sourcing problem of a sections (or sections_ar) document as (path, problem); '
-  'no rows = well-formed. See the migration header for the rules. Hidden characters are checked by brief_content_problems().';
+  'no rows = well-formed. p_keep = paragraphs already published in the row being updated: a paragraph equal to one of them '
+  'is not re-checked. See the migration header for the rules. Hidden characters are checked by brief_content_problems().';
 
 CREATE OR REPLACE FUNCTION public.brief_content_problems(
   p_title text, p_lead text, p_sections jsonb, p_cover_stats jsonb,
-  p_title_ar text DEFAULT NULL, p_lead_ar text DEFAULT NULL, p_sections_ar jsonb DEFAULT NULL)
+  p_title_ar text DEFAULT NULL, p_lead_ar text DEFAULT NULL, p_sections_ar jsonb DEFAULT NULL,
+  p_keep_sections jsonb DEFAULT NULL, p_keep_sections_ar jsonb DEFAULT NULL)
 RETURNS TABLE (field text, path text, problem text, code_point text)
 LANGUAGE plpgsql
 IMMUTABLE PARALLEL SAFE
@@ -388,9 +428,9 @@ BEGIN
     IF v_cp IS NOT NULL THEN
       field := v_fld; code_point := v_cp;
       path := format('%s (character %s)', v_fld, regexp_instr(v_txt,
-                '[\u007F-\u009F\u00AD\u061C\u180E\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\uFEFF\uFFF9-\uFFFB\U000E0000-\U000E007F]'
-                || '|(?<![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])\u200C'
-                || '|\u200C(?![\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFC])'));
+                '[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B\u200D-\u200F\u202A-\u202E\u2028\u2029\u2060-\u206F\u2800\u3164\uE000-\uF8FF\uFDD0-\uFDEF\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFFB\uFFFE\uFFFF\U0001BCA0-\U0001BCA3\U0001D173-\U0001D17A\U000E0000-\U000E0FFF\U000F0000-\U0010FFFF]'
+                || '|(?<![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])\u200C'
+                || '|\u200C(?![\u0620-\u065F\u066E-\u06D3\u06D5-\u06DC\u06DF-\u06EF\u06FA-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDCF\uFDF0-\uFDFF\uFE70-\uFEFC])'));
       problem := format('contains the hidden character %s', v_cp);
       RETURN NEXT;
     END IF;
@@ -420,15 +460,17 @@ BEGIN
       field := v_fld; path := v_hit[1]; code_point := v_hit[2];
       problem := format('contains the hidden character %s', v_hit[2]); RETURN NEXT;
     END IF;
-    FOR r IN SELECT * FROM public.brief_sections_problems(CASE v_fld WHEN 'sections' THEN p_sections ELSE p_sections_ar END, v_fld) LOOP
+    FOR r IN SELECT * FROM public.brief_sections_problems(CASE v_fld WHEN 'sections' THEN p_sections ELSE p_sections_ar END, v_fld,
+                                                         CASE v_fld WHEN 'sections' THEN p_keep_sections ELSE p_keep_sections_ar END) LOOP
       field := v_fld; path := r.path; problem := r.problem; code_point := NULL; RETURN NEXT;
     END LOOP;
   END LOOP;
 END $f$;
-COMMENT ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb) IS
+COMMENT ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb, jsonb, jsonb) IS
   'Writer guard (20261013121000): every problem the daily_briefings writer guard would refuse, as (field, path, problem, code_point). '
   'Dry-run before writing: SELECT * FROM public.brief_content_problems(title, lead, sections, cover_stats[, title_ar, lead_ar, sections_ar]); '
-  'no rows = the write will pass the guard. NULL arguments are not checked.';
+  'no rows = the write will pass the guard. NULL arguments are not checked. p_keep_sections / p_keep_sections_ar: paragraphs '
+  'already published in the row being updated (exempt when unchanged; the trigger passes them on an UPDATE that keeps day and type).';
 
 CREATE OR REPLACE FUNCTION public.country_report_content_problems(p_doc jsonb)
 RETURNS TABLE (path text, problem text, code_point text)
@@ -515,6 +557,8 @@ DECLARE
   c_title_ar boolean; c_lead_ar boolean; c_sections_ar boolean;
   v_first record;
   v_count int;
+  v_keep    jsonb;
+  v_keep_ar jsonb;
 BEGIN
   IF TG_OP = 'INSERT' THEN
     -- BEFORE INSERT fires before ON CONFLICT is resolved. If (conflict_day, report_type) already exists, this INSERT
@@ -542,6 +586,10 @@ BEGIN
     IF NOT (c_title OR c_lead OR c_sections OR c_cover OR c_title_ar OR c_lead_ar OR c_sections_ar) THEN
       RETURN NEW;                                   -- no content change: nothing to validate
     END IF;
+    -- same brief, content changed: paragraphs it already publishes, unchanged, are not re-checked (legacy corrections).
+    -- No new text can enter this way: a kept paragraph must be equal to one the row ALREADY publishes.
+    IF c_sections    THEN v_keep    := jsonb_path_query_array(OLD.sections,    'lax $[*].subsections[*].paragraphs[*]'); END IF;
+    IF c_sections_ar THEN v_keep_ar := jsonb_path_query_array(OLD.sections_ar, 'lax $[*].subsections[*].paragraphs[*]'); END IF;
   END IF;
 
   SELECT p.*, count(*) OVER () AS n INTO v_first
@@ -552,7 +600,8 @@ BEGIN
            CASE WHEN c_cover       THEN NEW.cover_stats END,
            CASE WHEN c_title_ar    THEN NEW.title_ar    END,
            CASE WHEN c_lead_ar     THEN NEW.lead_ar     END,
-           CASE WHEN c_sections_ar THEN NEW.sections_ar END) p
+           CASE WHEN c_sections_ar THEN NEW.sections_ar END,
+           v_keep, v_keep_ar) p
    LIMIT 1;
   IF NOT FOUND THEN
     RETURN NEW;
@@ -575,7 +624,9 @@ BEGIN
               'Every paragraph needs "sources": [{"name": …, "url": "https://…", …}, …] with at least one http(s) URL. Zero sources is '
               'allowed only for the desk''s fixed neutral lines (perspective "neutral"; see public.brief_fixed_line_ok): '
               '"No sourced data available for Day <n>.", "No further sourced changes between HH:MM and HH:MM UTC.", '
-              '"Corrected <d Mon yyyy>, HH:MM UTC: …", a "No … could be opened|sourced… in this run." gap statement, or a collector-row line.'
+              '"Corrected <d Mon yyyy>, HH:MM UTC: an earlier version …; the affected statements have been removed.", a "No … could be '
+              'opened|sourced… in this run." gap statement, or a collector-row line — with NO extra sentence. A line that states a fact '
+              '(incl. a correction "… It is Y.") needs the source of that fact.'
             WHEN v_first.problem LIKE '%perspective%' THEN
               'Use one of the five perspective codes: us_israel, iran_irgc, gulf, neutral, both.'
             ELSE
@@ -645,8 +696,8 @@ REVOKE ALL ON FUNCTION public.strip_hidden_chars(text)                         F
 REVOKE ALL ON FUNCTION public.strip_hidden_chars_jsonb(jsonb)                  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.jsonb_first_hidden_char(jsonb, text)             FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.brief_fixed_line_ok(text)                        FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.brief_sections_problems(jsonb, text)             FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.brief_sections_problems(jsonb, text, jsonb)      FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.country_report_content_problems(jsonb)           FROM PUBLIC, anon, authenticated;
 -- service_role writes through PostgREST; the SECURITY INVOKER triggers call these helpers with its privileges.
 GRANT EXECUTE ON FUNCTION public.first_hidden_char(text)                          TO service_role;
@@ -654,8 +705,8 @@ GRANT EXECUTE ON FUNCTION public.strip_hidden_chars(text)                       
 GRANT EXECUTE ON FUNCTION public.strip_hidden_chars_jsonb(jsonb)                  TO service_role;
 GRANT EXECUTE ON FUNCTION public.jsonb_first_hidden_char(jsonb, text)             TO service_role;
 GRANT EXECUTE ON FUNCTION public.brief_fixed_line_ok(text)                        TO service_role;
-GRANT EXECUTE ON FUNCTION public.brief_sections_problems(jsonb, text)             TO service_role;
-GRANT EXECUTE ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.brief_sections_problems(jsonb, text, jsonb)      TO service_role;
+GRANT EXECUTE ON FUNCTION public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb, jsonb, jsonb) TO service_role;
 GRANT EXECUTE ON FUNCTION public.country_report_content_problems(jsonb)           TO service_role;
 
 -- §5 post-conditions ---------------------------------------------------------------------------------
@@ -678,8 +729,8 @@ BEGIN
   FOREACH v_fn IN ARRAY ARRAY['public.daily_briefings_writer_guard()', 'public.country_reports_writer_guard()',
                               'public.first_hidden_char(text)', 'public.strip_hidden_chars(text)', 'public.strip_hidden_chars_jsonb(jsonb)',
                               'public.jsonb_first_hidden_char(jsonb, text)', 'public.brief_fixed_line_ok(text)',
-                              'public.brief_sections_problems(jsonb, text)',
-                              'public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb)',
+                              'public.brief_sections_problems(jsonb, text, jsonb)',
+                              'public.brief_content_problems(text, text, jsonb, jsonb, text, text, jsonb, jsonb, jsonb)',
                               'public.country_report_content_problems(jsonb)'] LOOP
     IF has_function_privilege('anon', v_fn, 'EXECUTE') OR has_function_privilege('authenticated', v_fn, 'EXECUTE') THEN
       RAISE EXCEPTION 'post: % is executable by anon/authenticated', v_fn;
@@ -691,7 +742,12 @@ BEGIN
      OR public.first_hidden_char(U&'x\+0E0041y') <> 'U+E0041'
      OR public.first_hidden_char(U&'\0645\064A\200C\062E\0648\0627\0647\0645') IS NOT NULL      -- Persian ZWNJ kept
      OR public.first_hidden_char(U&'ig\200Cnore') <> 'U+200C'
-     OR public.first_hidden_char(U&'\0627\0644\062D\064E\0631\0652\0628\064F \0640\0640') IS NOT NULL THEN  -- harakat, tatweel
+     OR public.first_hidden_char(U&'\0627\0644\062D\064E\0631\0652\0628\064F \0640\0640') IS NOT NULL   -- harakat, tatweel
+     OR public.first_hidden_char('a' || chr(7) || 'b') <> 'U+0007'                                         -- C0 control
+     OR public.first_hidden_char(U&'a\3164b') <> 'U+3164' OR public.first_hidden_char(U&'a\+0E0100b') <> 'U+E0100'
+     OR public.first_hidden_char('a' || chr(9) || chr(10) || chr(13) || U&'\00A0b') IS NOT NULL                 -- TAB LF CR NBSP pass
+     OR public.jsonb_first_hidden_char(jsonb_build_object('k', 'a' || chr(7) || 'b')) IS NULL                   -- C0 inside JSON
+     OR public.strip_hidden_chars_jsonb(jsonb_build_object('k', 'a' || chr(7) || chr(8) || E'\\b\\u0007')) <> jsonb_build_object('k', E'a\\b\\u0007') THEN
     RAISE EXCEPTION 'post: hidden-character functions misbehave';
   END IF;
   -- Informational only (nothing is changed): existing rows that would be refused IF rewritten as they are.

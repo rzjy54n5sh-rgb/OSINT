@@ -242,8 +242,10 @@ SELECT pg_temp.probe('legacy Day 220 general (no paragraph sources, cover_stats 
            SELECT 220, 'general', 'TEST corrected legacy title', lead, sections, cover_stats FROM public.daily_briefings WHERE conflict_day = 220 AND report_type = 'general'
            ON CONFLICT (conflict_day, report_type) DO UPDATE SET title = EXCLUDED.title, lead = EXCLUDED.lead, sections = EXCLUDED.sections, cover_stats = EXCLUDED.cover_stats$q$],
   $$SELECT title = 'TEST corrected legacy title' FROM public.daily_briefings WHERE conflict_day = 220 AND report_type = 'general'$$);
-SELECT pg_temp.probe('legacy Day 220 general: correction that CHANGES its sections must bring them to the sourced format -> refused', '23514',
-  ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET sections = sections - 0 WHERE conflict_day = 220 AND report_type = 'general'$q$], NULL, '%no "sources" array%');
+SELECT pg_temp.probe('legacy Day 220 general: correction deleting a whole section (other paragraphs unchanged) -> accepted', 'ok',
+  ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET sections = sections - 0 WHERE conflict_day = 220 AND report_type = 'general'$q$]);
+SELECT pg_temp.probe('legacy Day 220 general: correction that EDITS a legacy paragraph without sources -> refused', '23514',
+  ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET sections = jsonb_set(sections, '{0,subsections,0,paragraphs,0,text}', '"TEST edited legacy text."') WHERE conflict_day = 220 AND report_type = 'general'$q$], NULL, '%no "sources" array%Path: sections[0].subsections[0].paragraphs[0].sources.%');
 SELECT pg_temp.probe('legacy Day 220 general MOVED to another day (with a correction, content unchanged) -> checked like a new brief -> refused', '23514',
   ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET conflict_day = 9230 WHERE conflict_day = 220 AND report_type = 'general'$q$], NULL, '%(update). Path: cover_stats.%');
 SELECT pg_temp.probe('legacy Day 220 general: UPDATE of a non-content column (updated_at) -> accepted, no correction needed', 'ok',
@@ -300,6 +302,80 @@ SELECT pg_temp.probe('country_reports: dirty content_json through strip_hidden_c
   $$SELECT content_json->>'assessment' = 'TEST clean' FROM public.country_reports WHERE country_code = 'IR'$$);
 SELECT pg_temp.probe('country_reports: session_replication_role = replica does NOT skip the guard', '23514',
   ARRAY['SET LOCAL session_replication_role = replica', $$UPDATE public.country_reports SET content_json = content_json - 'sources' WHERE country_code = 'IR'$$]);
+
+
+-- ============ 8. verifier regressions (2026-10-13) =========================================================
+-- 8a hidden characters the first version missed
+SELECT pg_temp.probe(format('hidden %s in a paragraph text -> refused', label), '23514',
+  ARRAY[pg_temp.ins(pg_temp.good_with('{0,subsections,0,paragraphs,0,text}', to_json('TEST a' || ch || 'b')::text))], NULL, '%' || cp || '%')
+  FROM (VALUES ('C0 BEL', chr(7), 'U+0007'), ('C0 ESC', chr(27), 'U+001B'), ('C0 backspace', chr(8), 'U+0008'),
+               ('CGJ U+034F', U&'\034F', 'U+034F'), ('Hangul filler U+115F', U&'\115F', 'U+115F'), ('Hangul filler U+3164', U&'\3164', 'U+3164'),
+               ('halfwidth filler U+FFA0', U&'\FFA0', 'U+FFA0'), ('braille blank U+2800', U&'\2800', 'U+2800'),
+               ('variation selector U+FE0F', U&'\FE0F', 'U+FE0F'), ('variation selector U+E0100', U&'\+0E0100', 'U+E0100'),
+               ('Mongolian FVS U+180B', U&'\180B', 'U+180B'), ('Khmer U+17B4', U&'\17B4', 'U+17B4'), ('musical format U+1D173', U&'\+01D173', 'U+1D173'),
+               ('private use U+E000', U&'\E000', 'U+E000'), ('private use U+F0000', U&'\+0F0000', 'U+F0000')) v(label, ch, cp);
+SELECT pg_temp.probe('C0 control in title (plain column) -> refused', '23514', ARRAY[pg_temp.ins(:'G', p_title => 'TEST' || chr(27) || 'title')], NULL, '%title contains the hidden character U+001B%');
+SELECT pg_temp.probe('C0 control written as a JSON escape ("\u0007") in a heading -> refused with path', '23514',
+  ARRAY[pg_temp.ins(pg_temp.good_with('{0,heading}', '"TEST\u0007heading"'))], NULL, '%U+0007%Path: sections[0].heading.%');
+SELECT pg_temp.probe('C0 control in a cover_stats value -> refused', '23514', ARRAY[pg_temp.ins(:'G', p_cover => $$'{"x": "a\bb"}'$$)], NULL, '%cover_stats contains the hidden character U+0008%');
+SELECT pg_temp.probe('C0 control in country_reports.content_json -> refused', '23514',
+  ARRAY[$$UPDATE public.country_reports SET content_json = jsonb_set(content_json, '{assessment}', '"TEST\u001btext"') WHERE country_code = 'IR'$$], NULL, '%U+001B%');
+SELECT pg_temp.probe('TAB / LF / CR / NBSP and a literal backslash-b in JSON text are NOT flagged', 'ok', ARRAY['SELECT 1'],
+  $$SELECT public.first_hidden_char('a' || chr(9) || chr(10) || chr(13) || U&'\00A0b') IS NULL
+       AND public.jsonb_first_hidden_char(jsonb_build_object('k', E'a\\b\tc\nd')) IS NULL$$);
+SELECT pg_temp.probe('strip_hidden_chars_jsonb removes C0 controls, keeps TAB/LF and literal backslashes; result passes the guard', 'ok', ARRAY['SELECT 1'],
+  $$SELECT public.strip_hidden_chars_jsonb(jsonb_build_object('k' || chr(7), 'a' || chr(7) || chr(8) || chr(12) || chr(31) || E'\t\n\\b\\u0007' || U&'\3164\+0E0100z'))
+           = jsonb_build_object('k', E'a\t\n\\b\\u0007z')
+       AND public.jsonb_first_hidden_char(public.strip_hidden_chars_jsonb(jsonb_build_object('k', 'a' || chr(7) || U&'\FE0F'))) IS NULL$$);
+SELECT pg_temp.probe('ZWNJ between Arabic DIGITS (splits a figure) -> refused; ZWNJ letter + haraka -> accepted', 'ok', ARRAY['SELECT 1'],
+  $$SELECT public.first_hidden_char(U&'\0661\0662\200C\0663') = 'U+200C' AND public.first_hidden_char(U&'\06F1\200C\06F2') = 'U+200C'
+       AND public.first_hidden_char(U&'\0645\0650\200C\06CC') IS NULL$$);
+-- 8b fixed-line allowlist: no free-text tail can smuggle an unsourced claim
+SELECT pg_temp.probe(format('zero sources refused (smuggling): %s', left(t, 70)), '23514',
+  ARRAY[pg_temp.ins(pg_temp.good_with('{0,subsections,0,paragraphs,1,text}', to_json(t)::text))], NULL, '%zero sources%')
+  FROM (VALUES ('No ceasefire could be confirmed. TEST Iran launched 400 missiles at Haifa overnight, killing 37 civilians.'),
+               ('No independent casualty figure for the TEST strike on Haifa that killed 37 people could be verified.'),
+               ('No figure can be sourced. TEST Saudi Arabia has joined the war.'),
+               ('On the collector row timestamped 2026-10-13 03:00 UTC, TEST Iran launched 400 missiles at Haifa.'),
+               ('Corrected 13 Oct 2026, 06:15 UTC: TEST Iran has now launched 400 missiles.'),
+               ('Corrected 13 Oct 2026, 06:15 UTC: an earlier version said 300 died. It is 400.'),
+               ('No sourced data available for Day 0.')) v(t);
+SELECT pg_temp.probe(format('zero sources + neutral fixed line still accepted: %s', left(t, 70)), 'ok',
+  ARRAY[pg_temp.ins(pg_temp.good_with('{0,subsections,0,paragraphs,1,text}', to_json(t)::text))])
+  FROM (VALUES ('No ADNOC statement could be found in this run.'),
+               ('No Somali, Eritrean or Ethiopian state outlet could be opened at source in this run.'),
+               ('On the collector row timestamped 2026-10-13 03:00 UTC, VIX (Fear Index) at 15.08, up 0.47 percent; and USD/EGP at 48.71 pounds, unchanged.')) v(t);
+SELECT pg_temp.probe('a correction note stating the corrected fact WITH a source -> accepted', 'ok',
+  ARRAY[pg_temp.ins(pg_temp.good_with('{0,subsections,0,paragraphs,0,text}', '"Corrected 13 Oct 2026, 06:15 UTC: an earlier version said 300. TEST It is 400, Reuters reported."'))]);
+-- 8c legacy corrections: unchanged published paragraphs are not re-checked, nothing new enters
+SELECT pg_temp.probe('legacy Day 220 general: correction UPSERT deleting the AVOID-licence paragraphs (Windward / Lloyd''s List) -> accepted', 'ok',
+  ARRAY[:CORR220G,
+        $q$INSERT INTO public.daily_briefings (conflict_day, report_type, title, lead, sections, source, quality)
+           SELECT conflict_day, report_type, title, lead,
+             (SELECT jsonb_agg(jsonb_set(s, '{subsections}', (SELECT coalesce(jsonb_agg(jsonb_set(u, '{paragraphs}', (SELECT coalesce(jsonb_agg(p), '[]') FROM jsonb_array_elements(u->'paragraphs') p WHERE p::text !~* 'lloyd|windward|straits'))), '[]') FROM jsonb_array_elements(s->'subsections') u))) FROM jsonb_array_elements(sections) s),
+             source, quality FROM public.daily_briefings WHERE conflict_day = 220 AND report_type = 'general'
+           ON CONFLICT (conflict_day, report_type) DO UPDATE SET sections = EXCLUDED.sections, updated_at = now()$q$],
+  $$SELECT NOT EXISTS (SELECT 1 FROM public.daily_briefings, jsonb_path_query(sections, 'lax $[*].subsections[*].paragraphs[*].text') t
+                        WHERE conflict_day = 220 AND report_type = 'general' AND t #>> '{}' ~* 'lloyd|windward|straits')$$);
+SELECT pg_temp.probe('legacy Day 220 general: AVOID paragraphs replaced by "No sourced data available for Day 220." -> accepted', 'ok',
+  ARRAY[:CORR220G,
+        $q$UPDATE public.daily_briefings b SET sections = (SELECT jsonb_agg(jsonb_set(s, '{subsections}', (SELECT jsonb_agg(jsonb_set(u, '{paragraphs}', (SELECT coalesce(jsonb_agg(CASE WHEN p::text ~* 'lloyd|windward|straits' THEN '{"text": "No sourced data available for Day 220.", "perspective": "neutral", "sources": []}'::jsonb ELSE p END), '[]') FROM jsonb_array_elements(u->'paragraphs') p))) FROM jsonb_array_elements(s->'subsections') u))) FROM jsonb_array_elements(b.sections) s)
+           WHERE conflict_day = 220 AND report_type = 'general'$q$]);
+SELECT pg_temp.probe('legacy Day 220 general: a legacy paragraph copied in from ANOTHER brief (Day 219) -> refused', '23514',
+  ARRAY[:CORR220G,
+        $q$UPDATE public.daily_briefings SET sections = jsonb_set(sections, '{0,subsections,0,paragraphs}', (sections #> '{0,subsections,0,paragraphs}') || jsonb_build_array((SELECT sections #> '{0,subsections,0,paragraphs,0}' FROM public.daily_briefings WHERE conflict_day = 219 AND report_type = 'general'))) WHERE conflict_day = 220 AND report_type = 'general'$q$],
+  NULL, '%no "sources" array%');
+SELECT pg_temp.probe('legacy Day 220 general: a kept paragraph with its perspective changed -> checked in full -> refused', '23514',
+  ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET sections = jsonb_set(sections, '{0,subsections,0,paragraphs,0,perspective}', '"both"') WHERE conflict_day = 220 AND report_type = 'general'$q$],
+  NULL, '%Path: sections[0].subsections[0].paragraphs[0].sources.%');
+SELECT pg_temp.probe('legacy Day 220 general: cover_stats array (not rendered) corrected to NULL -> accepted', 'ok',
+  ARRAY[:CORR220G, $q$UPDATE public.daily_briefings SET cover_stats = NULL WHERE conflict_day = 220 AND report_type = 'general'$q$]);
+-- 8d size: a ~530 KB brief is checked well inside any statement timeout
+SELECT pg_temp.probe('~530 KB brief (14 x the largest real Day 221+ brief): brief_content_problems finds 0 problems in < 3 s', 'ok', ARRAY['SELECT 1'],
+  $$SELECT n = 0 AND clock_timestamp() - t0 < interval '3 seconds'
+      FROM (SELECT clock_timestamp() AS t0) a,
+           LATERAL (SELECT count(*) AS n FROM public.brief_content_problems('TEST', 'TEST',
+                      (SELECT jsonb_agg(s) FROM generate_series(1, 14) g, jsonb_array_elements((SELECT j->'sections' FROM wg_dump.db WHERE (j->>'conflict_day')::int >= 221 ORDER BY length((j->'sections')::text) DESC LIMIT 1)) s), NULL)) b$$);
 
 -- ---- report -------------------------------------------------------------------------------------------------
 SELECT CASE WHEN ok THEN 'PASS ' ELSE 'FAIL ' END || label || ' -> ' || got
