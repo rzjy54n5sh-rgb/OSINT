@@ -188,6 +188,26 @@ for p in "utils/supabase/server.ts" "middleware.ts" "next.config.js" "wrangler.j
   expect BLOCKED 0 "$COMMENT_CALL" -- "$MERGE_CALL"
 done
 
+# Files that deploy.yml executes on the runner holding CLOUDFLARE_API_TOKEN, and the chokepoint-gate
+# source PR CI runs against the PR's own tree: all human-only (added 2026-10-13, verifier finding).
+for p in "scripts/write-supabase-client-env.mjs" "scripts/check-deployed-assets.mjs" \
+         "scripts/card/lib/gates.mjs" "scripts/card/check-chokepoints.mjs"; do
+  new_case "deploy_executed_${p//[^A-Za-z0-9]/_}_blocked"
+  set_files "$(jq -n --arg f "$p" '[{filename: $f, status: "modified", additions: 2, deletions: 1}]')"
+  run_case
+  expect BLOCKED 0 "$COMMENT_CALL" -- "$MERGE_CALL"
+done
+
+# open-next.config with a non-.ts extension is still a build-config file -> human-only.
+new_case open_next_config_mjs_blocked
+set_files '[{"filename": "open-next.config.mjs", "status": "added", "additions": 3, "deletions": 0}]'
+run_case
+expect BLOCKED 0 "$COMMENT_CALL" -- "$MERGE_CALL"
+
+# A label that is not exactly "auto-merge" (trailing space) must not satisfy the label rule.
+new_case label_trailing_space_skips; patch_pull '.labels = [{name: "auto-merge "}, {name: "data"}]'; run_case
+expect SKIP 0 -- "$MERGE_CALL" "$COMMENT_CALL" "$DISPATCH_CALL"
+
 new_case over_100_files_blocked; patch_pull '.changed_files = 101'
 set_files "$(jq -n '[range(0;101) | {filename: "app/f\(.).ts", status: "modified", additions: 1, deletions: 0}]')"
 run_case

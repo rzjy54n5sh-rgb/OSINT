@@ -45,6 +45,8 @@ A PR touching any of these is never merged automatically:
 - `.env*` (anywhere)
 - `CLAUDE.md`, `CURSOR.md` (anywhere), `.claude/**`, `.cursor/**`, `.claudeignore`
 - `workers/**`: the scheduler Worker holds a GitHub dispatch token, and its deploy workflow only runs on a push, which an automatic merge does not trigger
+- `scripts/write-supabase-client-env.mjs`, `scripts/check-deployed-assets.mjs`: `deploy.yml` runs these by name on the runner that holds `CLOUDFLARE_API_TOKEN`, so a change here runs with deploy privileges
+- `scripts/card/lib/gates.mjs`, `scripts/card/check-chokepoints.mjs`: PR CI runs the chokepoint gate against the PR's own tree, so a PR must not be able to both weaken the gate and be validated by the weakened gate in one run
 
 Database migrations under `supabase/migrations/` **are** allowed: merging a migration does not apply it. Migrations are still applied by hand, as before.
 
@@ -59,7 +61,9 @@ Claude adds the `auto-merge` label only after its independent verifier has retur
 
 ## Trust model
 
-Auto-merge removes the wait, not the review. Code that is merged runs in the deployed Worker, which holds runtime secrets. The safeguards are Claude's verifier (SHIP before the label goes on), PR CI, the human-only list for files that change the build, deploy, dependencies, auth or agent instructions, and the kill switch.
+Auto-merge removes the wait, not the review. The safeguards are Claude's verifier (SHIP before the label goes on), PR CI, the human-only list for files that change the build, deploy, dependencies, auth or agent instructions, and the kill switch.
+
+**What a merged PR gets to run (read this before applying the label).** A merge triggers `deploy.yml` on `main`. `deploy.yml` runs `npm ci` and then `npm run build:cf` (`next build` via OpenNext) **on a runner that, in its deploy step, holds `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`**. `next build` executes module top-level code from the whole application graph — `app/**`, `components/**`, `lib/**`, `hooks/**`, `stores/**` — none of which is a human-only path. Because `node_modules` and the workspace persist across steps in the one deploy job, build-time code can plant a payload that runs in the later `npx wrangler deploy` step, where the Cloudflare deploy token is present; that token can edit every Worker and its secrets. **The human-only list cannot close this**: it blocks the build *configuration* files, but not the application code that the build executes. Therefore the only real barrier against a malicious or mistaken code PR reaching the Cloudflare deploy token is the verifier returning SHIP. Treat every code PR you label as deploy-token-sensitive, not merely as "runs in the Worker at runtime". If that barrier is not acceptable, split `deploy.yml` so the untrusted `next build` runs in a job with no Cloudflare token and hands only built artifacts to a separate deploy job, or keep deploy on a human merge.
 
 ## Notes
 

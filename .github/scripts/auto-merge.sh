@@ -177,11 +177,18 @@ human_only() {
     .github/*) return 0 ;;
     package.json|*/package.json|package-lock.json|*/package-lock.json) return 0 ;;
     npm-shrinkwrap.json|*/npm-shrinkwrap.json|.npmrc|*/.npmrc) return 0 ;;
-    wrangler.*|*/wrangler.*|open-next.config.ts|next.config.*|middleware.ts) return 0 ;;
+    wrangler.*|*/wrangler.*|open-next.config.*|*/open-next.config.*|next.config.*|middleware.ts) return 0 ;;
     utils/supabase/*|supabase/config.toml) return 0 ;;
     .env*|*/.env*) return 0 ;;
     CLAUDE.md|*/CLAUDE.md|CURSOR.md|*/CURSOR.md|.claude/*|.cursor/*|.claudeignore) return 0 ;;
     workers/*) return 0 ;;
+    # Executed by deploy.yml on the runner that holds CLOUDFLARE_API_TOKEN (build:cf runs
+    # write-supabase-client-env.mjs; the post-deploy step runs check-deployed-assets.mjs). A change
+    # here runs with deploy privileges, so it is as sensitive as the build-config files above.
+    scripts/write-supabase-client-env.mjs|scripts/check-deployed-assets.mjs) return 0 ;;
+    # The chokepoint gate PR CI runs against the PR's own tree: a PR must not both weaken the gate
+    # and be validated by the weakened gate in the same run.
+    scripts/card/lib/gates.mjs|scripts/card/check-chokepoints.mjs) return 0 ;;
   esac
   return 1
 }
