@@ -1,37 +1,31 @@
 /*
- * Corridors design tokens and styles (UX audit 2026-10 §7, design system v2 "Night desk").
- * Scoped to the corridor components only: nothing here changes site-wide fonts or colours.
- * Contrast (WCAG 2.x, text on --cor-bg / on --cor-surface): text 16.3, text-2 10.6, muted 6.1/5.6,
- * link 8.8; status text on its tint: NORMAL 7.4, ELEVATED 8.4, DISRUPTED 6.9, CLOSED 6.0, UNKNOWN 6.4.
- * Status is never colour alone: glyph + word + colour always travel together (.chip).
+ * Corridors styles (UX audit 2026-10 §7, design system v2 "Night desk"). The --cor-* names alias the
+ * site-wide v2 tokens in app/globals.css (contrast asserted by tests/unit/tokens.check.ts).
+ * Status is never colour alone: the shared StatusChip (components/ui) carries glyph + word + colour.
  */
 .root {
-  --cor-bg: #0b0f14;
-  --cor-surface: #131a23;
-  --cor-line: #243041;
-  --cor-line-strong: #3a4757;
-  --cor-track: #222c39;
-  --cor-text: #e8edf2;
-  --cor-text-2: #b6c2cf;
-  --cor-muted: #8593a3;
-  --cor-accent: #e8c547;
-  --cor-link: #6cb4ff;
-  --cor-link-hover: #a9d3ff;
+  /* Aliases of the site-wide v2 tokens (app/globals.css), so the corridors follow [data-theme]. */
+  --cor-bg: var(--bg);
+  --cor-surface: var(--surface);
+  --cor-line: var(--line);
+  --cor-line-strong: var(--line-strong);
+  --cor-track: var(--track);
+  --cor-text: var(--text);
+  --cor-text-2: var(--text-2);
+  --cor-muted: var(--muted);
+  --cor-accent: var(--accent);
+  --cor-link: var(--link);
+  --cor-link-hover: var(--link-hover);
 
-  --st-normal: #4cc97a;
-  --st-normal-tint: #11281c;
-  --st-elevated: #f2b640;
-  --st-elevated-tint: #2e2410;
-  --st-disrupted: #ff8a4c;
-  --st-disrupted-tint: #341a10;
-  --st-closed: #ff6b81;
-  --st-closed-tint: #3a1219;
-  --st-unknown: #9aa6b5;
-  --st-unknown-tint: #1c232d;
+  --st-normal: var(--status-normal);
+  --st-elevated: var(--status-elevated);
+  --st-disrupted: var(--status-disrupted);
+  --st-closed: var(--status-closed);
+  --st-unknown: var(--status-unknown);
 
-  --cor-sans: var(--cor-font-sans), 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-  --cor-serif: var(--cor-font-serif), 'Newsreader', Georgia, serif;
-  --cor-mono: var(--font-mono), 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --cor-sans: var(--font-ui);
+  --cor-serif: var(--font-display);
+  --cor-mono: var(--font-numeric);
 
   background: var(--cor-bg);
   color: var(--cor-text);
@@ -93,26 +87,6 @@
 .text2 {
   color: var(--cor-text-2);
 }
-
-/* ---- Status chip ------------------------------------------------------------------------ */
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  padding: 3px 10px;
-  white-space: nowrap;
-}
-.chip[data-status='NORMAL'] { color: var(--st-normal); background: var(--st-normal-tint); }
-.chip[data-status='ELEVATED'] { color: var(--st-elevated); background: var(--st-elevated-tint); }
-.chip[data-status='DISRUPTED'] { color: var(--st-disrupted); background: var(--st-disrupted-tint); }
-.chip[data-status='CLOSED'] { color: var(--st-closed); background: var(--st-closed-tint); }
-.chip[data-status='UNKNOWN'] { color: var(--st-unknown); background: var(--st-unknown-tint); border-style: dashed; }
 
 /* Status colour as a custom property, for gauge fills and chart markers. */
 .root [data-tone='NORMAL'] { --tone: var(--st-normal); }
@@ -178,6 +152,7 @@
   color: var(--cor-accent);
 }
 .stripTitle {
+  font-family: var(--cor-sans);
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -399,6 +374,7 @@
   min-width: 0;
 }
 .laneTitle {
+  font-family: var(--cor-sans);
   margin: 0;
   font-size: 22px;
   font-weight: 600;
@@ -640,8 +616,8 @@
   align-items: center;
   justify-content: center;
   min-height: 44px;
-  background: var(--cor-accent);
-  color: var(--cor-bg);
+  background: var(--accent-fill);
+  color: var(--on-accent);
   text-decoration: none;
   font-weight: 600;
   font-size: 16px;
@@ -650,7 +626,7 @@
   text-align: center;
 }
 .root a.btnPrimary:hover {
-  color: var(--cor-bg);
+  color: var(--on-accent);
   background: #f0d36a;
 }
 

@@ -17,6 +17,7 @@
  * and client components alike.
  */
 import { runGates, MAX_AGE_DAYS, MAX_WEEK_END_AGE_DAYS, BASELINE_WEEK, chokepointView, type ChokepointViewLane } from './card-gates';
+import { STATUS_GLYPHS } from './design-tokens';
 import latestJson from '../data/chokepoints/latest.json';
 import historyJson from '../data/chokepoints/history.json';
 
@@ -33,13 +34,8 @@ export const CHOKEPOINT_MAX_WEEK_END_AGE_DAYS: number = MAX_WEEK_END_AGE_DAYS;
 
 const BASELINES: Record<LaneId, number> = BASELINE_WEEK;
 
-export const STATUS_GLYPH: Record<LaneStatus, string> = {
-  NORMAL: '●',
-  ELEVATED: '▲',
-  DISRUPTED: '◆',
-  CLOSED: '■',
-  UNKNOWN: '○',
-};
+/** Glyphs come from the design tokens (lib/design-tokens.ts): one table for every status chip. */
+export const STATUS_GLYPH: Record<LaneStatus, string> = STATUS_GLYPHS;
 
 const LANE_META: Record<LaneId, { name: string; short: string; sub: string; portid: string }> = {
   hormuz: { name: 'Strait of Hormuz', short: 'Hormuz', sub: 'Exit of the Gulf', portid: 'chokepoint6' },

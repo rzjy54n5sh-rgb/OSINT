@@ -18,6 +18,7 @@ import {
   ageLine,
   postureActorLineLabel,
   postureLabelDef,
+  postureSwatchColor,
   shortDate,
   v1FrozenText,
   v2UncodedNote,
@@ -25,22 +26,30 @@ import {
   type PostureView,
 } from '@/lib/posture';
 import type { NaiSourceV2 } from '@/types/supabase';
+import { POSTURE_BANDS, postureBandVar, type PostureBand } from '@/lib/design-tokens';
 
 const HATCH = `repeating-linear-gradient(45deg, ${POSTURE_SILENCE_COLOR} 0 2px, transparent 2px 5px)`;
 
-export function PostureSwatch({ row, size = 10 }: { row: Pick<PostureView, 'stance' | 'label'>; size?: number }) {
+/** Colour = the SCORE band when the row has a score (same rule as components/ui/PostureSwatch), else the label's anchor band. */
+export function PostureSwatch({
+  row,
+  size = 10,
+}: {
+  row: Pick<PostureView, 'stance' | 'label'> & Partial<Pick<PostureView, 'expressed_score' | 'country_code'>>;
+  size?: number;
+}) {
   const base: CSSProperties = {
     display: 'inline-block',
     width: size,
     height: size,
     borderRadius: '50%',
-    border: '1px solid #8A9BB5',
+    border: '1px solid var(--line-strong)',
     flexShrink: 0,
   };
   if (row.stance === 'withheld') return <span aria-hidden="true" style={{ ...base, background: 'transparent', borderStyle: 'dashed' }} />;
   if (row.stance === 'deliberate_silence') return <span aria-hidden="true" style={{ ...base, background: HATCH }} />;
-  const def = row.stance === 'position' ? postureLabelDef(row.label) : null;
-  return <span aria-hidden="true" style={{ ...base, background: def?.color ?? POSTURE_NODATA_COLOR }} />;
+  const fill = row.stance === 'position' ? postureSwatchColor(row) : null;
+  return <span aria-hidden="true" style={{ ...base, background: fill ?? POSTURE_NODATA_COLOR }} />;
 }
 
 export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>): string {
@@ -143,6 +152,10 @@ export function PostureAge({ row, className = '' }: { row: PostureView; classNam
   );
 }
 
+/**
+ * Legend: the four scale bands with their score ranges (the colour is the score band), then the label
+ * words as text — a label's range can span two bands (e.g. 63–87 "Supports continued pressure").
+ */
 export function PostureScaleLegend({ compact = false, showWithheld = true }: { compact?: boolean; showWithheld?: boolean }) {
   const item = (swatch: ReactNode, text: string, key: string) => (
     <span key={key} className="inline-flex items-center gap-1" translate="no">
@@ -150,11 +163,22 @@ export function PostureScaleLegend({ compact = false, showWithheld = true }: { c
       {text}
     </span>
   );
+  const bandSwatch = (band: PostureBand) => (
+    <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 10, background: postureBandVar(band), flexShrink: 0 }} />
+  );
   return (
     <div className={`font-mono text-[10px] flex ${compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-0.5'}`} data-testid="posture-legend">
-      {POSTURE_LABELS.map((l) =>
-        item(<PostureSwatch row={{ stance: 'position', label: l.code }} />, `${l.text} (${l.min}–${l.max})`, l.code),
-      )}
+      <span className={`inline-flex items-center gap-1 ${compact ? 'basis-full' : ''}`} data-testid="posture-legend-bands">
+        {POSTURE_BANDS.map((b) => (
+          <span key={b.band} className="inline-flex items-center gap-0.5">
+            {bandSwatch(b.band)}
+            <span>{b.min}–{b.max}</span>
+          </span>
+        ))}
+      </span>
+      <span className={compact ? 'basis-full' : ''} style={{ color: 'var(--text-secondary)', maxWidth: compact ? undefined : '42ch' }} data-testid="posture-legend-labels">
+        {POSTURE_LABELS.map((l) => `${l.text} ${l.min}–${l.max}`).join(' · ')}
+      </span>
       {item(<PostureSwatch row={{ stance: 'deliberate_silence', label: null }} />, 'Deliberate silence', 'silence')}
       {showWithheld && item(<PostureSwatch row={{ stance: 'withheld', label: null }} />, `${POSTURE_WITHHELD_TITLE} (EG, AE, SA)`, 'withheld')}
       {item(<PostureSwatch row={{ stance: 'uncoded', label: null }} />, 'No position on record', 'none')}

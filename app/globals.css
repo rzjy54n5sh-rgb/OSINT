@@ -3,57 +3,180 @@
 @tailwind utilities;
 
 /* ============================================================
-   MENA INTEL DESK — DESIGN SYSTEM
-   Do not modify these variables without updating all components
+   MENA INTEL DESK — DESIGN SYSTEM v2 ("Night desk", 2026-10-13)
+   Source of truth: the System artboard (design/mid-v2). Dark is the default (:root); light is
+   [data-theme='light'] and is also used for print. tests/unit/tokens.check.ts parses this file and
+   asserts contrast (text tokens ≥ 4.5:1 on --bg and --surface, both themes) and the spec values.
+   Gold (--accent) is the brand accent only: logo, focus ring, the one primary CTA. Never data.
    ============================================================ */
 
-/* Fonts loaded via next/font in app/layout.tsx (--font-bebas, --font-mono, --font-dm, --font-arabic) */
+/* Fonts: next/font in app/fonts.ts (--font-sans IBM Plex Sans, --font-serif Newsreader,
+   --font-mono IBM Plex Mono, --font-arabic Noto Sans Arabic). */
 
 .font-arabic-ui {
-  font-family: var(--font-arabic), var(--font-dm), system-ui, sans-serif;
+  font-family: var(--font-arabic), var(--font-ui);
 }
 
 :root {
-  /* Background layers */
-  --bg-primary:    #070A0F;
-  --bg-secondary:  #0C1018;
-  --bg-card:       rgba(255,255,255,0.055);
-  --bg-card-hover: rgba(255,255,255,0.09);
-  --bg-elevated:   #141A28;
+  color-scheme: dark;
 
-  /* Borders — raised for visibility */
-  --border:        rgba(255,255,255,0.14);
-  --border-bright: rgba(255,255,255,0.25);
-  --border-gold:   rgba(232, 197, 71, 0.4);
+  /* ── v2 colour tokens (dark) ── */
+  --bg:           #0B0F14;
+  --surface:      #131A23;
+  --surface-2:    #1C2633;  /* hover / grid lines */
+  --line:         #243041;  /* hairlines, decoration only */
+  --line-strong:  #3A4757;
+  --track:        #222C39;  /* empty bar track */
+  --text:         #E8EDF2;
+  --text-2:       #B6C2CF;
+  --muted:        #8593A3;
+  --accent:       #E8C547;  /* brand gold: logo, focus ring, primary CTA */
+  --accent-fill:  #E8C547;  /* CTA / skip-link background (both themes) */
+  --on-accent:    #0B0F14;
+  --link:         #6CB4FF;
+  --link-hover:   #A9D3FF;
+  --focus-ring:   var(--accent);
 
-  /* Text — WCAG AA compliant on #070A0F */
-  --text-primary:  #F0F4F8;   /* ≥15:1 contrast */
-  --text-secondary:#B8C4D0;   /* ≥7:1 contrast */
-  --text-muted:    #7A8FA6;   /* ≥4.5:1 contrast */
+  /* Lane status (glyph + word + colour, always together) */
+  --status-normal:         #4CC97A;
+  --status-normal-tint:    #11281C;
+  --status-elevated:       #F2B640;
+  --status-elevated-tint:  #2E2410;
+  --status-disrupted:      #FF8A4C;
+  --status-disrupted-tint: #341A10;
+  --status-closed:         #FF6B81;
+  --status-closed-tint:    #3A1219;
+  --status-unknown:        #9AA6B5;
+  --status-unknown-tint:   #1C232D;
 
-  /* Accent colors — brightened for dark bg readability */
-  --accent-gold:   #E8C547;
-  --accent-red:    #E74C3C;
-  --accent-green:  #27AE60;
-  --accent-blue:   #4DA6FF;
-  --accent-orange: #F39C12;
-  --accent-purple: #9B59B6;
-  --accent-teal:   #36B8C8;
+  /* War Posture scale (its own; never status colours). EG / AE / SA: outline only. */
+  --posture-1: #6FA8F0;  /* 0–30   */
+  --posture-2: #98A3B3;  /* 31–60  */
+  --posture-3: #E8A066;  /* 61–80  */
+  --posture-4: #FF7F3F;  /* 81–100 */
 
-  /* Semantic text colors */
-  --text-danger:   #FF5C5C;
-  --text-success:  #2ECC71;
-  --text-warning:  #F5C842;
+  /* Scenario identity (who, not good or bad). B is always a range; E is unmeasured. */
+  --scn-a: #4DA6FF;
+  --scn-b: #D6B370;
+  --scn-c: #36B8C8;
+  --scn-d: #A78BFA;
+  --scn-unmeasured: var(--muted);
 
-  /* NAI category colors — raised luminosity */
-  --nai-aligned:   #2ECC71;
-  --nai-stable:    #4DA6FF;
-  --nai-tension:   #F39C12;
-  --nai-fracture:  #E74C3C;
-  --nai-inversion: #9B59B6;
+  /* ── Type ── */
+  --font-ui:      var(--font-sans), 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: var(--font-serif), 'Newsreader', Georgia, serif;
+  --font-numeric: var(--font-mono), 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  /* Scale 1.25, 13 px UI floor (12 px only for chart axis ticks). */
+  --fs-axis: 12px;
+  --fs-meta: 13px;
+  --fs-2:    14px;
+  --fs-body: 16px;
+  --fs-card: 18px;
+  --fs-dek:  22px;
+  --fs-h2:   28px;
+  --fs-fig:  36px;
+  --fs-h1:   48px;
 
-  /* Legacy aliases */
+  /* ── Space (4 px base), radius, motion ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius:      2px;
+  --radius-chip: 999px;
+  --target:      44px;
+  --dur-fast: 120ms;
+  --dur-med:  200ms;
+  --dur-slow: 320ms;
+  --ease:     cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Legacy names → v2 (kept so every existing component shifts at once; prefer v2 names) ── */
+  --font-dm:       var(--font-sans);
+  --font-bebas:    var(--font-serif);
+  --bg-primary:    var(--bg);
+  --bg-secondary:  var(--surface);
+  --bg-card:       var(--surface);
+  --bg-card-hover: var(--surface-2);
+  --bg-elevated:   var(--surface);
+  --border:        var(--line);
+  --border-bright: var(--line-strong);
+  --border-gold:   var(--accent);
+  --text-primary:  var(--text);
+  --text-secondary:var(--text-2);
+  --text-muted:    var(--muted);
+  --accent-gold:   var(--accent);
+  --accent-red:    var(--status-closed);
+  --accent-green:  var(--status-normal);
+  --accent-blue:   var(--link);
+  --accent-orange: var(--status-disrupted);
+  --accent-purple: var(--scn-d);
+  --accent-teal:   var(--scn-c);
+  --text-danger:   var(--status-closed);
+  --text-success:  var(--status-normal);
+  --text-warning:  var(--status-elevated);
+  /* Legacy NAI v1 categories (archived Days 1–35 view only) */
+  --nai-aligned:   var(--status-normal);
+  --nai-stable:    var(--link);
+  --nai-tension:   var(--status-elevated);
+  --nai-fracture:  var(--status-closed);
+  --nai-inversion: var(--scn-d);
   --nai-safe:      var(--nai-aligned);
+}
+
+/* Light: reading, briefs, print and embeds. Same names, light values. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg:           #FFFFFF;
+  --surface:      #F5F6F8;
+  --surface-2:    #E3E7EC;
+  --line:         #D9DEE5;
+  --line-strong:  #B9C1CC;
+  --track:        #E6E9EE;
+  --text:         #0E1116;
+  --text-2:       #3D4651;
+  --muted:        #5E6875;
+  --accent:       #8A6A00;
+  --link:         #0B5CAD;
+  --link-hover:   #0E1116;
+
+  --status-normal:         #0E7A3E;
+  --status-normal-tint:    #E6F4EC;
+  --status-elevated:       #8A5300;
+  --status-elevated-tint:  #FDF1DC;
+  --status-disrupted:      #B23E0B;
+  --status-disrupted-tint: #FCE9DF;
+  --status-closed:         #B0102C;
+  --status-closed-tint:    #FBE4E8;
+  --status-unknown:        #5B6573;
+  --status-unknown-tint:   #EEF0F3;
+
+  --posture-1: #2F6FC0;
+  --posture-2: #7B8594;
+  --posture-3: #B8611F;
+  --posture-4: #C2410C;
+
+  --scn-a: #1F6FC2;
+  --scn-b: #8C6A1F;
+  --scn-c: #0F7C8A;
+  --scn-d: #6D4FD1;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #FFFFFF; --surface: #F5F6F8; --surface-2: #E3E7EC; --line: #D9DEE5; --line-strong: #B9C1CC;
+    --track: #E6E9EE; --text: #0E1116; --text-2: #3D4651; --muted: #5E6875; --accent: #8A6A00;
+    --link: #0B5CAD; --link-hover: #0E1116;
+    --status-normal: #0E7A3E; --status-normal-tint: #E6F4EC; --status-elevated: #8A5300; --status-elevated-tint: #FDF1DC;
+    --status-disrupted: #B23E0B; --status-disrupted-tint: #FCE9DF; --status-closed: #B0102C; --status-closed-tint: #FBE4E8;
+    --status-unknown: #5B6573; --status-unknown-tint: #EEF0F3;
+    --posture-1: #2F6FC0; --posture-2: #7B8594; --posture-3: #B8611F; --posture-4: #C2410C;
+    --scn-a: #1F6FC2; --scn-b: #8C6A1F; --scn-c: #0F7C8A; --scn-d: #6D4FD1;
+  }
 }
 
 /* ── BASE ── */
@@ -67,8 +190,9 @@ html {
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-dm), 'DM Sans', sans-serif;
-  font-weight: 300;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-weight: 400;
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
@@ -109,10 +233,15 @@ body > * { position: relative; z-index: 1; }
 }
 .hero-scene__canvas[data-ready] { opacity: 0.75; }
 
-/* ── TYPOGRAPHY ── */
-.font-display { font-family: var(--font-bebas), 'Bebas Neue', sans-serif; letter-spacing: 0.02em; }
-.font-mono    { font-family: var(--font-mono), 'IBM Plex Mono', monospace; }
-.font-body    { font-family: var(--font-dm), 'DM Sans', sans-serif; }
+/* ── TYPOGRAPHY (v2: Newsreader for display and reading, Plex Sans for the interface, Plex Mono with
+   tabular figures for numbers only) ── */
+.font-display { font-family: var(--font-display); letter-spacing: 0; }
+.font-mono    { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.font-body    { font-family: var(--font-ui); }
+.num          { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+/* Section and page headings default to the display serif; card titles (h3+) stay in the UI face.
+   A utility or inline font on the element still wins. */
+h1, h2 { font-family: var(--font-display); font-weight: 500; }
 
 /* ── SCANLINES ── (home cards only; removed from data pages in perf batch 1. A plain gradient, no filter.) */
 .scanlines {
@@ -196,7 +325,7 @@ body > * { position: relative; z-index: 1; }
 /* ── NAI SCORE BARS ── */
 .nai-bar-track {
   height: 3px;
-  background: rgba(255,255,255,0.06);
+  background: var(--track);
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -1012,14 +1141,14 @@ body > * { position: relative; z-index: 1; }
 
 /* Focus rings for keyboard navigation */
 :focus-visible {
-  outline: 2px solid var(--accent-gold);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 /* Input fields */
 input, textarea, select {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   color: var(--text-primary);
 }
 input::placeholder, textarea::placeholder {
@@ -1037,22 +1166,23 @@ html[data-tb-dismissed] .translation-banner {
 /* ── Accessibility helpers (UX audit 2026-10-13, change #10) ── */
 .skip-link {
   position: absolute;
-  left: 8px;
+  inset-inline-start: 16px;
   top: -100px;
   z-index: 1000;
-  padding: 10px 16px;
-  min-height: 44px;
+  padding: 10px 14px;
+  min-height: var(--target);
   display: inline-flex;
   align-items: center;
-  background: var(--bg-secondary);
-  color: var(--accent-gold);
-  border: 2px solid var(--accent-gold);
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
   text-decoration: none;
 }
 .skip-link:focus,
-.skip-link:focus-visible { top: 8px; }
+.skip-link:focus-visible { top: 8px; outline: 2px solid var(--text); outline-offset: 2px; }
 
 /* War Room headings keep the panel-header look (they were spans before). */
 .warroom-h1,

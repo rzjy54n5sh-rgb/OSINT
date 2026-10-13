@@ -1,17 +1,8 @@
 import type { LaneStatus } from '@/lib/corridors';
-import { STATUS_GLYPH } from '@/lib/corridors';
 import s from './corridors.module.css';
 
-/** Glyph + word + colour, always together (design system v2). The glyph is decorative. */
-export function StatusChip({ status }: { status: LaneStatus }) {
-  return (
-    <span className={s.chip} data-status={status}>
-      <span className={s.srOnly}>Status: </span>
-      <span aria-hidden="true">{STATUS_GLYPH[status]}</span>
-      {status}
-    </span>
-  );
-}
+/** Lane status chip: the shared design-system component (glyph + word + colour, always together). */
+export { StatusChip } from '@/components/ui/StatusChip';
 
 /** 0–100 % of the 2023 baseline (the track end is 100) with ticks at the 50 and 90 band edges. Values above 100 fill it. */
 export function IndexGauge({ index, status }: { index: number | null; status: LaneStatus }) {

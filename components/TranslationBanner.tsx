@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { SITE_URL } from '@/lib/site';
+import { Icon } from '@/components/ui/icons';
 
 const STORAGE_KEY = 'mena-translation-dismissed';
 
@@ -39,15 +40,13 @@ export function TranslationBanner() {
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '7px 16px',
-        background: 'rgba(74,143,232,0.07)',
-        borderBottom: '1px solid rgba(74,143,232,0.2)',
+        background: 'var(--surface)',
+        borderBottom: '1px solid var(--line)',
       }}
       role="banner"
       aria-label="Translation notice"
     >
-      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-blue)', flexShrink: 0 }}>
-        🌐
-      </span>
+      <Icon name="globe" size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
       <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>
         This platform is published in English only.{' '}
         <span style={{ color: 'var(--text-muted)' }}>

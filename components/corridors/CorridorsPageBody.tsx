@@ -9,7 +9,6 @@ import {
   type CorridorsView,
   type LaneStatus,
 } from '@/lib/corridors';
-import { corridorFontVars } from './fonts';
 import { IndexGauge, StaleNote, StatusChip } from './parts';
 import { HistoryChart } from './HistoryChart';
 import s from './corridors.module.css';
@@ -119,7 +118,7 @@ function LaneCard({ lane, view }: { lane: CorridorLane; view: CorridorsView }) {
 
 export function CorridorsPageBody({ view }: { view: CorridorsView }) {
   return (
-    <div className={`${s.root} ${corridorFontVars}`}>
+    <div className={`${s.root}`}>
       <div className={s.page}>
         <section aria-labelledby="corridors-h1" className={s.intro}>
           <p className={`${s.meta} ${s.num}`}>

@@ -46,7 +46,7 @@ export function DataAsOf({ section, latestDay, currentDay, className = '' }: Dat
       style={{
         color,
         borderColor: isCurrent ? undefined : color,
-        background: isCurrent ? undefined : 'rgba(255,140,0,0.06)',
+        background: isCurrent ? undefined : 'var(--surface)',
         letterSpacing: '1px',
       }}
     >

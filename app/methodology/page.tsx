@@ -162,7 +162,12 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
               <ul style={{ margin: '0 0 10px 0', padding: 0 }}>
                 {POSTURE_LABELS.map((l) => (
                   <Li key={l.code}>
-                    <Tag color={l.color}>{l.min}–{l.max}</Tag>
+                    {/* Swatch = the label's anchor band (fill only); the range text stays in a text token. */}
+                    <span
+                      aria-hidden="true"
+                      style={{ display: 'inline-block', width: 10, height: 10, background: l.color, marginRight: 6, verticalAlign: 'middle' }}
+                    />
+                    <Tag color="var(--text-secondary)">{l.min}–{l.max}</Tag>
                     {l.text}
                   </Li>
                 ))}

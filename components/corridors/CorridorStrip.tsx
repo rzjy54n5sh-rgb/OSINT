@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { fmtInt, fmtPct, getCorridors, type CorridorsView } from '@/lib/corridors';
-import { corridorFontVars } from './fonts';
 import { IndexGauge, StaleNote, StatusChip } from './parts';
 import s from './corridors.module.css';
 
@@ -27,7 +26,7 @@ export function CorridorStrip({
   const v = view ?? getCorridors(now ?? new Date());
   const stale = v.state !== 'current';
   return (
-    <section aria-labelledby={headingId} className={`${s.root} ${s.strip} ${corridorFontVars}`} data-compact={compact ? 'true' : undefined}>
+    <section aria-labelledby={headingId} className={`${s.root} ${s.strip}`} data-compact={compact ? 'true' : undefined}>
       <div className={s.stripHead}>
         <h2 id={headingId} className={s.stripTitle}>
           Corridors this week

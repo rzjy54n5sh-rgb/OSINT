@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from 'next';
-import { Bebas_Neue, IBM_Plex_Mono, DM_Sans, Noto_Sans_Arabic } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { validateEnv } from '@/lib/env';
 import { CommandHeader } from '@/components/CommandHeader';
+import { fontVariables } from './fonts';
+import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -41,36 +42,11 @@ validateEnv();
  */
 export const revalidate = 900;
 
-/**
- * Fonts (perf batch 1, 2026-10-13). Every next/font call used to preload all of its files: 8 woff2,
- * 292 KB on every page, 163 KB of it Noto Sans Arabic while the Arabic UI is off. Now only the two
- * faces used above the fold on every page are preloaded:
- *  - DM Sans roman (body text; one variable file covers 300–500), and
- *  - IBM Plex Mono 300 (the mono labels: they inherit body's font-weight 300, so 300 — not 400 —
- *    is the mono face that renders above the fold; measured on /, /nai, /warroom, /scenarios,
- *    /countries/ir, /corrections and a brief, 2026-10-13).
- * The other faces keep their @font-face rules (same family names, so weights/styles still combine)
- * but are not preloaded: the browser fetches each one only when text actually uses it. Noto Sans
- * Arabic therefore downloads only when Arabic text is rendered in it (`.font-arabic-ui`, set by
- * I18nProvider for the Arabic UI). All faces use font-display: swap (the next/font default).
- */
-const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas', display: 'swap', preload: false });
-const ibmPlexMono = IBM_Plex_Mono({ weight: '300', subsets: ['latin'], variable: '--font-mono', display: 'swap' });
-// Same family, other weights: the @font-face rules join the family above (the `variable` only keeps
-// the call referenced on <html>; nothing reads it).
-const ibmPlexMonoOther = IBM_Plex_Mono({ weight: ['400', '500', '600'], subsets: ['latin'], variable: '--font-mono-other', display: 'swap', preload: false });
-const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: 'normal', subsets: ['latin'], variable: '--font-dm', display: 'swap' });
-const dmSansItalic = DM_Sans({ weight: ['300', '400', '500'], style: 'italic', subsets: ['latin'], variable: '--font-dm-italic', display: 'swap', preload: false });
-const notoArabic = Noto_Sans_Arabic({
-  weight: ['400', '500', '600'],
-  subsets: ['arabic'],
-  variable: '--font-arabic',
-  display: 'swap',
-  preload: false,
-});
+/** Fonts: app/fonts.ts (design system v2; two preloads: Plex Sans 400 and Plex Mono 400 — Newsreader is not preloaded). */
 
 export const viewport: Viewport = {
-  themeColor: '#070A0F',
+  // v2 --bg of the default (dark) theme. A saved light choice is applied by the boot script below.
+  themeColor: '#0B0F14',
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,
@@ -125,7 +101,13 @@ const LANG_BOOT_SCRIPT =
   'try{var d=document.documentElement;' +
   (ARABIC_ENABLED ? "if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" : '') +
   // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
-  "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}";
+  "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}" +
+  // Theme (design system v2): dark is the default. While LIGHT_THEME_ENABLED is false (lib/design-tokens.ts)
+  // the screen is dark-only and a stored 'light' from an earlier visit is ignored (print still uses the
+  // light tokens). When enabled, a saved choice is applied before first paint (no flash), in its own try.
+  (LIGHT_THEME_ENABLED
+    ? "try{var th=localStorage.getItem('mid-theme');if(th==='light'||th==='dark')document.documentElement.setAttribute('data-theme',th);}catch(e){}"
+    : '');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Server-rendered default. The visitor's language preference is applied client-side (above);
@@ -166,7 +148,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       dir="ltr"
       translate="yes"
       suppressHydrationWarning
-      className={`${bebas.variable} ${ibmPlexMono.variable} ${ibmPlexMonoOther.variable} ${dmSans.variable} ${dmSansItalic.variable} ${notoArabic.variable}`}
+      className={fontVariables}
     >
       <head>
         {/* First script in <head>: recovers from cached HTML whose build assets are gone. */}
@@ -191,12 +173,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body
-        className={`min-h-screen overflow-x-hidden ${dmSans.className}`}
+        className="min-h-screen overflow-x-hidden"
         suppressHydrationWarning
       >
         {/* First tab stop: jumps past the banner and the header menus (WCAG 2.4.1). */}
         <a href="#main-content" className="skip-link">
-          Skip to main content
+          Skip to content
         </a>
         <TranslationBanner />
         <I18nProvider lang={lang}>

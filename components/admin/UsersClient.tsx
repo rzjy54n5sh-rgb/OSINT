@@ -305,7 +305,7 @@ export function UsersClient({ serverToken }: { serverToken?: string | null }) {
             </div>
             <div
               style={{
-                fontFamily: "'Bebas Neue', sans-serif",
+                fontFamily: 'var(--font-display)',
                 fontSize: 20,
                 color: 'var(--text-primary)',
                 lineHeight: 1.2,

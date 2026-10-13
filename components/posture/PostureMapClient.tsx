@@ -30,6 +30,7 @@ import {
   isV1Fallback,
   postureGroupCode,
   postureLabelDef,
+  postureSwatchHex,
   postureLineLabel,
   postureRowKey,
   v1FrozenText,
@@ -70,11 +71,13 @@ function coordsFor(r: Pick<PostureView, 'country_code' | 'actor'>): [number, num
   return ACTOR_COORDS[`${r.country_code}|${r.actor}`] ?? COUNTRY_COORDS[r.country_code];
 }
 
-function markerStyle(r: PostureView): { color: string; opacity: number; dash: boolean } {
-  if (r.stance === 'withheld') return { color: '#000000', opacity: 0, dash: true };
-  if (r.stance === 'deliberate_silence') return { color: POSTURE_SILENCE_COLOR, opacity: 0.85, dash: false };
-  if (r.stance === 'position') return { color: postureLabelDef(r.label)?.color ?? POSTURE_NODATA_COLOR, opacity: 0.9, dash: false };
-  return { color: POSTURE_NODATA_COLOR, opacity: 0.85, dash: false };
+/** Marker fill (MapLibre circle-color: a fill, never text). */
+function markerStyle(r: PostureView): { fill: string; opacity: number; dash: boolean } {
+  if (r.stance === 'withheld') return { fill: '#000000', opacity: 0, dash: true };
+  if (r.stance === 'deliberate_silence') return { fill: POSTURE_SILENCE_COLOR, opacity: 0.85, dash: false };
+  // Canvas (MapLibre) needs hex: the score band (dark scale), like every other posture swatch.
+  if (r.stance === 'position') return { fill: postureSwatchHex(r) ?? POSTURE_NODATA_COLOR, opacity: 0.9, dash: false };
+  return { fill: POSTURE_NODATA_COLOR, opacity: 0.85, dash: false };
 }
 
 /** Sort: positions by E (desc), then silence, then stated-positions-only, then no coded position. */
@@ -179,7 +182,7 @@ export function PostureMapClient({
             return {
               type: 'Feature' as const,
               geometry: { type: 'Point' as const, coordinates: coordsFor(r) as [number, number] },
-              properties: { key: postureRowKey(r), country_code: r.country_code, color: st.color, opacity: st.opacity, stroke: st.dash ? 2 : 1, strokeColor: st.dash ? '#E6EDF7' : '#8A9BB5' },
+              properties: { key: postureRowKey(r), country_code: r.country_code, fill: st.fill, opacity: st.opacity, stroke: st.dash ? 2 : 1, strokeColor: st.dash ? '#E6EDF7' : '#8A9BB5' },
             };
           }),
         ...noData
@@ -187,7 +190,7 @@ export function PostureMapClient({
           .map((c) => ({
             type: 'Feature' as const,
             geometry: { type: 'Point' as const, coordinates: COUNTRY_COORDS[c] },
-            properties: { key: c, country_code: c, color: POSTURE_NODATA_COLOR, opacity: 0.6, stroke: 1, strokeColor: '#56627A' },
+            properties: { key: c, country_code: c, fill: POSTURE_NODATA_COLOR, opacity: 0.6, stroke: 1, strokeColor: '#56627A' },
           })),
       ];
       if (features.length === 0) return;
@@ -198,7 +201,7 @@ export function PostureMapClient({
         source: 'posture-points',
         paint: {
           'circle-radius': 10,
-          'circle-color': ['get', 'color'],
+          'circle-color': ['get', 'fill'],
           'circle-opacity': ['get', 'opacity'],
           'circle-stroke-width': ['get', 'stroke'],
           'circle-stroke-color': ['get', 'strokeColor'],
