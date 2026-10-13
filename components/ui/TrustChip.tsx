@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Icon, type IconName } from './icons';
-import s from './chips.module.css';
+/** Global .chip-* classes (app/globals.css, "SHARED CHIPS"). */
+const s = {
+  meta: 'chip-meta',
+  num: 'chip-num',
+  party: 'chip-party',
+  trust: 'chip-trust',
+  trustLink: 'chip-trust-link',
+} as const;
 
 /**
  * Trust components (System artboard, "Trust components"), server-safe:

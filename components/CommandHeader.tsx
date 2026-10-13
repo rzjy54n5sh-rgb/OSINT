@@ -11,19 +11,50 @@ import { GlobeMenu } from '@/components/GlobeMenu';
 import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { TrustChip } from '@/components/ui/TrustChip';
 import { Icon } from '@/components/ui/icons';
-import { ThemeToggle } from '@/components/header/ThemeToggle';
+import { Wordmark } from '@/components/header/Wordmark';
 import { useI18n } from '@/components/I18nProvider';
 import { ARABIC_ENABLED } from '@/lib/site';
-import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import type { UserTier } from '@/types';
 import type { UIStringKey } from '@/lib/i18n';
-import s from '@/components/header/header.module.css';
+
+/** Global .hdr-* classes (app/globals.css, "SITE HEADER") */
+const s = {
+  bar: 'hdr-bar',
+  cta: 'hdr-cta',
+  desktopOnly: 'hdr-desktop-only',
+  group: 'hdr-group',
+  groupLabel: 'hdr-group-label',
+  groupLink: 'hdr-group-link',
+  groupList: 'hdr-group-list',
+  header: 'hdr',
+  iconButton: 'hdr-icon-button',
+  logo: 'hdr-logo',
+  logoText: 'hdr-logo-text',
+  menu: 'hdr-menu',
+  menuButton: 'hdr-menu-button',
+  menuGroups: 'hdr-menu-groups',
+  menuInner: 'hdr-menu-inner',
+  menuPrimary: 'hdr-menu-primary',
+  menuTools: 'hdr-menu-tools',
+  moreButton: 'hdr-more-button',
+  morePanel: 'hdr-more-panel',
+  nav: 'hdr-nav',
+  navLink: 'hdr-nav-link',
+  planLine: 'hdr-plan-line',
+  right: 'hdr-right',
+  sep: 'hdr-sep',
+  staleChip: 'hdr-stale-chip',
+  stamp: 'hdr-stamp',
+  stampDate: 'hdr-stamp-date',
+  stampDay: 'hdr-stamp-day',
+} as const;
 
 /**
  * Site header, design system v2 (Main.dc.html desktop, Home-Mobile.dc.html mobile).
  * Primary nav = the design's five destinations; every other route stays one click away under "More"
  * (desktop) or in the menu (mobile), grouped as before. Both menus are disclosures: a button with
  * aria-expanded, aria-controls only while the panel exists, Escape closes and returns focus to it.
+ * Dark-only for now (LIGHT_THEME_ENABLED = false): no theme toggle; it returns with the light-theme PR.
  * Every href here is an existing app route (tests/unit/header-links.check.ts).
  */
 type NavItem = { href: string; en: string; key?: UIStringKey };
@@ -91,7 +122,7 @@ function isCurrent(pathname: string, href: string): boolean {
 /** Diamond mark (gold, decorative). */
 function Mark() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+    <svg className="hdr-mark" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
       <path d="M9 1.5 16.5 9 9 16.5 1.5 9Z" fill="none" stroke="var(--accent)" strokeWidth="2" />
       <path d="M9 6 12 9 9 12 6 9Z" fill="var(--accent)" />
     </svg>
@@ -205,8 +236,12 @@ export function CommandHeader() {
       </span>
     </span>
   );
-  // Bar: glyph only (the word stays for screen readers and in the title); the menu shows the full chip.
-  const staleLabel = <span className={s.staleWord}>Data stale</span>;
+  // Bar: glyph + the visible word "Stale" ("Data" for screen readers); the menu shows "Data stale".
+  const staleLabel = (
+    <>
+      <span className="sr-only">Data </span>Stale
+    </>
+  );
 
   const groupBlocks = (onNavigate?: () => void) =>
     groups.map((g) => (
@@ -242,7 +277,7 @@ export function CommandHeader() {
       <div className={s.bar}>
         <Link prefetch={false} href="/" className={s.logo} aria-current={pathname === '/' ? 'page' : undefined}>
           <Mark />
-          <span className={s.logoText}>MENA Intel Desk</span>
+          <Wordmark className={s.logoText} />
         </Link>
 
         <nav aria-label="Main" className={s.nav}>
@@ -285,11 +320,6 @@ export function CommandHeader() {
           {stale ? (
             <span className={s.desktopOnly}>
               <TrustChip kind="stale" label={staleLabel} title={staleTitle} className={s.staleChip} />
-            </span>
-          ) : null}
-          {LIGHT_THEME_ENABLED ? (
-            <span className={s.desktopOnly}>
-              <ThemeToggle />
             </span>
           ) : null}
           <Link prefetch={false} href={HEADER_CTA.href} className={`${s.cta} ${s.desktopOnly}`}>
@@ -335,7 +365,6 @@ export function CommandHeader() {
             </ul>
             <div className={s.menuGroups}>{groupBlocks(closeMenu)}</div>
             <div className={s.menuTools}>
-              {LIGHT_THEME_ENABLED ? <ThemeToggle withLabel /> : null}
               {ARABIC_ENABLED ? <LanguageToggle /> : null}
               <GlobeMenu inline />
             </div>

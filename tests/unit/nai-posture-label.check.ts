@@ -60,6 +60,9 @@ try {
   // postureColor(e) is the SCORE band: 35 is band 2 although its label (Conditional de-escalation) anchors in band 1.
   assert.equal(postureColor(35), 'var(--posture-2, #98A3B3)');
   assert.equal(postureColor(85), 'var(--posture-4, #FF7F3F)');
+  // EG / AE / SA: no posture colour, whatever the score.
+  for (const cc of ['EG', 'AE', 'SA', 'sa']) assert.equal(postureColor(85, cc), null, cc);
+  assert.equal(postureColor(85, 'IR'), 'var(--posture-4, #FF7F3F)');
   assert.equal(postureColor(null), null);
   assert.equal(postureColor(80), NAI_POSTURE_COLOR['Supports continued pressure']);
   // No adjective labels survive (War Posture v2, editorial seat 08).

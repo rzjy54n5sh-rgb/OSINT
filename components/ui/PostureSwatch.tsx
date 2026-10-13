@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { isPostureNoGrade, postureBand } from '@/lib/design-tokens';
-import s from './chips.module.css';
+/** Global .chip-* classes (app/globals.css, "SHARED CHIPS"). */
+const s = {
+  num: 'chip-num',
+  posture: 'chip-posture',
+  postureSwatch: 'chip-posture-swatch',
+} as const;
 
 /**
  * War Posture scale swatch (design system v2): 0–30 / 31–60 / 61–80 / 81–100 in the scale's own colours

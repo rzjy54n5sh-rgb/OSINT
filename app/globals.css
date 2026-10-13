@@ -1004,3 +1004,543 @@ html[data-tb-dismissed] .translation-banner {
     letter-spacing: 0.5px;
   }
 }
+
+/* ============================================================
+   SHARED CHIPS (components/ui: StatusChip, TrustChip, ScenarioChip, PostureSwatch) — global .chip-*
+   classes, not a CSS module: a module imported by the root layout's header shipped as a third
+   render-blocking stylesheet on every page (−4 Lighthouse on /warroom). Colours come from the theme
+   tokens above. Text is never colour alone: status = glyph + word, scenario = letter (+ "range" for B),
+   posture = number or words, trust = icon + word. Logical properties only (RTL-safe).
+   ============================================================ */
+.chip-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.chip-num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Lane status ---------------------------------------------------------------------------- */
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-chip);
+  padding-block: 3px;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+.chip-status[data-size='sm'] {
+  padding-block: 1px;
+  padding-inline: 8px;
+}
+.chip-status[data-status='NORMAL'] { color: var(--status-normal); background: var(--status-normal-tint); }
+.chip-status[data-status='ELEVATED'] { color: var(--status-elevated); background: var(--status-elevated-tint); }
+.chip-status[data-status='DISRUPTED'] { color: var(--status-disrupted); background: var(--status-disrupted-tint); }
+.chip-status[data-status='CLOSED'] { color: var(--status-closed); background: var(--status-closed-tint); }
+.chip-status[data-status='UNKNOWN'] { color: var(--status-unknown); background: var(--status-unknown-tint); border-style: dashed; }
+
+/* ---- Trust ---------------------------------------------------------------------------------- */
+.chip-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding-block: 2px;
+  padding-inline: 10px;
+  max-inline-size: 100%;
+}
+.chip-trust svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+}
+.chip-trust .chip-meta {
+  color: var(--muted);
+}
+.chip-trust[data-kind='stale'] {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-unknown);
+  background: var(--status-unknown-tint);
+  border: 1px dashed var(--status-unknown);
+}
+.chip-party {
+  font-size: var(--fs-meta); /* the artboard draws 11 px; the 13 px UI floor wins */
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-elevated);
+  background: var(--status-elevated-tint);
+  border-radius: var(--radius-chip);
+  padding-inline: 6px;
+}
+.chip-trust-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  text-decoration: none;
+  color: inherit;
+}
+.chip-trust-link:hover .chip-trust {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* ---- Scenario identity ---------------------------------------------------------------------- */
+.chip-scenario {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-ui);
+  line-height: 1.35;
+}
+.chip-swatch {
+  flex: none;
+  align-self: center;
+  inline-size: 14px;
+  block-size: 14px;
+  background: var(--scn);
+}
+.chip-scenario[data-code='A'] { --scn: var(--scn-a); }
+.chip-scenario[data-code='B'] { --scn: var(--scn-b); }
+.chip-scenario[data-code='C'] { --scn: var(--scn-c); }
+.chip-scenario[data-code='D'] { --scn: var(--scn-d); }
+.chip-scenario[data-code='B'] .chip-swatch {
+  background: repeating-linear-gradient(135deg, var(--scn) 0 3px, transparent 3px 6px);
+  border: 1px solid var(--scn);
+}
+.chip-scenario[data-kind='unmeasured'] .chip-swatch,
+.chip-scenario[data-code='E'] .chip-swatch {
+  background: transparent;
+  border: 1px dashed var(--scn-unmeasured);
+}
+.chip-scenario:not([data-code='A']):not([data-code='B']):not([data-code='C']):not([data-code='D']) {
+  --scn: var(--muted);
+}
+.chip-letter {
+  font-family: var(--font-numeric);
+  font-weight: 600;
+  color: var(--scn, var(--text-2));
+}
+.chip-scenario[data-kind='unmeasured'] .chip-letter,
+.chip-scenario[data-code='E'] .chip-letter {
+  color: var(--text-2);
+}
+.chip-scn-value {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chip-range-word {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* ---- War Posture ---------------------------------------------------------------------------- */
+.chip-posture {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  line-height: 1.35;
+}
+.chip-posture-swatch {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 1px;
+  background: var(--pst, transparent);
+}
+.chip-posture[data-band='1'] { --pst: var(--posture-1); }
+.chip-posture[data-band='2'] { --pst: var(--posture-2); }
+.chip-posture[data-band='3'] { --pst: var(--posture-3); }
+.chip-posture[data-band='4'] { --pst: var(--posture-4); }
+/* EG / AE / SA (stated positions only) and no score: outline only, no fill, no number. */
+.chip-posture[data-band='none'] .chip-posture-swatch {
+  background: transparent;
+  border: 1px solid var(--muted);
+}
+.chip-posture[data-no-grade='true'] {
+  color: var(--text-2);
+}
+
+/* ============================================================
+   SITE HEADER (design system v2: Main / Home-Mobile artboards; components/CommandHeader.tsx) — global
+   .hdr-* classes for the same reason. Hairlines, no shadows, no blur; 44 × 44 targets; gold only for the
+   logo, the focus ring and the one primary CTA. Desktop from 1200 px, where the bar's content box is a
+   fixed 1152 px; below it, the menu button. Nothing in the bar shrinks below its content (no clipping, no
+   overlap): the nav keeps its width and the right cluster drops optional parts instead — the stamp's
+   "Day N ·" when the stale chip shows or in the Arabic UI (longer nav labels; there the whole stamp yields
+   to the stale chip, whose word always stays); the language toggle lives in More on desktop.
+   tests/e2e/header-layout.spec.ts checks 1024 / 1280 / 1440 px for overlaps and centre hit-tests.
+   ============================================================ */
+.hdr {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  border-block-end: 1px solid var(--line);
+  font-family: var(--font-ui);
+}
+.hdr-bar {
+  position: relative;
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  min-block-size: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hdr-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: var(--target);
+  flex: none;
+  color: var(--text);
+  text-decoration: none;
+}
+.hdr-logo .hdr-mark {
+  flex: none;
+}
+.hdr-logo-text {
+  /* The wordmark SVG (Newsreader 600 outlines): 21 px cap box, width from the viewBox. */
+  display: block;
+  height: 21px;
+  width: auto;
+  flex: none;
+}
+
+/* ---- Primary nav (desktop) ----------------------------------------------------------------- */
+.hdr-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto; /* content width, never shrunk under the right cluster */
+}
+.hdr-nav-link,
+.hdr-more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: var(--target);
+  padding-inline: 10px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.hdr-nav-link:hover,
+.hdr-more-button:hover {
+  color: var(--text);
+}
+.hdr-nav-link[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+}
+.hdr-more-button svg {
+  inline-size: 14px;
+  block-size: 14px;
+  transition: transform var(--dur-med) var(--ease);
+}
+.hdr-more-button[aria-expanded='true'] {
+  color: var(--text);
+}
+.hdr-more-button[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* The More panel spans the header bar (positioned against .hdr-bar), so it never runs off-screen. */
+.hdr-more-panel {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 24px;
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 24px;
+}
+
+/* ---- Groups (More panel and mobile menu) ------------------------------------------------------ */
+.hdr-group {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.hdr-group-label {
+  margin: 0 0 4px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--muted);
+}
+.hdr-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hdr-group-link {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--target);
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.hdr-group-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hdr-group-link[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+}
+.hdr-plan-line {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  padding-block: 4px;
+}
+
+/* ---- Right cluster ------------------------------------------------------------------------------ */
+.hdr-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hdr-right > * {
+  flex: none;
+}
+/* Stale data: the chip keeps its clock glyph and the visible word "Stale" (a trust label is always text;
+   "Data" is screen-reader only). The stamp gives way first: it drops "Day N ·" and keeps date and time. */
+.hdr-bar .hdr-stale-chip {
+  padding-inline: 8px;
+}
+/* Stale: the stamp drops "Day N ·" but keeps its date, so an old time never reads as today's. */
+.hdr-right:has([data-kind='stale']) .hdr-stamp-day,
+.hdr-right:has([data-kind='stale']) .hdr-sep {
+  display: none;
+}
+/* Arabic UI: the nav labels are longer: the stamp drops "Day N ·" (date and time stay); with stale data
+   the chip alone carries the state (the reasons are in its title). */
+html[lang='ar'] .hdr-bar .hdr-stamp-day,
+html[lang='ar'] .hdr-bar .hdr-sep,
+html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
+  display: none;
+}
+.hdr-stamp {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hdr-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target);
+  block-size: var(--target);
+  flex: none;
+  padding: 0;
+  color: var(--text-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.hdr-icon-button:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+.hdr-cta {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 16px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius);
+}
+.hdr-cta:hover {
+  color: var(--on-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hdr-lang {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 6px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.hdr-lang:hover {
+  color: var(--text);
+}
+
+.hdr-menu-button {
+  display: none;
+}
+@media (min-width: 1200px) {
+  .hdr-menu {
+    display: none;
+  }
+}
+
+/* ---- Mobile menu ---------------------------------------------------------------------------------- */
+.hdr-menu {
+  border-block-start: 1px solid var(--line);
+  background: var(--bg);
+  max-block-size: calc(100dvh - 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.hdr-menu-inner {
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding: 8px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hdr-menu-primary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block-end: 1px solid var(--line);
+  padding-block-end: 8px;
+}
+.hdr-menu-primary .hdr-group-link {
+  font-size: 17px;
+  color: var(--text);
+}
+.hdr-menu-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 16px;
+}
+.hdr-menu-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border-block-start: 1px solid var(--line);
+  padding-block-start: 12px;
+}
+.hdr-tool-label {
+  font-size: 15px;
+  color: var(--text-2);
+}
+
+@media (max-width: 1199px) {
+  .hdr-bar {
+    min-block-size: 56px;
+    padding-inline: 16px 8px;
+    gap: 8px;
+  }
+  .hdr-logo {
+    gap: 8px;
+  }
+  .hdr-logo .hdr-mark {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+  .hdr-logo-text {
+    height: 19px;
+  }
+  .hdr-nav,
+  .hdr-desktop-only {
+    display: none;
+  }
+  .hdr-right {
+    gap: 4px;
+  }
+  /* Phones: day over time, right-aligned, so the logo, stamp and menu button fit at 360 px. */
+  .hdr-bar .hdr-stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+  }
+  .hdr-sep {
+    display: none;
+  }
+  .hdr-menu-button {
+    display: inline-flex;
+  }
+  .hdr-menu-button {
+    color: var(--text);
+  }
+}
+@media (max-width: 419px) {
+  .hdr-bar .hdr-stamp-date {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .hdr-bar .hdr-stamp {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hdr-more-button svg {
+    transition: none;
+  }
+}
+@media print {
+  .hdr {
+    position: static;
+  }
+  .hdr-nav,
+  .hdr-right,
+  .hdr-menu {
+    display: none;
+  }
+}

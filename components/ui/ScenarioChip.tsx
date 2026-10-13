@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import s from './chips.module.css';
+/** Global .chip-* classes (app/globals.css, "SHARED CHIPS"). */
+const s = {
+  letter: 'chip-letter',
+  rangeWord: 'chip-range-word',
+  scenario: 'chip-scenario',
+  scnValue: 'chip-scn-value',
+  swatch: 'chip-swatch',
+} as const;
 
 /**
  * Scenario identity (design system v2): colour + letter, never colour alone. A #4DA6FF, B #D6B370,
