@@ -295,7 +295,7 @@ SELECT tl_test.chk('non-content column (updated_at) after 2h allowed', 'ok',
 SELECT tl_test.chk('first Arabic translation (NULL -> text) after 2h allowed', 'ok',
   $q$UPDATE public.daily_briefings SET title_ar = 'عنوان' WHERE id = '00000000-0000-0000-0000-00000000a001'$q$);
 SELECT tl_test.chk('edit within 2h allowed', 'ok',
-  $q$UPDATE public.daily_briefings SET title = 'TEST rewrite in window', sections = '[{"y":2}]' WHERE id = '00000000-0000-0000-0000-00000000a002'$q$);
+  $q$UPDATE public.daily_briefings SET title = 'TEST rewrite in window', sections = '[{"id":"s1","heading":"TEST","subsections":[]}]' WHERE id = '00000000-0000-0000-0000-00000000a002'$q$);
 SELECT tl_test.chk('edit after 2h WITH a published correction allowed', 'ok=edited',
   $q$SELECT tl_test.edit_with_correction('00000000-0000-0000-0000-00000000a001', '00000000-0000-0000-0000-00000000a001', true, 'TEST corrected title')$q$);
 SELECT tl_test.chk('correction for ANOTHER brief does not unlock this one', 'blocked',
