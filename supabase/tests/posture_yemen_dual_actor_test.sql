@@ -60,9 +60,9 @@ SELECT ya_test.chk('existing evidence rows all read actor = government (6 of 6)'
   $q$SELECT count(*) FILTER (WHERE actor = 'government') || '|' || count(*) FROM public.posture_evidence$q$);
 SELECT ya_test.chk('existing score rows all read actor = government (3 of 3)', 'ok=3|3',
   $q$SELECT count(*) FILTER (WHERE actor = 'government') || '|' || count(*) FROM public.posture_scores$q$);
-SELECT ya_test.chk('actor column default is government on both tables', 'ok=2',
+SELECT ya_test.chk('actor columns NOT NULL with no column default (filled by trigger) on both tables', 'ok=2',
   $q$SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('posture_evidence', 'posture_scores')
-       AND column_name = 'actor' AND is_nullable = 'NO' AND column_default = '''government''::text'$q$);
+       AND column_name = 'actor' AND is_nullable = 'NO' AND column_default IS NULL$q$);
 SELECT ya_test.chk('viewer_posture_v2 keeps its signature (text, text, integer)', 'ok=true',
   $q$SELECT to_regprocedure('public.viewer_posture_v2(text,text,integer)') IS NOT NULL$q$);
 SELECT ya_test.chk('viewer_posture_v2 returns actor + display names', 'ok=true',
@@ -116,10 +116,16 @@ SELECT ya_test.chk('de_facto_authority evidence for EG rejected', 'rejected:acto
   $q$INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, source_url, captured_at, method_version, actor)
      VALUES ('EG', 'red-sea-houthi', 'TEST', 'https://example.test/x', '2026-10-11T09:00Z', 'war-posture-v2', 'de_facto_authority')$q$);
 
-SELECT ya_test.chk('insert EVG1 (YE government, red-sea-houthi, 11 Oct; actor defaulted)', 'ok', $q$
-  INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, speaker, speaker_office, source_url, captured_at, stated_at, method_version, party_source)
+SELECT ya_test.chk('YE evidence omitting actor rejected (must be named: two authorities)', 'rejected', $q$
+  INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, speaker, source_url, captured_at, method_version)
+  VALUES ('YE', 'red-sea-houthi', 'TEST Houthi statement written without actor', 'TEST', 'https://example.test/ye-x', '2026-10-11T09:00Z', 'war-posture-v2')$q$);
+SELECT ya_test.chk('non-YE evidence omitting actor still accepted and filled with government', 'ok=government', $q$
+  WITH i AS (INSERT INTO public.posture_evidence (country_code, conflict_code, position_quote, speaker, source_url, captured_at, method_version)
+  VALUES ('IQ', 'us-iran', 'TEST IQ', 'TEST', 'https://example.test/iq', '2026-10-11T09:00Z', 'war-posture-v2') RETURNING actor) SELECT actor FROM i$q$);
+SELECT ya_test.chk('insert EVG1 (YE government, red-sea-houthi, 11 Oct; actor explicit)', 'ok', $q$
+  INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, speaker, speaker_office, source_url, captured_at, stated_at, method_version, party_source, actor)
   VALUES ('00000000-0000-0000-0000-0000000a0001', 'YE', 'red-sea-houthi', 'TEST YE government quote', 'TEST', 'Prime Minister', 'https://example.test/ye-gov',
-          '2026-10-11T09:00Z', '2026-10-11T07:00Z', 'war-posture-v2', false)$q$, true);
+          '2026-10-11T09:00Z', '2026-10-11T07:00Z', 'war-posture-v2', false, 'government')$q$, true);
 SELECT ya_test.chk('EVG1 reads actor = government', 'ok=government',
   $q$SELECT actor FROM public.posture_evidence WHERE id = '00000000-0000-0000-0000-0000000a0001'$q$);
 SELECT ya_test.chk('insert EVH1 (YE de facto authority, red-sea-houthi, 11 Oct)', 'ok', $q$
@@ -131,13 +137,16 @@ SELECT ya_test.chk('insert EVH2 (YE de facto authority, red-sea-houthi, 13 Oct)'
   VALUES ('00000000-0000-0000-0000-0000000a0003', 'YE', 'red-sea-houthi', 'TEST YE de facto quote two', 'TEST', 'Leader', 'https://example.test/ye-sanaa-2',
           '2026-10-13T01:00Z', '2026-10-12T20:00Z', 'war-posture-v2', true, 'de_facto_authority')$q$, true);
 
+SELECT ya_test.chk('YE score omitting actor rejected (must be named: two authorities)', 'rejected', $q$
+  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
+  VALUES ('YE', 'red-sea-houthi', 228, '2026-10-13', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0001', 'high', 'new_evidence')$q$);
 -- evidence / actor mismatch
 SELECT ya_test.chk('YE de facto score resting on government evidence rejected', 'rejected:actor', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
   VALUES ('YE', 'red-sea-houthi', 'de_facto_authority', 226, '2026-10-11', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0001', 'medium', 'new_evidence')$q$);
 SELECT ya_test.chk('YE government score resting on de facto evidence rejected', 'rejected:actor', $q$
-  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
-  VALUES ('YE', 'red-sea-houthi', 226, '2026-10-11', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0002', 'medium', 'new_evidence')$q$);
+  INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
+  VALUES ('YE', 'red-sea-houthi', 'government', 226, '2026-10-11', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0002', 'medium', 'new_evidence')$q$);
 SELECT ya_test.chk('de_facto_authority score for a non-registered country (IR) rejected', 'rejected:actor', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, change_reason, note)
   VALUES ('IR', 'us-iran', 'de_facto_authority', 228, '2026-10-13', 'nulled', 'nulled', 'TEST')$q$);
@@ -147,8 +156,8 @@ SELECT ya_test.chk('score actor outside the enum rejected', 'rejected', $q$
 
 -- per-actor sequences on the same country x conflict
 SELECT ya_test.chk('Y1 YE government Day 228: continued_pressure 75 (new_evidence)', 'ok', $q$
-  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
-  VALUES ('YE', 'red-sea-houthi', 228, '2026-10-13', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000a0001', 'high', 'new_evidence')$q$, true);
+  INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
+  VALUES ('YE', 'red-sea-houthi', 'government', 228, '2026-10-13', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000a0001', 'high', 'new_evidence')$q$, true);
 SELECT ya_test.chk('YE de facto first row as reverification rejected (first-row rule is per actor)', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
   VALUES ('YE', 'red-sea-houthi', 'de_facto_authority', 226, '2026-10-11', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0002', 'medium', 'reverification', 'TEST')$q$);
@@ -168,8 +177,8 @@ SELECT ya_test.chk('second YE de facto row on Day 228 rejected (one row per acto
   INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
   VALUES ('YE', 'red-sea-houthi', 'de_facto_authority', 228, '2026-10-13', 'position', 'escalation', 100, '00000000-0000-0000-0000-0000000a0003', 'high', 'reverification', 'TEST')$q$);
 SELECT ya_test.chk('government line still append-in-order: YE government Day 227 under its Day 228 rejected', 'rejected', $q$
-  INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
-  VALUES ('YE', 'red-sea-houthi', 227, '2026-10-12', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0001', 'high', 'reverification', 'TEST')$q$);
+  INSERT INTO public.posture_scores (country_code, conflict_code, actor, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
+  VALUES ('YE', 'red-sea-houthi', 'government', 227, '2026-10-12', 'position', 'escalation', 95, '00000000-0000-0000-0000-0000000a0001', 'high', 'reverification', 'TEST')$q$);
 SELECT ya_test.chk('EG score still rejected (positions-ledger-only policy unchanged)', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, change_reason, note)
   VALUES ('EG', 'us-iran', 228, '2026-10-13', 'nulled', 'nulled', 'TEST')$q$);

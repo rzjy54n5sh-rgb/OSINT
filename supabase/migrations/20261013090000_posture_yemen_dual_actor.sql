@@ -127,6 +127,13 @@ COMMENT ON FUNCTION public.posture_actor_registered(text, text) IS
 -- =====================================================================================================
 ALTER TABLE public.posture_evidence ADD COLUMN IF NOT EXISTS actor text NOT NULL DEFAULT 'government';
 ALTER TABLE public.posture_scores   ADD COLUMN IF NOT EXISTS actor text NOT NULL DEFAULT 'government';
+-- No column default for NEW rows: an INSERT that omits actor is filled with 'government' by the BEFORE INSERT
+-- triggers below, EXCEPT for a country with a registered de facto authority (YE), where it is rejected — a
+-- Houthi statement written without actor must never silently become a government (PLC) row (append-only:
+-- it could not be fixed in place). DROP DEFAULT keeps the stored 'government' for pre-existing rows
+-- (attmissingval), so this is still catalog-only.
+ALTER TABLE public.posture_evidence ALTER COLUMN actor DROP DEFAULT;
+ALTER TABLE public.posture_scores   ALTER COLUMN actor DROP DEFAULT;
 COMMENT ON COLUMN public.posture_evidence.actor IS
   'Whose voice the evidence is: government (default; the internationally recognised government) or de_facto_authority (only for countries registered in posture_actors, e.g. YE = Ansar Allah / Houthi authorities, Sanaa).';
 COMMENT ON COLUMN public.posture_scores.actor IS
@@ -159,6 +166,13 @@ LANGUAGE plpgsql
 SET search_path = ''
 AS $fn$
 BEGIN
+  IF NEW.actor IS NULL THEN
+    IF EXISTS (SELECT 1 FROM public.posture_actors a WHERE a.country_code = NEW.country_code AND a.actor <> 'government') THEN
+      RAISE EXCEPTION 'posture_evidence: % has two authorities (posture_actors): name the actor explicitly (government or de_facto_authority)', NEW.country_code
+        USING ERRCODE = 'not_null_violation';
+    END IF;
+    NEW.actor := 'government';
+  END IF;
   IF NOT public.posture_actor_registered(NEW.country_code, NEW.actor) THEN
     RAISE EXCEPTION 'posture_evidence: actor % is not registered for % (posture_actors) — only YE has a de_facto_authority line', NEW.actor, NEW.country_code
       USING ERRCODE = 'check_violation';
@@ -185,6 +199,13 @@ DECLARE
   prev public.posture_scores%ROWTYPE;
   ev_at timestamptz;
 BEGIN
+  IF NEW.actor IS NULL THEN
+    IF EXISTS (SELECT 1 FROM public.posture_actors a WHERE a.country_code = NEW.country_code AND a.actor <> 'government') THEN
+      RAISE EXCEPTION 'posture_scores: % has two authorities (posture_actors): name the actor explicitly (government or de_facto_authority)', NEW.country_code
+        USING ERRCODE = 'not_null_violation';
+    END IF;
+    NEW.actor := 'government';
+  END IF;
   IF public.posture_is_withheld(NEW.country_code) THEN
     RAISE EXCEPTION 'posture_scores: % is under the positions-ledger-only editorial policy (posture_publication_policy): capture its statements and acts in posture_evidence only, never a score row', NEW.country_code
       USING ERRCODE = 'check_violation';
@@ -461,8 +482,8 @@ REVOKE ALL ON FUNCTION public.posture_evidence_actor_check() FROM service_role;
 DO $post$
 BEGIN
   IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name IN ('posture_evidence', 'posture_scores')
-         AND column_name = 'actor' AND is_nullable = 'NO' AND column_default = '''government''::text') <> 2 THEN
-    RAISE EXCEPTION 'posture_yemen_dual_actor post-check: actor columns missing / nullable / wrong default';
+         AND column_name = 'actor' AND is_nullable = 'NO' AND column_default IS NULL) <> 2 THEN
+    RAISE EXCEPTION 'posture_yemen_dual_actor post-check: actor columns missing / nullable / still carry a default';
   END IF;
   IF (SELECT count(*) FROM public.posture_actors WHERE country_code = 'YE' AND actor IN ('government', 'de_facto_authority')) <> 2 THEN
     RAISE EXCEPTION 'posture_yemen_dual_actor post-check: YE actor rows missing';
