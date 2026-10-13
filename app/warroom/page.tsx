@@ -10,17 +10,23 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { PageShareButton } from '@/components/PageShareButton';
 import { PageShareCard } from '@/components/PageShareCard';
 import { DataAsOf } from '@/components/ui/DataAsOf';
-import { CitedReporting, EvidenceQuote, PostureAge, PostureChip, V1FrozenTag, stanceText } from '@/components/posture/PostureParts';
+import { CitedReporting, EvidenceQuote, PostureActorTag, PostureAge, PostureChip, V1FrozenTag, stanceText } from '@/components/posture/PostureParts';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { TRACKED_COUNTRY_CODES, NO_SOURCED_DATA_TEXT } from '@/lib/countries';
 import { getNaiV2DayResult, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
 import {
+  POSTURE_ACTORS,
+  POSTURE_DEFAULT_ACTOR,
   POSTURE_WITHHELD_TEXT,
   conflictName,
   getPostureBoard,
+  isDualActorCountry,
   isV1Fallback,
+  postureActorLineLabel,
   postureMoves,
+  postureRowKey,
   v1FrozenText,
+  type PostureActor,
   type PostureBoard,
   type PostureView,
 } from '@/lib/posture';
@@ -331,7 +337,9 @@ export default function WarRoomPage() {
     return 'red';
   };
 
-  // War Posture: every conflict row per country, registry order; the "primary" row is the first coded position.
+  // War Posture: every row per country — government line first, then (Yemen) the de facto authority line,
+  // each in registry order; the "primary" row of a line is its first coded position. Yemen's two lines are
+  // never merged: a dual-actor country gets no single header number, one summary per line instead.
   const naiDay = board ? (board.schema === 'v1' ? board.latestDay : board.day) : null;
   const conflictOrder = new Map((board?.conflicts ?? []).map((c, i) => [c.conflict_code, i]));
   const postureByCode = new Map<string, PostureView[]>();
@@ -341,17 +349,30 @@ export default function WarRoomPage() {
     postureByCode.set(r.country_code, list);
   }
   for (const list of postureByCode.values()) {
-    list.sort((a, b) => (conflictOrder.get(a.conflict_code ?? '') ?? 99) - (conflictOrder.get(b.conflict_code ?? '') ?? 99));
+    list.sort(
+      (a, b) =>
+        Number(a.actor !== POSTURE_DEFAULT_ACTOR) - Number(b.actor !== POSTURE_DEFAULT_ACTOR) ||
+        (conflictOrder.get(a.conflict_code ?? '') ?? 99) - (conflictOrder.get(b.conflict_code ?? '') ?? 99),
+    );
   }
-  const primaryFor = (code: string): PostureView | null => {
-    const list = postureByCode.get(code) ?? [];
+  const primaryForLine = (code: string, actor: PostureActor): PostureView | null => {
+    const list = (postureByCode.get(code) ?? []).filter((r) => r.actor === actor);
     return list.find((r) => r.stance === 'position') ?? list.find((r) => r.stance === 'deliberate_silence') ?? list[0] ?? null;
   };
-  // Arrows only for changes on NEW evidence (v2); v1 day-to-day differences are never shown as moves.
-  const moveByKey = new Map((board ? postureMoves(board) : []).map((m) => [`${m.row.country_code}|${m.row.conflict_code}`, m.delta]));
+  /** Lines of a country: [government] for most, [government, de_facto_authority] for Yemen. */
+  const actorsFor = (code: string): PostureActor[] =>
+    isDualActorCountry(code)
+      ? POSTURE_ACTORS.filter((a) => a.country_code === code).map((a) => a.actor).sort((a, b) => Number(a !== POSTURE_DEFAULT_ACTOR) - Number(b !== POSTURE_DEFAULT_ACTOR))
+      : [POSTURE_DEFAULT_ACTOR];
+  const primaryFor = (code: string): PostureView | null => (isDualActorCountry(code) ? null : primaryForLine(code, POSTURE_DEFAULT_ACTOR));
+  // Arrows only for changes on NEW evidence (v2); v1 day-to-day differences are never shown as moves. Per line.
+  const moveByKey = new Map((board ? postureMoves(board) : []).map((m) => [postureRowKey(m.row), m.delta]));
   const countries = [...TRACKED_COUNTRY_CODES].sort((a, b) => a.localeCompare(b));
   const postureRows = postureByCode.get(activeCountry) ?? [];
+  const activeDual = isDualActorCountry(activeCountry);
   const posture = primaryFor(activeCountry);
+  const lineSummary = (r: PostureView) =>
+    `${stanceText(r)}${r.expressed_score !== null ? ` ${r.expressed_score}` : ''}`;
   const cName = (code: string | null) => conflictName(board?.conflicts ?? [], code);
   // A frozen War Posture v1 row on a v2 board (country not yet re-coded): labelled with its OWN day.
   const isFrozenV1 = (r: PostureView) => (board ? isV1Fallback(board, r) : false);
@@ -504,6 +525,13 @@ export default function WarRoomPage() {
             getCopyText={() => {
               const p = posture;
               const base = typeof window !== 'undefined' ? window.location.origin : '';
+              if (activeDual) {
+                const lines = actorsFor(activeCountry)
+                  .map((a) => primaryForLine(activeCountry, a))
+                  .filter((r): r is PostureView => r !== null)
+                  .map((r) => `${postureActorLineLabel(r)}: ${lineSummary(r)}${isFrozenV1(r) ? ` (${v1FrozenText(r)})` : ''}`);
+                return `${activeName} War Posture — two authorities, two lines: ${lines.length ? lines.join(' · ') : NO_SOURCED_DATA_TEXT} (0 = ceasefire, 100 = escalate) · Day ${naiDay ?? '—'} — ${base}/warroom`;
+              }
               return p && isFrozenV1(p)
                 ? `${activeName} ${v1FrozenText(p)}: ${stanceText(p)}${p.expressed_score !== null ? ` ${p.expressed_score}` : ''} (0 = ceasefire, 100 = escalate) — ${base}/warroom`
                 : p
@@ -531,11 +559,13 @@ export default function WarRoomPage() {
           </div>
           <div>
             {countries.map((code) => {
+              const dual = isDualActorCountry(code);
               const r = primaryFor(code);
+              const lines = actorsFor(code).map((a) => primaryForLine(code, a));
               const name = reportFor(code)?.country_name ?? code;
               const isActive = activeCountry === code;
               const count = articleCountByCountry[code] ?? 0;
-              const d = r ? (moveByKey.get(`${r.country_code}|${r.conflict_code}`) ?? null) : null;
+              const d = r ? (moveByKey.get(postureRowKey(r)) ?? null) : null;
               return (
                 <button
                   key={code}
@@ -543,7 +573,7 @@ export default function WarRoomPage() {
                   onClick={() => setActiveCountry(code)}
                   className="country-row"
                   data-active={isActive}
-                  data-nai={r?.stance ?? 'NONE'}
+                  data-nai={dual ? lines.map((l) => l?.stance ?? 'NONE').join(' ') : (r?.stance ?? 'NONE')}
                   aria-pressed={isActive}
                 >
                   <span
@@ -559,7 +589,28 @@ export default function WarRoomPage() {
                       {name}
                     </div>
                     <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>
-                      {r ? (
+                      {dual ? (
+                        // One line per authority (Yemen), never one merged number.
+                        actorsFor(code).map((a, i) => {
+                          const l = lines[i];
+                          const ld = l ? (moveByKey.get(postureRowKey(l)) ?? null) : null;
+                          return (
+                            <div key={a} data-actor={a}>
+                              {l ? (
+                                <>
+                                  {postureActorLineLabel(l)}: {l.conflict_code ? `${cName(l.conflict_code)}: ` : isFrozenV1(l) ? `v1 frozen, Day ${l.score_day ?? '—'}: ` : ''}
+                                  {lineSummary(l)}
+                                  {ld !== null && ld !== 0 ? ` (${formatGap(ld)})` : ''}
+                                </>
+                              ) : (
+                                <>
+                                  {postureActorLineLabel({ country_code: code, actor: a, actor_display_name: null })}: {NO_SOURCED_DATA_TEXT}
+                                </>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : r ? (
                         <>
                           {r.conflict_code ? `${cName(r.conflict_code)}: ` : isFrozenV1(r) ? `v1 frozen, Day ${r.score_day ?? '—'}: ` : ''}
                           {stanceText(r)}
@@ -640,7 +691,7 @@ export default function WarRoomPage() {
                 {activeName}
               </span>
               <span style={{ color: 'var(--text-secondary)', fontSize: 11 }} translate="no" data-testid="warroom-wp">
-                WAR POSTURE{posture?.expressed_score != null ? ` ${posture.expressed_score}` : ''}
+                WAR POSTURE{activeDual ? ' · TWO AUTHORITIES, TWO LINES' : posture?.expressed_score != null ? ` ${posture.expressed_score}` : ''}
               </span>
               {posture && <PostureChip row={posture} />}
               <span style={{ color: 'var(--text-muted)', fontSize: 11 }} translate="no">
@@ -679,7 +730,8 @@ export default function WarRoomPage() {
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
                 {postureRows.map((r) => (
-                  <li key={r.conflict_code ?? 'v1'} data-testid="warroom-posture-row" data-stance={r.stance} data-method={r.method}>
+                  <li key={postureRowKey(r)} data-testid="warroom-posture-row" data-stance={r.stance} data-method={r.method} data-actor={r.actor}>
+                    <PostureActorTag row={r} className="block" />
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 10px' }}>
                       {isFrozenV1(r) ? (
                         <V1FrozenTag row={r} />
@@ -816,10 +868,11 @@ export default function WarRoomPage() {
                 {postureRows.length > 0 ? (
                   <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
                     {postureRows.map((r) =>
-                      r.evidence ? (
-                        <EvidenceQuote key={`ev-${r.conflict_code ?? 'v1'}`} e={r.evidence} compact />
-                      ) : r.cited.length > 0 ? (
-                        <CitedReporting key={`ci-${r.conflict_code ?? 'v1'}`} sources={r.cited} compact />
+                      r.evidence || r.cited.length > 0 ? (
+                        <div key={`ev-${postureRowKey(r)}`} data-actor={r.actor}>
+                          <PostureActorTag row={r} className="block mb-1" />
+                          {r.evidence ? <EvidenceQuote e={r.evidence} compact /> : <CitedReporting sources={r.cited} compact />}
+                        </div>
                       ) : null,
                     )}
                     <Link prefetch={false} href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>

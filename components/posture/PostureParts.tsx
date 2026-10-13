@@ -16,6 +16,7 @@ import {
   POSTURE_WITHHELD_TEXT,
   POSTURE_WITHHELD_TITLE,
   ageLine,
+  postureActorLineLabel,
   postureLabelDef,
   shortDate,
   v1FrozenText,
@@ -55,6 +56,33 @@ export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>
     default:
       return row.method === 'war-posture-v1' ? 'No position coded this day' : POSTURE_UNCODED_TEXT;
   }
+}
+
+/**
+ * Which authority a line scores, on a dual-actor country only (Yemen): "Government (PLC)" or
+ * "Ansar Allah (Houthi), de facto authority". Renders nothing for an ordinary (government-only) country.
+ */
+export function PostureActorTag({
+  row,
+  className = '',
+}: {
+  row: Pick<PostureView, 'country_code' | 'actor' | 'actor_display_name'>;
+  className?: string;
+}) {
+  const label = postureActorLineLabel(row);
+  if (!label) return null;
+  return (
+    <span
+      className={`font-mono text-[11px] uppercase ${className}`}
+      style={{ color: 'var(--text-secondary)' }}
+      data-testid="posture-actor"
+      data-actor={row.actor}
+      title={row.actor_display_name ?? undefined}
+      translate="no"
+    >
+      {label}
+    </span>
+  );
 }
 
 /** Label chip: swatch + neutral behavioural label (+ defensive flag). */
@@ -157,6 +185,7 @@ export function EvidenceQuote({ e, compact = false }: { e: PostureEvidenceView; 
         {kindTag}
         {stated ? ` · ${stated}` : ''}
         {captured && captured !== stated ? ` · captured ${captured}` : ''}
+        {e.actor === 'de_facto_authority' ? ' · de facto authority' : ''}
         {e.party_source ? ' · party / state source' : ''}
       </p>
       <blockquote

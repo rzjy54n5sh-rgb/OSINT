@@ -195,6 +195,12 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
                   government separately on each conflict in a small registry: {CONFLICTS_FALLBACK.map((c) => c.short_name).join(', ')}.
                 </Li>
                 <Li>
+                  <strong style={{ color: 'var(--text-primary)' }}>Yemen: two authorities, two lines.</strong> Yemen is
+                  shown twice, separately and never averaged: the internationally recognised government (Presidential
+                  Leadership Council, Aden) and the Ansar Allah (Houthi) de facto authorities in Sanaa. Each line rests only on
+                  statements by its own officials; Saba (Sanaa) and Al-Masirah are marked as party sources.
+                </Li>
+                <Li>
                   <strong style={{ color: 'var(--text-primary)' }}>Captured once, kept on record.</strong> Version 1 re-opened
                   every citation every day and blanked a score when a page could not be re-opened: on Day 223, 12 of 25
                   countries lost their score overnight that way. Version 2 captures the statement once — the exact words, the
