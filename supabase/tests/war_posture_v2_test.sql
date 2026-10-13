@@ -128,9 +128,9 @@ SELECT wp_test.chk('insert evidence EV2 (IR statement, 9 Oct)', 'ok', $q$
   INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, speaker, source_url, archive_url, page_sha256, captured_at, stated_at, method_version)
   VALUES ('00000000-0000-0000-0000-0000000e0002', 'IR', 'us-iran', 'TEST verbatim quote two', 'TEST speaker', 'https://example.test/ir2',
           'https://web.archive.org/web/2026/https://example.test/ir2', repeat('b', 64), '2026-10-09T09:00Z', '2026-10-09T07:00Z', 'war-posture-v2')$q$, true);
-SELECT wp_test.chk('insert evidence EV3 (YE red-sea-houthi)', 'ok', $q$
+SELECT wp_test.chk('insert evidence EV3 (DJ red-sea-houthi)', 'ok', $q$
   INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, source_url, captured_at, method_version)
-  VALUES ('00000000-0000-0000-0000-0000000e0003', 'YE', 'red-sea-houthi', 'TEST verbatim quote YE', 'https://example.test/ye', '2026-10-01T09:00Z', 'war-posture-v2')$q$, true);
+  VALUES ('00000000-0000-0000-0000-0000000e0003', 'DJ', 'red-sea-houthi', 'TEST verbatim quote YE', 'https://example.test/ye', '2026-10-01T09:00Z', 'war-posture-v2')$q$, true);
 SELECT wp_test.chk('insert evidence EV4 (IL silence trigger, 5 Oct)', 'ok', $q$
   INSERT INTO public.posture_evidence (id, country_code, conflict_code, position_quote, source_url, captured_at, stated_at, method_version, evidence_kind)
   VALUES ('00000000-0000-0000-0000-0000000e0004', 'IL', 'us-iran', 'TEST sentence describing the trigger event', 'https://example.test/il', '2026-10-06T09:00Z', '2026-10-05T00:00Z', 'war-posture-v2', 'silence_trigger')$q$, true);
@@ -177,7 +177,7 @@ SELECT wp_test.chk('no-change row rejected (carry forward instead)', 'rejected',
           '[{"claim":"TEST L claim","name":"Example","url":"https://example.test/l","published_at":"2026-10-09","party_source":false,"feeds":"L"}]')$q$);
 SELECT wp_test.chk('latent band without L sources rejected', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, latent_low, latent_high)
-  VALUES ('YE', 'red-sea-houthi', 216, '2026-10-01', 'position', 'escalation', 90, '00000000-0000-0000-0000-0000000e0003', 'medium', 'new_evidence', 10, 20)$q$);
+  VALUES ('DJ', 'red-sea-houthi', 216, '2026-10-01', 'position', 'escalation', 90, '00000000-0000-0000-0000-0000000e0003', 'medium', 'new_evidence', 10, 20)$q$);
 SELECT wp_test.chk('evidence of another country rejected', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
   VALUES ('TR', 'us-iran', 221, '2026-10-06', 'position', 'ambivalent', 50, '00000000-0000-0000-0000-0000000e0001', 'low', 'new_evidence')$q$);
@@ -199,21 +199,21 @@ SELECT wp_test.chk('EG score row rejected (positions-ledger-only policy)', 'reje
 SELECT wp_test.chk('SA silence row rejected (policy covers every stance)', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, evidence_id, confidence_base, change_reason, silence_checked_through)
   VALUES ('SA', 'us-iran', 221, '2026-10-06', 'deliberate_silence', '00000000-0000-0000-0000-0000000e0008', 'low', 'new_evidence', '2026-10-06T08:00Z')$q$);
-SELECT wp_test.chk('S3 YE day 216 escalation 90', 'ok', $q$
+SELECT wp_test.chk('S3 DJ day 216 escalation 90', 'ok', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
-  VALUES ('YE', 'red-sea-houthi', 216, '2026-10-01', 'position', 'escalation', 90, '00000000-0000-0000-0000-0000000e0003', 'medium', 'new_evidence')$q$, true);
+  VALUES ('DJ', 'red-sea-houthi', 216, '2026-10-01', 'position', 'escalation', 90, '00000000-0000-0000-0000-0000000e0003', 'medium', 'new_evidence')$q$, true);
 SELECT wp_test.chk('reverification without note rejected', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
-  VALUES ('YE', 'red-sea-houthi', 220, '2026-10-05', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000e0003', 'medium', 'reverification')$q$);
-SELECT wp_test.chk('S4 YE day 220 reverification of EV3 -> 75', 'ok', $q$
+  VALUES ('DJ', 'red-sea-houthi', 220, '2026-10-05', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000e0003', 'medium', 'reverification')$q$);
+SELECT wp_test.chk('S4 DJ day 220 reverification of EV3 -> 75', 'ok', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason, note)
-  VALUES ('YE', 'red-sea-houthi', 220, '2026-10-05', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000e0003', 'medium', 'reverification', 'TEST: archived page re-read; quote is conditional')$q$, true);
+  VALUES ('DJ', 'red-sea-houthi', 220, '2026-10-05', 'position', 'continued_pressure', 75, '00000000-0000-0000-0000-0000000e0003', 'medium', 'reverification', 'TEST: archived page re-read; quote is conditional')$q$, true);
 SELECT wp_test.chk('nulled without note rejected', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, evidence_id, change_reason)
-  VALUES ('YE', 'red-sea-houthi', 222, '2026-10-07', 'nulled', '00000000-0000-0000-0000-0000000e0003', 'nulled')$q$);
-SELECT wp_test.chk('S5 YE day 222 nulled (evidence ruled inadmissible)', 'ok', $q$
+  VALUES ('DJ', 'red-sea-houthi', 222, '2026-10-07', 'nulled', '00000000-0000-0000-0000-0000000e0003', 'nulled')$q$);
+SELECT wp_test.chk('S5 DJ day 222 nulled (evidence ruled inadmissible)', 'ok', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, evidence_id, change_reason, note)
-  VALUES ('YE', 'red-sea-houthi', 222, '2026-10-07', 'nulled', '00000000-0000-0000-0000-0000000e0003', 'nulled', 'TEST: speaker is not a government voice')$q$, true);
+  VALUES ('DJ', 'red-sea-houthi', 222, '2026-10-07', 'nulled', '00000000-0000-0000-0000-0000000e0003', 'nulled', 'TEST: speaker is not a government voice')$q$, true);
 -- verifier additions (PR #28): backdating, forged silence, out-of-order, laundered re-capture, append-only
 SELECT wp_test.chk('as_of not the DAY LOCK date of conflict_day rejected', 'rejected', $q$
   INSERT INTO public.posture_scores (country_code, conflict_code, conflict_day, as_of, stance, label, expressed_score, evidence_id, confidence_base, change_reason)
@@ -278,8 +278,8 @@ SELECT wp_test.chk('QA: evidence captured but not coded -> uncoded', 'ok=uncoded
   $q$SELECT concat_ws('|', stance, coalesce(expressed_score::text, '<null>')) FROM public.viewer_posture_v2('us-iran', 'QA', 226)$q$);
 SELECT wp_test.chk('TR: nothing ever captured -> no row', 'ok=0',
   $q$SELECT count(*) FROM public.viewer_posture_v2('us-iran', 'TR', 226)$q$);
-SELECT wp_test.chk('YE: nulled after reverification', 'ok=nulled|nulled|position|75',
-  $q$SELECT concat_ws('|', stance, change_reason, previous_stance, previous_score) FROM public.viewer_posture_v2('red-sea-houthi', 'YE', 226)$q$);
+SELECT wp_test.chk('DJ: nulled after reverification', 'ok=nulled|nulled|position|75',
+  $q$SELECT concat_ws('|', stance, change_reason, previous_stance, previous_score) FROM public.viewer_posture_v2('red-sea-houthi', 'DJ', 226)$q$);
 SELECT wp_test.chk('per-conflict board us-iran @226', 'ok=EG:withheld,IL:deliberate_silence,IR:position,QA:uncoded,SA:withheld',
   $q$SELECT string_agg(country_code || ':' || stance, ',' ORDER BY country_code) FROM public.viewer_posture_v2('us-iran', NULL, 226)$q$);
 SELECT wp_test.chk('all conflicts @226: 6 pairs', 'ok=6', $q$SELECT count(*) FROM public.viewer_posture_v2(NULL, NULL, 226)$q$);

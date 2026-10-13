@@ -8,16 +8,19 @@
  *
  * Until that migration is applied (or while viewer_posture_v2 returns no rows) the board falls back to the
  * War Posture v1 table (nai_scores_v2: one blended number per country) and says so. Once v2 rows exist
- * the board is v2, and every country with no CODED v2 row that day (none, or only 'uncoded' = statement
- * captured, not yet coded) keeps its latest v1 row (v1 is frozen: no new rows), marked "War Posture v1 —
- * frozen, Day N", grouped under V1_FROZEN_CONFLICT, and noted when a v2 statement awaits coding. A
- * country never gets both. In EVERY mode the EG / AE / SA rule is applied here too, so the page never
+ * the board is v2, and every LINE (country x actor: one per country, two for Yemen — see "Actors") with
+ * no CODED v2 row that day (none, or only 'uncoded' = statement captured, not yet coded) keeps its latest
+ * v1 row (v1 is frozen: no new rows), marked "War Posture v1 — frozen, Day N", grouped under
+ * V1_FROZEN_CONFLICT, and noted when a v2 statement awaits coding. A line never gets both; the v1 row
+ * (one number per country) stands in for one line only (V1_FALLBACK_ACTOR). Yemen's two lines (20261013090000_posture_yemen_dual_actor.sql)
+ * are never merged or averaged. In EVERY mode the EG / AE / SA rule is applied here too, so the page never
  * shows a grade for them, whatever the DB holds: on a v2 board their v1 rows are never shown, and with no
  * v2 row at all they get a policy-only "Stated positions only" row (no evidence, no grade).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiSourceV2 } from '@/types/supabase';
 import { isMissingRpc } from '@/lib/supabase/rpc-fallback';
+import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
 import {
   NAI_V2_START_DAY,
   getNaiV2CountryLatest,
@@ -45,6 +48,92 @@ export const POSTURE_UNCODED_TEXT = 'Statement captured, not yet coded';
 export const POSTURE_PANEL_CONFLICT = 'us-iran';
 export const POSTURE_WITHHELD_TEXT =
   'Editorial policy: the desk publishes no 0–100 War Posture grade or category colour for Egypt, the United Arab Emirates or Saudi Arabia. It shows what their governments have said, word for word with date and link, and what they have done (deployments, basing, votes) as facts.';
+
+// ---------------------------------------------------------------------------------------------------
+// Actors (mirror of public.posture_actors, migration 20261013090000_posture_yemen_dual_actor.sql)
+// ---------------------------------------------------------------------------------------------------
+/**
+ * Whose posture a line scores. Every country is scored for its government (the default). A country
+ * registered with a de facto authority (Yemen: Ansar Allah / Houthi authorities in Sanaa) has a SECOND,
+ * separate line — never merged with the government line into one number (operator decision 2026-10-13).
+ */
+export type PostureActor = 'government' | 'de_facto_authority';
+export const POSTURE_DEFAULT_ACTOR: PostureActor = 'government';
+
+export interface PostureActorDef {
+  country_code: string;
+  actor: PostureActor;
+  display_name: string;
+  display_name_ar: string;
+  /** Suffix after the country name on a board line: "Yemen — Government (PLC)". */
+  line_label: string;
+}
+export const POSTURE_ACTORS: readonly PostureActorDef[] = [
+  {
+    country_code: 'YE',
+    actor: 'government',
+    display_name: 'Government of Yemen (Presidential Leadership Council)',
+    display_name_ar: 'الحكومة اليمنية (مجلس القيادة الرئاسي)',
+    line_label: 'Government (PLC)',
+  },
+  {
+    country_code: 'YE',
+    actor: 'de_facto_authority',
+    display_name: 'Ansar Allah (Houthi) authorities, Sanaa',
+    display_name_ar: 'سلطات أنصار الله (الحوثيين) في صنعاء',
+    line_label: 'Ansar Allah (Houthi), de facto authority',
+  },
+];
+
+/**
+ * The line a country's frozen War Posture v1 row (nai_scores_v2, one number per country) belongs to on a
+ * v2 board. Default: government. YE: government too — every frozen v1 YE row (Days 221–227) states in its
+ * expressed_basis that it was "Scored for the internationally recognised government (PLC)" and cites PLC
+ * chair al-Alimi / the Office of the Prime Minister in Aden. The v1 number is therefore attached to the
+ * government line only and never shown on the de facto authority line. Change here (one line) only if
+ * the operator rules otherwise.
+ */
+export const V1_FALLBACK_ACTOR: Readonly<Record<string, PostureActor>> = { YE: 'government' };
+export function v1ActorFor(code: string): PostureActor {
+  return V1_FALLBACK_ACTOR[code.trim().toUpperCase()] ?? POSTURE_DEFAULT_ACTOR;
+}
+
+/** Normalise an actor value from the DB. Anything but the two enum values is the government line. */
+export function asPostureActor(v: unknown): PostureActor {
+  return v === 'de_facto_authority' ? 'de_facto_authority' : POSTURE_DEFAULT_ACTOR;
+}
+export function postureActorDef(code: string | null | undefined, actor: PostureActor): PostureActorDef | null {
+  const cc = (code ?? '').trim().toUpperCase();
+  return POSTURE_ACTORS.find((a) => a.country_code === cc && a.actor === actor) ?? null;
+}
+/** true = the country has more than one line (YE). */
+export function isDualActorCountry(code: string | null | undefined): boolean {
+  const cc = (code ?? '').trim().toUpperCase();
+  return POSTURE_ACTORS.some((a) => a.country_code === cc && a.actor !== POSTURE_DEFAULT_ACTOR);
+}
+/** "Government (PLC)" / "Ansar Allah (Houthi), de facto authority" for a dual-actor line; null otherwise. */
+export function postureActorLineLabel(row: Pick<PostureView, 'country_code' | 'actor' | 'actor_display_name'>): string | null {
+  if (!isDualActorCountry(row.country_code) && row.actor === POSTURE_DEFAULT_ACTOR) return null;
+  return (
+    postureActorDef(row.country_code, row.actor)?.line_label ??
+    row.actor_display_name ??
+    (row.actor === 'de_facto_authority' ? 'de facto authority' : 'Government')
+  );
+}
+/** Board line name: "Yemen — Government (PLC)", "Yemen — Ansar Allah (Houthi), de facto authority", "Iran". */
+export function postureLineLabel(row: Pick<PostureView, 'country_code' | 'actor' | 'actor_display_name'>, countryName?: string | null): string {
+  const name = countryName ?? TRACKED_COUNTRY_NAMES[row.country_code] ?? row.country_code;
+  const suffix = postureActorLineLabel(row);
+  return suffix ? `${name} — ${suffix}` : name;
+}
+/** One line = country x actor (across conflicts). */
+export function postureLineKey(code: string, actor: PostureActor): string {
+  return `${code.toUpperCase()}|${actor}`;
+}
+/** Unique key of a board row: country x conflict x actor (React keys, selection, moves). */
+export function postureRowKey(row: Pick<PostureView, 'country_code' | 'conflict_code' | 'actor'>): string {
+  return `${row.country_code}|${row.conflict_code ?? 'v1'}|${row.actor}`;
+}
 
 // ---------------------------------------------------------------------------------------------------
 // Labels (mirror of public.posture_label_for_score)
@@ -242,6 +331,8 @@ export type ChangeReason = 'new_evidence' | 'reverification' | 'nulled';
 export interface PostureEvidenceView {
   id: string | null;
   conflict_code: string | null;
+  /** Whose voice: government (default) or a registered de facto authority (YE). */
+  actor: PostureActor;
   kind: 'statement' | 'act' | 'silence_trigger';
   act_type: string | null;
   quote: string;
@@ -259,6 +350,14 @@ export interface PostureView {
   country_code: string;
   /** null = War Posture v1 (blended across wars). */
   conflict_code: string | null;
+  /**
+   * Which authority this line scores: government (default) or de_facto_authority (YE: Ansar Allah /
+   * Houthi authorities, Sanaa). Two lines of one country are separate rows, never merged or averaged.
+   */
+  actor: PostureActor;
+  /** posture_actors.display_name for a registered country (YE), else null (the UI uses the country name). */
+  actor_display_name: string | null;
+  actor_display_name_ar: string | null;
   /** Per-row schema: a v2 board can carry frozen v1 rows (see isV1Fallback). */
   method: typeof POSTURE_V2_METHOD | typeof POSTURE_V1_METHOD;
   /** Day of the coded row (v2: may be earlier than the viewed day = carried forward). */
@@ -351,6 +450,7 @@ export function evidenceFromRow(r: Record<string, unknown>): PostureEvidenceView
   return {
     id: str(r.evidence_id) ?? str(r.id),
     conflict_code: str(r.conflict_code),
+    actor: asPostureActor(r.actor),
     kind,
     act_type: str(r.act_type),
     quote,
@@ -381,9 +481,15 @@ export function fromV2Row(r: Record<string, unknown>, access: Access): PostureVi
   const age = num(r.evidence_age_days);
   const rawCategory = str(r.category);
   const category = withheld ? null : gap ? rawCategory : rawCategory === 'UNSCORABLE' ? 'UNSCORABLE' : null;
+  // A viewer row without actor (RPC from before 20261013090000) is the government line.
+  const actor = asPostureActor(r.actor);
+  const def = postureActorDef(code, actor);
   return {
     country_code: code,
     conflict_code: str(r.conflict_code),
+    actor,
+    actor_display_name: str(r.actor_display_name) ?? def?.display_name ?? null,
+    actor_display_name_ar: str(r.actor_display_name_ar) ?? def?.display_name_ar ?? null,
     method: POSTURE_V2_METHOD,
     score_day: withheld ? null : num(r.score_day),
     as_of: withheld ? null : str(r.as_of),
@@ -431,9 +537,15 @@ export function fromV1View(v: NaiV2View, refIso: string): PostureView {
     .pop() ?? null;
   const age = newest ? daysBetween(newest, refIso) : null;
   const e = withheld ? null : v.expressed_score;
+  // v1 scored one number per country: it belongs to ONE line (V1_FALLBACK_ACTOR; government by default).
+  const actor = v1ActorFor(v.country_code);
+  const def = postureActorDef(v.country_code, actor);
   return {
     country_code: v.country_code,
     conflict_code: null,
+    actor,
+    actor_display_name: def?.display_name ?? null,
+    actor_display_name_ar: def?.display_name_ar ?? null,
     method: POSTURE_V1_METHOD,
     score_day: v.conflict_day,
     as_of: v.as_of,
@@ -481,6 +593,9 @@ export function withheldPolicyRow(code: string): PostureView {
   return {
     country_code: code.toUpperCase(),
     conflict_code: POSTURE_PANEL_CONFLICT,
+    actor: POSTURE_DEFAULT_ACTOR,
+    actor_display_name: null,
+    actor_display_name_ar: null,
     method: POSTURE_V2_METHOD,
     score_day: null,
     as_of: null,
@@ -562,8 +677,11 @@ export function currentConflictDayUtc(now = new Date()): number {
 }
 
 /**
- * The /nai board. v2 when viewer_posture_v2 exists AND has rows. A country "has v2" only with a CODED v2
- * row (any stance but 'uncoded'; EG / AE / SA rows are always 'withheld', so they always do):
+ * The /nai board. v2 when viewer_posture_v2 exists AND has rows. Every rule is per LINE = country x actor
+ * (one line per country, two for YE: government and de facto authority — never merged). The frozen v1 row
+ * (one number per country) belongs to the line V1_FALLBACK_ACTOR names (YE: government). A line "has v2"
+ * only with a CODED v2 row (any stance but 'uncoded'; EG / AE / SA rows are always 'withheld', so they
+ * always do):
  *   - coded           -> all its v2 rows (incl. 'uncoded' ones on other conflicts), never v1;
  *   - only 'uncoded'  -> its latest v1 row on or before the day (frozen, own day) with v2UncodedConflicts
  *                        set, replacing those uncoded rows; if it has no v1 row, its uncoded rows stay;
@@ -582,8 +700,12 @@ export async function getPostureBoard(
   if (!v2.missing && v2.rows.length > 0) {
     const boardDay = day ?? today;
     const v2All = v2.rows.map((r) => fromV2Row(r, access));
-    const coded = new Set(v2All.filter((r) => r.stance !== 'uncoded').map((r) => r.country_code));
-    // Frozen v1 fallback for countries not yet coded in v2. When viewer_posture_v2 exists, viewer_nai_v2
+    // Every rule below is per LINE = country x actor (a single-actor country has one line = the country;
+    // YE has two). A line "has v2" only with a CODED v2 row.
+    const lineOf = (r: Pick<PostureView, 'country_code' | 'actor'>) => postureLineKey(r.country_code, r.actor);
+    const codedLines = new Set(v2All.filter((r) => r.stance !== 'uncoded').map(lineOf));
+    const v2Lines = new Set(v2All.map(lineOf));
+    // Frozen v1 fallback for lines not yet coded in v2. When viewer_posture_v2 exists, viewer_nai_v2
     // exists too (same migration chain), so the browser never needs the table read here.
     let fallback = await getNaiV2LatestPerCountry(supabase, boardDay, access, { tableFallback: !v1Loader });
     if (fallback.via === 'missing' && v1Loader) {
@@ -591,26 +713,26 @@ export async function getPostureBoard(
       fallback = { rows: viaLoader, via: 'table' };
     }
     const refIso = dayToIsoDate(boardDay);
-    // Countries whose only v2 rows are 'uncoded' (statement captured, not yet coded).
-    const uncodedOnly = new Set(v2All.filter((r) => !coded.has(r.country_code)).map((r) => r.country_code));
     const v1Rows = fallback.rows
-      .filter((v) => !coded.has(v.country_code.toUpperCase()))
       // EG / AE / SA: no v1 row at all on a v2 board (their v2 rows, or the policy row, carry them).
       .filter((v) => !v.withheld && !isPostureWithheld(v.country_code))
+      // fromV1View files the v1 row under its line (V1_FALLBACK_ACTOR: YE -> government, never the de facto line)
       .map((v) => fromV1View(v, refIso))
       .filter((r) => !r.withheld)
-      // An uncoded-only country keeps its frozen v1 row only when that row carries a number: a v1 row with no E
-      // ("No position coded this day") must never hide the verbatim statement already captured under v2.
-      .filter((r) => !uncodedOnly.has(r.country_code) || r.stance === 'position')
+      .filter((r) => !codedLines.has(lineOf(r)))
+      // A line whose only v2 rows are 'uncoded' keeps its frozen v1 row only when that row carries a number:
+      // a v1 row with no E ("No position coded this day") must never hide the verbatim statement captured under v2.
+      .filter((r) => !v2Lines.has(lineOf(r)) || r.stance === 'position')
       .map((r) => ({
         ...r,
         v2UncodedConflicts: v2All
-          .filter((x) => x.country_code === r.country_code && x.stance === 'uncoded' && x.conflict_code !== null)
+          .filter((x) => lineOf(x) === lineOf(r) && x.stance === 'uncoded' && x.conflict_code !== null)
           .map((x) => x.conflict_code as string),
       }));
-    const v1Countries = new Set(v1Rows.map((r) => r.country_code));
-    // An uncoded-only country with a v1 row shows that v1 row (plus the note) instead of its uncoded v2 rows.
-    const v2Rows = v2All.filter((r) => coded.has(r.country_code) || !v1Countries.has(r.country_code));
+    const v1Lines = new Set(v1Rows.map(lineOf));
+    // An uncoded-only line with a v1 row shows that v1 row (plus the note) instead of its uncoded v2 rows;
+    // the country's OTHER line (YE) is untouched.
+    const v2Rows = v2All.filter((r) => codedLines.has(lineOf(r)) || !v1Lines.has(lineOf(r)));
     // Policy row wherever EG / AE / SA have no row on the panel-wide conflict (where "nothing on record" is listed),
     // even if they have withheld evidence on another conflict.
     const onPanel = new Set([...v2Rows, ...v1Rows].filter((r) => r.conflict_code === POSTURE_PANEL_CONFLICT).map((r) => r.country_code));
@@ -666,7 +788,8 @@ export async function getPositionsLedger(supabase: Sb, code: string, limit = 12)
 }
 
 /**
- * Country page posture: the same rule as the /nai board. A CODED v2 row (any stance but 'uncoded'; EG /
+ * Country page posture: the same per-line rule as the /nai board (YE: the government line and the de facto
+ * authority line are decided separately; v1 can only stand in for the V1_FALLBACK_ACTOR line). A CODED v2 row (any stance but 'uncoded'; EG /
  * AE / SA rows are always 'withheld') -> the v2 rows. Only 'uncoded' v2 rows -> the latest v1 row (frozen,
  * own day) with v2UncodedConflicts set, unless there is no v1 row (then the uncoded rows) or the country is
  * withheld. No v2 row -> the latest v1 row (withheld for EG / AE / SA by fromV1View). Ledger unchanged.
@@ -675,19 +798,24 @@ export async function getCountryPosture(supabase: Sb, code: string, access: Acce
   const cc = code.toUpperCase();
   const [v2, ledger] = await Promise.all([readPostureV2(supabase, { country: cc }), getPositionsLedger(supabase, cc)]);
   const v2Rows = !v2.missing ? v2.rows.map((r) => fromV2Row(r, access)) : [];
-  if (v2Rows.some((r) => r.stance !== 'uncoded')) {
+  // Same per-LINE rule as the board: the frozen v1 row (one number per country) belongs to one line only
+  // (V1_FALLBACK_ACTOR); the country's other line (YE de facto authority) is always its v2 rows.
+  const v1Actor = v1ActorFor(cc);
+  const lineRows = v2Rows.filter((r) => r.actor === v1Actor);
+  const others = v2Rows.filter((r) => r.actor !== v1Actor);
+  if (lineRows.some((r) => r.stance !== 'uncoded')) {
     return { schema: 'v2', rows: v2Rows, ledger };
   }
   const latest = await getNaiV2CountryLatest(supabase, cc, access);
   const v1 = latest ? fromV1View(latest, new Date().toISOString().slice(0, 10)) : null;
-  if (v2Rows.length > 0) {
-    // Uncoded-only: keep the frozen v1 number until a v2 position is coded (never for EG / AE / SA).
+  if (lineRows.length > 0) {
+    // Uncoded-only line: keep the frozen v1 number until a v2 position is coded (never for EG / AE / SA).
     // ...and only a v1 row that carries a number: a no-E v1 row would hide the captured statement.
     if (!v1 || v1.withheld || isPostureWithheld(cc) || v1.stance !== 'position') return { schema: 'v2', rows: v2Rows, ledger };
-    const pending = v2Rows.map((r) => r.conflict_code).filter((c): c is string => c !== null);
-    return { schema: 'v1', rows: [{ ...v1, v2UncodedConflicts: pending }], ledger };
+    const pending = lineRows.map((r) => r.conflict_code).filter((c): c is string => c !== null);
+    return { schema: others.length > 0 ? 'v2' : 'v1', rows: [{ ...v1, v2UncodedConflicts: pending }, ...others], ledger };
   }
-  return { schema: 'v1', rows: v1 ? [v1] : [], ledger };
+  return { schema: others.length > 0 ? 'v2' : 'v1', rows: [...(v1 ? [v1] : []), ...others], ledger };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -717,7 +845,13 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
         (r.previous_label !== r.label || Math.abs(r.expressed_score - r.previous_score) >= 10),
     )
     .map((r) => ({ row: r, delta: (r.expressed_score ?? 0) - (r.previous_score ?? 0) }))
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.row.country_code.localeCompare(b.row.country_code));
+    .sort(
+      (a, b) =>
+        Math.abs(b.delta) - Math.abs(a.delta) ||
+        a.row.country_code.localeCompare(b.row.country_code) ||
+        // two lines of one country (YE) are two moves, each with its own delta; government first
+        Number(a.row.actor !== POSTURE_DEFAULT_ACTOR) - Number(b.row.actor !== POSTURE_DEFAULT_ACTOR),
+    );
 }
 
 /** true = a frozen War Posture v1 row shown on a v2 board (country not yet re-coded in v2). */

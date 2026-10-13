@@ -23,10 +23,14 @@ import {
   POSTURE_WITHHELD_TEXT,
   POSTURE_WITHHELD_TITLE,
   V1_FROZEN_CONFLICT,
+  POSTURE_DEFAULT_ACTOR,
   boardConflicts,
+  isDualActorCountry,
   isV1Fallback,
   postureGroupCode,
   postureLabelDef,
+  postureLineLabel,
+  postureRowKey,
   v1FrozenText,
   type PostureBoard,
   type PostureView,
@@ -34,6 +38,7 @@ import {
 import {
   CitedReporting,
   EvidenceQuote,
+  PostureActorTag,
   PostureAge,
   PostureChip,
   PostureScaleLegend,
@@ -51,6 +56,18 @@ const COUNTRY_COORDS: Record<string, [number, number]> = {
   CN: [104.195, 35.861], IN: [78.962, 20.594], PK: [69.345, 30.375],
   ET: [40.490, 9.145], ER: [39.782, 15.179], SD: [30.218, 12.863], SO: [46.200, 5.152], DJ: [42.590, 11.825],
 };
+
+/**
+ * A dual-actor country's lines get their own marker at the seat of each authority (Yemen: the
+ * government in Aden, the Ansar Allah / Houthi authorities in Sanaa), so the two never sit on one dot.
+ */
+const ACTOR_COORDS: Record<string, [number, number]> = {
+  'YE|government': [45.0367, 12.7855],
+  'YE|de_facto_authority': [44.2064, 15.3694],
+};
+function coordsFor(r: Pick<PostureView, 'country_code' | 'actor'>): [number, number] | undefined {
+  return ACTOR_COORDS[`${r.country_code}|${r.actor}`] ?? COUNTRY_COORDS[r.country_code];
+}
 
 function markerStyle(r: PostureView): { color: string; opacity: number; dash: boolean } {
   if (r.stance === 'withheld') return { color: '#000000', opacity: 0, dash: true };
@@ -88,7 +105,13 @@ export function PostureMapClient({
       board.rows
         // v2 board: a tab per conflict, plus V1_FROZEN_CONFLICT for countries not yet re-coded in v2
         .filter((r) => (board.schema === 'v1' ? true : postureGroupCode(board, r) === conflict))
-        .sort((a, b) => rank(a) - rank(b) || (b.expressed_score ?? -1) - (a.expressed_score ?? -1) || a.country_code.localeCompare(b.country_code)),
+        .sort(
+          (a, b) =>
+            rank(a) - rank(b) ||
+            (b.expressed_score ?? -1) - (a.expressed_score ?? -1) ||
+            a.country_code.localeCompare(b.country_code) ||
+            Number(a.actor !== POSTURE_DEFAULT_ACTOR) - Number(b.actor !== POSTURE_DEFAULT_ACTOR),
+        ),
     [board, conflict],
   );
   // Countries on a v2 board that only have a frozen War Posture v1 row (shown in the v1-frozen tab).
@@ -107,9 +130,11 @@ export function PostureMapClient({
     [board.schema, conflict, rows, v1FallbackCodes],
   );
   const showV1Pointer = board.schema === 'v2' && conflict !== V1_FROZEN_CONFLICT.conflict_code && v1FallbackCodes.size > 0;
+  // Selection is a row key (country x conflict x actor: Yemen has two lines) or, for "nothing on record", a country code.
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const selected = rows.find((r) => r.country_code === selectedCode) ?? null;
+  const selected = rows.find((r) => postureRowKey(r) === selectedCode) ?? null;
   const selectedNoData = selectedCode != null && !selected && noData.includes(selectedCode) ? selectedCode : null;
+  const dualActorOnTab = rows.some((r) => isDualActorCountry(r.country_code));
   const hasRows = board.rows.length > 0;
   const counts = {
     position: rows.filter((r) => r.stance === 'position').length,
@@ -137,8 +162,8 @@ export function PostureMapClient({
     const m = map.current;
     if (!m) return;
     const onClick = (e: maplibregl.MapLayerMouseEvent) => {
-      const code = e.features?.[0]?.properties?.country_code;
-      if (typeof code === 'string') setSelectedCode(code);
+      const key = e.features?.[0]?.properties?.key;
+      if (typeof key === 'string') setSelectedCode(key);
     };
     const setPointer = () => (m.getCanvas().style.cursor = 'pointer');
     const clearPointer = () => (m.getCanvas().style.cursor = '');
@@ -147,13 +172,13 @@ export function PostureMapClient({
       if (m.getSource('posture-points')) m.removeSource('posture-points');
       const features = [
         ...rows
-          .filter((r) => COUNTRY_COORDS[r.country_code])
+          .filter((r) => coordsFor(r))
           .map((r) => {
             const st = markerStyle(r);
             return {
               type: 'Feature' as const,
-              geometry: { type: 'Point' as const, coordinates: COUNTRY_COORDS[r.country_code] },
-              properties: { country_code: r.country_code, color: st.color, opacity: st.opacity, stroke: st.dash ? 2 : 1, strokeColor: st.dash ? '#E6EDF7' : '#8A9BB5' },
+              geometry: { type: 'Point' as const, coordinates: coordsFor(r) as [number, number] },
+              properties: { key: postureRowKey(r), country_code: r.country_code, color: st.color, opacity: st.opacity, stroke: st.dash ? 2 : 1, strokeColor: st.dash ? '#E6EDF7' : '#8A9BB5' },
             };
           }),
         ...noData
@@ -161,7 +186,7 @@ export function PostureMapClient({
           .map((c) => ({
             type: 'Feature' as const,
             geometry: { type: 'Point' as const, coordinates: COUNTRY_COORDS[c] },
-            properties: { country_code: c, color: POSTURE_NODATA_COLOR, opacity: 0.6, stroke: 1, strokeColor: '#56627A' },
+            properties: { key: c, country_code: c, color: POSTURE_NODATA_COLOR, opacity: 0.6, stroke: 1, strokeColor: '#56627A' },
           })),
       ];
       if (features.length === 0) return;
@@ -194,8 +219,9 @@ export function PostureMapClient({
   const shareText = () => {
     const base = `${SITE_URL}/nai`;
     if (selected && !selected.withheld) {
-      if (isV1Fallback(board, selected)) return `${selected.country_code} ${v1FrozenText(selected)}: ${stanceText(selected)} — ${base}`;
-      return `${selected.country_code} War Posture (${active?.short_name ?? ''}): ${stanceText(selected)} · Day ${board.day ?? '—'} — ${base}`;
+      const who = postureLineLabel(selected);
+      if (isV1Fallback(board, selected)) return `${who} ${v1FrozenText(selected)}: ${stanceText(selected)} — ${base}`;
+      return `${who} War Posture (${active?.short_name ?? ''}): ${stanceText(selected)} · Day ${board.day ?? '—'} — ${base}`;
     }
     return `War Posture Map · ${active?.short_name ?? ''} · Day ${board.day ?? '—'} — ${base}`;
   };
@@ -237,6 +263,13 @@ export function PostureMapClient({
         {active && board.schema === 'v2' && (
           <p className="font-mono text-[11px] mt-2 leading-relaxed max-w-3xl" style={{ color: 'var(--text-muted)' }} data-testid="posture-conflict-desc">
             {active.description}
+          </p>
+        )}
+        {dualActorOnTab && (
+          <p className="font-mono text-[11px] mt-2 max-w-3xl leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="posture-dual-actor-note">
+            Yemen has two authorities, shown as two separate lines and never averaged: the internationally recognised
+            government (Presidential Leadership Council, Aden) and the Ansar Allah (Houthi) de facto authorities in Sanaa.
+            Each line rests only on its own statements.
           </p>
         )}
         {showV1Pointer && (
@@ -295,14 +328,15 @@ export function PostureMapClient({
           )}
           <ul className="space-y-2" data-testid="posture-list">
             {rows.map((r) => (
-              <li key={`${r.country_code}-${r.conflict_code ?? 'v1'}`} className="font-mono text-xs border rounded-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-stance={r.stance}>
+              <li key={postureRowKey(r)} className="font-mono text-xs border rounded-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-stance={r.stance} data-actor={r.actor}>
                 <button
                   type="button"
-                  onClick={() => setSelectedCode(r.country_code)}
+                  onClick={() => setSelectedCode(postureRowKey(r))}
                   className="w-full text-left py-1.5 px-2 min-h-[44px]"
                   aria-haspopup="dialog"
-                  aria-label={`Open War Posture details for ${r.country_code}`}
+                  aria-label={`Open War Posture details for ${postureLineLabel(r)}`}
                 >
+                  <PostureActorTag row={r} className="block mb-0.5" />
                   <div className="flex items-center gap-2 flex-wrap">
                     <CountryFlag code={r.country_code} className="!text-xs" />
                     {r.expressed_score !== null && (
@@ -373,7 +407,15 @@ export function PostureMapClient({
           </NaiDialog>
         )}
         {selected && (
-          <NaiDialog title={<><CountryFlag code={selected.country_code} /> · {active?.short_name}</>} onClose={() => setSelectedCode(null)}>
+          <NaiDialog
+            title={
+              <>
+                <CountryFlag code={selected.country_code} />
+                {isDualActorCountry(selected.country_code) || selected.actor !== POSTURE_DEFAULT_ACTOR ? <> · <PostureActorTag row={selected} /></> : null} · {active?.short_name}
+              </>
+            }
+            onClose={() => setSelectedCode(null)}
+          >
             <div className="mt-2 flex flex-wrap items-center gap-3">
               {selected.expressed_score !== null && (
                 <span className="font-display text-3xl" style={{ color: 'var(--text-primary)' }} translate="no">

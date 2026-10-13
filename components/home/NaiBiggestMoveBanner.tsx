@@ -1,7 +1,7 @@
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
-import { conflictName, getPostureBoard, isV1Fallback, postureLabelDef, postureMoves } from '@/lib/posture';
+import { conflictName, getPostureBoard, isV1Fallback, postureLabelDef, postureLineLabel, postureMoves } from '@/lib/posture';
 
 /**
  * Home tile: War Posture "biggest move" — ONLY a change that rests on NEW evidence (posture_scores
@@ -60,7 +60,8 @@ export async function NaiBiggestMoveBanner() {
     );
   }
   const { row, delta } = moves[0];
-  const name = TRACKED_COUNTRY_NAMES[row.country_code] ?? row.country_code;
+  // "Yemen — Ansar Allah (Houthi), de facto authority": each of Yemen's two lines moves on its own.
+  const name = postureLineLabel(row, TRACKED_COUNTRY_NAMES[row.country_code] ?? row.country_code);
   return (
     <div className="border border-[#F0AE6B]/40 bg-[#F0AE6B]/5 px-4 py-3 font-mono text-sm mb-4 rounded-sm" data-testid="nai-biggest-move" data-freshness="current" data-schema="v2">
       <span style={{ color: '#F0AE6B' }}>◆ WAR POSTURE — CHANGED ON NEW EVIDENCE (DAY {row.score_day}):</span>
