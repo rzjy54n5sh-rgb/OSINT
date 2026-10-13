@@ -33,8 +33,17 @@ import {
 import { parseNarrative, type CountryNarrative } from '@/lib/country-narrative';
 import { getViewerCountryReports, type ViewerCountryReport } from '@/lib/country-report';
 import type { ReadVia } from '@/lib/supabase/rpc-fallback';
+import {
+  formatChangePct,
+  formatMarketStamp,
+  formatMarketValue,
+  latestPerIndicator,
+  MARKET_LATEST_COLUMNS,
+  MARKET_LATEST_ROWS,
+} from '@/lib/market-latest';
 import { useViewerTier } from '@/hooks/useViewerTier';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
+import { LOCKED_TEXT } from '@/lib/access-cta';
 import {
   deltaWithinMethod,
   getScenarioRegistryView,
@@ -191,7 +200,13 @@ export default function WarRoomPage() {
         getViewerCountryReports(supabase),
         supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(500),
         supabase.from('articles').select('*', { count: 'exact', head: true }),
-        supabase.from('market_data').select('*').order('created_at', { ascending: false }).limit(200),
+        // Same read and rule as the home tiles (lib/market-latest.ts): newest row per indicator by created_at.
+        supabase
+          .from('market_data')
+          .select(MARKET_LATEST_COLUMNS)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .limit(MARKET_LATEST_ROWS),
         supabase.from('social_trends').select('*').order('conflict_day', { ascending: false }).limit(200),
         // In-scope claims only (scope_status, 2026-10-07); out_of_scope is never shown.
         supabase
@@ -313,12 +328,8 @@ export default function WarRoomPage() {
   const socialForCountry = socialTrends.find((s) => countryMatches(s.country, activeCountry));
   const socialEngagement = parseEngagementEstimate(socialForCountry?.engagement_estimate ?? null);
 
-  // Newest collection per indicator (rows are ordered by created_at desc).
-  const latestByIndicator = marketData.reduce<Record<string, MarketData>>((acc, row) => {
-    const k = row.indicator ?? 'OTHER';
-    if (!acc[k]) acc[k] = row;
-    return acc;
-  }, {});
+  // Canonical newest row per indicator (shared with Home): created_at desc, id asc, one rounding rule.
+  const latestMarketRows = [...latestPerIndicator(marketData).values()];
 
   const sentimentByCountry = socialTrends.reduce<Record<string, string>>((acc, s) => {
     const c = countryCodeFromValue(s.country);
@@ -508,7 +519,7 @@ export default function WarRoomPage() {
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <span style={{ color: 'var(--accent-gold)' }}>◆ MENA WAR ROOM</span>
+        <h1 className="warroom-h1" style={{ color: 'var(--accent-gold)' }}><span aria-hidden="true">◆ </span>MENA WAR ROOM</h1>
         <span>|</span>
         <span>CONFLICT DAY {CONFLICT_DAY ?? '—'}</span>
         <span>|</span>
@@ -543,7 +554,7 @@ export default function WarRoomPage() {
       </div>
 
       <PageBriefing
-        title="WAR ROOM — UNIFIED INTELLIGENCE VIEW"
+        className="warroom-briefing"
         description="A single-screen overview combining live intelligence, War Posture, market indicators, scenario probabilities and disinformation claims. Select a country to focus the panels on it. The page re-reads the database every 60 seconds; each section shows the day its own data belongs to."
         note={`War Posture uses one party-neutral scale for every state: ${NAI_V2_SCALE_TEXT}. Scenario changes are only compared within one method.`}
       />
@@ -552,7 +563,7 @@ export default function WarRoomPage() {
         {/* LEFT PANEL */}
         <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }} aria-label="Theatre countries">
           <div className="warroom-panel-header">
-            <span>◆ THEATRE COUNTRIES</span>
+            <h2 className="warroom-h2">◆ THEATRE COUNTRIES</h2>
             <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
               {countries.length} TRACKED · WAR POSTURE DAY {naiDay ?? '—'}
             </span>
@@ -598,7 +609,7 @@ export default function WarRoomPage() {
                             <div key={a} data-actor={a}>
                               {l ? (
                                 <>
-                                  {postureActorLineLabel(l)}: {l.conflict_code ? `${cName(l.conflict_code)}: ` : isFrozenV1(l) ? `v1 frozen, Day ${l.score_day ?? '—'}: ` : ''}
+                                  {postureActorLineLabel(l)}: {l.conflict_code ? `${cName(l.conflict_code)}: ` : isFrozenV1(l) ? `old method, Day ${l.score_day ?? '—'}: ` : ''}
                                   {lineSummary(l)}
                                   {ld !== null && ld !== 0 ? ` (${formatGap(ld)})` : ''}
                                 </>
@@ -612,7 +623,7 @@ export default function WarRoomPage() {
                         })
                       ) : r ? (
                         <>
-                          {r.conflict_code ? `${cName(r.conflict_code)}: ` : isFrozenV1(r) ? `v1 frozen, Day ${r.score_day ?? '—'}: ` : ''}
+                          {r.conflict_code ? `${cName(r.conflict_code)}: ` : isFrozenV1(r) ? `old method, Day ${r.score_day ?? '—'}: ` : ''}
                           {stanceText(r)}
                           {r.expressed_score !== null ? ` ${r.expressed_score}` : ''}
                           {d !== null && d !== 0 ? ` (${formatGap(d)})` : ''}
@@ -630,9 +641,9 @@ export default function WarRoomPage() {
             })}
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
+            <h2 className="warroom-h2" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
               SCENARIOS — DAY {scenarioDay ?? '—'}
-            </div>
+            </h2>
             <DataAsOf section="SCENARIOS" latestDay={scenarioDay} currentDay={CONFLICT_DAY} className="mx-3 mb-2" />
             {registry &&
               visibleScenarios.map((s, i) => {
@@ -681,8 +692,8 @@ export default function WarRoomPage() {
           </div>
         </aside>
 
-        {/* CENTER PANEL */}
-        <main className="warroom-panel" style={{ display: 'flex', flexDirection: 'column', borderRight: 'none' }}>
+        {/* CENTER PANEL (a section: the root layout already provides the page's one <main>) */}
+        <section className="warroom-panel" style={{ display: 'flex', flexDirection: 'column', borderRight: 'none' }} aria-label="Selected country">
           {/* Selected country header — wraps (never overlaps) on narrow screens */}
           <div className="warroom-panel-header warroom-center-head" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '6px 12px', minHeight: 44 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
@@ -747,9 +758,9 @@ export default function WarRoomPage() {
                     {r.stance === 'position' && (
                       <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 2 }}>
                         <span data-locked={r.latentLocked ? 'latent' : undefined}>
-                          SOCIETY {r.latentLocked ? '◆ Informed tier' : r.latent_low === null ? 'no admissible evidence' : formatBand(r.latent_low, r.latent_high)}
+                          SOCIETY {r.latentLocked ? `◆ ${LOCKED_TEXT}` : r.latent_low === null ? 'no admissible evidence' : formatBand(r.latent_low, r.latent_high)}
                         </span>
-                        <span data-locked={r.gapLocked ? 'gap' : undefined}>GAP {r.gapLocked ? '◆ Informed tier' : formatGap(r.gap)}</span>
+                        <span data-locked={r.gapLocked ? 'gap' : undefined}>GAP {r.gapLocked ? `◆ ${LOCKED_TEXT}` : formatGap(r.gap)}</span>
                       </div>
                     )}
                   </li>
@@ -862,7 +873,7 @@ export default function WarRoomPage() {
 
             {/* Bottom row — War Posture evidence, risks/stabilizers (daily build), social */}
             <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
-              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} aria-label="War Posture evidence">
+              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="War Posture evidence">
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
                 <hr className="data-rule" />
                 {postureRows.length > 0 ? (
@@ -883,7 +894,7 @@ export default function WarRoomPage() {
                   <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO SOURCED DATA'}</p>
                 )}
               </div>
-              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} aria-label="Key risks and stabilizers">
+              <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="Key risks and stabilizers">
                 <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
                   ▸ KEY RISKS{activeReport?.conflict_day != null && narrative ? ` · DAY ${activeReport.conflict_day}` : ''}
                 </div>
@@ -923,36 +934,50 @@ export default function WarRoomPage() {
               </div>
             </div>
           </div>
-        </main>
+        </section>
 
         {/* RIGHT PANEL */}
         <aside className="warroom-panel warroom-right-panel" style={{ width: 300 }} aria-label="Markets, sentiment, disinformation">
           <div className="warroom-panel-header">
-            <span>▸ MARKET WATCH — {marketDay != null && marketDay === CONFLICT_DAY ? 'LIVE' : 'LATEST'}</span>
+            <h2 className="warroom-h2">▸ MARKET WATCH — LATEST</h2>
           </div>
-          {Object.entries(latestByIndicator).length > 0 && (
+          {latestMarketRows.length > 0 && (
             <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={CONFLICT_DAY} className="mx-3 my-2" />
           )}
-          {Object.entries(latestByIndicator).length === 0 ? (
+          {latestMarketRows.length === 0 ? (
             <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
           ) : (
-            Object.entries(latestByIndicator).map(([name, row]) => (
-              <div key={row.id} className="indicator-row" title={row.source ?? undefined}>
-                <span className="indicator-name">{name}</span>
-                <span className="indicator-value">
-                  {row.value != null ? row.value : '—'} {row.unit ?? ''}
-                </span>
-                {row.change_pct != null && (
-                  <span className={`change ${row.change_pct >= 0 ? 'up' : 'down'}`}>
-                    {row.change_pct >= 0 ? '▲' : '▼'} {Math.abs(row.change_pct).toFixed(1)}%
-                  </span>
-                )}
-              </div>
-            ))
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }} aria-label="Latest market and shipping indicators">
+              {latestMarketRows.map((row) => {
+                // Daily-build rows (corridor transits, USD/EGP, USD/IRR) carry a sentence in `unit`: it goes on
+                // its own full-width line under the number instead of squeezing the label column.
+                const unit = row.unit ?? '';
+                const longUnit = unit.length > 14;
+                return (
+                  <li key={row.id} className="indicator-row warroom-indicator" title={row.source ?? undefined} data-testid="warroom-market-row">
+                    <span className="indicator-name">{row.indicator ?? '—'}</span>
+                    <span className="indicator-value" translate="no">
+                      {formatMarketValue(row.indicator, row.value)}
+                      {!longUnit && unit ? ` ${unit}` : ''}
+                    </span>
+                    {row.change_pct != null && (
+                      <span className={`change ${row.change_pct >= 0 ? 'up' : 'down'}`} translate="no">
+                        <span aria-hidden="true">{row.change_pct >= 0 ? '▲' : '▼'} </span>
+                        {formatChangePct(row.change_pct)}
+                      </span>
+                    )}
+                    <span className="indicator-meta" translate="no">
+                      {longUnit ? <span className="indicator-unit">{unit}</span> : null}
+                      <span>Collected {formatMarketStamp(row.created_at)}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           )}
 
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
-            <span>▸ SENTIMENT MATRIX</span>
+            <h2 className="warroom-h2">▸ SENTIMENT MATRIX</h2>
           </div>
           <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
             {countries.slice(0, 12).map((code) => {
@@ -969,7 +994,7 @@ export default function WarRoomPage() {
           </div>
 
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
-            <span>▸ ACTIVE DISINFO CLAIMS</span>
+            <h2 className="warroom-h2">▸ ACTIVE DISINFO CLAIMS</h2>
           </div>
           {disinfoClaims.length === 0 ? (
             <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
@@ -994,7 +1019,7 @@ export default function WarRoomPage() {
           )}
 
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
-            <span>▸ LATEST ROW PER FEED</span>
+            <h2 className="warroom-h2">▸ LATEST ROW PER FEED</h2>
           </div>
           <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'IBM Plex Mono' }}>
             {['articles', 'markets', 'social', 'disinfo'].map((key) => {
@@ -1004,7 +1029,7 @@ export default function WarRoomPage() {
                 <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                   <span style={{ textTransform: 'uppercase', color: 'var(--text-muted)', width: 70 }}>{key}</span>
                   <span style={{ color: 'var(--text-secondary)', flex: 1 }}>{stamp(pipelineTimestamps[key])}</span>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} aria-label={status === 'green' ? 'under 1 hour old' : status === 'orange' ? '1 to 6 hours old' : 'over 6 hours old or missing'} />
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }} role="img" aria-label={status === 'green' ? 'under 1 hour old' : status === 'orange' ? '1 to 6 hours old' : 'over 6 hours old or missing'} />
                 </div>
               );
             })}

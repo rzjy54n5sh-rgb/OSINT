@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { CodeBlock } from '@/components/docs/CodeBlock';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
+import { FOUNDING_ACCESS_HREF, FOUNDING_ACCESS_LABEL } from '@/lib/access-cta';
 import { OsintCard } from '@/components/OsintCard';
 
 interface Props {
@@ -133,18 +134,19 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
       {!isPro && (
         <OsintCard className="mb-8 border" style={{ borderColor: 'var(--accent-gold)' }}>
           <p className="font-mono text-sm mb-3" style={{ color: 'var(--text-primary)' }}>
-            <span style={{ color: 'var(--accent-gold)' }}>◆</span> Upgrade to Professional for API access
+            <span style={{ color: 'var(--accent-gold)' }}>◆</span> API access is locked during launch
           </p>
           <p className="font-mono text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>
-            Full authentication details, copyable examples, and complete response payloads are visible with a Professional
-            subscription and active API key.
+            Full authentication details, copyable examples, and complete response payloads are shown to accounts with an
+            active API key. There is nothing to buy yet: join founding access and we will email you when access opens.
           </p>
           <Link
-            href="/pricing"
-            className="inline-block font-mono text-xs px-4 py-2 border rounded-sm"
+            prefetch={false}
+            href={FOUNDING_ACCESS_HREF}
+            className="inline-flex items-center min-h-[44px] font-mono text-xs px-4 py-2 border rounded-sm"
             style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
           >
-            See access options →
+            {FOUNDING_ACCESS_LABEL} →
           </Link>
         </OsintCard>
       )}
@@ -183,7 +185,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
             style={{ background: 'rgba(7,10,15,0.88)' }}
           >
             <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Authentication details are available on Professional.
+              Authentication details are locked during launch.
             </p>
             <PaywallOverlay requiredTier="professional" featureName="API authentication & keys" compact />
           </div>

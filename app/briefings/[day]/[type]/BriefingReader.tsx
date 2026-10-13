@@ -262,8 +262,9 @@ export default function BriefingReader({ briefing, day, type }: BriefingReaderPr
                 <span className="font-mono text-xs" style={{ color: 'var(--accent-gold)' }}>
                   TABLE OF CONTENTS
                 </span>
-                <button onClick={() => setTocOpen(false)}
-                        className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+                <button type="button" onClick={() => setTocOpen(false)} aria-label="Close table of contents"
+                        className="font-mono text-xs min-w-[44px] min-h-[44px] -my-3 -mr-3 inline-flex items-center justify-center"
+                        style={{ color: 'var(--text-muted)' }}>
                   ✕
                 </button>
               </div>
