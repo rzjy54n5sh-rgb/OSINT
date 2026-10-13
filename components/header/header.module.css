@@ -1,7 +1,13 @@
 /*
  * Site header (design system v2: Main.dc.html desktop, Home-Mobile.dc.html mobile).
  * Hairlines, no shadows, no blur; 44 × 44 targets; gold only for the logo, the focus ring and the one
- * primary CTA. Logical properties only (RTL-safe). Desktop from 1024 px; below it, the menu button.
+ * primary CTA. Logical properties only (RTL-safe). Desktop from 1200 px, where the bar's content box is a
+ * fixed 1152 px; below it, the menu button. Nothing in the bar shrinks below its content (no clipping, no
+ * overlap): the nav keeps its width and the right cluster drops optional parts instead — the stamp's
+ * "Day N ·" when the stale chip shows or in the Arabic UI (longer nav labels; there the stamp also yields
+ * to the stale chip), the stale chip's word (glyph only; the word stays for screen readers and the
+ * title); the language toggle lives in More on desktop.
+ * tests/e2e/header-layout.spec.ts checks 1024 / 1280 / 1440 px for overlaps and centre hit-tests.
  */
 .header {
   position: sticky;
@@ -48,8 +54,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  flex: 1 1 auto;
-  min-inline-size: 0;
+  flex: 0 0 auto; /* content width, never shrunk under the right cluster */
 }
 .navLink,
 .moreButton {
@@ -151,9 +156,39 @@
 .right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.right > * {
   flex: none;
-  margin-inline-start: auto;
+}
+/* Stale data: the chip shows its clock glyph only in the bar (word kept for screen readers and the title)
+   and the stamp drops its date, so both fit beside the nav. */
+.bar .staleChip {
+  padding-inline: 8px;
+}
+.bar .staleWord {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+/* Stale: the stamp drops "Day N ·" but keeps its date, so an old time never reads as today's. */
+.right:has([data-kind='stale']) .stampDay,
+.right:has([data-kind='stale']) .sep {
+  display: none;
+}
+/* Arabic UI: the nav labels are longer: the stamp drops "Day N ·" (date and time stay); with stale data
+   the chip alone carries the state (the reasons are in its title). */
+:global(html[lang='ar']) .bar .stampDay,
+:global(html[lang='ar']) .bar .sep,
+:global(html[lang='ar']) .right:has([data-kind='stale']) .stamp {
+  display: none;
 }
 .stamp {
   font-family: var(--font-numeric);
@@ -227,7 +262,7 @@
 .menuButton {
   display: none;
 }
-@media (min-width: 1024px) {
+@media (min-width: 1200px) {
   .menu {
     display: none;
   }
@@ -278,13 +313,7 @@
   color: var(--text-2);
 }
 
-/* Between desktop and wide: drop the stamp before anything wraps. */
-@media (max-width: 1279px) {
-  .bar .stamp {
-    display: none;
-  }
-}
-@media (max-width: 1023px) {
+@media (max-width: 1199px) {
   .bar {
     min-block-size: 56px;
     padding-inline: 16px 8px;
@@ -322,6 +351,11 @@
   }
   .menuButton {
     color: var(--text);
+  }
+}
+@media (max-width: 419px) {
+  .bar .stampDate {
+    display: none;
   }
 }
 @media (max-width: 359px) {

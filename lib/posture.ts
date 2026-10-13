@@ -17,7 +17,7 @@
  * shows a grade for them, whatever the DB holds: on a v2 board their v1 rows are never shown, and with no
  * v2 row at all they get a policy-only "Stated positions only" row (no evidence, no grade).
  */
-import { postureScaleColor } from './design-tokens';
+import { isPostureNoGrade, postureScaleColor, postureScaleVar } from './design-tokens';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiSourceV2 } from '@/types/supabase';
 import { isMissingRpc } from '@/lib/supabase/rpc-fallback';
@@ -158,12 +158,13 @@ export interface PostureLabelDef {
 }
 
 /**
- * Colours: the War Posture scale of design system v2 (lib/design-tokens.ts), four bands by score —
- * 0–30 #6FA8F0, 31–60 #98A3B3, 61–80 #E8A066, 81–100 #FF7F3F (no red / green). A label takes the band
- * of its anchor, so "Seeks immediate ceasefire" and "Conditional de-escalation" share band 1; the label
- * text always travels with the colour. Where a score is known, prefer postureScaleColor(score).
+ * Colours: the War Posture scale of design system v2 (lib/design-tokens.ts), four bands by SCORE —
+ * 0–30, 31–60, 61–80, 81–100 (no red / green). `color` is a theme-aware swatch / fill value
+ * (`var(--posture-N, #hex)`), never a text colour. A label has no score of its own, so its `color` is its
+ * anchor's band; wherever a score exists use postureSwatchColor(row) / postureScaleVar(score), which
+ * colour by the score band (e.g. 85 "Supports continued pressure" draws band 4, like PostureSwatch).
  */
-const anchorColor = (anchor: number): string => postureScaleColor(anchor) as string;
+const anchorColor = (anchor: number): string => postureScaleVar(anchor) as string;
 export const POSTURE_LABELS: readonly PostureLabelDef[] = [
   { code: 'immediate_ceasefire', text: 'Seeks immediate ceasefire', min: 0, max: 12, anchor: 0, color: anchorColor(0) },
   { code: 'conditional_deescalation', text: 'Conditional de-escalation', min: 13, max: 37, anchor: 25, color: anchorColor(25) },
@@ -171,6 +172,20 @@ export const POSTURE_LABELS: readonly PostureLabelDef[] = [
   { code: 'continued_pressure', text: 'Supports continued pressure', min: 63, max: 87, anchor: 75, color: anchorColor(75) },
   { code: 'escalation', text: 'Supports escalation', min: 88, max: 100, anchor: 100, color: anchorColor(100) },
 ];
+
+/** Swatch colour of a coded position: its score band, else its label's anchor band; null for EG / AE / SA. */
+export function postureSwatchColor(row: { label: PostureLabelCode | null; expressed_score?: number | null; country_code?: string | null }): string | null {
+  return (
+    postureScaleVar(row.expressed_score, { countryCode: row.country_code }) ??
+    (isPostureNoGrade(row.country_code) ? null : (postureLabelDef(row.label)?.color ?? null))
+  );
+}
+
+/** Hex (dark) for canvas renderers that cannot read CSS variables (the MapLibre map). */
+export function postureSwatchHex(row: { label: PostureLabelCode | null; expressed_score?: number | null; country_code?: string | null }): string | null {
+  const score = typeof row.expressed_score === 'number' ? row.expressed_score : postureLabelDef(row.label)?.anchor;
+  return postureScaleColor(score, { countryCode: row.country_code });
+}
 export const POSTURE_SILENCE_COLOR = '#5B6472';
 export const POSTURE_NODATA_COLOR = '#2E3A4E';
 export const POSTURE_DEFENSIVE_TEXT = 'citing attacks on its own territory';

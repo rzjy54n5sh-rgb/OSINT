@@ -2,13 +2,14 @@
  * Design system v2 tokens (app/globals.css) against the System artboard:
  *  1. every text token reaches WCAG 2.x 4.5:1 on --bg and on --surface, in both themes;
  *     status text also on its own tint (the chips), and the CTA ink on the gold fill;
+ *     the same for the @media print block (light inks);
  *  2. the War Posture scale, scenario identity and lane status colours equal the spec (CSS and TS);
  *  3. every legacy variable name still exists and resolves to a v2 token.
  *
  *   npx --yes tsx tests/unit/tokens.check.ts
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   POSTURE_SCALE,
@@ -35,6 +36,18 @@ function block(selector: string): Record<string, string> {
 
 const darkDecl = block(':root');
 const lightDecl = { ...darkDecl, ...block(":root[data-theme='light']") };
+
+/** The `:root` rule inside `@media print { … }` (print always uses the light inks). */
+function printBlock(): Record<string, string> {
+  const at = css.indexOf('@media print {');
+  assert.ok(at >= 0, 'missing @media print block');
+  const rootAt = css.indexOf(':root {', at);
+  const body = css.slice(css.indexOf('{', rootAt) + 1, css.indexOf('}', rootAt));
+  const out: Record<string, string> = {};
+  for (const m of body.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  return out;
+}
+const printDecl = { ...darkDecl, ...printBlock() };
 
 /** Resolve var() chains to a hex value. */
 function resolve(decl: Record<string, string>, name: string, depth = 0): string {
@@ -65,7 +78,7 @@ const ok = (label: string, fn: () => void) => {
     console.log(`ok   ${label}`);
   } catch (e) {
     failed++;
-    console.error(`FAIL ${label}: ${(e as Error).message.split('\n')[0]}`);
+    console.error(`FAIL ${label}: ${(e as Error).message.split('\n').slice(0, 12).join(' ')}`);
   }
 };
 
@@ -75,7 +88,7 @@ const TEXT_TOKENS = [
   '--scn-a', '--scn-b', '--scn-c', '--scn-d', '--scn-unmeasured',
 ];
 
-for (const [theme, decl] of [['dark', darkDecl], ['light', lightDecl]] as const) {
+for (const [theme, decl] of [['dark', darkDecl], ['light', lightDecl], ['print', printDecl]] as const) {
   const bg = resolve(decl, '--bg');
   const surface = resolve(decl, '--surface');
   for (const t of TEXT_TOKENS) {
@@ -153,8 +166,41 @@ ok('EG / AE / SA never get a posture colour', () => {
   }
   assert.equal(postureScaleColor(90, { countryCode: 'IR' }), '#FF7F3F');
 });
-ok('posture labels take their anchor band colour', () => {
-  for (const l of POSTURE_LABELS) assert.equal(l.color, postureScaleColor(l.anchor));
+ok('posture labels: theme-aware swatch var of their anchor band', () => {
+  for (const l of POSTURE_LABELS) {
+    const band = postureBand(l.anchor)!;
+    assert.equal(l.color, `var(--posture-${band}, ${POSTURE_SCALE.dark[band]})`);
+  }
+});
+ok('print mirrors the light theme for every colour token it sets', () => {
+  for (const [name, v] of Object.entries(printBlock())) assert.equal(v.toUpperCase(), resolve(lightDecl, name).toUpperCase(), name);
+});
+
+// Posture colours are fills and swatches only, never text: no `color:` / `color={…}` may take a posture
+// token, a posture hex or a posture label's `.color`. (If one ever must be text, assert its contrast here.)
+ok('posture colours are never used as a text colour', () => {
+  const POSTURE_HEX = [...Object.values(POSTURE_SCALE.dark), ...Object.values(POSTURE_SCALE.light)].map((h) => h.slice(1)).join('|');
+  const direct = new RegExp(`(?<![-\\w])color(?:\\s*:\\s*|=\\{)[^;,}\\n]*(?:--posture-|#(?:${POSTURE_HEX})\\b|postur|POSTUR)`, 'i');
+  const offenders: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const p = join(dir, name);
+      if (statSync(p).isDirectory()) walk(p);
+      else if (/\.(tsx?|css)$/.test(name)) {
+        const src = readFileSync(p, 'utf8');
+        src.split('\n').forEach((line, i) => {
+          if (direct.test(line.replace(/(background|border|fill|stroke|outline)[-\w]*\s*:/gi, ''))) offenders.push(`${p}:${i + 1}`);
+        });
+        // `POSTURE_LABELS.map((l) => … color={l.color} …)` — a label colour used as text.
+        for (const m of src.matchAll(/POSTURE_LABELS\.map\(\(?(\w+)/g)) {
+          const window = src.slice(m.index, m.index + 800);
+          if (new RegExp(`(?<![-\\w])color(?:=\\{|\\s*:\\s*)${m[1]}\\.color`).test(window)) offenders.push(`${p}: ${m[1]}.color as text`);
+        }
+      }
+    }
+  };
+  for (const d of ['app', 'components', 'lib']) walk(join(__dirname, '../..', d));
+  assert.deepEqual(offenders, []);
 });
 ok('scenario colours: theme tokens with the spec hex as fallback, no red or green, E neutral', () => {
   assert.deepEqual([SCENARIO_COLORS.A, SCENARIO_COLORS.B, SCENARIO_COLORS.C, SCENARIO_COLORS.D], [

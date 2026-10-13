@@ -1,4 +1,4 @@
-import { NAI_POSTURE_COLOR, NAI_POSTURE_HEADING, NAI_POSTURE_NOTE, postureLabel } from '@/lib/nai-v2';
+import { NAI_POSTURE_HEADING, NAI_POSTURE_NOTE, postureColor, postureLabel } from '@/lib/nai-v2';
 
 type Props = {
   /** nai_scores_v2.expressed_score (visible to every tier, so this label is never gated). */
@@ -31,7 +31,7 @@ export function NaiPostureLabel({ expressed, hideHeading = false, className = ''
       <span
         aria-hidden="true"
         className="inline-block w-2.5 h-2.5 rounded-full border"
-        style={{ background: NAI_POSTURE_COLOR[label], borderColor: '#8A9BB5' }}
+        style={{ background: postureColor(expressed) ?? undefined, borderColor: 'var(--line-strong)' }}
       />
       <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
     </span>

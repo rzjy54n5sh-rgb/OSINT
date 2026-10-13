@@ -8,6 +8,8 @@
 import assert from 'node:assert/strict';
 import {
   POSTURE_LABELS,
+  postureSwatchColor,
+  postureSwatchHex,
   confidenceNow,
   currentConflictDayUtc,
   dayToIsoDate,
@@ -39,8 +41,16 @@ ok('labels match the SQL bands', () => {
     [88, 'escalation'], [100, 'escalation'], [null, null], [-1, null], [101, null],
   ];
   for (const [e, want] of cases) assert.equal(postureLabelFor(e), want, `label(${e})`);
-  // v2 War Posture scale (four bands by score; each label takes its anchor's band)
-  assert.deepEqual(POSTURE_LABELS.map((l) => l.color), ['#6FA8F0', '#6FA8F0', '#98A3B3', '#E8A066', '#FF7F3F']);
+  // v2 War Posture scale (four bands by score; a label's swatch is its anchor's band, theme-aware)
+  assert.deepEqual(POSTURE_LABELS.map((l) => l.color), [
+    'var(--posture-1, #6FA8F0)', 'var(--posture-1, #6FA8F0)', 'var(--posture-2, #98A3B3)', 'var(--posture-3, #E8A066)', 'var(--posture-4, #FF7F3F)',
+  ]);
+  // A score is coloured by ITS band: 85 "Supports continued pressure" is band 4, 35 "Conditional de-escalation" band 2.
+  assert.equal(postureSwatchColor({ label: 'continued_pressure', expressed_score: 85 }), 'var(--posture-4, #FF7F3F)');
+  assert.equal(postureSwatchColor({ label: 'conditional_deescalation', expressed_score: 35 }), 'var(--posture-2, #98A3B3)');
+  assert.equal(postureSwatchColor({ label: 'continued_pressure', expressed_score: null }), 'var(--posture-3, #E8A066)');
+  assert.equal(postureSwatchColor({ label: 'escalation', expressed_score: 95, country_code: 'SA' }), null);
+  assert.equal(postureSwatchHex({ label: 'continued_pressure', expressed_score: 85 }), '#FF7F3F');
   // no red / green hues in the scale (blue -> grey -> orange)
   for (const l of POSTURE_LABELS) assert.ok(!/^#(E0|E05252|4EC98A)/i.test(l.color), l.color);
 });

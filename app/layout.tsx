@@ -4,6 +4,7 @@ import './globals.css';
 import { validateEnv } from '@/lib/env';
 import { CommandHeader } from '@/components/CommandHeader';
 import { fontVariables } from './fonts';
+import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
@@ -41,7 +42,7 @@ validateEnv();
  */
 export const revalidate = 900;
 
-/** Fonts: app/fonts.ts (design system v2; three preloads: Plex Sans 400, Newsreader, Plex Mono 400). */
+/** Fonts: app/fonts.ts (design system v2; two preloads: Plex Sans 400 and Plex Mono 400 — Newsreader is not preloaded). */
 
 export const viewport: Viewport = {
   // v2 --bg of the default (dark) theme. A saved light choice is applied by the boot script below.
@@ -101,10 +102,12 @@ const LANG_BOOT_SCRIPT =
   (ARABIC_ENABLED ? "if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" : '') +
   // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
   "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}" +
-  // Theme (design system v2): dark is the default; a saved choice ('light' | 'dark', set by the header's
-  // ThemeToggle) is applied before first paint, so there is no flash of the wrong theme. Its own try:
-  // blocked storage must not skip it, and it must not skip the lines above.
-  "try{var th=localStorage.getItem('mid-theme');if(th==='light'||th==='dark')document.documentElement.setAttribute('data-theme',th);}catch(e){}";
+  // Theme (design system v2): dark is the default. While LIGHT_THEME_ENABLED is false (lib/design-tokens.ts)
+  // the screen is dark-only and a stored 'light' from an earlier visit is ignored (print still uses the
+  // light tokens). When enabled, a saved choice is applied before first paint (no flash), in its own try.
+  (LIGHT_THEME_ENABLED
+    ? "try{var th=localStorage.getItem('mid-theme');if(th==='light'||th==='dark')document.documentElement.setAttribute('data-theme',th);}catch(e){}"
+    : '');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Server-rendered default. The visitor's language preference is applied client-side (above);

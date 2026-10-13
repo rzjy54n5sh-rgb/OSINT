@@ -24,17 +24,17 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
     return (
       <span
         className="inline-flex flex-wrap items-center gap-2 font-mono text-xs"
-        style={{ color: '#E2E8F0', fontFamily: 'var(--font-mono), "IBM Plex Mono", monospace' }}
+        style={{ color: 'var(--text)', fontFamily: 'var(--font-mono), "IBM Plex Mono", monospace' }}
         data-locked-tier={requiredTier}
         data-testid="paywall-compact"
       >
-        <span style={{ color: '#E8C547' }} aria-hidden="true">◆</span>
+        <span style={{ color: 'var(--accent)' }} aria-hidden="true">◆</span>
         <span>Locked during launch —</span>
         <Link
           prefetch={false}
           href={FOUNDING_ACCESS_HREF}
           className="border px-2 py-1 rounded-sm hover:opacity-90 transition-opacity inline-flex items-center min-h-[24px]"
-          style={{ borderColor: '#E8C547', color: '#E8C547' }}
+          style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
         >
           {FOUNDING_ACCESS_SHORT} →<span className="sr-only"> (unlocks: {featureName})</span>
         </Link>
@@ -45,13 +45,13 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
   return (
     <div
       className="osint-card p-5 font-mono"
-      style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: '#E2E8F0' }}
+      style={{ background: 'var(--bg-card)', borderColor: 'var(--border)', color: 'var(--text)' }}
       data-locked-tier={requiredTier}
       data-testid="paywall-card"
       role="group"
       aria-label={`${featureName}: locked`}
     >
-      <p className="text-xs mb-2 uppercase" style={{ color: '#E8C547', letterSpacing: '1.5px' }}>
+      <p className="text-xs mb-2 uppercase" style={{ color: 'var(--accent)', letterSpacing: '1.5px' }}>
         <span aria-hidden="true">◆ </span>
         {featureName} · locked during launch
       </p>
@@ -66,8 +66,8 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
       <Link
         prefetch={false}
         href={FOUNDING_ACCESS_HREF}
-        className="inline-flex items-center min-h-[44px] border px-4 py-2 text-sm rounded-sm hover:opacity-90 transition-opacity"
-        style={{ borderColor: '#E8C547', color: '#E8C547' }}
+        className="inline-flex items-center min-h-[44px] border px-4 py-2 text-sm font-semibold rounded-sm hover:opacity-90 transition-opacity"
+        style={{ background: 'var(--accent-fill)', borderColor: 'var(--accent-fill)', color: 'var(--on-accent)' }}
       >
         {FOUNDING_ACCESS_LABEL} →
       </Link>

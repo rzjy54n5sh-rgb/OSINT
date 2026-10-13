@@ -14,6 +14,7 @@ import { Icon } from '@/components/ui/icons';
 import { ThemeToggle } from '@/components/header/ThemeToggle';
 import { useI18n } from '@/components/I18nProvider';
 import { ARABIC_ENABLED } from '@/lib/site';
+import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import type { UserTier } from '@/types';
 import type { UIStringKey } from '@/lib/i18n';
 import s from '@/components/header/header.module.css';
@@ -97,7 +98,7 @@ function Mark() {
   );
 }
 
-/** Escape closes an open disclosure and returns focus to its button; a click outside closes it too. */
+/** Escape closes an open disclosure and returns focus to its button; a click or focus outside closes it too. */
 function useDisclosure(open: boolean, close: () => void, button: React.RefObject<HTMLButtonElement | null>, panel: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (!open) return;
@@ -111,11 +112,18 @@ function useDisclosure(open: boolean, close: () => void, button: React.RefObject
       const t = e.target as Node;
       if (!panel.current?.contains(t) && !button.current?.contains(t)) close();
     };
+    // Focus moving anywhere outside the panel and its button (Tab past the last link, a click elsewhere) closes it.
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !button.current?.contains(t)) close();
+    };
     document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDown);
+    document.addEventListener('focusin', onFocusIn);
     return () => {
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('focusin', onFocusIn);
     };
   }, [open, close, button, panel]);
 }
@@ -178,21 +186,27 @@ export function CommandHeader() {
   ];
   const groups = [...MORE_GROUPS, { key: 'navGroupAccount' as UIStringKey, en: 'Account', links: accountLinks }];
 
-  // "Day 228 · 10:05 UTC": calendar day (DAY LOCK) and the newest article's real timestamp.
+  // "Day 228 · 10:05 UTC" (or "· 13 Oct 22:40 UTC" when the newest article is from an earlier UTC day):
+  // calendar day (DAY LOCK) and the newest article's real timestamp. The parts are separate spans so the
+  // bar can drop the date (stale, phones) or keep the time only (Arabic UI) without overlapping the nav.
   const updated = formatUtcStamp(lastUpdateAt);
+  const dated = /^(\d{2} \w{3}) (.+)$/.exec(updated);
   const staleTitle = staleReasons.join(' · ') || 'Data may be out of date';
   const stamp = (
-    <span className={s.stamp}>
-      <span>Day {conflictDay}</span>
+    <span className={s.stamp} dir="ltr" translate="no">
+      <span className={s.stampDay}>Day {conflictDay}</span>
       <span className={s.sep} aria-hidden="true">
         {' · '}
       </span>
       <span>
         <span className="sr-only">, updated </span>
-        {updated}
+        {dated ? <span className={s.stampDate}>{dated[1]} </span> : null}
+        {dated ? dated[2] : updated}
       </span>
     </span>
   );
+  // Bar: glyph only (the word stays for screen readers and in the title); the menu shows the full chip.
+  const staleLabel = <span className={s.staleWord}>Data stale</span>;
 
   const groupBlocks = (onNavigate?: () => void) =>
     groups.map((g) => (
@@ -258,6 +272,8 @@ export function CommandHeader() {
             <div ref={morePanel} id="header-more" className={s.morePanel}>
               {groupBlocks(closeMore)}
               <div className={s.group}>
+                {/* Language lives here on desktop: the bar has no room for it next to the nav and stamp. */}
+                {ARABIC_ENABLED ? <LanguageToggle /> : null}
                 <GlobeMenu inline />
               </div>
             </div>
@@ -268,17 +284,14 @@ export function CommandHeader() {
           {stamp}
           {stale ? (
             <span className={s.desktopOnly}>
-              <TrustChip kind="stale" label="Data stale" title={staleTitle} />
+              <TrustChip kind="stale" label={staleLabel} title={staleTitle} className={s.staleChip} />
             </span>
           ) : null}
-          {ARABIC_ENABLED ? (
+          {LIGHT_THEME_ENABLED ? (
             <span className={s.desktopOnly}>
-              <LanguageToggle />
+              <ThemeToggle />
             </span>
           ) : null}
-          <span className={s.desktopOnly}>
-            <ThemeToggle />
-          </span>
           <Link prefetch={false} href={HEADER_CTA.href} className={`${s.cta} ${s.desktopOnly}`}>
             {HEADER_CTA.en}
           </Link>
@@ -322,7 +335,7 @@ export function CommandHeader() {
             </ul>
             <div className={s.menuGroups}>{groupBlocks(closeMenu)}</div>
             <div className={s.menuTools}>
-              <ThemeToggle withLabel />
+              {LIGHT_THEME_ENABLED ? <ThemeToggle withLabel /> : null}
               {ARABIC_ENABLED ? <LanguageToggle /> : null}
               <GlobeMenu inline />
             </div>

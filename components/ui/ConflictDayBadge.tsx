@@ -20,23 +20,23 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
 
   return (
     <div
-      className={`flex flex-wrap items-center gap-2 px-4 py-2 border-b border-white/10 font-mono text-xs min-w-0 ${className}`}
+      className={`flex flex-wrap items-center gap-2 px-4 py-2 border-b border-border font-mono text-xs min-w-0 ${className}`}
       role="status"
       aria-live="polite"
     >
       <span className="text-accent-gold font-bold tracking-wider whitespace-nowrap">
         ◆ {t('conflictDay')} <span translate="no">{day}</span>
       </span>
-      <span className="text-white/30 hidden sm:inline" aria-hidden>
+      <span className="text-text-muted hidden sm:inline" aria-hidden>
         ·
       </span>
-      <span className="text-white/60 min-w-0">{date}</span>
+      <span className="text-text-secondary min-w-0">{date}</span>
       {showTime && lastUpdateAt && (
         <>
-          <span className="text-white/30 hidden sm:inline" aria-hidden>
+          <span className="text-text-muted hidden sm:inline" aria-hidden>
             ·
           </span>
-          <span className="text-white/40 whitespace-nowrap">
+          <span className="text-text-muted whitespace-nowrap">
             {t('updatedAt')} <span translate="no">{stamp}</span> {t('utc')}
           </span>
         </>

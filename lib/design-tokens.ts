@@ -12,6 +12,14 @@
  */
 export type Theme = 'dark' | 'light';
 
+/**
+ * Light theme on screen. OFF in this release: 19 of 37 routes still hard-code dark-only colours, so the
+ * header renders no theme toggle and the root layout's boot script ignores a stored 'light'. The
+ * [data-theme='light'] tokens stay (and print always uses them); the route-by-route migration is a
+ * follow-up. Flip to true only when that sweep lands.
+ */
+export const LIGHT_THEME_ENABLED = false;
+
 export const LANE_STATUSES = ['NORMAL', 'ELEVATED', 'DISRUPTED', 'CLOSED', 'UNKNOWN'] as const;
 export type LaneStatusCode = (typeof LANE_STATUSES)[number];
 
@@ -77,6 +85,21 @@ export function postureScaleColor(
   if (isPostureNoGrade(opts.countryCode)) return null;
   const band = postureBand(score);
   return band === null ? null : POSTURE_SCALE[opts.theme ?? 'dark'][band];
+}
+
+/**
+ * Theme-aware swatch / fill colour for a band: `var(--posture-N, #dark)`. For backgrounds, borders and
+ * strokes only — posture colours are never text (tokens.check.ts greps for that).
+ */
+export function postureBandVar(band: PostureBand): string {
+  return `var(--posture-${band}, ${POSTURE_SCALE.dark[band]})`;
+}
+
+/** Swatch / fill colour for a score (its SCORE band); null without a score or for EG / AE / SA. */
+export function postureScaleVar(score: number | null | undefined, opts: { countryCode?: string | null } = {}): string | null {
+  if (isPostureNoGrade(opts.countryCode)) return null;
+  const band = postureBand(score);
+  return band === null ? null : postureBandVar(band);
 }
 
 /** Scenario identity colours. E has none: it is unmeasured (drawn as a dashed outline). */

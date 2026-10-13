@@ -55,13 +55,16 @@ for (const [input, expected] of cases) {
 try {
   assert.deepEqual(
     NAI_POSTURE_LABELS.map((l) => NAI_POSTURE_COLOR[l]),
-    ['#6FA8F0', '#6FA8F0', '#98A3B3', '#E8A066', '#FF7F3F'],
+    ['var(--posture-1, #6FA8F0)', 'var(--posture-1, #6FA8F0)', 'var(--posture-2, #98A3B3)', 'var(--posture-3, #E8A066)', 'var(--posture-4, #FF7F3F)'],
   );
+  // postureColor(e) is the SCORE band: 35 is band 2 although its label (Conditional de-escalation) anchors in band 1.
+  assert.equal(postureColor(35), 'var(--posture-2, #98A3B3)');
+  assert.equal(postureColor(85), 'var(--posture-4, #FF7F3F)');
   assert.equal(postureColor(null), null);
   assert.equal(postureColor(80), NAI_POSTURE_COLOR['Supports continued pressure']);
   // No adjective labels survive (War Posture v2, editorial seat 08).
   assert.ok(!NAI_POSTURE_LABELS.some((l) => /escalatory/i.test(l)));
-  console.log('ok   colour ramp: v2 posture scale by label anchor, null -> null, no adjective labels');
+  console.log('ok   colour ramp: v2 posture scale (label anchor, score band for scores), null -> null, no adjective labels');
 } catch (err) {
   failed++;
   console.error(`FAIL colour ramp: ${(err as Error).message.split('\n')[0]}`);
