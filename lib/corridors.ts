@@ -268,7 +268,8 @@ export function buildCorridors(chokepoints: unknown, historyRaw: unknown, now: D
     const meta = LANE_META[id];
     const l: ChokepointViewLane | undefined = showNumbers ? v.lanes.find((x) => x.id === id) : undefined;
     const transits = l && Number.isInteger(l.transits) ? (l.transits as number) : null;
-    const prev = l && Number.isInteger(l.prev) ? (l.prev as number) : null;
+    // gates.mjs does not check transits_prev_week: a negative count is not printed.
+    const prev = l && Number.isInteger(l.prev) && (l.prev as number) >= 0 ? (l.prev as number) : null;
     return {
       id,
       name: (l?.name as string) || meta.name,
@@ -290,11 +291,17 @@ export function buildCorridors(chokepoints: unknown, historyRaw: unknown, now: D
       statusSourceUrl: state === 'current' ? (l?.statusSourceUrl ?? null) : null,
       override: state === 'current' ? (l?.override ?? null) : null,
       sourceUrl: l?.sourceUrl ?? null,
-      history: hist?.lanes[id] ?? null,
+      // Withheld means no number at all, history included (it repeats this week's figures).
+      history: showNumbers ? (hist?.lanes[id] ?? null) : null,
     };
   });
 
-  const asOf = v.asOf;
+  // A file that failed its checks is not trusted for anything printed: not its date (it may be in the
+  // future), nor its source credit (it may be on the licence AVOID list), nor its links.
+  const trusted = showNumbers;
+  const str = (k: string) => (trusted && typeof cp[k] === 'string' ? (cp[k] as string) : null);
+  const home = str('source_home');
+  const asOf = trusted ? v.asOf : null;
   return {
     state,
     asOf,
@@ -306,12 +313,12 @@ export function buildCorridors(chokepoints: unknown, historyRaw: unknown, now: D
           ? 'Withheld: this week’s corridor file failed its data checks'
           : null,
     weekLabel: showNumbers && v.commonWeek ? formatWeek(v.commonWeek.start, v.commonWeek.end) : null,
-    issueLabel: typeof cp.issue_label === 'string' ? cp.issue_label : null,
-    sourceName: typeof cp.source_name === 'string' ? cp.source_name : 'IMF PortWatch',
-    sourceCredit: typeof cp.source_credit === 'string' ? cp.source_credit : DEFAULT_CREDIT,
-    sourceHome: typeof cp.source_home === 'string' ? cp.source_home : DEFAULT_HOME,
-    licence: typeof cp.licence === 'string' ? cp.licence : DEFAULT_LICENCE,
-    licenceLine: licenceLine(typeof cp.licence === 'string' ? cp.licence : DEFAULT_LICENCE),
+    issueLabel: str('issue_label'),
+    sourceName: str('source_name') ?? 'IMF PortWatch',
+    sourceCredit: str('source_credit') ?? DEFAULT_CREDIT,
+    sourceHome: home && /^https:\/\/\S+$/i.test(home) ? home : DEFAULT_HOME,
+    licence: str('licence') ?? DEFAULT_LICENCE,
+    licenceLine: licenceLine(str('licence') ?? DEFAULT_LICENCE),
     errors: gate.errors,
     historyRetrievedAt: hist?.retrievedAt ?? null,
     lanes,
@@ -343,7 +350,7 @@ export function corridorHeadline(v: CorridorsView): string {
   if (rest.length) first += `; ${rest.map((l) => `${l.shortName} is ${l.status}`).join(', ')}`;
   const low = [...v.lanes].filter((l) => l.index !== null && l.transits !== null).sort((a, b) => a.index! - b.index!)[0];
   const second = low
-    ? ` ${low.shortName} had ${fmtInt(low.transits!)} transits in a week that averaged ${fmtInt(Math.round(low.baselineWeek))} in 2023.`
+    ? ` ${low.shortName} had ${fmtInt(low.transits!)} transits, against ${fmtInt(Math.round(low.baselineWeek))} in an average 2023 week.`
     : '';
   return `${first}.${second}`;
 }

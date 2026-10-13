@@ -99,7 +99,7 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
   eq(v.licenceLine, 'IMF PortWatch data, licence status USE-PROVISIONAL: do not resell the raw series.', 'printed licence line');
   eq(
     corridorHeadline(v),
-    'Two of three lanes are DISRUPTED; Suez is ELEVATED. Hormuz had 19 transits in a week that averaged 669 in 2023.',
+    'Two of three lanes are DISRUPTED; Suez is ELEVATED. Hormuz had 19 transits, against 669 in an average 2023 week.',
     'headline states the finding from the data',
   );
 }
@@ -121,6 +121,27 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
   const bad = buildCorridors((malformedBundle as { chokepoints: unknown }).chokepoints, history, new Date('2026-10-08T12:30:00Z'));
   eq(bad.state, 'withheld', 'malformed file is withheld');
   ok(bad.lanes.every((l) => l.status === 'UNKNOWN' && l.transits === null && l.index === null), 'withheld lanes print no numbers');
+  ok(bad.lanes.every((l) => l.history === null), 'withheld: no history figures either');
+  {
+    const c = clone(issue1) as Cp & Record<string, unknown>;
+    (c.lanes.find((l) => l.lane === 'hormuz') as Record<string, unknown>).index_pct_of_2023 = 3.5;
+    c.source_credit = "Transits: Lloyd's List Intelligence";
+    c.source_home = 'javascript:alert(1)';
+    const w = buildCorridors(c, history, new Date('2026-10-13T09:00:00Z'));
+    eq(w.state, 'withheld', 'index mismatch -> withheld');
+    ok(w.lanes.every((l) => l.history === null), 'withheld: history not printed');
+    ok(!/Lloyd/.test(w.sourceCredit) && w.sourceHome === 'https://portwatch.imf.org', 'withheld: file credit and link not trusted');
+    eq(w.asOf, null, 'withheld: unchecked as_of not printed');
+    const fut = clone(issue1) as Cp; for (const l of fut.lanes) l.as_of = '2026-10-20T00:00:00Z';
+    eq(buildCorridors(fut, history, new Date('2026-10-13T09:00:00Z')).asOfLabel, null, 'future as_of is never printed');
+    const js = clone(issue1) as Cp & Record<string, unknown>; js.source_home = 'javascript:alert(1)';
+    eq(buildCorridors(js, history, new Date('2026-10-13T09:00:00Z')).sourceHome, 'https://portwatch.imf.org', 'non-https source_home ignored');
+    const neg = clone(issue1) as Cp; (neg.lanes.find((l) => l.lane === 'hormuz') as Record<string, unknown>).transits_prev_week = -5;
+    const n = buildCorridors(neg, history, new Date('2026-10-13T09:00:00Z'));
+    eq(n.state, 'current', 'negative prev passes the card gate');
+    const h = n.lanes.find((l) => l.id === 'hormuz')!;
+    ok(h.prev === null && h.wow === null, 'negative previous week is not printed');
+  }
   const none = buildCorridors(null, null, new Date('2026-10-08T12:30:00Z'));
   eq(none.state, 'withheld', 'no file -> withheld');
   eq(none.lanes.length, 3, 'still three lanes, all UNKNOWN');
