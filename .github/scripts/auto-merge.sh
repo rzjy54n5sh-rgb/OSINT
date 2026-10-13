@@ -180,6 +180,10 @@ human_only() {
     wrangler.*|*/wrangler.*|open-next.config.*|*/open-next.config.*|next.config.*|middleware.ts) return 0 ;;
     utils/supabase/*|supabase/config.toml) return 0 ;;
     .env*|*/.env*) return 0 ;;
+    # deploy.yml copies tsconfig.json from the commit into the deploy dir, where wrangler's esbuild
+    # reads it (compilerOptions, paths) while bundling on the CLOUDFLARE_API_TOKEN runner. Trusted
+    # input to the deploy, so human-only like wrangler.*/package-lock.json.
+    tsconfig.json|*/tsconfig.json|tsconfig.*.json|*/tsconfig.*.json) return 0 ;;
     CLAUDE.md|*/CLAUDE.md|CURSOR.md|*/CURSOR.md|.claude/*|.cursor/*|.claudeignore) return 0 ;;
     workers/*) return 0 ;;
     # Executed by deploy.yml (build:cf runs write-supabase-client-env.mjs in the `build` job; the
