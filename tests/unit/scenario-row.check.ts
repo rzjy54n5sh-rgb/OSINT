@@ -28,6 +28,11 @@ import { buildScenarioRow } from '../../lib/scenario-row';
 // expose React before loading the component.
 (globalThis as { React?: typeof React }).React = React;
 const { createElement } = React;
+// CSS modules (the shared chips): under plain Node a class lookup returns its own name.
+require.extensions['.css'] = (m: NodeJS.Module) => {
+  const classes: object = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? undefined : String(k)) });
+  m.exports = classes;
+};
 const { ScenarioRow } = require('../../components/home/ScenarioRow') as typeof import('../../components/home/ScenarioRow');
 
 let n = 0;

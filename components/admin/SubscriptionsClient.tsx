@@ -536,7 +536,7 @@ function StatChip({
       </div>
       <div
         style={{
-          fontFamily: "'Bebas Neue', sans-serif",
+          fontFamily: 'var(--font-display)',
           fontSize: '20px',
           color: valueColor ?? 'var(--text-primary)',
           lineHeight: 1.2,

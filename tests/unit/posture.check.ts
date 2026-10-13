@@ -39,7 +39,8 @@ ok('labels match the SQL bands', () => {
     [88, 'escalation'], [100, 'escalation'], [null, null], [-1, null], [101, null],
   ];
   for (const [e, want] of cases) assert.equal(postureLabelFor(e), want, `label(${e})`);
-  assert.equal(new Set(POSTURE_LABELS.map((l) => l.color)).size, 5);
+  // v2 War Posture scale (four bands by score; each label takes its anchor's band)
+  assert.deepEqual(POSTURE_LABELS.map((l) => l.color), ['#6FA8F0', '#6FA8F0', '#98A3B3', '#E8A066', '#FF7F3F']);
   // no red / green hues in the scale (blue -> grey -> orange)
   for (const l of POSTURE_LABELS) assert.ok(!/^#(E0|E05252|4EC98A)/i.test(l.color), l.color);
 });

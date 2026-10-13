@@ -50,14 +50,18 @@ for (const [input, expected] of cases) {
   }
 }
 
-// Every label has exactly one colour, all five colours are distinct, null has none.
+// Every label has exactly one colour, taken from the v2 War Posture scale (four bands: the two
+// de-escalation labels share band 1), null has none.
 try {
-  assert.equal(new Set(NAI_POSTURE_LABELS.map((l) => NAI_POSTURE_COLOR[l])).size, 5);
+  assert.deepEqual(
+    NAI_POSTURE_LABELS.map((l) => NAI_POSTURE_COLOR[l]),
+    ['#6FA8F0', '#6FA8F0', '#98A3B3', '#E8A066', '#FF7F3F'],
+  );
   assert.equal(postureColor(null), null);
   assert.equal(postureColor(80), NAI_POSTURE_COLOR['Supports continued pressure']);
   // No adjective labels survive (War Posture v2, editorial seat 08).
   assert.ok(!NAI_POSTURE_LABELS.some((l) => /escalatory/i.test(l)));
-  console.log('ok   colour ramp: 5 distinct steps, null -> null, no adjective labels');
+  console.log('ok   colour ramp: v2 posture scale by label anchor, null -> null, no adjective labels');
 } catch (err) {
   failed++;
   console.error(`FAIL colour ramp: ${(err as Error).message.split('\n')[0]}`);

@@ -1,0 +1,177 @@
+/*
+ * Shared chips (design system v2). Colours come from the theme tokens in app/globals.css, so every
+ * chip follows [data-theme] with no JS. Logical properties only (RTL-safe). Text is never colour
+ * alone: status = glyph + word, scenario = letter (+ "range" for B), posture = number or words.
+ */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Lane status ---------------------------------------------------------------------------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-chip);
+  padding-block: 3px;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+.status[data-size='sm'] {
+  padding-block: 1px;
+  padding-inline: 8px;
+}
+.status[data-status='NORMAL'] { color: var(--status-normal); background: var(--status-normal-tint); }
+.status[data-status='ELEVATED'] { color: var(--status-elevated); background: var(--status-elevated-tint); }
+.status[data-status='DISRUPTED'] { color: var(--status-disrupted); background: var(--status-disrupted-tint); }
+.status[data-status='CLOSED'] { color: var(--status-closed); background: var(--status-closed-tint); }
+.status[data-status='UNKNOWN'] { color: var(--status-unknown); background: var(--status-unknown-tint); border-style: dashed; }
+
+/* ---- Trust ---------------------------------------------------------------------------------- */
+.trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding-block: 2px;
+  padding-inline: 10px;
+  max-inline-size: 100%;
+}
+.trust svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+}
+.trust .meta {
+  color: var(--muted);
+}
+.trust[data-kind='stale'] {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-unknown);
+  background: var(--status-unknown-tint);
+  border: 1px dashed var(--status-unknown);
+}
+.party {
+  font-size: var(--fs-meta); /* the artboard draws 11 px; the 13 px UI floor wins */
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-elevated);
+  background: var(--status-elevated-tint);
+  border-radius: var(--radius-chip);
+  padding-inline: 6px;
+}
+.trustLink {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  text-decoration: none;
+  color: inherit;
+}
+.trustLink:hover .trust {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* ---- Scenario identity ---------------------------------------------------------------------- */
+.scenario {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-ui);
+  line-height: 1.35;
+}
+.swatch {
+  flex: none;
+  align-self: center;
+  inline-size: 14px;
+  block-size: 14px;
+  background: var(--scn);
+}
+.scenario[data-code='A'] { --scn: var(--scn-a); }
+.scenario[data-code='B'] { --scn: var(--scn-b); }
+.scenario[data-code='C'] { --scn: var(--scn-c); }
+.scenario[data-code='D'] { --scn: var(--scn-d); }
+.scenario[data-code='B'] .swatch {
+  background: repeating-linear-gradient(135deg, var(--scn) 0 3px, transparent 3px 6px);
+  border: 1px solid var(--scn);
+}
+.scenario[data-kind='unmeasured'] .swatch,
+.scenario[data-code='E'] .swatch {
+  background: transparent;
+  border: 1px dashed var(--scn-unmeasured);
+}
+.scenario:not([data-code='A']):not([data-code='B']):not([data-code='C']):not([data-code='D']) {
+  --scn: var(--muted);
+}
+.letter {
+  font-family: var(--font-numeric);
+  font-weight: 600;
+  color: var(--scn, var(--text-2));
+}
+.scenario[data-kind='unmeasured'] .letter,
+.scenario[data-code='E'] .letter {
+  color: var(--text-2);
+}
+.scnValue {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.rangeWord {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* ---- War Posture ---------------------------------------------------------------------------- */
+.posture {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  line-height: 1.35;
+}
+.postureSwatch {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 1px;
+  background: var(--pst, transparent);
+}
+.posture[data-band='1'] { --pst: var(--posture-1); }
+.posture[data-band='2'] { --pst: var(--posture-2); }
+.posture[data-band='3'] { --pst: var(--posture-3); }
+.posture[data-band='4'] { --pst: var(--posture-4); }
+/* EG / AE / SA (stated positions only) and no score: outline only, no fill, no number. */
+.posture[data-band='none'] .postureSwatch {
+  background: transparent;
+  border: 1px solid var(--muted);
+}
+.posture[data-no-grade='true'] {
+  color: var(--text-2);
+}

@@ -24,7 +24,7 @@ export function ConflictDayBadge({ className = '', showTime = true }: ConflictDa
       role="status"
       aria-live="polite"
     >
-      <span className="text-[#E8C547] font-bold tracking-wider whitespace-nowrap">
+      <span className="text-accent-gold font-bold tracking-wider whitespace-nowrap">
         ◆ {t('conflictDay')} <span translate="no">{day}</span>
       </span>
       <span className="text-white/30 hidden sm:inline" aria-hidden>

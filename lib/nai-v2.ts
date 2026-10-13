@@ -9,6 +9,7 @@
  *  - Legacy `nai_scores` (Days 1-35) is archived, a different axis, NOT comparable — it is never
  *    used as a fallback for "current" NAI.
  */
+import { POSTURE_SCALE } from './design-tokens';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiCategoryV2, NaiScoreV2, NaiSourceV2 } from '@/types/supabase';
 import { rpcWithFallback, type ReadVia } from '@/lib/supabase/rpc-fallback';
@@ -117,13 +118,13 @@ export const NAI_POSTURE_NOTE =
   'Posture (official) describes what a government says it wants, from its expressed score only: 0–12 Seeks immediate ceasefire, 13–37 Conditional de-escalation, 38–62 Ambivalent, 63–87 Supports continued pressure, 88–100 Supports escalation. The cut-points are conventions, not empirical findings. It is separate from the War Posture category. Egypt, the UAE and Saudi Arabia get no label (stated positions only).';
 export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture';
 
-/** Colour-blind-safe diverging scale (blue → grey → orange, no red/green); same as lib/posture.ts. */
+/** War Posture scale colour of each label's anchor (design system v2); same as lib/posture.ts POSTURE_LABELS. */
 export const NAI_POSTURE_COLOR: Record<PostureLabel, string> = {
-  'Seeks immediate ceasefire': '#2F7FD8',
-  'Conditional de-escalation': '#86B4EA',
-  Ambivalent: '#9CA3AF',
-  'Supports continued pressure': '#F0AE6B',
-  'Supports escalation': '#D9711C',
+  'Seeks immediate ceasefire': POSTURE_SCALE.dark[1],
+  'Conditional de-escalation': POSTURE_SCALE.dark[1],
+  Ambivalent: POSTURE_SCALE.dark[2],
+  'Supports continued pressure': POSTURE_SCALE.dark[3],
+  'Supports escalation': POSTURE_SCALE.dark[4],
 };
 
 export function postureLabel(e: number | null | undefined): PostureLabel | null {

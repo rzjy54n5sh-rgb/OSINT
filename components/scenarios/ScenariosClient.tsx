@@ -77,7 +77,7 @@ function ScenarioCard({
   return (
     <OsintCard
       className={independent ? 'border-2 border-dashed h-full' : 'h-full'}
-      style={independent ? { borderColor: `${color}80` } : undefined}
+      style={independent ? { borderColor: `color-mix(in srgb, ${color} 50%, transparent)` } : undefined}
     >
       <article data-testid={`scenario-card-${s.code}`} data-measurement={unmeasured ? 'unmeasured' : 'measured'}>
         <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }} translate="no">

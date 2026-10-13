@@ -17,6 +17,7 @@
  * shows a grade for them, whatever the DB holds: on a v2 board their v1 rows are never shown, and with no
  * v2 row at all they get a policy-only "Stated positions only" row (no evidence, no grade).
  */
+import { postureScaleColor } from './design-tokens';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiSourceV2 } from '@/types/supabase';
 import { isMissingRpc } from '@/lib/supabase/rpc-fallback';
@@ -157,15 +158,18 @@ export interface PostureLabelDef {
 }
 
 /**
- * Colour-blind-safe diverging scale: blue (ceasefire) → grey (ambivalent) → orange (escalation).
- * No red / green. Readable on the dark surfaces as swatches; text always stays in theme tokens.
+ * Colours: the War Posture scale of design system v2 (lib/design-tokens.ts), four bands by score —
+ * 0–30 #6FA8F0, 31–60 #98A3B3, 61–80 #E8A066, 81–100 #FF7F3F (no red / green). A label takes the band
+ * of its anchor, so "Seeks immediate ceasefire" and "Conditional de-escalation" share band 1; the label
+ * text always travels with the colour. Where a score is known, prefer postureScaleColor(score).
  */
+const anchorColor = (anchor: number): string => postureScaleColor(anchor) as string;
 export const POSTURE_LABELS: readonly PostureLabelDef[] = [
-  { code: 'immediate_ceasefire', text: 'Seeks immediate ceasefire', min: 0, max: 12, anchor: 0, color: '#2F7FD8' },
-  { code: 'conditional_deescalation', text: 'Conditional de-escalation', min: 13, max: 37, anchor: 25, color: '#86B4EA' },
-  { code: 'ambivalent', text: 'Ambivalent', min: 38, max: 62, anchor: 50, color: '#9CA3AF' },
-  { code: 'continued_pressure', text: 'Supports continued pressure', min: 63, max: 87, anchor: 75, color: '#F0AE6B' },
-  { code: 'escalation', text: 'Supports escalation', min: 88, max: 100, anchor: 100, color: '#D9711C' },
+  { code: 'immediate_ceasefire', text: 'Seeks immediate ceasefire', min: 0, max: 12, anchor: 0, color: anchorColor(0) },
+  { code: 'conditional_deescalation', text: 'Conditional de-escalation', min: 13, max: 37, anchor: 25, color: anchorColor(25) },
+  { code: 'ambivalent', text: 'Ambivalent', min: 38, max: 62, anchor: 50, color: anchorColor(50) },
+  { code: 'continued_pressure', text: 'Supports continued pressure', min: 63, max: 87, anchor: 75, color: anchorColor(75) },
+  { code: 'escalation', text: 'Supports escalation', min: 88, max: 100, anchor: 100, color: anchorColor(100) },
 ];
 export const POSTURE_SILENCE_COLOR = '#5B6472';
 export const POSTURE_NODATA_COLOR = '#2E3A4E';

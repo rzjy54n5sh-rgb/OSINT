@@ -157,17 +157,17 @@ export default function HomeDashboard({
           the feature tiles and the newsletter box come last so data comes first. */}
       <section className="max-w-6xl mx-auto px-4 pb-12">
         <div
-          className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-x-6 gap-y-1 mb-4"
-          style={{ color: 'var(--text-secondary)' }}
+          className="num flex flex-wrap gap-x-6 gap-y-1 mb-4"
+          style={{ color: 'var(--text-muted)', fontSize: 'var(--fs-meta)' }}
         >
           <span>
-            {t('conflictDay')} <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span>
+            {t('conflictDay')} <span style={{ color: 'var(--text-primary)' }}>{conflictDay ?? '—'}</span>
           </span>
           <span>
-            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
+            {t('articlesLabel')} <span style={{ color: 'var(--text-primary)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
           </span>
           <span>
-            {t('lastUpdateLabel')} <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span>
+            {t('lastUpdateLabel')} <span style={{ color: 'var(--text-primary)' }}>{lastUpdate}</span>
           </span>
           <span>{live ? '● LIVE' : '○ STANDBY'}</span>
         </div>
@@ -176,20 +176,18 @@ export default function HomeDashboard({
         {corridors != null && <div className="mb-6">{corridors}</div>}
 
         {/* ── TOP FINDING STRIP ──────────────────────────────────── */}
-        <div className="mb-6 px-4 py-3"
-             style={{ background: 'rgba(232,197,71,0.04)',
-                      border: '1px solid rgba(232,197,71,0.15)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
-                           fontFamily: 'var(--font-mono), monospace', letterSpacing: '2px' }}>
-              ◆ DAY {briefingDay ?? '—'} TOP FINDING
-            </span>
-          </div>
+        <section aria-labelledby="home-top-finding-h" className="mb-6 px-4 py-4"
+             style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+          <h2 id="home-top-finding-h" className="mb-2 uppercase"
+              style={{ fontFamily: 'var(--font-ui)', color: 'var(--accent-gold)', fontSize: 'var(--fs-meta)',
+                       fontWeight: 600, letterSpacing: '0.06em' }}>
+            Day <span className="num">{briefingDay ?? '—'}</span> top finding
+          </h2>
           {!topFindingLoading && (
             <DataAsOf section="GENERAL BRIEFING" latestDay={briefingDay} currentDay={conflictDay} className="mb-2" />
           )}
-          <p className="font-body text-sm leading-relaxed min-h-[3.5rem] line-clamp-3 md:line-clamp-none"
-             style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-serif text-lg md:text-[22px] leading-snug min-h-[3.5rem] line-clamp-4 md:line-clamp-none"
+             style={{ color: 'var(--text-primary)' }}>
             {topFindingLoading && (
               <span style={{ color: 'var(--text-muted)' }}>Loading latest synthesis…</span>
             )}
@@ -206,11 +204,11 @@ export default function HomeDashboard({
             )}
           </p>
           <Link prefetch={false} href={`/briefings/${briefingDay ?? conflictDay}/general`}
-                className="font-mono text-xs mt-2 inline-block"
-                style={{ color: 'var(--accent-gold)' }}>
-            READ FULL BRIEF →
+                className="mt-3 inline-flex items-center min-h-[44px] font-medium"
+                style={{ color: 'var(--link)', fontSize: 15 }}>
+            Read full brief →
           </Link>
-        </div>
+        </section>
 
         {/* ── SCENARIO ROW (same numbers as /scenarios) ──────────── */}
         {scenarioRow}
@@ -218,9 +216,9 @@ export default function HomeDashboard({
         {newScenarioAlert && (
           <div
             className="mb-6 border px-4 py-3 font-mono text-xs"
-            style={{ borderColor: '#a855f7', background: 'rgba(168,85,247,0.08)' }}
+            style={{ borderColor: 'var(--border-bright)', background: 'var(--bg-card)' }}
           >
-            <span style={{ color: '#a855f7' }}>◆ NEW SCENARIO DETECTED — DAY {newScenarioAlert.conflict_day}</span>
+            <span style={{ color: 'var(--text-primary)' }}>◆ NEW SCENARIO DETECTED — DAY {newScenarioAlert.conflict_day}</span>
             <span className="ml-3" style={{ color: 'var(--accent-gold)' }}>
               SCENARIO {newScenarioAlert.label}: {newScenarioAlert.name}
             </span>
@@ -233,7 +231,7 @@ export default function HomeDashboard({
             <a
               href="/scenarios"
               className="mt-2 inline-block underline"
-              style={{ color: '#a855f7' }}
+              style={{ color: 'var(--link)' }}
             >
               VIEW FULL SCENARIO ANALYSIS →
             </a>

@@ -40,18 +40,18 @@ export function HomeScenarioChart({
             }
           />
           <Legend />
-          <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={1.5} dot={false} name="A" />
+          <Line type="monotone" dataKey="A" stroke="var(--scn-a)" strokeWidth={1.5} dot={false} name="A" />
           {bAsRange ? (
-            <Area type="linear" dataKey="B_range" stroke="var(--accent-gold)" strokeWidth={1} strokeDasharray="2 2"
-                  fill="var(--accent-gold)" fillOpacity={0.18} dot={false} activeDot={false} name="B (range)"
+            <Area type="linear" dataKey="B_range" stroke="var(--scn-b)" strokeWidth={1} strokeDasharray="2 2"
+                  fill="var(--scn-b)" fillOpacity={0.18} dot={false} activeDot={false} name="B (range)"
                   isAnimationActive={false} connectNulls={false} />
           ) : (
-            <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
+            <Line type="monotone" dataKey="B" stroke="var(--scn-b)" strokeWidth={1.5} dot={false} name="B" />
           )}
-          <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
-          <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
+          <Line type="monotone" dataKey="C" stroke="var(--scn-c)" strokeWidth={1.5} dot={false} name="C" />
+          <Line type="monotone" dataKey="D" stroke="var(--scn-d)" strokeWidth={1.5} dot={false} name="D" />
           {hasMeasuredE && (
-            <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
+            <Line type="monotone" dataKey="E" stroke="var(--scn-unmeasured)" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
           )}
         </ComposedChart>
       </ResponsiveContainer>

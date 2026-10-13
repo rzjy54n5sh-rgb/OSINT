@@ -2,6 +2,12 @@ import Link from 'next/link';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { formatConflictDayShort } from '@/lib/conflict-calendar';
 import type { ScenarioRowItem, ScenarioRowView } from '@/lib/scenario-row';
+import { ScenarioChip } from '@/components/ui/ScenarioChip';
+
+/** Theme-aware identity colour (design system v2); E and dynamic scenarios have none. */
+function scenarioVar(code: string): string {
+  return ['A', 'B', 'C', 'D'].includes(code) ? `var(--scn-${code.toLowerCase()})` : 'var(--muted)';
+}
 
 /**
  * Home first screen (UX audit §6, "Have the odds moved?"): the registry scenarios in one row with
@@ -31,19 +37,19 @@ export function ScenarioRow({
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-2">
         <h2
           id={headingId}
-          className="font-mono text-xs uppercase"
-          style={{ color: 'var(--accent-gold)', letterSpacing: '2px' }}
+          className="text-[13px] font-semibold uppercase"
+          style={{ fontFamily: 'var(--font-ui)', color: 'var(--accent-gold)', letterSpacing: '0.06em' }}
         >
-          ◆ Scenario odds{row.horizon ? ` to ${row.horizon}` : ''}
+          Scenario odds{row.horizon ? ` to ${row.horizon}` : ''}
         </h2>
-        <Link prefetch={false} href="/scenarios" className="font-mono text-xs" style={{ color: 'var(--accent-gold)' }}>
+        <Link prefetch={false} href="/scenarios" className="text-[13px]" style={{ color: 'var(--link)' }}>
           Full method &amp; markets →
         </Link>
       </div>
 
       {hasData ? (
         <>
-          <p className="font-mono mb-3" style={{ fontSize: '11px', color: 'var(--text-muted)' }} translate="no">
+          <p className="num mb-3" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }} translate="no">
             Day {row.day} ({formatConflictDayShort(row.day!)}) · method {row.method ?? '—'}
             {row.horizon ? ` · horizon ${row.horizon}` : ''}
           </p>
@@ -59,7 +65,7 @@ export function ScenarioRow({
               <ScenarioRowCard key={item.code} item={item} />
             ))}
           </ul>
-          <p className="font-mono mt-2 leading-relaxed" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <p className="mt-2 leading-relaxed" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
             Market prices for each market&apos;s own close: a crowd estimate, not this desk&apos;s forecast. B is a range because
             A, C and D can happen in the same window.
           </p>
@@ -78,37 +84,35 @@ export function ScenarioRow({
 
 function ScenarioRowCard({ item }: { item: ScenarioRowItem }) {
   const measured = item.kind !== 'unmeasured';
+  const color = scenarioVar(item.code);
   return (
     <li
       className="snap-start shrink-0 w-[44%] min-w-[150px] sm:w-[30%] lg:w-auto lg:min-w-0 px-3 py-2"
       style={{
         border: item.independent ? '1px dashed var(--border)' : '1px solid var(--border)',
-        borderTop: `2px ${item.independent ? 'dashed' : 'solid'} ${measured ? item.color : 'var(--border)'}`,
+        borderTop: `2px ${item.independent ? 'dashed' : 'solid'} ${measured ? color : 'var(--border)'}`,
       }}
       data-testid={`home-scenario-${item.code}`}
       data-kind={item.kind}
     >
-      <h3 className="font-body text-xs leading-snug" style={{ color: 'var(--text-primary)' }}>
-        <span className="font-mono mr-1" style={{ color: 'var(--text-muted)' }} translate="no">
-          {item.code}
-        </span>{' '}
-        {item.name}
+      <h3 className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
+        <ScenarioChip code={item.code} label={item.name} kind={item.kind} />
       </h3>
       <p
-        className={measured ? 'font-display text-2xl mt-1' : 'font-mono text-sm mt-2'}
-        style={{ color: measured ? item.color : 'var(--text-secondary)', lineHeight: 1.1 }}
+        className={measured ? 'num text-2xl mt-1' : 'num text-sm mt-2'}
+        style={{ color: measured ? color : 'var(--text-secondary)', lineHeight: 1.1 }}
         translate="no"
       >
         {item.text}
         {item.kind === 'range' && ' '}
         {item.kind === 'range' && (
-          <span className="font-mono ml-1 align-middle" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          <span className="ml-1 align-middle" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
             range
           </span>
         )}
       </p>
-      <MiniBar item={item} />
-      <p className="font-mono mt-1 leading-snug" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+      <MiniBar item={item} color={color} />
+      <p className="mt-1 leading-snug" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
         {item.kind === 'range'
           ? 'A range: A, C and D can co-occur'
           : item.kind === 'unmeasured'
@@ -116,7 +120,7 @@ function ScenarioRowCard({ item }: { item: ScenarioRowItem }) {
             : item.deltaText}
       </p>
       {item.independent && (
-        <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'var(--accent-gold)' }}>
+        <p className="mt-1" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-secondary)' }}>
           Independent · not part of the 100
         </p>
       )}
@@ -130,15 +134,19 @@ function unmeasuredShort(reason: string | null): string {
 }
 
 /** Decorative 0–100 track (the number above carries the value). */
-function MiniBar({ item }: { item: ScenarioRowItem }) {
-  if (item.kind === 'unmeasured') return <div aria-hidden className="mt-2 h-1 w-full" style={{ background: 'var(--border)', opacity: 0.5 }} />;
+function MiniBar({ item, color }: { item: ScenarioRowItem; color: string }) {
+  if (item.kind === 'unmeasured') return <div aria-hidden className="mt-2 h-1 w-full" style={{ background: 'var(--track)' }} />;
   const lo = item.kind === 'range' ? Math.max(0, Math.min(100, item.low ?? 0)) : 0;
   const hi = item.kind === 'range' ? Math.max(lo, Math.min(100, item.high ?? 0)) : Math.max(0, Math.min(100, item.p ?? 0));
   return (
-    <div aria-hidden className="mt-2 h-1 w-full relative" style={{ background: 'var(--border)' }}>
+    <div aria-hidden className="mt-2 h-1 w-full relative" style={{ background: 'var(--track)' }}>
       <div
         className="absolute top-0 h-full"
-        style={{ left: `${lo}%`, width: `${Math.max(hi - lo, 0.8)}%`, background: item.color, opacity: 0.85 }}
+        style={{
+          insetInlineStart: `${lo}%`,
+          width: `${Math.max(hi - lo, 0.8)}%`,
+          background: item.kind === 'range' ? `repeating-linear-gradient(135deg, ${color} 0 3px, transparent 3px 6px)` : color,
+        }}
       />
     </div>
   );
