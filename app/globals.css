@@ -186,6 +186,7 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
 }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   background: var(--bg-primary);

@@ -1,5 +1,5 @@
 /**
- * Checks for lib/briefing-sources.ts and the BriefingReader render path with malformed `sources`
+ * Checks for lib/briefing-sources.ts and the brief reader (components/briefing/BriefReader) render path with malformed `sources`
  * (stored JSON is untrusted). Plain assert script, like nai-posture-label.check.ts:
  *
  *   npx --yes tsx tests/unit/briefing-sources.check.ts
@@ -10,10 +10,14 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { collectBriefSources, paragraphSources, safeHttpUrl } from '../../lib/briefing-sources';
-import BriefingReader from '../../app/briefings/[day]/[type]/BriefingReader';
 
 // tsx compiles the repo's `jsx: preserve` files with the classic transform, which needs React in scope.
 (globalThis as unknown as { React: typeof React }).React = React;
+// CSS modules: under plain Node a class lookup returns its own name (same as scenario-row.check.ts).
+require.extensions['.css'] = (m: NodeJS.Module) => {
+  m.exports = new Proxy({}, { get: (_t, k) => (k === '__esModule' ? undefined : String(k)) });
+};
+const { BriefReader } = require('../../components/briefing/BriefReader') as typeof import('../../components/briefing/BriefReader');
 
 // --- paragraphSources / collectBriefSources -------------------------------------------------
 const malformed = [
@@ -57,7 +61,7 @@ assert.equal(dd.list.find((s) => s.url?.endsWith('/Path/') || s.url?.endsWith('/
 assert.deepEqual(collectBriefSources(null).list, []);
 assert.deepEqual(collectBriefSources([{ subsections: null }, { subsections: [{ paragraphs: null }, null] }] as never).list, []);
 
-// --- BriefingReader renders (server render) with malformed sources ---------------------------
+// --- BriefReader renders (server render) with malformed sources ---------------------------
 const brief = {
   id: 'x',
   conflict_day: 222,
@@ -90,15 +94,16 @@ const brief = {
     { id: 's2', heading: 'null subs', type: 't', subsections: null },
   ],
 };
-const html = renderToString(React.createElement(BriefingReader, { briefing: brief as never, day: 222, type: 'general' }));
-assert.ok(html.includes('SOURCES'), 'sources section rendered');
+const html = renderToString(React.createElement(BriefReader, { briefing: brief as never, day: 222, type: 'general' }));
+assert.ok(html.includes('Sources (2)'), 'sources section rendered');
 assert.ok(html.includes('https://ok.example/a'), 'valid link rendered');
 assert.ok(!html.includes('javascript:alert'), 'javascript: URL never rendered as a link');
-assert.ok(html.includes('STATE/PARTY SOURCE'), 'party marker rendered');
+assert.ok(html.includes('Party source'), 'stored party flag rendered (no registry match)');
 
 const legacy = renderToString(
-  React.createElement(BriefingReader, { briefing: { ...brief, sections: [] } as never, day: 1, type: 'general' })
+  React.createElement(BriefReader, { briefing: { ...brief, sections: [] } as never, day: 1, type: 'general' })
 );
 assert.ok(legacy.includes('No source citations are recorded'), 'legacy note');
+assert.ok(!legacy.includes('id="sources"'), 'R6: no empty Sources section');
 
 console.log('briefing-sources checks passed');

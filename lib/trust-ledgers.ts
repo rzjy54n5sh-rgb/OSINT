@@ -62,6 +62,34 @@ export async function fetchCorrections(limit = 200): Promise<LedgerResult<Correc
   }
 }
 
+/** Printed class labels (shared by /corrections and the brief reader's correction notice). */
+export const CORRECTION_CLASS_LABEL: Record<CorrectionRow['correction_class'], string> = {
+  material: 'MATERIAL',
+  minor: 'MINOR',
+  clarification: 'CLARIFICATION',
+  reply: 'RIGHT OF REPLY',
+};
+
+/** Published corrections that target one row (e.g. a daily_briefings id), newest first. */
+export async function fetchCorrectionsFor(targetTable: string, targetId: string): Promise<LedgerResult<CorrectionRow[]>> {
+  const sb = client();
+  if (!sb) return { status: 'unavailable', reason: 'error' };
+  try {
+    const { data, error } = await sb
+      .from('corrections')
+      .select('id, created_at, target_table, target_id, conflict_day, report_type, correction_class, summary, before_excerpt, after_excerpt')
+      .eq('published', true)
+      .eq('target_table', targetTable)
+      .eq('target_id', targetId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) return { status: 'unavailable', reason: classify(error) };
+    return { status: 'ok', rows: (data as CorrectionRow[] | null) ?? [] };
+  } catch {
+    return { status: 'unavailable', reason: 'error' };
+  }
+}
+
 // ---------------------------------------------------------------- forecasts
 
 export interface ForecastRow {
