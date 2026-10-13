@@ -7,7 +7,7 @@
  * Not named *.test.ts / *.spec.ts so Playwright's testMatch ignores it.
  */
 import assert from 'node:assert/strict';
-import { hero3DDecision, readHero3DEnv, HERO_3D_MIN_DEVICE_MEMORY_GB, type Hero3DEnv } from '../../lib/hero-3d';
+import { hero3DDecision, isSoftwareRenderer, readHero3DEnv, HERO_3D_MIN_DEVICE_MEMORY_GB, type Hero3DEnv } from '../../lib/hero-3d';
 
 let n = 0;
 const ok = (label: string, fn: () => void) => {
@@ -93,6 +93,23 @@ ok('readHero3DEnv: a throwing matchMedia is treated as reduced motion (fail clos
   });
   assert.equal(env.reducedMotion, true);
   assert.equal(hero3DDecision(env).render, false);
+});
+
+// --- isSoftwareRenderer (the caveat flag alone lets SwiftShader through in Chromium) -------------
+ok('isSoftwareRenderer: software rasterisers are rejected', () => {
+  assert.equal(isSoftwareRenderer('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)'), true);
+  assert.equal(isSoftwareRenderer('llvmpipe (LLVM 15.0.7, 256 bits)'), true);
+  assert.equal(isSoftwareRenderer('ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0)'), true);
+  assert.equal(isSoftwareRenderer('Google SwiftShader'), true);
+});
+
+ok('isSoftwareRenderer: hardware and masked renderers pass', () => {
+  assert.equal(isSoftwareRenderer('ANGLE (Apple, ANGLE Metal Renderer: Apple M2, Unspecified Version)'), false);
+  assert.equal(isSoftwareRenderer('Adreno (TM) 640'), false);
+  assert.equal(isSoftwareRenderer('Mali-G78'), false);
+  assert.equal(isSoftwareRenderer('WebKit WebGL'), false);
+  assert.equal(isSoftwareRenderer(null), false);
+  assert.equal(isSoftwareRenderer(undefined), false);
 });
 
 console.log(`\n${n} checks passed`);

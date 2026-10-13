@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { hero3DDecision, readHero3DEnv, type Hero3DWindowLike } from '@/lib/hero-3d';
+import { hero3DDecision, isSoftwareRenderer, readHero3DEnv, type Hero3DWindowLike } from '@/lib/hero-3d';
 
 /** three.js (~130 KB) is its own chunk, requested only when the scene is actually going to render. */
 const HeroStarfield = dynamic(() => import('@/components/home/HeroStarfield').then((m) => m.HeroStarfield), {
@@ -16,8 +16,11 @@ function hasFastWebGL(): boolean {
     const opts = { failIfMajorPerformanceCaveat: true } as const;
     const gl = (c.getContext('webgl2', opts) ?? c.getContext('webgl', opts)) as WebGLRenderingContext | null;
     if (!gl) return false;
+    // The caveat flag does not reject SwiftShader in Chromium: check the renderer string too.
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
     gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return true;
+    return !isSoftwareRenderer(typeof renderer === 'string' ? renderer : null);
   } catch {
     return false;
   }

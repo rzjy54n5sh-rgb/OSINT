@@ -217,6 +217,8 @@ export default function WarRoomPage() {
   const [feed, setFeed] = useState<Article[]>([]);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
   const [feedLoading, setFeedLoading] = useState(false);
+  /** The last feed read failed (e.g. statement timeout): say so instead of "no data", and offer a retry. */
+  const [feedError, setFeedError] = useState(false);
   const [breakingAlerts, setBreakingAlerts] = useState<Article[]>([]);
   const [articleCountByCountry, setArticleCountByCountry] = useState<Record<string, number>>({});
   const [marketData, setMarketData] = useState<MarketData[]>([]);
@@ -271,10 +273,18 @@ export default function WarRoomPage() {
         .order('published_at', { ascending: false, nullsFirst: false })
         .limit(limit);
       if (seq !== feedSeq.current) return; // a newer request (country switch) superseded this one
-      if (error) console.error('[warroom] feed read failed:', error.message);
-      else setFeed((data as unknown as Article[]) ?? []);
+      if (error) {
+        console.error('[warroom] feed read failed:', error.message);
+        setFeedError(true);
+      } else {
+        setFeed((data as unknown as Article[]) ?? []);
+        setFeedError(false);
+      }
     } catch (e) {
-      if (seq === feedSeq.current) console.error('[warroom] feed read failed:', e);
+      if (seq === feedSeq.current) {
+        console.error('[warroom] feed read failed:', e);
+        setFeedError(true);
+      }
     } finally {
       if (seq === feedSeq.current) setFeedLoading(false);
     }
@@ -964,7 +974,7 @@ export default function WarRoomPage() {
                 {filteredArticles.length === 0 ? (
                   feedLoading ? (
                     <p style={{ padding: 14, fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>LOADING FEED…</p>
-                  ) : (
+                  ) : feedError ? null : (
                     <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
                   )
                 ) : (
@@ -1000,7 +1010,23 @@ export default function WarRoomPage() {
                   ))
                 )}
                 {/* Only when the last read filled the limit (there may be more) and below the cap. */}
-                {feed.length >= feedLimit && feedLimit < FEED_MAX && (
+                {/* A failed read is not "no data": say so and offer a retry (the 60 s refresh also retries). */}
+                {feedError && !feedLoading && (
+                  <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }} role="status">
+                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-red)' }}>
+                      FEED COULD NOT BE LOADED JUST NOW
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void loadFeed()}
+                      className="font-mono text-xs border px-3 py-2 min-h-[36px]"
+                      style={{ borderColor: 'var(--border-bright)', color: 'var(--accent-gold)', background: 'transparent' }}
+                    >
+                      RETRY
+                    </button>
+                  </div>
+                )}
+                {!feedError && feed.length >= feedLimit && feedLimit < FEED_MAX && (
                   <div style={{ padding: '10px 14px' }}>
                     <button
                       type="button"

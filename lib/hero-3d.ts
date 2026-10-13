@@ -35,6 +35,18 @@ export function hero3DDecision(env: Hero3DEnv): { render: boolean; reason: Hero3
   return { render: true, reason: 'ok' };
 }
 
+/**
+ * `failIfMajorPerformanceCaveat` alone does not exclude software rasterisers: Chromium (verified on
+ * build 1208, headless — the Lighthouse / PageSpeed environment) returns a SwiftShader context with
+ * the flag set. So the probe also rejects a context whose renderer string names a software
+ * rasteriser. Browsers that mask the renderer (Firefox, Safari) give a generic string: not matched.
+ */
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|lavapipe|software|basic render/i;
+
+export function isSoftwareRenderer(renderer: string | null | undefined): boolean {
+  return typeof renderer === 'string' && SOFTWARE_RENDERER.test(renderer);
+}
+
 /** The slice of `window` this reads (so tests can pass plain objects). */
 export interface Hero3DWindowLike {
   matchMedia?: (query: string) => { matches: boolean };
