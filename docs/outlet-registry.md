@@ -1,7 +1,10 @@
 # Outlet registry (`public.outlets`, `public.outlet_aliases`)
 
-Seeded by `supabase/migrations/20261013120000_outlet_registry_seed.sql` (not applied by the author).
-Evidence for every row was opened on 2026-10-13. Tests: `supabase/tests/run_outlet_registry_seed_tests.sh`.
+Seeded by `supabase/migrations/20261013120000_outlet_registry_seed.sql` (applied in production: 83 outlets,
+181 aliases on 2026-10-13) and extended by `supabase/migrations/20261013200000_outlet_registry_rulings.sql`
+(13 outlets, 26 aliases classified under the operator-delegated rule below; not applied by the author).
+Evidence for every row was opened on 2026-10-13. Tests: `supabase/tests/run_outlet_registry_seed_tests.sh`
+(part A: seed; part B: rulings on top of the seed).
 
 ## Why
 
@@ -49,19 +52,53 @@ every outlet is `unknown`.
 7. **Idempotent and non-destructive**: `ON CONFLICT DO NOTHING`; a row edited later is never overwritten;
    differing pre-existing rows are reported with a WARNING.
 
+## Classification rule (operator delegated, 2026-10-13)
+
+Operator ruling (Omar, 2026-10-13 20:43 Dubai) on the outlets the seed left "ruling needed": "U decide", with
+this written rule, applied by `20261013200000_outlet_registry_rulings.sql`:
+
+ - `party` = owned or run by a political party, armed group or military/government body that is itself a party to a tracked conflict (incl. a ruling party's own outlet).
+ - `state_aligned` = state-owned or state-funded, OR owned by a business group whose owner is documented (by a cited, reputable source) as allied with the government AND the outlet's editorial line is documented as following that government. Affiliation names the state.
+ - `independent` = everything else with documented private or editorially independent public ownership, including editorially independent public broadcasters (BBC, ABC Australia, France 24/France Médias Monde) and advocacy NGOs (party_affiliation NULL; "advocacy organisation" recorded in classification_basis).
+ - Funding that is only alleged and denied → classify by what is documented, and state the allegation and the denial in classification_basis.
+ - tier stays NULL unless a desk rule names the outlet (Tier 1: AFP, Reuters, AP, PolitiFact, NetBlocks, HRW; Tier 2: FT, Al Jazeera, The National, Arab News; Tier 3: listed state media) — so all of these get tier NULL except where the desk rule says otherwise.
+
+"Tracked conflict" = a row of `public.conflicts` (2026-10-13: US/Israel–Iran war, Red Sea and Houthi front,
+Ethiopia offensive and Eritrea rupture, Sudan SAF–RSF war). None of the 13 ruled outlets is named by a desk tier
+rule, so all 13 have `source_tier` NULL.
+
+### Ruled outlets (2026-10-13)
+
+| Outlet | Status | Affiliation | Basis URL (opened 2026-10-13) | Reason |
+|---|---|---|---|---|
+| Middle East Monitor | state_aligned | Qatar (state-financed) | <https://en.wikipedia.org/wiki/Middle_East_Monitor>, <https://www.middleeastmonitor.com/about/> | "MEMO is financed by the State of Qatar" (Wikipedia, citing a Cambridge University Press monograph and Rising Powers Quarterly); no denial found. Advocacy/lobbying group. |
+| Gulf News | independent | — | <https://en.wikipedia.org/wiki/Gulf_News> | Private (Al Nisr Publishing / Al Tayer Group, chaired by a former UAE finance minister); no source documents a government-following editorial line. |
+| Daily Sabah | state_aligned | Turkey (Turkuvaz Media Group / Kalyon Group; pro-government) | <https://en.wikipedia.org/wiki/Daily_Sabah>, <https://www.dailysabah.com/about-us>, <https://en.wikipedia.org/wiki/Turkuvaz_Media_Group> | Owner "a friend of" Erdoğan AND "frequently called a propaganda outlet for the Turkish government". |
+| Hürriyet Daily News | state_aligned | Turkey (Demirören Holding; pro-government since 2018) | <https://en.wikipedia.org/wiki/H%C3%BCrriyet_Daily_News>, <https://en.wikipedia.org/wiki/H%C3%BCrriyet> | Owner Yildirim Demirören "a close ally of Erdogan"; current alignment "Centre-right" (centre-left is historical); parent Hürriyet "pro-government (after 2018)", "The Demirören Group is known for its pro-government stance". |
+| ANI (Asian News International) | state_aligned | India (private agency documented as closely associated with the government) | <https://en.wikipedia.org/wiki/Asian_News_International>, <https://caravanmagazine.in/reportage/ani-reports-government-version-truth> | The Caravan / The Ken: "closely associated with the government of India", "producing blatant propaganda for the state"; ANI contests this (2024 suit against Wikipedia). |
+| France 24 | independent | — | <https://en.wikipedia.org/wiki/France_24>, <https://statemediamonitor.com/2026/09/france-medias-monde-fmm/> | State-owned (France Médias Monde) but classified Independent State-Funded and State-Managed (ISFM); editorially independent public broadcaster. |
+| Kurdistan 24 | state_aligned | Iraq - Kurdistan Regional Government (KDP; Barzani family) | <https://en.wikipedia.org/wiki/Kurdistan_24>, <https://www.atlanticcouncil.org/blogs/syriasource/challenges-facing-a-developing-kurdish-media/>, <https://syriadirect.org/red-tape-in-northeast-syria-kurdish-political-tensions-shrink-the-media-space/> | Reported (unacknowledged) owner Masrour Barzani, now KRG Prime Minister; editorial policy "biased towards" the ruling KDP. Not `party`: the KRG/KDP is not a party to a tracked conflict (<https://www.aljazeera.com/news/2026/8/8/iraqs-kurdish-region-wants-to-stay-out-of-regional-conflicts-pm-barzani>). |
+| Samaa TV | independent | — | <https://en.wikipedia.org/wiki/Samaa_TV>, <https://en.wikipedia.org/wiki/Abdul_Aleem_Khan>, <https://www.journalismpakistan.com/aleem-khan-resigns-as-minister-to-ensure-neutrality-as-samaa-owner> | Private owner Aleem Khan is a sitting federal minister, but no source documents a government-following editorial line. |
+| ABC (Australia) | independent | — | <https://en.wikipedia.org/wiki/ABC_News_(Australia)>, <https://statemediamonitor.com/2026/06/australian-broadcasting-corporation-abc/> | Public broadcaster classified Independent State-Funded (ISF). |
+| Alhurra | state_aligned | United States (USAGM-funded; operated by MBN) | <https://en.wikipedia.org/wiki/Alhurra>, <https://www.usagm.gov/networks/mbn/>, <https://statemediamonitor.com/2026/06/usagm/> | "American government-funded", run by USAGM grantee MBN; USAGM classed State-Controlled since 2025. Not `party`: run by a non-profit grantee, not a government body. |
+| Iran International | independent | — | <https://en.wikipedia.org/wiki/Iran_International>, <https://www.iranintl.com/en/about-us> | Documented owner Volant Media UK Ltd. Allegation: funded and started by "members of the Saudi royal court circle" (UK corporate records, unnamed sources), and a 2023 report that Saudi Arabia agreed to "tone down the coverage" or stop funding; denial: the channel denies Saudi government funding or ties. It "actively promotes former Crown Prince Reza Pahlavi". |
+| NIAC (National Iranian American Council) | independent | — | <https://en.wikipedia.org/wiki/National_Iranian_American_Council>, <https://niacouncil.org/about/> | Advocacy organisation; "does not receive funds from the Iranian government nor the United States government". |
+| Rybar | state_aligned | Russia (Rostec contract funding, per US State Department) | <https://rewardsforjustice.net/rewards/rybar/>, <https://www.themoscowtimes.com/2024/10/19/us-posts-10-million-reward-citing-russian-election-interference-a86750>, <https://en.wikipedia.org/wiki/Mikhail_Zvinchuk> | US State Department: "receives funding for contracted work from" state-owned Rostec; no denial of that found (Zvinchuk's 2022 "funded by donations" predates it). |
+
 ## Counts
 
-83 outlets, 181 aliases (76 `source_name`, 105 `host`).
+After the seed and the rulings: 96 outlets, 207 aliases (89 `source_name`, 118 `host`).
+(Seed alone: 83 outlets, 181 aliases — 76 `source_name`, 105 `host`.)
 
 | party_status | source_tier | outlets |
 |---|---|---|
 | party | 3 | 5 |
 | state_aligned | 2 | 2 |
 | state_aligned | 3 | 20 |
-| state_aligned | — (no desk tier) | 5 |
+| state_aligned | — (no desk tier) | 12 (5 seed + 7 ruled) |
 | independent | 1 | 6 |
 | independent | 2 | 16 |
-| independent | — (no desk tier) | 29 |
+| independent | — (no desk tier) | 35 (29 seed + 6 ruled) |
 
 ## Outlets
 
@@ -150,6 +187,19 @@ every outlet is `unknown`.
 | Euronews | independent | — | — | en | FR | <https://en.wikipedia.org/wiki/Euronews> |
 | ThePrint | independent | — | — | en | IN | <https://en.wikipedia.org/wiki/ThePrint> |
 | Mada Masr | independent | — | 2 | other | EG | <https://en.wikipedia.org/wiki/Mada_Masr> |
+| Middle East Monitor | state_aligned | Qatar (state-financed) | — | en | GB | <https://en.wikipedia.org/wiki/Middle_East_Monitor> (ruled) |
+| Gulf News | independent | — | — | en | AE | <https://en.wikipedia.org/wiki/Gulf_News> (ruled) |
+| Daily Sabah | state_aligned | Turkey (Turkuvaz Media Group / Kalyon Group; pro-government) | — | en | TR | <https://en.wikipedia.org/wiki/Daily_Sabah> (ruled) |
+| Hürriyet Daily News | state_aligned | Turkey (Demirören Holding; pro-government since 2018) | — | en | TR | <https://en.wikipedia.org/wiki/H%C3%BCrriyet> (ruled) |
+| ANI (Asian News International) | state_aligned | India (private agency documented as closely associated with the government) | — | en | IN | <https://en.wikipedia.org/wiki/Asian_News_International> (ruled) |
+| France 24 | independent | — | — | other | FR | <https://statemediamonitor.com/2026/09/france-medias-monde-fmm/> (ruled) |
+| Kurdistan 24 | state_aligned | Iraq - Kurdistan Regional Government (KDP; Barzani family) | — | other | IQ | <https://www.atlanticcouncil.org/blogs/syriasource/challenges-facing-a-developing-kurdish-media/> (ruled) |
+| Samaa TV | independent | — | — | other | PK | <https://en.wikipedia.org/wiki/Samaa_TV> (ruled) |
+| ABC (Australia) | independent | — | — | en | AU | <https://statemediamonitor.com/2026/06/australian-broadcasting-corporation-abc/> (ruled) |
+| Alhurra | state_aligned | United States (USAGM-funded; operated by MBN) | — | ar | US | <https://en.wikipedia.org/wiki/Alhurra> (ruled) |
+| Iran International | independent | — | — | other | GB | <https://en.wikipedia.org/wiki/Iran_International> (ruled) |
+| NIAC (National Iranian American Council) | independent | — | — | en | US | <https://en.wikipedia.org/wiki/National_Iranian_American_Council> (ruled) |
+| Rybar | state_aligned | Russia (Rostec contract funding, per US State Department) | — | other | RU | <https://rewardsforjustice.net/rewards/rybar/> (ruled) |
 
 The full one-line basis for each row is in the migration (`classification_basis`).
 
@@ -240,12 +290,27 @@ The full one-line basis for each row is in the migration (`classification_basis`
 | Euronews | — | `euronews.com` |
 | ThePrint | — | `theprint.in` |
 | Mada Masr | — | `madamasr.com` |
+| Middle East Monitor | `middleeastmonitor.com`, `Middle East Monitor` | `middleeastmonitor.com` |
+| Gulf News | `gulfnews.com` | `gulfnews.com` |
+| Daily Sabah | `dailysabah.com` | `dailysabah.com` |
+| Hürriyet Daily News | `hurriyetdailynews.com` | `hurriyetdailynews.com` |
+| ANI (Asian News International) | `aninews.in` | `aninews.in` |
+| France 24 | `France24` | `france24.com` |
+| Kurdistan 24 | `Kurdistan 24` | `kurdistan24.net` |
+| Samaa TV | `samaa.tv` | `samaa.tv` |
+| ABC (Australia) | `abc.net.au` | `abc.net.au` |
+| Alhurra | — | `alhurra.com` |
+| Iran International | — | `iranintl.com` |
+| NIAC (National Iranian American Council) | `niacouncil.org` | `niacouncil.org`, `insights.niacouncil.org` |
+| Rybar | `Rybar (English)`, `Rybar (Russian)` | — (Telegram, `t.me` is never an alias) |
 
 ## Left unregistered (stay `unknown`)
 
 Production top-120 `articles.source_name` values (last 30 days, 2026-10-13) and daily-briefing hosts that are
-**consciously not registered**. "Ruling needed" = evidence was found but the desk has no rule for that kind
-of outlet; the operator should decide before it is classified.
+**consciously not registered**. "Ruling needed" = evidence was found but the desk had no rule for that kind
+of outlet. **Every "ruling needed" row below was classified on 2026-10-13 under the delegated rule above
+(`20261013200000_outlet_registry_rulings.sql`); the rows are kept as the seed-time record that
+`outlet_registry_seed_unregistered.sql` mirrors.** Not-researched / ownership-not-sourced rows stay `unknown`.
 
 | source_name / host | Reason | Evidence seen |
 |---|---|---|

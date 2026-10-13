@@ -18,6 +18,7 @@ import {
   formatDay,
   formatWeek,
   indexPct,
+  licenceLine,
   parseHistory,
   wowDelta,
   LANE_ORDER,
@@ -96,7 +97,49 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
   eq(v.staleMessage, null, 'no stale message when current');
   ok(/IMF PortWatch \(UN Global Platform\), AIS-based/.test(v.sourceCredit), 'source credit');
   ok(/Do not resell the raw series/.test(v.licence), 'licence line');
-  eq(v.licenceLine, 'IMF PortWatch data, licence status USE-PROVISIONAL: do not resell the raw series.', 'printed licence line');
+  eq(v.licenceLine, 'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.', 'printed licence line (pre-ruling USE-PROVISIONAL file)');
+  ok(!/provisional/i.test(v.licenceLine), 'no "provisional" wording printed');
+  eq(
+    buildCorridors(latest, history, new Date('2026-10-13T09:00:00Z')).licenceLine,
+    'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.',
+    'printed licence line (latest.json, licence USE per operator ruling 2026-10-13)',
+  );
+  eq(licenceLine('Some other licence text.'), 'Some other licence text.', 'a non-PortWatch licence prints verbatim');
+  // licenceLine: only an unrestricted USE status ("USE", "USE.", "USE (...)", legacy "USE-PROVISIONAL") prints the
+  // plain line; any other status (a restriction, a pending check, lowercase) prints verbatim; empty / whitespace /
+  // non-string input falls back to the plain line instead of an empty paragraph.
+  {
+    const PLAIN = 'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.';
+    const cases: [unknown, string][] = [
+      ['USE-RESTRICTED: non-commercial only', 'USE-RESTRICTED: non-commercial only'],
+      ['USE? pending', 'USE? pending'],
+      ['USEFUL NOTE: check terms', 'USEFUL NOTE: check terms'],
+      ['use (operator ruling 2026-10-13). Do not resell the raw series.', 'use (operator ruling 2026-10-13). Do not resell the raw series.'],
+      ['', PLAIN],
+      ['   ', PLAIN],
+      [undefined, PLAIN],
+      [null, PLAIN],
+      [42, PLAIN],
+      ['USE', PLAIN],
+      ['USE.', PLAIN],
+      ['USE (operator ruling 2026-10-13). Do not resell the raw series.', PLAIN],
+      ['USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.', PLAIN],
+      [(latest as { licence: string }).licence, PLAIN],
+    ];
+    const bad: string[] = [];
+    for (const [input, want] of cases) {
+      let got: string;
+      try {
+        got = licenceLine(input as string);
+      } catch (e) {
+        got = `THREW ${(e as Error).message}`;
+      }
+      if (got !== want) bad.push(`licenceLine(${JSON.stringify(input)}) = ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+      checks++;
+    }
+    if (bad.length) console.error(bad.map((b) => `FAIL ${b}`).join('\n'));
+    assert.deepEqual(bad, [], `licenceLine: ${bad.length} of ${cases.length} cases wrong`);
+  }
   eq(
     corridorHeadline(v),
     'Two of three lanes are DISRUPTED; Suez is ELEVATED. Hormuz had 19 transits, against 669 in an average 2023 week.',
