@@ -18,6 +18,7 @@ import {
   NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
 } from '@/lib/supabase/env.client.generated';
 import { STALE_BUILD_RECOVERY_SCRIPT } from '@/lib/stale-build-recovery';
+import { CF_BEACON_SRC, cfBeaconConfig, cfBeaconToken } from '@/lib/analytics';
 import {
   ARABIC_ENABLED,
   SITE_DESCRIPTION,
@@ -134,6 +135,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     ...(fromEnvPub ? { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: fromEnvPub } : {}),
   };
 
+  // Cloudflare Web Analytics (free, no cookies): only when NEXT_PUBLIC_CF_BEACON_TOKEN is set. The CSP allows
+  // its hosts under the same condition (lib/security-headers.ts). /embed/* widgets are route handlers
+  // outside this layout, so partners' readers are never counted.
+  const cfBeacon = cfBeaconToken();
+
   const hasInjectableKey = Boolean(
     injectedRuntime.NEXT_PUBLIC_SUPABASE_ANON_KEY || injectedRuntime.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
   );
@@ -167,6 +173,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             src="https://plausible.io/js/script.js"
           />
         )}
+        {cfBeacon && <script defer src={CF_BEACON_SRC} data-cf-beacon={cfBeaconConfig(cfBeacon)} />}
       </head>
       <body
         className={`min-h-screen overflow-x-hidden ${dmSans.className}`}

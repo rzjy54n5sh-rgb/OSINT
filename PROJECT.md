@@ -56,6 +56,7 @@ Authoritative detail lives in **`CLAUDE.md`** ("Operating Model", "Hard Bans", "
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same | Optional; if set (and anon empty), used as the public key |
 | `NEXT_PUBLIC_SITE_URL` | `app/layout.tsx` (metadata), redirects | Canonical origin |
 | `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` | `app/layout.tsx` (head script) | Optional analytics domain |
+| `NEXT_PUBLIC_CF_BEACON_TOKEN` | `lib/analytics.ts` → `app/layout.tsx` (head script), `lib/security-headers.ts` (CSP) | Optional, free Cloudflare Web Analytics site token (no cookies). Unset = no beacon and no CSP change. Never on `/embed/*`. Set as a Worker secret (`npx wrangler secret put NEXT_PUBLIC_CF_BEACON_TOKEN`) so `wrangler deploy` keeps it |
 | `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Maps (if used) | Map tiles |
 
 ### Service role (server-only; never `NEXT_PUBLIC_*`)

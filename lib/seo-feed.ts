@@ -62,3 +62,28 @@ export async function latestBriefs(limit: number): Promise<FeedBrief[]> {
 export function briefPath(b: Pick<FeedBrief, 'conflict_day' | 'report_type'>): string {
   return `/briefings/${b.conflict_day}/${b.report_type}`;
 }
+
+/** Columns the /embed/brief widget needs (public brief content, as on /briefings/{day}/{type}). */
+const EMBED_BRIEF_COLUMNS = 'conflict_day, report_type, title, lead, quality, generated_at, sections';
+
+export type LatestBrief = FeedBrief & { quality: string | null; sections: unknown };
+
+/**
+ * The latest brief of one type (highest conflict_day). `error` = Supabase unconfigured or unreachable
+ * (distinct from "no brief of this type yet"), so the caller can cache an error only briefly.
+ */
+export async function latestBriefOfType(type: string): Promise<{ brief: LatestBrief | null; error: boolean }> {
+  if (!supabaseConfigured()) return { brief: null, error: true };
+  try {
+    const { data, error } = await createPublicClient()
+      .from('daily_briefings')
+      .select(EMBED_BRIEF_COLUMNS)
+      .eq('report_type', type)
+      .order('conflict_day', { ascending: false })
+      .limit(1);
+    if (error || !Array.isArray(data)) return { brief: null, error: true };
+    return { brief: (data[0] as LatestBrief | undefined) ?? null, error: false };
+  } catch {
+    return { brief: null, error: true };
+  }
+}
