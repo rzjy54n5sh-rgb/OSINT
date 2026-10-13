@@ -123,9 +123,15 @@ export function applySecurityHeaders<T extends { headers: Headers }>(res: T): T 
 // ---------------------------------------------------------------------------------------------------
 export const EMBED_PATH_PREFIX = '/embed/';
 
-/** true for /embed/<something> only (not /embed itself, /embedded, or /x/embed/...). */
+/**
+ * The widget route handlers (the route.ts files under app/embed). Exact match only: any other /embed/<x> (a typo, a 404,
+ * a future page) keeps the site headers and cannot be framed. Add a path here when adding a widget.
+ */
+export const EMBED_WIDGET_PATHS: readonly string[] = ['/embed/chokepoints', '/embed/posture', '/embed/brief/latest'];
+
+/** true for the widget paths only (not /embed itself, /embed/<unknown>, /embedded, or /x/embed/...). */
 export function isEmbedPath(pathname: string): boolean {
-  return pathname.startsWith(EMBED_PATH_PREFIX) && pathname.length > EMBED_PATH_PREFIX.length;
+  return EMBED_WIDGET_PATHS.includes(pathname);
 }
 
 /**

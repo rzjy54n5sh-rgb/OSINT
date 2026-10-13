@@ -189,6 +189,15 @@ async function main() {
   });
 
   // ---------------------------------------------------------------------------- posture
+  await check('posture: ?conflict= is code-shaped or rejected before any database read', async () => {
+    const m = await load('../../lib/embed/posture');
+    const param = fn<(raw: string | null, fb: string) => string>(m, 'conflictParam');
+    assert.equal(param(null, 'us-iran'), 'us-iran');
+    assert.equal(param(' US-IRAN ', 'us-iran'), 'us-iran');
+    for (const bad of ['<script>alert(1)</script>', 'us-iran"><img', 'a'.repeat(41), '', 'us iran', 'us_iran'])
+      assert.equal(param(bad, 'us-iran'), '', bad);
+  });
+
   await check('posture: EG / AE / SA never carry a grade — policy rows AND a forged graded row both read "Stated positions only"', async () => {
     const b = board([
       row({ country_code: 'IR', expressed_score: 80, label: 'continued_pressure' }),
@@ -343,6 +352,10 @@ async function main() {
     assert.equal(isEmbed('/embed'), false, 'the snippet page itself is not frameable');
     assert.equal(isEmbed('/embedded'), false);
     assert.equal(isEmbed('/admin/embed/x'), false);
+    // exact widget paths only: no other /embed/<x> (404s, typos, future pages) is frameable
+    assert.equal(isEmbed('/embed/posture'), true);
+    for (const p of ['/embed/nonexistent', '/embed/chokepoints.json', '/embed/chokepoints/x', '/embed/brief', '/embed/..%2fadmin', '/embed/%63hokepoints', '/EMBED/chokepoints', '/embed/'])
+      assert.equal(isEmbed(p), false, p);
     const embed = h.EMBED_SECURITY_HEADERS as Record<string, string>;
     assert.match(embed['Content-Security-Policy'], /frame-ancestors \*/);
     assert.match(embed['Content-Security-Policy'], /script-src 'none'/);

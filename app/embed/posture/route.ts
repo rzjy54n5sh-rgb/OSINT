@@ -7,21 +7,23 @@
 import type { NextRequest } from 'next/server';
 import { createPublicClient } from '@/utils/supabase/server';
 import { POSTURE_PANEL_CONFLICT, getPostureBoard } from '@/lib/posture';
-import { isKnownConflict, postureEmbedView, renderPostureEmbed } from '@/lib/embed/posture';
+import { conflictParam, isKnownConflict, postureEmbedView, renderPostureEmbed } from '@/lib/embed/posture';
 import { EMBED_ERROR_CACHE_CONTROL, embedMessagePage, embedResponse } from '@/lib/embed/html';
 
 export const dynamic = 'force-dynamic';
 
 const ANON = { latent: false, gap: false };
 
+const unknownConflict = () =>
+  embedResponse(embedMessagePage('War Posture', 'Unknown conflict. See /embed for the codes.', '/nai', 'War Posture board'), { status: 404 });
+
 export async function GET(request: NextRequest) {
-  const raw = (request.nextUrl.searchParams.get('conflict') ?? POSTURE_PANEL_CONFLICT).trim().toLowerCase();
-  const conflict = /^[a-z0-9-]{1,40}$/.test(raw) ? raw : '';
+  const conflict = conflictParam(request.nextUrl.searchParams.get('conflict'), POSTURE_PANEL_CONFLICT);
+  // Malformed codes never reach Supabase (OpenNext answers 404s with no-store, so they are never edge-cached).
+  if (!conflict) return unknownConflict();
   try {
     const board = await getPostureBoard(createPublicClient(), { access: ANON });
-    if (!conflict || !isKnownConflict(board, conflict)) {
-      return embedResponse(embedMessagePage('War Posture', 'Unknown conflict. See /embed for the codes.', '/nai', 'War Posture board'), { status: 404 });
-    }
+    if (!isKnownConflict(board, conflict)) return unknownConflict();
     const view = postureEmbedView(board, conflict);
     // An empty board can also mean Supabase was unreachable (getPostureBoard never throws): cache it briefly.
     return embedResponse(renderPostureEmbed(view), view.lines.length === 0 ? { cacheControl: EMBED_ERROR_CACHE_CONTROL } : {});

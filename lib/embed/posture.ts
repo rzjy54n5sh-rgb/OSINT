@@ -53,6 +53,12 @@ export interface PostureEmbed {
   frozenV1Count: number;
 }
 
+/** The ?conflict= value lower-cased, or '' when it is not code-shaped (rejected before any database read). */
+export function conflictParam(raw: string | null | undefined, fallback: string): string {
+  const v = (raw ?? fallback).trim().toLowerCase();
+  return /^[a-z0-9-]{1,40}$/.test(v) ? v : '';
+}
+
 /** A known conflict code on this board (registry or fallback). */
 export function isKnownConflict(board: Pick<PostureBoard, 'conflicts'>, code: string): boolean {
   return board.conflicts.some((c) => c.conflict_code === code);
