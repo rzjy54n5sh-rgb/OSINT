@@ -1,0 +1,95 @@
+# PR CI: the objective checks a pull request to main must pass. Its success on the PR's head commit is
+# the gate the Auto-merge workflow (auto-merge.yml, docs/auto-merge.md) reads; it is also useful on its
+# own for PRs merged by hand.
+# Runs PR code with a read-only token and no secrets (pull_request event: fork PRs get no secrets either).
+# The build uses placeholder public values only; nothing here talks to Supabase or Cloudflare.
+name: PR CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+permissions:
+  contents: read
+
+# One run per PR: a new push (or adding the auto-merge label) cancels the run in progress.
+concurrency:
+  group: pr-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      NEXT_TELEMETRY_DISABLED: 1
+      TSX: tsx@4.23.13
+    steps:
+      # The merge commit refs/pull/N/merge; depth 2 so HEAD^1 (the base tip) is available for the diff.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Fast, dependency-free checks first.
+      # Same rules as the daily card (scripts/card/lib/gates.mjs): allowStale=false, now = current time.
+      # Only a PR that CHANGES the file is gated; an untouched file going stale is the daily card's
+      # problem, not this PR's.
+      - name: Chokepoint gate (only when data/chokepoints/latest.json changes)
+        run: |
+          if git diff --quiet HEAD^1 HEAD -- data/chokepoints/latest.json; then
+            echo "data/chokepoints/latest.json unchanged in this PR; gate not required."
+            exit 0
+          fi
+          node scripts/card/check-chokepoints.mjs data/chokepoints/latest.json
+
+      # The daily card workflow runs these before every render; a PR that breaks them breaks the card.
+      - name: Daily card gate unit tests
+        run: node --test scripts/card/test/*.test.mjs
+
+      - name: Auto-merge script unit tests
+        run: bash .github/scripts/tests/auto-merge.test.sh
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests (tests/unit/*.check.ts)
+        run: |
+          failed=()
+          for f in tests/unit/*.check.ts; do
+            echo "::group::$f"
+            if npx --yes "$TSX" "$f"; then echo "PASS $f"; else failed+=("$f"); fi
+            echo "::endgroup::"
+          done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            printf '::error::unit test failed: %s\n' "${failed[@]}"
+            exit 1
+          fi
+
+      # next build with placeholder PUBLIC values only (the deploy build gets the real ones from secrets).
+      - name: Build (next build, placeholder public env)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: x
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: x
+          NEXT_PUBLIC_SITE_URL: https://mena-intel-desk.mores-cohorts9x.workers.dev
+        run: npm run build

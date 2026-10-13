@@ -1,0 +1,61 @@
+# Auto-merge (docs/auto-merge.md): merges a PR once "PR CI" succeeds on its head commit and every rule
+# in .github/scripts/auto-merge.sh holds (author, auto-merge label, same-repo branch, no human-only path,
+# size limits, exact commit). Kill switch: repository variable AUTO_MERGE_DISABLED=true.
+#
+# SECURITY: workflow_run runs in the base repository with a WRITE token. This workflow therefore never
+# checks out, installs or runs pull-request code: it checks out only .github/scripts from the default
+# branch and talks to GitHub through `gh api`. Event values reach the script through env (never ${{ }}
+# inside run:), so branch names and titles cannot inject shell.
+#
+# A merge made with GITHUB_TOKEN does not trigger push workflows, so the script dispatches deploy.yml
+# on main itself (workflow_dispatch is allowed with GITHUB_TOKEN; needs actions: write).
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: ["PR CI"]
+    types: [completed]
+
+permissions:
+  contents: write       # merge the PR, delete its branch
+  pull-requests: write  # read the PR, comment on it
+  actions: write        # dispatch deploy.yml
+  checks: read          # read other check runs on the head commit
+
+# Per head branch: a newer CI completion for the same branch supersedes a pending one.
+concurrency:
+  group: auto-merge-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Check out the decision script from the default branch (never PR code)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Decide, merge, dispatch Deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_PATH: ${{ github.event.workflow_run.path }}
+          RUN_HTML_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_PULL_REQUESTS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+          AUTO_MERGE_DISABLED: ${{ vars.AUTO_MERGE_DISABLED }}
+        run: bash .github/scripts/auto-merge.sh
