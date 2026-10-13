@@ -71,3 +71,7 @@ Auto-merge removes the wait, not the review. The safeguards are Claude's verifie
 - **Workflow permissions.** Auto-merge declares its own `permissions:` (contents, pull-requests and actions write; checks read). On a personal repository that block is honoured even when Settings → Actions → General → "Workflow permissions" is set to read-only. No setting has to change for that.
 - **Branch protection.** If `main` ever gets a protection rule that requires reviews, GitHub reports such PRs as `blocked` and Auto-merge skips them.
 - Unit tests for the decision script: `bash .github/scripts/tests/auto-merge.test.sh`. It is offline: a stub replaces `gh` and serves fixture JSON.
+
+## Status
+
+Live on `main` since 2026-10-13 (PR #34, merged 09:59 UTC). First end-to-end test: this note, merged by the Auto-merge workflow.
