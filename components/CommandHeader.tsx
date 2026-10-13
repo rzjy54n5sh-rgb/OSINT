@@ -349,14 +349,21 @@ export function CommandHeader() {
 
         {/* Mobile hamburger */}
         <button
+          type="button"
           onClick={() => setMenuOpen(v => !v)}
-          aria-label="Toggle menu"
+          aria-expanded={menuOpen}
+          // Only point at the menu while it is rendered (aria-controls must reference an element that exists).
+          aria-controls={menuOpen ? 'mobile-nav' : undefined}
           style={{
             display: 'none',
             background: 'none',
             border: 'none',
             cursor: 'pointer',
-            padding: '4px',
+            padding: '4px 8px',
+            minHeight: 44,
+            minWidth: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
             color: 'var(--text-secondary)',
           }}
           className="show-mobile"
@@ -376,6 +383,8 @@ export function CommandHeader() {
       {/* Mobile dropdown — grouped, compact */}
       {menuOpen && (
         <nav
+          id="mobile-nav"
+          aria-label="Main menu"
           style={{
             borderTop: '1px solid var(--border)',
             padding: '10px 16px 12px',

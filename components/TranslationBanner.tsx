@@ -68,8 +68,11 @@ export function TranslationBanner() {
         aria-label="Dismiss translation notice"
         style={{
           fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)',
-          background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: '2px 6px',
+          background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0,
           letterSpacing: '1px',
+          // 44×44 tap target; the negative margins keep the banner its original height.
+          minWidth: 44, minHeight: 44, margin: '-7px -12px -7px 0',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         }}
       >
         ✕

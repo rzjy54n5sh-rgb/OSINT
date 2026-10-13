@@ -125,7 +125,7 @@ export function PostureCountryPanel({
       rows: rows.filter((r) => r.actor === a.actor),
     }));
   return (
-    <section className="osint-card p-5 mb-6" data-testid="war-posture-panel" aria-labelledby="war-posture-h" data-schema={posture?.schema ?? 'none'}>
+    <section id="war-posture-panel" className="osint-card p-5 mb-6 scroll-mt-24" data-testid="war-posture-panel" aria-labelledby="war-posture-h" data-schema={posture?.schema ?? 'none'}>
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
         <h2 id="war-posture-h" className="font-display text-lg" style={{ color: 'var(--text-primary)' }}>
           WAR POSTURE
@@ -145,8 +145,8 @@ export function PostureCountryPanel({
         <>
           {posture?.schema === 'v1' && (
             <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-              This country is still shown on the v1 method: one number across wars, frozen since Day 227 (no longer updated).
-              Per-conflict positions replace it once coded.
+              This country is still shown with its last score under the old method: one number across wars, no longer
+              updated since Day 227. Positions per conflict replace it once recorded.
             </p>
           )}
           {dual ? (

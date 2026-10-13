@@ -172,12 +172,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`min-h-screen overflow-x-hidden ${dmSans.className}`}
         suppressHydrationWarning
       >
+        {/* First tab stop: jumps past the banner and the header menus (WCAG 2.4.1). */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <TranslationBanner />
         <BackgroundCanvasLazy />
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
             <CommandHeader />
-            <main className="flex-1">{children}</main>
+            <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+              {children}
+            </main>
             <SiteFooter />
           </div>
         </I18nProvider>

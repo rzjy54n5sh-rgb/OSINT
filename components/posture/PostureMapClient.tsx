@@ -9,6 +9,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { TimelineScrubber } from '@/components/TimelineScrubber';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import { PageBriefing } from '@/components/PageBriefing';
+import { LOCKED_TEXT } from '@/lib/access-cta';
 import { PageShareButton } from '@/components/PageShareButton';
 import { useI18n } from '@/components/I18nProvider';
 import { NaiArchiveToggle } from '@/components/nai/NaiArchiveToggle';
@@ -228,16 +229,15 @@ export function PostureMapClient({
 
   return (
     <div>
-      <PageBriefing
-        title={t('naiMapHeading')}
-        description="War Posture records what each government says it wants on continuing a war — per conflict, on one party-neutral scale (0 = immediate unconditional ceasefire, 100 = continue or escalate, by any party). Each position rests on a statement captured once, word for word, with its date, link and an archived copy; it stays on record until a new statement replaces it, and its confidence fades with age."
-        note="Labels describe stated aims, not character: Seeks immediate ceasefire · Conditional de-escalation · Ambivalent · Supports continued pressure · Supports escalation, plus a 'defensive' flag when a government cites attacks on its own territory. Deliberate silence is its own category. Egypt, the UAE and Saudi Arabia get no grade or colour: their statements and acts are shown instead (editorial policy, see Methodology). Days 1–35 used a retired method and sit behind the archive toggle."
-      />
       <div className="px-4 max-w-6xl mx-auto w-full">
         <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
           {t('naiMapHeading')}
         </h1>
         {conflictDayBadge}
+        <PageBriefing className="mt-3"
+          description="War Posture records what each government says it wants on continuing a war — per conflict, on one party-neutral scale (0 = immediate unconditional ceasefire, 100 = continue or escalate, by any party). Each position rests on a statement captured once, word for word, with its date, link and an archived copy; it stays on record until a new statement replaces it, and its confidence fades with age."
+          note="Labels describe stated aims, not character: Seeks immediate ceasefire · Conditional de-escalation · Ambivalent · Supports continued pressure · Supports escalation, plus a 'defensive' flag when a government cites attacks on its own territory. Deliberate silence is its own category. Egypt, the UAE and Saudi Arabia get no grade or colour: their statements and acts are shown instead (editorial policy, see Methodology). Days 1–35 used a retired method and sit behind the archive toggle."
+        />
         {/* Conflict selector */}
         <div className="mt-3 flex flex-wrap gap-2" role="tablist" aria-label="Conflict" data-testid="posture-conflict-tabs">
           {conflicts.map((c) => (
@@ -274,15 +274,15 @@ export function PostureMapClient({
         )}
         {showV1Pointer && (
           <p className="font-mono text-[11px] mt-2 max-w-3xl" style={{ color: 'var(--text-muted)' }} data-testid="posture-v1-pointer">
-            {v1FallbackCodes.size} {v1FallbackCodes.size === 1 ? 'government is' : 'governments are'} not yet re-coded under method v2: their last
-            method-v1 number (frozen) is under the &lsquo;{V1_FROZEN_CONFLICT.short_name}&rsquo; tab.
+            {v1FallbackCodes.size} {v1FallbackCodes.size === 1 ? 'government has' : 'governments have'} no position recorded under the
+            current method yet. Their last score under the old method (no longer updated) is under the &lsquo;{V1_FROZEN_CONFLICT.short_name}&rsquo; tab.
           </p>
         )}
         {board.schema === 'v1' && hasRows && (
           <p className="font-mono text-[11px] mt-2 border px-3 py-2 max-w-3xl" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border)' }} data-testid="posture-v1-note">
-            Showing method v1: one number per country, even where countries were scored on different wars, re-checked every
-            day. Per-conflict positions (method v2) replace it once captured; until then day-to-day changes are not flagged as
-            moves.
+            Showing the old method: one number per country, even where countries were scored on different wars, re-checked
+            every day. Positions per conflict replace it once recorded; until then day-to-day differences are not shown as
+            changes.
           </p>
         )}
       </div>
@@ -334,8 +334,9 @@ export function PostureMapClient({
                   onClick={() => setSelectedCode(postureRowKey(r))}
                   className="w-full text-left py-1.5 px-2 min-h-[44px]"
                   aria-haspopup="dialog"
-                  aria-label={`Open War Posture details for ${postureLineLabel(r)}`}
                 >
+                  {/* Name = visible text plus this prefix (no aria-label, so the spoken name matches what is shown). */}
+                  <span className="sr-only">Open War Posture details: </span>
                   <PostureActorTag row={r} className="block mb-0.5" />
                   <div className="flex items-center gap-2 flex-wrap">
                     <CountryFlag code={r.country_code} className="!text-xs" />
@@ -454,7 +455,7 @@ export function PostureMapClient({
             {selected.stance === 'position' && (
               <dl className="font-mono text-xs mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1" style={{ color: 'var(--text-secondary)' }}>
                 <dt style={{ color: 'var(--text-muted)' }}>SOCIETY (BAND)</dt>
-                <dd translate="no">{selected.latentLocked ? 'Informed tier' : selected.latent_low === null ? '— (no admissible evidence)' : formatBand(selected.latent_low, selected.latent_high)}</dd>
+                <dd translate="no">{selected.latentLocked ? LOCKED_TEXT : selected.latent_low === null ? '— (no admissible evidence)' : formatBand(selected.latent_low, selected.latent_high)}</dd>
                 {selected.latent_basis && (
                   <>
                     <dt style={{ color: 'var(--text-muted)' }}>BASIS</dt>
@@ -462,7 +463,7 @@ export function PostureMapClient({
                   </>
                 )}
                 <dt style={{ color: 'var(--text-muted)' }}>GAP</dt>
-                <dd translate="no">{selected.gapLocked ? 'Informed tier' : formatGap(selected.gap)}</dd>
+                <dd translate="no">{selected.gapLocked ? LOCKED_TEXT : formatGap(selected.gap)}</dd>
                 {selected.category && (
                   <>
                     <dt style={{ color: 'var(--text-muted)' }}>CATEGORY</dt>

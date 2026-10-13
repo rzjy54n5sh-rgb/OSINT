@@ -29,6 +29,8 @@ import { DataAsOf } from '@/components/ui/DataAsOf';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { ARCHIVE_TYPES, CURRENT_LINEUP } from '@/lib/brief-types';
 import { residualRange } from '@/lib/scenario-range';
+import { filterHomeFeed } from '@/lib/home-feed';
+import type { HomeMarketMetric } from '@/lib/market-latest';
 
 function briefingLeadToPlainText(lead: string | null | undefined): string {
   if (!lead?.trim()) return '';
@@ -62,7 +64,7 @@ interface ServerData {
   briefingDay: number | null;
   /** report_types that have a row on briefingDay (the strip links only to published briefs). */
   briefingTypes?: string[];
-  marketMetrics: { label: string; value: string; change: string; up: boolean }[];
+  marketMetrics: HomeMarketMetric[];
   /** conflict_day of the market rows shown (market_data's own max). */
   marketDay: number | null;
 }
@@ -85,7 +87,8 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const lastUpdate = rtCount.lastUpdate;
   // LIVE reflects real ingestion freshness once measured (server payload alone proves nothing).
   const live = rtCount.loaded ? rtCount.live : false;
-  const articles = serverData?.articles?.length ? serverData.articles : clientArticles.articles;
+  // Server rows are already scope-filtered (app/page.tsx); the client fallback gets the same filter.
+  const articles = serverData?.articles?.length ? serverData.articles : filterHomeFeed(clientArticles.articles, 3);
   const scenarios = serverData?.scenarios?.length ? serverData.scenarios : clientScenarios.scenarios;
   const topFindingLoading = !serverData && clientBriefing.loading;
   const topFindingText = briefingLeadToPlainText(
@@ -234,7 +237,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               MARKET DATA UNAVAILABLE
             </div>
           )}
-          {!marketLoading && marketMetrics.map(({ label, value, change, up }) => (
+          {!marketLoading && marketMetrics.map(({ label, value, change, up, asOf }) => (
             <div key={label} className="px-3 py-2"
                  style={{ border: '1px solid var(--border)',
                           background: 'var(--bg-card)' }}>
@@ -251,6 +254,10 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               <div className="font-mono" style={{ fontSize: '11px',
                    color: 'var(--text-muted)', marginTop: '2px' }}>
                 {change}
+              </div>
+              <div className="font-mono" style={{ fontSize: '11px',
+                   color: 'var(--text-muted)', marginTop: '2px' }} translate="no">
+                <span className="sr-only">Collected </span>{asOf}
               </div>
             </div>
           ))}
@@ -328,6 +335,12 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
             <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
               LATEST INTELLIGENCE
             </h2>
+            <p className="font-mono mb-3" style={{ fontSize: '11px', color: 'var(--text-muted)' }} data-testid="home-feed-scope-note">
+              Tracked theatres only: posts from Telegram channels that mostly cover other wars are left off this panel unless they name a tracked theatre.{' '}
+              <Link prefetch={false} href="/feed" style={{ color: 'var(--accent-gold)' }}>
+                Every collected item is on the Feed →
+              </Link>
+            </p>
             {articles.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (
