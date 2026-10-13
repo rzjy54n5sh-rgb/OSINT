@@ -352,7 +352,8 @@ export function CommandHeader() {
           type="button"
           onClick={() => setMenuOpen(v => !v)}
           aria-expanded={menuOpen}
-          aria-controls="mobile-nav"
+          // Only point at the menu while it is rendered (aria-controls must reference an element that exists).
+          aria-controls={menuOpen ? 'mobile-nav' : undefined}
           style={{
             display: 'none',
             background: 'none',

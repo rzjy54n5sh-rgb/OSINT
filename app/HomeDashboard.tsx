@@ -336,7 +336,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               LATEST INTELLIGENCE
             </h2>
             <p className="font-mono mb-3" style={{ fontSize: '11px', color: 'var(--text-muted)' }} data-testid="home-feed-scope-note">
-              Tracked theatres only: Telegram channels that mostly cover other wars are left off this panel.{' '}
+              Tracked theatres only: posts from Telegram channels that mostly cover other wars are left off this panel unless they name a tracked theatre.{' '}
               <Link prefetch={false} href="/feed" style={{ color: 'var(--accent-gold)' }}>
                 Every collected item is on the Feed →
               </Link>

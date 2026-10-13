@@ -12,6 +12,7 @@ import {
   articleScopeFlag,
   filterHomeFeed,
   isHomeFeedEligible,
+  namesTrackedTheatre,
 } from '../../lib/home-feed';
 
 type A = { id: string; source_name: string | null; content_json: Record<string, unknown> | null };
@@ -38,6 +39,18 @@ assert.equal(isHomeFeedEligible(a('1', 'Rybar (English)')), false);
 assert.equal(isHomeFeedEligible(a('1', 'Middle East Eye')), true);
 assert.equal(isHomeFeedEligible(a('1', 'TASS')), true, 'state media is labelled, not hidden');
 assert.equal(isHomeFeedEligible(a('1', null)), true);
+
+// a listed channel's in-theatre post is kept (titles as collected, 12-13 Oct 2026); Ukraine posts stay off
+const t = (source_name: string, title: string) => ({ source_name, content_json: null, title, summary: null });
+assert.equal(isHomeFeedEligible(t('Intel Slava', '🇾🇪 🇾🇪 ❌ 🇸🇦 — Riyadh, the capital of Saudi Arabia, is under Houthi ballistic missile attack.')), true);
+assert.equal(isHomeFeedEligible(t('Rybar (Russian)', 'Медленно, но уверенно о ситуации к югу от Таиза Сегодняшний день принес хуситам ряд новых побед.')), true);
+assert.equal(isHomeFeedEligible(t('Our Wars Today', 'Pentagon Finally Counts an Iran War Death')), true);
+assert.equal(isHomeFeedEligible(t('Intel Slava', '🇷🇺 🇺🇦 ⚡️ — A large fire broke out near Bucha, Kiev Oblast, following a strike by jet-powered Geran drones.')), false);
+assert.equal(isHomeFeedEligible(t('Intel Slava', 'Iranian-made Shahed drones hit Kharkiv overnight')), false, 'Ukraine marker wins');
+assert.equal(namesTrackedTheatre(t('Intel Slava', 'Oman')), true);
+assert.equal(namesTrackedTheatre(t('Intel Slava', 'Romania summons ambassador')), false, 'word boundary: "oman" inside "Romania"');
+assert.equal(namesTrackedTheatre(t('Intel Slava', '')), false);
+assert.equal(isHomeFeedEligible({ ...t('Intel Slava', 'Houthis strike Riyadh'), content_json: { scope: { in_scope: false } } }), false, 'scope flag still wins');
 
 // every listed source carries a reason (the list is documented, not silent)
 assert.ok(HOME_FEED_EXCLUDED_SOURCES.length >= 1);
