@@ -6,9 +6,14 @@
  * posture_publication_policy, viewer_posture_v2). Every function here that mirrors SQL (labels, decay,
  * freshness) must give the same answer as its SQL twin — see tests/unit/posture.test.ts.
  *
- * Until that migration is applied (or while posture_scores has no rows) the reads fall back to the
- * War Posture v1 table (nai_scores_v2: one blended number per country) and say so. In BOTH modes the
- * EG / AE / SA rule is applied here too, so the page never shows a grade for them, whatever the DB holds.
+ * Until that migration is applied (or while viewer_posture_v2 returns no rows) the board falls back to the
+ * War Posture v1 table (nai_scores_v2: one blended number per country) and says so. Once v2 rows exist
+ * the board is v2, and every country with no CODED v2 row that day (none, or only 'uncoded' = statement
+ * captured, not yet coded) keeps its latest v1 row (v1 is frozen: no new rows), marked "War Posture v1 —
+ * frozen, Day N", grouped under V1_FROZEN_CONFLICT, and noted when a v2 statement awaits coding. A
+ * country never gets both. In EVERY mode the EG / AE / SA rule is applied here too, so the page never
+ * shows a grade for them, whatever the DB holds: on a v2 board their v1 rows are never shown, and with no
+ * v2 row at all they get a policy-only "Stated positions only" row (no evidence, no grade).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiSourceV2 } from '@/types/supabase';
@@ -18,6 +23,7 @@ import {
   getNaiV2CountryLatest,
   getNaiV2DayRange,
   getNaiV2DayResult,
+  getNaiV2LatestPerCountry,
   type NaiV2View,
 } from '@/lib/nai-v2';
 
@@ -30,9 +36,13 @@ export const POSTURE_V1_METHOD = 'war-posture-v1';
 // ---------------------------------------------------------------------------------------------------
 export const POSTURE_WITHHELD_CODES = ['EG', 'AE', 'SA'] as const;
 export function isPostureWithheld(code: string | null | undefined): boolean {
-  return !!code && (POSTURE_WITHHELD_CODES as readonly string[]).includes(code.toUpperCase());
+  return !!code && (POSTURE_WITHHELD_CODES as readonly string[]).includes(code.trim().toUpperCase());
 }
 export const POSTURE_WITHHELD_TITLE = 'Stated positions only';
+/** Stance text for a v2 'uncoded' row (evidence captured, no score yet). */
+export const POSTURE_UNCODED_TEXT = 'Statement captured, not yet coded';
+/** The panel-wide question every tracked state is asked (the /nai "nothing on record" list lives here). */
+export const POSTURE_PANEL_CONFLICT = 'us-iran';
 export const POSTURE_WITHHELD_TEXT =
   'Editorial policy: the desk publishes no 0–100 War Posture grade or category colour for Egypt, the United Arab Emirates or Saudi Arabia. It shows what their governments have said, word for word with date and link, and what they have done (deployments, basing, votes) as facts.';
 
@@ -201,6 +211,28 @@ export const BLENDED_CONFLICT: ConflictDef = {
   sort_order: 0,
 };
 
+/**
+ * Pseudo-conflict (group) for War Posture v1 rows on a v2 board: countries not yet re-coded under v2
+ * keep their last v1 number, frozen, with its own day. Not a war: v1 blended different wars into one
+ * number, so these rows are never filed under a real conflict (e.g. us-iran). Sorted after the conflicts.
+ */
+export const V1_FROZEN_CONFLICT: ConflictDef = {
+  conflict_code: 'v1-frozen',
+  name: 'War Posture v1 — frozen, not yet re-coded',
+  short_name: 'v1 (frozen, not yet re-coded)',
+  description:
+    'Governments not yet re-coded under War Posture v2 keep their last War Posture v1 number: one blended number per country across different wars, frozen (no new v1 rows are written) and shown with the day it was scored. Each is replaced as soon as the government has a v2 row; v1 numbers never count as moves.',
+  theatre: '—',
+  started_on: null,
+  status: 'frozen',
+  sort_order: 10_000,
+};
+
+/** "War Posture v1 — frozen, Day 224" — the marker for a v1 row shown on a v2 board. */
+export function v1FrozenText(row: Pick<PostureView, 'score_day'>): string {
+  return `War Posture v1 — frozen, Day ${row.score_day ?? '—'}`;
+}
+
 // ---------------------------------------------------------------------------------------------------
 // View types
 // ---------------------------------------------------------------------------------------------------
@@ -227,6 +259,7 @@ export interface PostureView {
   country_code: string;
   /** null = War Posture v1 (blended across wars). */
   conflict_code: string | null;
+  /** Per-row schema: a v2 board can carry frozen v1 rows (see isV1Fallback). */
   method: typeof POSTURE_V2_METHOD | typeof POSTURE_V1_METHOD;
   /** Day of the coded row (v2: may be earlier than the viewed day = carried forward). */
   score_day: number | null;
@@ -263,9 +296,19 @@ export interface PostureView {
   category: string | null;
   categoryLocked: boolean;
   hiddenLatentSourceCount: number;
+  /**
+   * v1 fallback rows on a v2 board only: conflicts where a v2 statement has been captured for this
+   * country but not yet coded (its 'uncoded' v2 rows, replaced on the board by this v1 row). Else [].
+   */
+  v2UncodedConflicts: string[];
 }
 
 export interface PostureBoard {
+  /**
+   * 'v1' = every row is War Posture v1 for one day (no v2 rows yet). 'v2' = viewer_posture_v2 rows PLUS,
+   * for each country with no v2 row, its latest frozen v1 row on or before `day` (row.method says which;
+   * those rows keep their own score_day, conflict_code null, never withheld countries).
+   */
   schema: 'v2' | 'v1';
   /** Day the board shows (v2: state on that day, rows carried forward). */
   day: number | null;
@@ -373,6 +416,7 @@ export function fromV2Row(r: Record<string, unknown>, access: Access): PostureVi
     category,
     categoryLocked: !withheld && category === null && stance === 'position',
     hiddenLatentSourceCount: 0,
+    v2UncodedConflicts: [],
   };
 }
 
@@ -424,7 +468,58 @@ export function fromV1View(v: NaiV2View, refIso: string): PostureView {
     category: withheld ? null : v.category,
     categoryLocked: !withheld && v.categoryLocked,
     hiddenLatentSourceCount: withheld ? 0 : v.hiddenLatentSourceCount,
+    v2UncodedConflicts: [],
   };
+}
+
+/**
+ * EG / AE / SA on a v2 board with no v2 row at all: the editorial policy row ("Stated positions only"),
+ * filed under the panel-wide conflict so the country is never listed as "nothing on record". Carries no
+ * evidence, no day and no grade — it states the policy, not a captured position.
+ */
+export function withheldPolicyRow(code: string): PostureView {
+  return {
+    country_code: code.toUpperCase(),
+    conflict_code: POSTURE_PANEL_CONFLICT,
+    method: POSTURE_V2_METHOD,
+    score_day: null,
+    as_of: null,
+    stance: 'withheld',
+    label: null,
+    expressed_score: null,
+    defensive: null,
+    confidence_base: null,
+    confidence_now: null,
+    decay_factor: null,
+    evidence_age_days: null,
+    freshness: null,
+    evidence_date: null,
+    evidence: null,
+    cited: [],
+    expressed_basis: null,
+    change_reason: null,
+    note: null,
+    previous_day: null,
+    previous_stance: null,
+    previous_label: null,
+    previous_score: null,
+    withheld: true,
+    latent_low: null,
+    latent_high: null,
+    latent_basis: null,
+    latentLocked: false,
+    gap: null,
+    gapLocked: false,
+    category: null,
+    categoryLocked: false,
+    hiddenLatentSourceCount: 0,
+    v2UncodedConflicts: [],
+  };
+}
+
+/** "War Posture v2: Statement captured, not yet coded" on a v1 fallback row, else null. */
+export function v2UncodedNote(row: Pick<PostureView, 'v2UncodedConflicts'>): string | null {
+  return row.v2UncodedConflicts.length > 0 ? `War Posture v2: ${POSTURE_UNCODED_TEXT}` : null;
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -467,8 +562,16 @@ export function currentConflictDayUtc(now = new Date()): number {
 }
 
 /**
- * The /nai board. v2 when viewer_posture_v2 exists AND has rows; otherwise v1 (nai_scores_v2) for its
- * latest day (or `day`). `v1Loader` lets a browser caller replace the v1 read (see /warroom).
+ * The /nai board. v2 when viewer_posture_v2 exists AND has rows. A country "has v2" only with a CODED v2
+ * row (any stance but 'uncoded'; EG / AE / SA rows are always 'withheld', so they always do):
+ *   - coded           -> all its v2 rows (incl. 'uncoded' ones on other conflicts), never v1;
+ *   - only 'uncoded'  -> its latest v1 row on or before the day (frozen, own day) with v2UncodedConflicts
+ *                        set, replacing those uncoded rows; if it has no v1 row, its uncoded rows stay;
+ *   - no v2 row       -> its latest v1 row on or before the day (frozen, own day);
+ *   - EG / AE / SA with no v2 row -> withheldPolicyRow (never v1, never "nothing on record").
+ * Otherwise v1 (nai_scores_v2) for its latest day (or `day`). `v1Loader` lets a browser caller replace
+ * the v1 day read (see /warroom); the frozen fallback reads the tier-gated RPC only (never the table from
+ * a browser), and uses `v1Loader` only if that RPC is missing.
  */
 export async function getPostureBoard(
   supabase: Sb,
@@ -477,13 +580,48 @@ export async function getPostureBoard(
   const today = currentConflictDayUtc();
   const [v2, conflicts] = await Promise.all([readPostureV2(supabase, { day: day ?? today }), getConflicts(supabase)]);
   if (!v2.missing && v2.rows.length > 0) {
+    const boardDay = day ?? today;
+    const v2All = v2.rows.map((r) => fromV2Row(r, access));
+    const coded = new Set(v2All.filter((r) => r.stance !== 'uncoded').map((r) => r.country_code));
+    // Frozen v1 fallback for countries not yet coded in v2. When viewer_posture_v2 exists, viewer_nai_v2
+    // exists too (same migration chain), so the browser never needs the table read here.
+    let fallback = await getNaiV2LatestPerCountry(supabase, boardDay, access, { tableFallback: !v1Loader });
+    if (fallback.via === 'missing' && v1Loader) {
+      const viaLoader = (await v1Loader(boardDay)).filter((v) => v.conflict_day <= boardDay);
+      fallback = { rows: viaLoader, via: 'table' };
+    }
+    const refIso = dayToIsoDate(boardDay);
+    // Countries whose only v2 rows are 'uncoded' (statement captured, not yet coded).
+    const uncodedOnly = new Set(v2All.filter((r) => !coded.has(r.country_code)).map((r) => r.country_code));
+    const v1Rows = fallback.rows
+      .filter((v) => !coded.has(v.country_code.toUpperCase()))
+      // EG / AE / SA: no v1 row at all on a v2 board (their v2 rows, or the policy row, carry them).
+      .filter((v) => !v.withheld && !isPostureWithheld(v.country_code))
+      .map((v) => fromV1View(v, refIso))
+      .filter((r) => !r.withheld)
+      // An uncoded-only country keeps its frozen v1 row only when that row carries a number: a v1 row with no E
+      // ("No position coded this day") must never hide the verbatim statement already captured under v2.
+      .filter((r) => !uncodedOnly.has(r.country_code) || r.stance === 'position')
+      .map((r) => ({
+        ...r,
+        v2UncodedConflicts: v2All
+          .filter((x) => x.country_code === r.country_code && x.stance === 'uncoded' && x.conflict_code !== null)
+          .map((x) => x.conflict_code as string),
+      }));
+    const v1Countries = new Set(v1Rows.map((r) => r.country_code));
+    // An uncoded-only country with a v1 row shows that v1 row (plus the note) instead of its uncoded v2 rows.
+    const v2Rows = v2All.filter((r) => coded.has(r.country_code) || !v1Countries.has(r.country_code));
+    // Policy row wherever EG / AE / SA have no row on the panel-wide conflict (where "nothing on record" is listed),
+    // even if they have withheld evidence on another conflict.
+    const onPanel = new Set([...v2Rows, ...v1Rows].filter((r) => r.conflict_code === POSTURE_PANEL_CONFLICT).map((r) => r.country_code));
+    const policyRows = POSTURE_WITHHELD_CODES.filter((c) => !onPanel.has(c)).map((c) => withheldPolicyRow(c));
     return {
       schema: 'v2',
-      day: day ?? today,
+      day: boardDay,
       firstDay: NAI_V2_START_DAY,
       latestDay: today,
       conflicts,
-      rows: v2.rows.map((r) => fromV2Row(r, access)),
+      rows: [...v2Rows, ...policyRows, ...v1Rows],
       hasLatentAccess: access.latent,
       hasGapAccess: access.gap,
     };
@@ -527,15 +665,29 @@ export async function getPositionsLedger(supabase: Sb, code: string, limit = 12)
   }
 }
 
+/**
+ * Country page posture: the same rule as the /nai board. A CODED v2 row (any stance but 'uncoded'; EG /
+ * AE / SA rows are always 'withheld') -> the v2 rows. Only 'uncoded' v2 rows -> the latest v1 row (frozen,
+ * own day) with v2UncodedConflicts set, unless there is no v1 row (then the uncoded rows) or the country is
+ * withheld. No v2 row -> the latest v1 row (withheld for EG / AE / SA by fromV1View). Ledger unchanged.
+ */
 export async function getCountryPosture(supabase: Sb, code: string, access: Access): Promise<CountryPosture> {
   const cc = code.toUpperCase();
   const [v2, ledger] = await Promise.all([readPostureV2(supabase, { country: cc }), getPositionsLedger(supabase, cc)]);
-  if (!v2.missing && v2.rows.length > 0) {
-    return { schema: 'v2', rows: v2.rows.map((r) => fromV2Row(r, access)), ledger };
+  const v2Rows = !v2.missing ? v2.rows.map((r) => fromV2Row(r, access)) : [];
+  if (v2Rows.some((r) => r.stance !== 'uncoded')) {
+    return { schema: 'v2', rows: v2Rows, ledger };
   }
   const latest = await getNaiV2CountryLatest(supabase, cc, access);
-  const rows = latest ? [fromV1View(latest, new Date().toISOString().slice(0, 10))] : [];
-  return { schema: 'v1', rows, ledger };
+  const v1 = latest ? fromV1View(latest, new Date().toISOString().slice(0, 10)) : null;
+  if (v2Rows.length > 0) {
+    // Uncoded-only: keep the frozen v1 number until a v2 position is coded (never for EG / AE / SA).
+    // ...and only a v1 row that carries a number: a no-E v1 row would hide the captured statement.
+    if (!v1 || v1.withheld || isPostureWithheld(cc) || v1.stance !== 'position') return { schema: 'v2', rows: v2Rows, ledger };
+    const pending = v2Rows.map((r) => r.conflict_code).filter((c): c is string => c !== null);
+    return { schema: 'v1', rows: [{ ...v1, v2UncodedConflicts: pending }], ledger };
+  }
+  return { schema: 'v1', rows: v1 ? [v1] : [], ledger };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -551,6 +703,8 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
   return board.rows
     .filter(
       (r) =>
+        // v2 rows only: the frozen v1 fallback rows on a v2 board never count as moves
+        r.method === POSTURE_V2_METHOD &&
         !r.withheld &&
         r.stance === 'position' &&
         r.change_reason === 'new_evidence' &&
@@ -566,11 +720,27 @@ export function postureMoves(board: PostureBoard, withinDays = 2): PostureMove[]
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.row.country_code.localeCompare(b.row.country_code));
 }
 
-/** Conflicts present on a board, registry order; v1 = the single blended pseudo-conflict. */
+/** true = a frozen War Posture v1 row shown on a v2 board (country not yet re-coded in v2). */
+export function isV1Fallback(board: Pick<PostureBoard, 'schema'>, row: Pick<PostureView, 'method'>): boolean {
+  return board.schema === 'v2' && row.method === POSTURE_V1_METHOD;
+}
+
+/** Group (tab) a row belongs to: its conflict (v2), the blended pseudo-conflict (v1 board), or v1-frozen. */
+export function postureGroupCode(board: Pick<PostureBoard, 'schema'>, row: Pick<PostureView, 'method' | 'conflict_code'>): string {
+  if (board.schema === 'v1') return BLENDED_CONFLICT.conflict_code;
+  if (row.method === POSTURE_V1_METHOD || row.conflict_code === null) return V1_FROZEN_CONFLICT.conflict_code;
+  return row.conflict_code;
+}
+
+/**
+ * Groups present on a board, registry order; v1 board = the single blended pseudo-conflict; a v2 board
+ * with frozen v1 rows ends with V1_FROZEN_CONFLICT.
+ */
 export function boardConflicts(board: PostureBoard): ConflictDef[] {
   if (board.schema === 'v1') return [BLENDED_CONFLICT];
-  const present = new Set(board.rows.map((r) => r.conflict_code));
-  return board.conflicts.filter((c) => present.has(c.conflict_code));
+  const present = new Set(board.rows.map((r) => postureGroupCode(board, r)));
+  const real = board.conflicts.filter((c) => present.has(c.conflict_code));
+  return present.has(V1_FROZEN_CONFLICT.conflict_code) ? [...real, V1_FROZEN_CONFLICT] : real;
 }
 export function conflictName(conflicts: readonly ConflictDef[], code: string | null): string {
   if (code === null) return BLENDED_CONFLICT.short_name;

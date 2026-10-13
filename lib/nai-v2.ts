@@ -400,6 +400,54 @@ export async function getNaiV2CountryLatest(
   }
 }
 
+/**
+ * Each country's LATEST War Posture v1 row on or before `onOrBefore` (one row per country, its own
+ * conflict_day). War Posture v1 is frozen (no new rows), so this is the per-country fallback the /nai
+ * board uses while War Posture v2 is rolled out country by country. No E delta (v1 never drives a move).
+ *
+ * viewer_nai_v2 (tier-gated for the caller's JWT) has no "on or before" filter, so it returns the whole
+ * frozen v1 series (a few hundred rows at most) and the day filter runs here. `tableFallback: false`
+ * returns `via: 'missing'` instead of reading the table (browser callers, see getNaiV2DayResult).
+ */
+export async function getNaiV2LatestPerCountry(
+  supabase: Sb,
+  onOrBefore: number,
+  access: { latent: boolean; gap: boolean },
+  { tableFallback = true }: { tableFallback?: boolean } = {},
+): Promise<{ rows: NaiV2View[]; via: ReadVia }> {
+  try {
+    const { data, error, via } = await rpcWithFallback<NaiScoreV2[]>(
+      () => supabase.rpc(NAI_V2_RPC, { p_limit: 5000, p_method: NAI_V2_METHOD }),
+      tableFallback
+        ? () =>
+            supabase
+              .from(NAI_V2_TABLE)
+              .select('*')
+              .eq('method_version', NAI_V2_METHOD)
+              .lte('conflict_day', onOrBefore)
+              .order('conflict_day', { ascending: false })
+              .limit(5000)
+        : null,
+    );
+    if (error || !data) return { rows: [], via };
+    const latest = new Map<string, NaiScoreV2>();
+    for (const r of data) {
+      if (typeof r.conflict_day !== 'number' || r.conflict_day > onOrBefore) continue;
+      const code = String(r.country_code ?? '').toUpperCase();
+      const have = latest.get(code);
+      if (!have || r.conflict_day > have.conflict_day) latest.set(code, r);
+    }
+    return {
+      via,
+      rows: [...latest.values()]
+        .map((r) => toNaiV2View(r, access, null))
+        .sort((a, b) => a.country_code.localeCompare(b.country_code)),
+    };
+  } catch {
+    return { rows: [], via: 'rpc' };
+  }
+}
+
 export function formatBand(lo: number | null, hi: number | null): string {
   if (lo === null || hi === null) return '—';
   return lo === hi ? String(lo) : `${lo}–${hi}`;

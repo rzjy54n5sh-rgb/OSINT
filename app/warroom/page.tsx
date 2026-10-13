@@ -10,7 +10,7 @@ import { ReactionBar } from '@/components/ReactionBar';
 import { PageShareButton } from '@/components/PageShareButton';
 import { PageShareCard } from '@/components/PageShareCard';
 import { DataAsOf } from '@/components/ui/DataAsOf';
-import { CitedReporting, EvidenceQuote, PostureAge, PostureChip, stanceText } from '@/components/posture/PostureParts';
+import { CitedReporting, EvidenceQuote, PostureAge, PostureChip, V1FrozenTag, stanceText } from '@/components/posture/PostureParts';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { TRACKED_COUNTRY_CODES, NO_SOURCED_DATA_TEXT } from '@/lib/countries';
 import { getNaiV2DayResult, formatBand, formatGap, NAI_V2_SCALE_TEXT, type NaiV2View } from '@/lib/nai-v2';
@@ -18,7 +18,9 @@ import {
   POSTURE_WITHHELD_TEXT,
   conflictName,
   getPostureBoard,
+  isV1Fallback,
   postureMoves,
+  v1FrozenText,
   type PostureBoard,
   type PostureView,
 } from '@/lib/posture';
@@ -351,6 +353,8 @@ export default function WarRoomPage() {
   const postureRows = postureByCode.get(activeCountry) ?? [];
   const posture = primaryFor(activeCountry);
   const cName = (code: string | null) => conflictName(board?.conflicts ?? [], code);
+  // A frozen War Posture v1 row on a v2 board (country not yet re-coded): labelled with its OWN day.
+  const isFrozenV1 = (r: PostureView) => (board ? isV1Fallback(board, r) : false);
 
   // Scenarios: latest published day; sparklines and deltas use ONLY that day's method.
   const scenarioDay = registry?.latestDay ?? null;
@@ -500,7 +504,9 @@ export default function WarRoomPage() {
             getCopyText={() => {
               const p = posture;
               const base = typeof window !== 'undefined' ? window.location.origin : '';
-              return p
+              return p && isFrozenV1(p)
+                ? `${activeName} ${v1FrozenText(p)}: ${stanceText(p)}${p.expressed_score !== null ? ` ${p.expressed_score}` : ''} (0 = ceasefire, 100 = escalate) — ${base}/warroom`
+                : p
                 ? `${activeName} War Posture (${cName(p.conflict_code)}): ${stanceText(p)}${p.expressed_score !== null ? ` ${p.expressed_score}` : ''} (0 = ceasefire, 100 = escalate) · Day ${naiDay ?? '—'} — ${base}/warroom`
                 : `${activeName} War Posture: ${NO_SOURCED_DATA_TEXT} — ${base}/warroom`;
             }}
@@ -555,7 +561,7 @@ export default function WarRoomPage() {
                     <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>
                       {r ? (
                         <>
-                          {r.conflict_code ? `${cName(r.conflict_code)}: ` : ''}
+                          {r.conflict_code ? `${cName(r.conflict_code)}: ` : isFrozenV1(r) ? `v1 frozen, Day ${r.score_day ?? '—'}: ` : ''}
                           {stanceText(r)}
                           {r.expressed_score !== null ? ` ${r.expressed_score}` : ''}
                           {d !== null && d !== 0 ? ` (${formatGap(d)})` : ''}
@@ -673,9 +679,13 @@ export default function WarRoomPage() {
             ) : (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 8 }}>
                 {postureRows.map((r) => (
-                  <li key={r.conflict_code ?? 'v1'} data-testid="warroom-posture-row" data-stance={r.stance}>
+                  <li key={r.conflict_code ?? 'v1'} data-testid="warroom-posture-row" data-stance={r.stance} data-method={r.method}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '4px 10px' }}>
-                      <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
+                      {isFrozenV1(r) ? (
+                        <V1FrozenTag row={r} />
+                      ) : (
+                        <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
+                      )}
                       {r.expressed_score !== null && (
                         <span style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 }}>{r.expressed_score}</span>
                       )}

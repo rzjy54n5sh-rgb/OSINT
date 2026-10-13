@@ -22,8 +22,12 @@ import {
   POSTURE_SILENCE_COLOR,
   POSTURE_WITHHELD_TEXT,
   POSTURE_WITHHELD_TITLE,
+  V1_FROZEN_CONFLICT,
   boardConflicts,
+  isV1Fallback,
+  postureGroupCode,
   postureLabelDef,
+  v1FrozenText,
   type PostureBoard,
   type PostureView,
 } from '@/lib/posture';
@@ -33,6 +37,7 @@ import {
   PostureAge,
   PostureChip,
   PostureScaleLegend,
+  V1FrozenTag,
   stanceText,
 } from '@/components/posture/PostureParts';
 
@@ -81,19 +86,27 @@ export function PostureMapClient({
   const rows = useMemo(
     () =>
       board.rows
-        .filter((r) => (board.schema === 'v1' ? true : r.conflict_code === conflict))
+        // v2 board: a tab per conflict, plus V1_FROZEN_CONFLICT for countries not yet re-coded in v2
+        .filter((r) => (board.schema === 'v1' ? true : postureGroupCode(board, r) === conflict))
         .sort((a, b) => rank(a) - rank(b) || (b.expressed_score ?? -1) - (a.expressed_score ?? -1) || a.country_code.localeCompare(b.country_code)),
     [board, conflict],
   );
+  // Countries on a v2 board that only have a frozen War Posture v1 row (shown in the v1-frozen tab).
+  const v1FallbackCodes = useMemo(
+    () => new Set(board.rows.filter((r) => isV1Fallback(board, r)).map((r) => r.country_code)),
+    [board],
+  );
   // Tracked countries with nothing on record. Only for the panel-wide questions (v1, or v2 us-iran):
-  // the other conflicts are not asked of every tracked state.
+  // the other conflicts are not asked of every tracked state. A country with a frozen v1 row is not
+  // "nothing on record": it is listed under the v1-frozen tab instead.
   const noData = useMemo(
     () =>
       board.schema === 'v1' || conflict === 'us-iran'
-        ? TRACKED_COUNTRY_CODES.filter((c) => !rows.some((r) => r.country_code === c))
+        ? TRACKED_COUNTRY_CODES.filter((c) => !rows.some((r) => r.country_code === c) && !v1FallbackCodes.has(c))
         : [],
-    [board.schema, conflict, rows],
+    [board.schema, conflict, rows, v1FallbackCodes],
   );
+  const showV1Pointer = board.schema === 'v2' && conflict !== V1_FROZEN_CONFLICT.conflict_code && v1FallbackCodes.size > 0;
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const selected = rows.find((r) => r.country_code === selectedCode) ?? null;
   const selectedNoData = selectedCode != null && !selected && noData.includes(selectedCode) ? selectedCode : null;
@@ -180,7 +193,10 @@ export function PostureMapClient({
 
   const shareText = () => {
     const base = `${SITE_URL}/nai`;
-    if (selected && !selected.withheld) return `${selected.country_code} War Posture (${active?.short_name ?? ''}): ${stanceText(selected)} · Day ${board.day ?? '—'} — ${base}`;
+    if (selected && !selected.withheld) {
+      if (isV1Fallback(board, selected)) return `${selected.country_code} ${v1FrozenText(selected)}: ${stanceText(selected)} — ${base}`;
+      return `${selected.country_code} War Posture (${active?.short_name ?? ''}): ${stanceText(selected)} · Day ${board.day ?? '—'} — ${base}`;
+    }
     return `War Posture Map · ${active?.short_name ?? ''} · Day ${board.day ?? '—'} — ${base}`;
   };
 
@@ -221,6 +237,12 @@ export function PostureMapClient({
         {active && board.schema === 'v2' && (
           <p className="font-mono text-[11px] mt-2 leading-relaxed max-w-3xl" style={{ color: 'var(--text-muted)' }} data-testid="posture-conflict-desc">
             {active.description}
+          </p>
+        )}
+        {showV1Pointer && (
+          <p className="font-mono text-[11px] mt-2 max-w-3xl" style={{ color: 'var(--text-muted)' }} data-testid="posture-v1-pointer">
+            {v1FallbackCodes.size} {v1FallbackCodes.size === 1 ? 'government is' : 'governments are'} not yet re-coded under method v2: their last
+            method-v1 number (frozen) is under the &lsquo;{V1_FROZEN_CONFLICT.short_name}&rsquo; tab.
           </p>
         )}
         {board.schema === 'v1' && hasRows && (
@@ -290,6 +312,7 @@ export function PostureMapClient({
                     )}
                     <PostureChip row={r} />
                   </div>
+                  {isV1Fallback(board, r) && <V1FrozenTag row={r} className="block mt-1" />}
                   <PostureAge row={r} className="block mt-1" />
                   {r.stance === 'withheld' && r.evidence && (
                     <span className="block mt-1 text-[11px] leading-snug" style={{ color: 'var(--text-secondary)' }}>
@@ -359,6 +382,7 @@ export function PostureMapClient({
               )}
               <PostureChip row={selected} />
             </div>
+            {isV1Fallback(board, selected) && <V1FrozenTag row={selected} className="block mt-1" />}
             <PostureAge row={selected} className="block mt-1" />
             {selected.withheld && (
               <p className="font-mono text-[11px] mt-3 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
