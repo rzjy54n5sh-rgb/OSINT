@@ -11,7 +11,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const load = (p) => JSON.parse(readFileSync(p, 'utf8'));
 const clone = (x) => structuredClone(x);
 const FIX = load(join(HERE, 'fixtures', 'day223.json'));
-const CP = load(join(HERE, '..', '..', '..', 'data', 'chokepoints', 'latest.json'));
+// Frozen copy of Issue #1 (as_of 2026-10-08): the live data/chokepoints/latest.json changes weekly, NOW below is fixed.
+const CP = load(join(HERE, 'fixtures', 'chokepoints-issue1.json'));
 const NOW = new Date('2026-10-08T12:30:00Z'); // Day 223, after the chokepoint file's as_of (10:52 UTC)
 
 function gates(over = {}, opts = {}) {
