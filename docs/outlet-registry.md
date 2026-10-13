@@ -8,7 +8,9 @@ Evidence for every row was opened on 2026-10-13. Tests: `supabase/tests/run_outl
 `outlets` / `outlet_aliases` (schema: `20261007100400_stories.sql`) were empty in production on 2026-10-13.
 The daily routine derives `party_source` and tier from them, the story mix (`stories.party_outlet_count`,
 `independent_outlet_count`, `unknown_outlet_count`) resolves outlets through them, and
-`intel_alerts_candidate_guard` counts only hosts that resolve to an `independent` outlet. With empty tables,
+`intel_alerts_candidate_guard` counts distinct outlets registered `independent` among evidence declared
+`independent` (fixed in `20261013120100_candidate_guard_distinct_outlets.sql`; it previously counted hosts, so
+bbc.com + bbc.co.uk passed as two outlets). With empty tables,
 every outlet is `unknown`.
 
 ## Rules
@@ -84,7 +86,7 @@ every outlet is `unknown`.
 | Sudan Tribune | independent | — | 2 | other | FR | <https://en.wikipedia.org/wiki/Sudan_Tribune> |
 | Addis Standard | independent | — | 2 | en | ET | <https://en.wikipedia.org/wiki/Addis_Standard> |
 | The National | state_aligned | UAE (Abu Dhabi ownership) | 2 | en | AE | <https://en.wikipedia.org/wiki/The_National_(Abu_Dhabi> |
-| Arab News | state_aligned | Saudi Arabia (owned by Prince Turki bin Salman; promotes the Saudi government) | 2 | en | SA | <https://en.wikipedia.org/wiki/Arab_News> |
+| Arab News | state_aligned | Saudi Arabia (SRMG; promotes the Saudi government) | 2 | en | SA | <https://en.wikipedia.org/wiki/Arab_News> |
 | IRNA | state_aligned | Iran (official state news agency) | 3 | en | IR | <https://en.wikipedia.org/wiki/Islamic_Republic_News_Agency> |
 | ISNA | state_aligned | Iran (ACECR; state-subsidised) | 3 | en | IR | <https://statemediamonitor.com/2026/06/iranian-students-news-agency-isna/> |
 | Mehr News Agency | state_aligned | Iran (Islamic Development Organization) | 3 | en | IR | <https://en.wikipedia.org/wiki/Mehr_News_Agency> |

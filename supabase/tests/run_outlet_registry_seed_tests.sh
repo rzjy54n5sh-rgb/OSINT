@@ -14,6 +14,7 @@ SCHEMA_DIR="${SCHEMA_DIR:?set SCHEMA_DIR to the live-schema replica directory}"
 PSQL="${PSQL:-psql -h /var/tmp -p 55417 -U postgres -X}"
 DB="${DB_PREFIX:-outlet_seed}_a"
 MIG="$REPO/supabase/migrations/20261013120000_outlet_registry_seed.sql"
+MIG_GUARD="$REPO/supabase/migrations/20261013120100_candidate_guard_distinct_outlets.sql"
 rc=0
 apply() { PGOPTIONS="-c client_min_messages=warning" $PSQL -d "$1" -v ON_ERROR_STOP=1 -q -f "$2" 2>&1 | grep -v '^$'; return "${PIPESTATUS[0]}"; }
 fp() { $PSQL -d "$DB" -At -f "$HERE/outlet_registry_seed_fingerprint.sql"; }
@@ -24,6 +25,7 @@ for f in 00_live_schema.sql 01_seed_synthetic.sql 02_harness.sql; do
 done
 apply "$DB" "$HERE/outlet_registry_seed_fixture.sql" || { echo "fixture FAILED"; exit 2; }
 apply "$DB" "$HERE/outlet_registry_seed_unregistered.sql" || { echo "unregistered fixture FAILED"; exit 2; }
+apply "$DB" "$HERE/outlet_registry_guard_fixture.sql" || { echo "guard fixture FAILED"; exit 2; }
 echo "== scratch DB $DB: replica + production constraints + 26 article_sources + top-120 source_names"
 echo "   before: $(fp)"
 
@@ -36,6 +38,12 @@ echo "-- tests"
 out=$($PSQL -d "$DB" -v ON_ERROR_STOP=1 -q -At -f "$HERE/outlet_registry_seed_test.sql" 2>&1); s=$?
 echo "$out" | sed 's/^/   /'
 echo "   tests exit=$s"; [ $s -ne 0 ] && rc=1
+
+echo "-- candidate guard (apply $(basename "$MIG_GUARD"), twice)"
+apply "$DB" "$MIG_GUARD"; s=$?; apply "$DB" "$MIG_GUARD"; s2=$?; echo "   exit=$s/$s2"; [ $s -ne 0 ] || [ $s2 -ne 0 ] && rc=1
+out=$($PSQL -d "$DB" -v ON_ERROR_STOP=1 -q -At -f "$HERE/outlet_registry_guard_test.sql" 2>&1); s=$?
+echo "$out" | sed 's/^/   /'
+echo "   guard tests exit=$s"; [ $s -ne 0 ] && rc=1
 
 echo "-- apply (2nd, idempotency)"
 apply "$DB" "$MIG"; s=$?; echo "   exit=$s"; [ $s -ne 0 ] && rc=1
