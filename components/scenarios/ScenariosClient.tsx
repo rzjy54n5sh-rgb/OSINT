@@ -14,6 +14,7 @@ import {
   LEGACY_SERIES_MARKER,
   RESIDUAL_SCENARIO_CODE,
   deltaWithinMethod,
+  formatScenarioDelta,
   isResidual,
   probabilityOn,
   residualComponentCodes,
@@ -135,9 +136,7 @@ function ScenarioCard({
               </p>
             )}
             <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
-              {delta
-                ? `${delta.delta > 0 ? '+' : ''}${delta.delta} pts since Day ${delta.sinceDay} (same method)`
-                : 'No earlier day under this method'}
+              {delta ? formatScenarioDelta(delta) : 'No earlier day under this method'}
             </p>
           </>
         )}
@@ -217,11 +216,6 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="CONFLICT SCENARIO PROBABILITIES"
-        description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
-        note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
-      />
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-4">
           <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
@@ -237,6 +231,10 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
             {day !== currentDay ? ` · CALENDAR DAY ${currentDay}` : ''}
           </p>
         )}
+        <PageBriefing className="mt-3"
+          description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
+          note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
+        />
       </div>
 
       {registry.error && (
@@ -249,6 +247,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       {core.length > 0 && (
         <section aria-label="Core scenarios" className="mb-4">
+          <h2 className="sr-only">Core scenarios</h2>
           <p className="font-mono text-[11px] mb-2 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="core-set-caption">
             {hasResidual
               ? `CORE SET — ${componentCodes.join(', ')} measured from markets and can co-occur · ${RESIDUAL_SCENARIO_CODE} = none of them, shown as a range`
@@ -268,6 +267,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
       )}
       {independent.length > 0 && (
         <section aria-label="Independent scenarios" className="mb-8">
+          <h2 className="sr-only">Independent scenarios</h2>
           <p className="font-mono text-[11px] mb-2 mt-4" style={{ color: 'var(--text-muted)' }}>
             INDEPENDENT — measured separately, can overlap with the core set
           </p>

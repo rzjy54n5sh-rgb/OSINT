@@ -19,6 +19,7 @@ const STATIC_ROUTES: { path: string; changefreq: ChangeFreq; priority: number }[
   { path: '/', changefreq: 'hourly', priority: 1 },
   { path: '/briefings', changefreq: 'daily', priority: 0.9 },
   { path: '/warroom', changefreq: 'hourly', priority: 0.8 },
+  { path: '/corridors', changefreq: 'weekly', priority: 0.8 },
   { path: '/nai', changefreq: 'daily', priority: 0.8 },
   { path: '/scenarios', changefreq: 'daily', priority: 0.8 },
   { path: '/countries', changefreq: 'daily', priority: 0.8 },

@@ -307,10 +307,10 @@ export const BLENDED_CONFLICT: ConflictDef = {
  */
 export const V1_FROZEN_CONFLICT: ConflictDef = {
   conflict_code: 'v1-frozen',
-  name: 'War Posture v1 — frozen, not yet re-coded',
-  short_name: 'v1 (frozen, not yet re-coded)',
+  name: 'Old method (v1) — frozen, no longer updated',
+  short_name: 'Old method (v1, frozen)',
   description:
-    'Governments not yet re-coded under War Posture v2 keep their last War Posture v1 number: one blended number per country across different wars, frozen (no new v1 rows are written) and shown with the day it was scored. Each is replaced as soon as the government has a v2 row; v1 numbers never count as moves.',
+    'Governments with no position recorded under the current method yet keep their last score under the old method: one blended number per country across different wars, no longer updated, shown with the day it was scored. Each is replaced as soon as the government has a position under the current method; old-method scores never count as changes.',
   theatre: '—',
   started_on: null,
   status: 'frozen',

@@ -94,13 +94,24 @@ export default async function CountryReportPage({
   // viewer_country_report via the cookie-less client = the ANONYMOUS view: content_json is null
   // unless the free tier unlocks it. Before migration 20261008090000 the RPC is missing and the old
   // table read runs; content_json is then selected only when the anonymous tier has access.
-  const [{ data: report, error }, posture, conflicts] = await Promise.all([
+  const [{ data: report, error }, posture, conflicts, economyBrief] = await Promise.all([
     countryCode
       ? getViewerCountryReport(supabase, countryCode, { withContent: hasAccess })
       : Promise.resolve({ data: null, error: null }),
     countryCode ? getCountryPosture(supabase, countryCode, anonPostureAccess) : Promise.resolve(null),
     getConflicts(supabase),
+    // Egypt page: the latest Egypt & Gulf Economy brief it links to (daily_briefings' own latest day).
+    isEgypt
+      ? supabase
+          .from('daily_briefings')
+          .select('conflict_day')
+          .eq('report_type', 'egypt_gulf_economy')
+          .order('conflict_day', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
+  const economyBriefDay = (economyBrief.data as { conflict_day?: number | null } | null)?.conflict_day ?? null;
 
   if (error) {
     return (
@@ -148,6 +159,7 @@ export default async function CountryReportPage({
       anonHasAccess={hasAccess}
       anonPostureAccess={anonPostureAccess}
       conflictDayBadge={<ConflictDayBadge />}
+      economyBriefDay={economyBriefDay}
     />
   );
 }

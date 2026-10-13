@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { ScenarioProbability } from '@/types/supabase';
 
-export function useScenarios() {
+/** `enabled = false` skips the read (e.g. Home, whose server render already has the rows). */
+export function useScenarios(enabled = true) {
   const [scenarios, setScenarios] = useState<ScenarioProbability[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     setLoading(true);
     const supabase = createClient();
@@ -33,7 +35,7 @@ export function useScenarios() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return { scenarios, loading, error };
 }

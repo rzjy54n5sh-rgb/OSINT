@@ -104,7 +104,7 @@ export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 's
       className={`font-mono text-[11px] ${className}`}
       style={{ color: 'var(--text-muted)' }}
       data-testid="posture-v1-frozen"
-      title="Not yet re-coded under War Posture v2: the last War Posture v1 number (one blended number across wars), frozen, never counted as a move."
+      title="Last score under the old method (one blended number across wars). No longer updated, and never counted as a change."
       translate="no"
     >
       <span className="uppercase">{v1FrozenText(row)}</span>

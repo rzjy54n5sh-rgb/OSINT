@@ -24,8 +24,8 @@ const config: Config = {
       },
       fontFamily: {
         display: ['var(--font-bebas)', 'Bebas Neue', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'monospace'],
-        body: ['DM Sans', 'sans-serif'],
+        mono: ['var(--font-mono)', 'IBM Plex Mono', 'monospace'],
+        body: ['var(--font-dm)', 'DM Sans', 'sans-serif'],
       },
     },
   },

@@ -144,8 +144,10 @@ export default function BriefingsClient({
       <Suspense fallback={null}>
         <DayParamSync currentDay={currentDay} onDay={goToDay} />
       </Suspense>
-      <PageBriefing
-        title="DAILY INTELLIGENCE BRIEFINGS"
+      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
+        DAILY INTELLIGENCE BRIEFINGS
+      </h1>
+      <PageBriefing className="mb-4"
         description="Structured reports for every conflict day from Day 1. The daily line-up (from October 2026) is the Overnight brief, the General Intelligence Brief, the Horn of Africa & Red Sea brief and the Egypt & Gulf Economy brief, plus a weekly Religion, Ideology & Mobilisation brief and weekly digests that cover the days between full briefs. Earlier Egypt, UAE and business briefs stay readable under Archive (not every type exists for every day). From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
         note="Reports marked PLATFORM are editorial-grade. Reports marked AUTO are generated from the platform's daily analysis database. Historical reports marked RECONSTRUCTED are regenerated from archived DB data."
       />
@@ -229,10 +231,10 @@ export default function BriefingsClient({
 
       {/* Day header */}
       <div className="mb-6 flex items-baseline gap-4">
-        <h1 className="font-display text-2xl"
+        <h2 className="font-display text-2xl"
             style={{ color: 'var(--text-primary)' }}>
           DAY {day} BRIEFINGS
-        </h1>
+        </h2>
         <span className="font-mono text-xs"
               style={{ color: 'var(--text-muted)' }}>
           {dayLabel(day)}

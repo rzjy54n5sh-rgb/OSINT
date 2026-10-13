@@ -81,17 +81,16 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="MIX AND MATCH ANALYTICS"
-        description={`Plot War Posture (scale: ${NAI_V2_SCALE_TEXT}) and scenario probabilities against each other. Only current methods are plotted: War Posture from Day 221 and ${scenarioMethod ?? 'market-anchored'} scenario days.`}
-        note="Days 1–35 used retired methods (a US-referenced alignment score and fixed desk scenario estimates) and are not comparable, so they are excluded. Correlation is not causation; with only a few days of data, patterns are indicative at best."
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         MIX &amp; MATCH ANALYTICS
       </h1>
       <p className="font-mono text-xs mb-6" style={{ color: 'var(--text-muted)' }}>
         SELECT X / Y AXES — SCATTER OR LINE · {posture.length} WAR POSTURE ROWS · {scenarioDays.length} SCENARIO DAYS
       </p>
+      <PageBriefing className="-mt-2 mb-6"
+        description={`Plot War Posture (scale: ${NAI_V2_SCALE_TEXT}) and scenario probabilities against each other. Only current methods are plotted: War Posture from Day 221 and ${scenarioMethod ?? 'market-anchored'} scenario days.`}
+        note="Days 1–35 used retired methods (a US-referenced alignment score and fixed desk scenario estimates) and are not comparable, so they are excluded. Correlation is not causation; with only a few days of data, patterns are indicative at best."
+      />
       <OsintCard className="mb-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-xs">
           {select(xAxis, setXAxis, 'X AXIS')}
@@ -110,7 +109,7 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
           </label>
         </div>
       </OsintCard>
-      <OsintCard className="scanlines">
+      <OsintCard>
         {mixed ? (
           <p className="font-mono text-xs py-12" style={{ color: 'var(--text-secondary)' }}>
             War Posture is per country and scenarios are per day, so they cannot be paired point by point. Plot scenarios
@@ -118,7 +117,7 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
           </p>
         ) : locked ? (
           <div className="py-12 flex flex-wrap items-center gap-2 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-            <span>The latent band and gap are available on the Informed tier.</span>
+            <span>The societal (latent) band and the gap are locked during launch.</span>
             <PaywallOverlay requiredTier="informed" featureName="War Posture latent band" compact />
           </div>
         ) : data.length === 0 ? (

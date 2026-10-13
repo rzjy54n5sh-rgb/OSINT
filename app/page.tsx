@@ -2,8 +2,14 @@ import { pageMetadata } from '@/lib/site';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
+import { ScenarioRow } from '@/components/home/ScenarioRow';
+import { CorridorStrip } from '@/components/corridors/CorridorStrip';
+import { getScenarioRegistryView } from '@/lib/scenario-registry';
+import { buildScenarioRow } from '@/lib/scenario-row';
 import type { Metadata } from 'next';
-import type { Article, ScenarioProbability } from '@/types/supabase';
+import type { Article, MarketData, ScenarioProbability } from '@/types/supabase';
+import { filterHomeFeed, HOME_FEED_FETCH_ROWS } from '@/lib/home-feed';
+import { buildHomeMarketMetrics, MARKET_LATEST_COLUMNS, MARKET_LATEST_ROWS } from '@/lib/market-latest';
 
 /**
  * ISR: public, tier-agnostic data (collectors run every 30 min – 6 h, briefs daily). The HTML is
@@ -24,9 +30,18 @@ export default async function Page() {
   const conflictDay = await getConflictDay();
 
   // Parallel server-side fetches — data baked into HTML, no loading states
-  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes] = await Promise.all([
-    supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(3),
-    supabase.from('articles').select('*', { count: 'exact', head: true }),
+  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes, registry] = await Promise.all([
+    // Read a window and keep the first 3 in-scope items (lib/home-feed.ts: scope flag, else the documented
+    // off-theatre Telegram list). Only this tile is filtered; /feed and /warroom show everything.
+    // Only the columns the tile renders plus what the scope filter reads (summary, content_json); the
+    // filter inputs are dropped again below so they are not serialised into the cached HTML.
+    supabase
+      .from('articles')
+      .select('id, title, summary, content_json, source_name, source_logo_url, source_type, conflict_day, published_at, confidence_score')
+      .order('published_at', { ascending: false })
+      .limit(HOME_FEED_FETCH_ROWS),
+    // Estimated, not exact: a full COUNT(*) for a rough total (shown with "≈", lib/article-count.ts).
+    supabase.from('articles').select('id', { count: 'estimated', head: true }),
     supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: true }),
     // Latest general briefing by daily_briefings' OWN max day (not the nai_scores day, not
     // "exactly today"). Its day is passed through and labelled against the calendar day.
@@ -37,13 +52,27 @@ export default async function Page() {
       .order('conflict_day', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from('market_data').select('indicator, value, change_pct, unit, conflict_day').order('conflict_day', { ascending: false }).limit(50),
+    // Canonical newest row per indicator (lib/market-latest.ts) — the same read and rule as the War Room.
+    supabase
+      .from('market_data')
+      .select(MARKET_LATEST_COLUMNS)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .limit(MARKET_LATEST_ROWS),
     // Which brief types exist on the latest days (for the home strip: link only what was published).
     supabase.from('daily_briefings').select('conflict_day, report_type').order('conflict_day', { ascending: false }).limit(40),
+    // The scenario row reads the SAME registry view /scenarios renders (never the legacy table).
+    getScenarioRegistryView(supabase),
   ]);
+  if (registry.error) console.error('[home] scenario registry read failed:', registry.error);
+  const scenarioRow = buildScenarioRow(registry);
 
-  const articles = (articlesRes.data as Article[]) ?? [];
-  const articleCount = countRes.count ?? 0;
+  const articles = filterHomeFeed((articlesRes.data as unknown as Article[]) ?? [], 3).map((a) => ({
+    ...a,
+    summary: null,
+    content_json: null,
+  }));
+  const articleCount = countRes.error ? null : countRes.count ?? null;
   const scenarios = (scenariosRes.data as ScenarioProbability[]) ?? [];
   const briefingRow = briefingRes.data as { lead?: string | null; conflict_day?: number | null } | null;
   const topFindingLead = briefingRow?.lead ?? null;
@@ -52,24 +81,8 @@ export default async function Page() {
     .filter((r) => r.conflict_day === briefingDay)
     .map((r) => r.report_type);
 
-  // Build market metrics from latest day
-  const marketRows = (marketRes.data ?? []) as { indicator: string; value: number; change_pct: number; unit: string; conflict_day: number }[];
-  const latestDay = marketRows[0]?.conflict_day;
-  const latest = marketRows.filter((r) => r.conflict_day === latestDay);
-  const seen = new Map<string, typeof marketRows[0]>();
-  for (const r of latest) {
-    const key = (r.indicator ?? '').toLowerCase();
-    if (!seen.has(key)) seen.set(key, r);
-  }
-  const marketMetrics: { label: string; value: string; change: string; up: boolean }[] = [];
-  const brent = seen.get('brent crude oil');
-  if (brent) marketMetrics.push({ label: 'BRENT', value: `$${brent.value?.toFixed(2) ?? '--'}`, change: brent.change_pct != null ? `${brent.change_pct >= 0 ? '+' : ''}${brent.change_pct.toFixed(1)}%` : '--', up: (brent.change_pct ?? 0) >= 0 });
-  const gold = seen.get('gold');
-  if (gold) marketMetrics.push({ label: 'GOLD', value: `$${gold.value?.toFixed(0) ?? '--'}`, change: gold.change_pct != null ? `${gold.change_pct >= 0 ? '+' : ''}${gold.change_pct.toFixed(1)}%` : '--', up: (gold.change_pct ?? 0) >= 0 });
-  const vix = seen.get('vix (fear index)');
-  if (vix) marketMetrics.push({ label: 'VIX', value: vix.value?.toFixed(1) ?? '--', change: vix.change_pct != null ? `${vix.change_pct >= 0 ? '+' : ''}${vix.change_pct.toFixed(1)}%` : '--', up: (vix.change_pct ?? 0) < 0 });
-  const sp = seen.get('s&p 500');
-  if (sp) marketMetrics.push({ label: 'S&P 500', value: sp.value?.toLocaleString('en-US', { maximumFractionDigits: 0 }) ?? '--', change: sp.change_pct != null ? `${sp.change_pct >= 0 ? '+' : ''}${sp.change_pct.toFixed(1)}%` : '--', up: (sp.change_pct ?? 0) >= 0 });
+  // Market tiles: newest row per indicator by created_at, one rounding rule, each with its own timestamp.
+  const { metrics: marketMetrics, latestDay } = buildHomeMarketMetrics((marketRes.data ?? []) as MarketData[]);
 
   return (
     <HomeDashboard
@@ -84,6 +97,8 @@ export default async function Page() {
         marketMetrics,
         marketDay: latestDay ?? null,
       }}
+      corridors={<CorridorStrip now={new Date()} headingId="home-corridor-strip-h" compact />}
+      scenarioRow={<ScenarioRow row={scenarioRow} currentDay={conflictDay} />}
     >
       <NaiBiggestMoveBanner />
     </HomeDashboard>

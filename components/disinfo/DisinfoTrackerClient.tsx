@@ -70,15 +70,14 @@ export function DisinfoTrackerClient({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="DISINFORMATION TRACKER"
-        description="Claims flagged here were already circulating publicly before being logged. We do not originate disinformation claims. Verdicts are assigned based on cross-referencing with primary sources, fact-checking organizations, and satellite or documentary evidence where available."
-        note="UNVERIFIED does not mean FALSE — it means the available open-source evidence is insufficient to confirm or deny. Every claim links to its original source and, where available, a debunking source."
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         DISINFORMATION TRACKER
       </h1>
       {conflictDayBadge}
+      <PageBriefing className="mb-4"
+        description="Claims flagged here were already circulating publicly before being logged. We do not originate disinformation claims. Verdicts are assigned based on cross-referencing with primary sources, fact-checking organizations, and satellite or documentary evidence where available."
+        note="UNVERIFIED does not mean FALSE — it means the available open-source evidence is insufficient to confirm or deny. Every claim links to its original source and, where available, a debunking source."
+      />
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         CLAIMS — VERDICT — SPREAD ESTIMATE
         {!hasFullAccess && total > 0 && (
@@ -185,7 +184,7 @@ export function DisinfoTrackerClient({
                 <span style={{ color: '#E8C547' }}>◆</span> {total - showing} more claims locked
               </span>
               <div className="flex flex-col gap-2 sm:items-end">
-                <p className="font-mono text-xs text-white/70">Upgrade to Informed for full access</p>
+                <p className="font-mono text-xs text-white/70">The full tracker is locked during launch.</p>
                 <PaywallOverlay requiredTier="informed" featureName="Disinformation tracker" compact />
               </div>
             </div>
