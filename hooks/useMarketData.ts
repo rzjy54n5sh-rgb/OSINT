@@ -3,115 +3,41 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MarketData } from '@/types/supabase';
+import { buildHomeMarketMetrics, MARKET_LATEST_COLUMNS, MARKET_LATEST_ROWS, type HomeMarketMetric } from '@/lib/market-latest';
 
-export interface KeyMetric {
-  label: string;
-  value: string;
-  change: string;
-  up: boolean;
-}
+export type KeyMetric = HomeMarketMetric;
 
 /**
- * Fetches the latest market_data rows (highest conflict_day) and maps
- * key indicators to a display-ready format for the homepage metrics strip.
+ * Client fallback for the homepage metrics strip (used only when the server payload has no tiles).
+ * Same read and the same rule as app/page.tsx and the War Room: the newest market_data row per
+ * indicator by created_at (lib/market-latest.ts), one rounding rule, each tile with its own timestamp.
  */
-export function useMarketData(): { metrics: KeyMetric[]; loading: boolean; latestDay: number | null } {
+/** `enabled = false` skips the read (e.g. Home, whose server render already has the rows). */
+export function useMarketData(enabled = true): { metrics: KeyMetric[]; loading: boolean; latestDay: number | null } {
   const [metrics, setMetrics] = useState<KeyMetric[]>([]);
   const [latestDay, setLatestDay] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const supabase = createClient();
     void (async () => {
       try {
-        // Get the latest conflict_day's data
         const { data, error } = await supabase
           .from('market_data')
-          .select('indicator, value, change_pct, unit, conflict_day')
-          .order('conflict_day', { ascending: false })
-          .limit(50);
+          .select(MARKET_LATEST_COLUMNS)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .limit(MARKET_LATEST_ROWS);
         if (cancelled) return;
         if (error || !data || data.length === 0) {
           setMetrics([]);
-          setLoading(false);
           return;
         }
-        const rows = data as MarketData[];
-        // Use only the latest conflict day
-        // Latest day in market_data itself (own-table max) — labelled against the calendar day by the caller.
-        const newestDay = rows[0].conflict_day;
-        setLatestDay(newestDay ?? null);
-        const latest = rows.filter((r) => r.conflict_day === newestDay);
-
-        // Find key indicators (pick latest row per indicator)
-        const seen = new Map<string, MarketData>();
-        for (const r of latest) {
-          const key = (r.indicator ?? '').toLowerCase();
-          if (!seen.has(key)) seen.set(key, r);
-        }
-
-        const out: KeyMetric[] = [];
-
-        // Brent
-        const brent = seen.get('brent crude oil');
-        if (brent) {
-          out.push({
-            label: 'BRENT',
-            value: `$${brent.value?.toFixed(2) ?? '--'}`,
-            change: brent.change_pct != null ? `${brent.change_pct >= 0 ? '+' : ''}${brent.change_pct.toFixed(1)}%` : '--',
-            up: (brent.change_pct ?? 0) >= 0,
-          });
-        }
-
-        // Gold
-        const gold = seen.get('gold');
-        if (gold) {
-          out.push({
-            label: 'GOLD',
-            value: `$${gold.value?.toFixed(0) ?? '--'}`,
-            change: gold.change_pct != null ? `${gold.change_pct >= 0 ? '+' : ''}${gold.change_pct.toFixed(1)}%` : '--',
-            up: (gold.change_pct ?? 0) >= 0,
-          });
-        }
-
-        // VIX
-        const vix = seen.get('vix (fear index)');
-        if (vix) {
-          out.push({
-            label: 'VIX',
-            value: vix.value?.toFixed(1) ?? '--',
-            change: vix.change_pct != null ? `${vix.change_pct >= 0 ? '+' : ''}${vix.change_pct.toFixed(1)}%` : '--',
-            up: (vix.change_pct ?? 0) < 0, // VIX down is good
-          });
-        }
-
-        // S&P 500
-        const sp = seen.get('s&p 500');
-        if (sp) {
-          out.push({
-            label: 'S&P 500',
-            value: sp.value?.toLocaleString('en-US', { maximumFractionDigits: 0 }) ?? '--',
-            change: sp.change_pct != null ? `${sp.change_pct >= 0 ? '+' : ''}${sp.change_pct.toFixed(1)}%` : '--',
-            up: (sp.change_pct ?? 0) >= 0,
-          });
-        }
-
-        // If we don't have 4 metrics, pad with what's available
-        if (out.length === 0) {
-          // Fallback: show first 4 unique indicators
-          const fallback = Array.from(seen.values()).slice(0, 4);
-          for (const r of fallback) {
-            out.push({
-              label: (r.indicator ?? 'N/A').toUpperCase(),
-              value: r.value != null ? String(r.value) : '--',
-              change: r.change_pct != null ? `${r.change_pct >= 0 ? '+' : ''}${r.change_pct.toFixed(1)}%` : '--',
-              up: (r.change_pct ?? 0) >= 0,
-            });
-          }
-        }
-
-        setMetrics(out);
+        const built = buildHomeMarketMetrics(data as MarketData[]);
+        setMetrics(built.metrics);
+        setLatestDay(built.latestDay);
       } catch {
         if (!cancelled) setMetrics([]);
       } finally {
@@ -121,7 +47,7 @@ export function useMarketData(): { metrics: KeyMetric[]; loading: boolean; lates
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return { metrics, loading, latestDay };
 }

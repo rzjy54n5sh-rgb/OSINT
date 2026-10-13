@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { OsintCard } from '@/components/OsintCard';
 import { CountryFlag } from '@/components/CountryFlag';
 import { PageBriefing } from '@/components/PageBriefing';
+import { LOCKED_TEXT } from '@/lib/access-cta';
 import { GlossaryTooltip } from '@/components/GlossaryTooltip';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { NaiV2CategoryBadge } from '@/components/nai/NaiV2CategoryBadge';
@@ -62,17 +63,16 @@ export default function CountriesClient({ initialScores, naiDay, currentDay, tie
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="COUNTRY INTELLIGENCE REPORTS"
-        description="War Posture for the 25 tracked countries (the original 20 plus the Horn of Africa & Red Sea theatre: Ethiopia, Eritrea, Sudan, Somalia, Djibouti). Each card shows the official (expressed) score on one party-neutral scale — 0 = immediate ceasefire, 100 = continue or escalate — the societal (latent) band where admissible evidence exists, the category, and the cited sources. Click a country for its daily report: assessment, key risks, stabilizers, data-integrity note and sources."
-        note="Open-source data only. Scores and report text are written by the daily build from pages that were opened and checked; a claim that could not be confirmed is removed. A tracked country with no War Posture row for the day shows 'No sourced data' rather than a guessed score."
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         COUNTRY INTELLIGENCE
       </h1>
       <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
         CONFLICT DAY {currentDay} — WAR POSTURE BY COUNTRY (AS OF DAY {naiDay ?? '—'})
       </p>
+      <PageBriefing className="mb-4"
+        description="War Posture for the 25 tracked countries (the original 20 plus the Horn of Africa & Red Sea theatre: Ethiopia, Eritrea, Sudan, Somalia, Djibouti). Each card shows the official (expressed) score on one party-neutral scale — 0 = immediate ceasefire, 100 = continue or escalate — the societal (latent) band where admissible evidence exists, the category, and the cited sources. Click a country for its daily report: assessment, key risks, stabilizers, data-integrity note and sources."
+        note="Open-source data only. Scores and report text are written by the daily build from pages that were opened and checked; a claim that could not be confirmed is removed. A tracked country with no War Posture row for the day shows 'No sourced data' rather than a guessed score."
+      />
       <DataAsOf section="WAR POSTURE" latestDay={naiDay} currentDay={currentDay} className="mb-8" />
       {scores.length === 0 && (
         <p className="font-mono text-xs border px-3 py-2" style={{ color: 'var(--accent-orange)', borderColor: 'var(--accent-orange)' }} data-testid="nai-v2-empty">
@@ -113,7 +113,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay, tie
                         term="LATENT"
                         definition="Population and non-government elites on the same scale, stored as a low–high band. Empty when there is no evidence."
                       >
-                        <span>LATENT {s.latentLocked ? 'Informed tier' : formatBand(s.latent_low, s.latent_high)}</span>
+                        <span>LATENT {s.latentLocked ? LOCKED_TEXT : formatBand(s.latent_low, s.latent_high)}</span>
                       </GlossaryTooltip>
                     </p>
                     <div className="mt-1">

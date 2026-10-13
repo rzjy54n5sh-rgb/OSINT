@@ -121,17 +121,16 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="ECONOMIC INTELLIGENCE"
-        description="Conflict-sensitive market and shipping indicators. Each card shows the latest stored value with its unit, the time it was collected and its source, and a trend chart that only joins rows in the same unit."
-        note={`This is not financial advice. Collector indicators (${COLLECTOR_LIST}) are scheduled every 30 minutes via GitHub Actions; scheduled runs can be delayed or skipped, and closed days keep only the newest row per indicator. USD/EGP, the open-market USD/IRR rate, Hormuz and Bab al-Mandeb traffic and the war-risk premium are written once a day by the daily build from the source quoted on each card. Rows marked reconstructed come from the October 2026 daily-close backfill.`}
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         ECONOMIC INTELLIGENCE
       </h1>
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         KEY INDICATORS — LATEST VALUE AND TREND BY CONFLICT DAY
       </p>
+      <PageBriefing className="-mt-4 mb-8"
+        description="Conflict-sensitive market and shipping indicators. Each card shows the latest stored value with its unit, the time it was collected and its source, and a trend chart that only joins rows in the same unit."
+        note={`This is not financial advice. Collector indicators (${COLLECTOR_LIST}) are scheduled every 30 minutes via GitHub Actions; scheduled runs can be delayed or skipped, and closed days keep only the newest row per indicator. USD/EGP, the open-market USD/IRR rate, Hormuz and Bab al-Mandeb traffic and the war-risk premium are written once a day by the daily build from the source quoted on each card. Rows marked reconstructed come from the October 2026 daily-close backfill.`}
+      />
       {views.length > 0 && <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={currentDay} className="-mt-4 mb-8" />}
       {views.length === 0 && <p className="redacted py-12">NO INTEL AVAILABLE</p>}
       {current.length > 0 && <div className="grid md:grid-cols-2 gap-6">{current.map(card)}</div>}

@@ -24,15 +24,15 @@ export function TrustPage({
   return (
     <div className="max-w-3xl mx-auto px-4 py-8" style={{ overflowWrap: 'anywhere' }}>
       <header style={{ marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
-        <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
           ◆ {kicker}
         </div>
-        <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 38, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0', lineHeight: 1.05 }}>
+        <h1 style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 38, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0', lineHeight: 1.05 }}>
           {title}
         </h1>
-        <div style={{ fontFamily: 'DM Sans', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{intro}</div>
+        <div style={{ fontFamily: 'var(--font-dm), sans-serif', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{intro}</div>
         {updated && (
-          <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', margin: '12px 0 0 0', letterSpacing: '1px' }}>
+          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', margin: '12px 0 0 0', letterSpacing: '1px' }}>
             LAST UPDATED {updated.toUpperCase()}
           </p>
         )}
@@ -48,7 +48,7 @@ export function TrustPage({
               prefetch={false}
               aria-current={active ? 'page' : undefined}
               style={{
-                fontFamily: 'IBM Plex Mono',
+                fontFamily: 'var(--font-mono), monospace',
                 fontSize: 11,
                 letterSpacing: '1px',
                 padding: '8px 10px',
@@ -67,7 +67,7 @@ export function TrustPage({
         })}
       </nav>
 
-      <div style={{ fontFamily: 'DM Sans', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.75 }}>{children}</div>
+      <div style={{ fontFamily: 'var(--font-dm), sans-serif', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.75 }}>{children}</div>
     </div>
   );
 }
@@ -76,7 +76,7 @@ export function H2({ id, children }: { id?: string; children: ReactNode }) {
   return (
     <h2
       id={id}
-      style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'var(--text-primary)', letterSpacing: '1.5px', margin: '32px 0 10px 0', scrollMarginTop: 72 }}
+      style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 24, color: 'var(--text-primary)', letterSpacing: '1.5px', margin: '32px 0 10px 0', scrollMarginTop: 72 }}
     >
       {children}
     </h2>
@@ -119,7 +119,7 @@ export function NotYetAvailable({ what, reason }: { what: string; reason: 'not_d
       style={{
         border: '1px dashed var(--border)',
         padding: '16px 18px',
-        fontFamily: 'IBM Plex Mono',
+        fontFamily: 'var(--font-mono), monospace',
         fontSize: 12,
         color: 'var(--text-muted)',
         lineHeight: 1.6,
@@ -140,7 +140,7 @@ export function EmptyState({ children }: { children: ReactNode }) {
       style={{
         border: '1px solid var(--border)',
         padding: '18px 20px',
-        fontFamily: 'DM Sans',
+        fontFamily: 'var(--font-dm), sans-serif',
         fontSize: 15,
         color: 'var(--text-secondary)',
         margin: '8px 0 20px 0',

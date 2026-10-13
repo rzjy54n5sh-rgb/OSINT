@@ -12,6 +12,16 @@ export function SiteFooter() {
       className="mt-auto border-t py-4 px-4 text-center font-mono text-[11px] uppercase tracking-wider"
       style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
     >
+      <nav aria-label="Corridors" className="mb-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <Link
+          href="/corridors"
+          prefetch={false}
+          className="inline-flex min-h-[32px] items-center hover:underline"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          Corridors: Hormuz · Bab al-Mandeb · Suez
+        </Link>
+      </nav>
       <nav aria-label="Trust and standards" className="mb-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
         {TRUST_LINKS.map((l) => (
           <Link

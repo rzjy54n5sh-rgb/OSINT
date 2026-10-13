@@ -350,6 +350,11 @@ export function deltaWithinMethod(
   return { delta: cur.probability - first.probability, sinceDay: first.conflict_day, method: cur.method_version };
 }
 
+/** The delta line the /scenarios cards print (and the home ScenarioRow reuses verbatim). */
+export function formatScenarioDelta(d: { delta: number; sinceDay: number }): string {
+  return `${d.delta > 0 ? '+' : ''}${d.delta} pts since Day ${d.sinceDay} (same method)`;
+}
+
 export const SCENARIO_COLORS: Record<string, string> = {
   A: '#4EC98A',
   B: '#E8C547',

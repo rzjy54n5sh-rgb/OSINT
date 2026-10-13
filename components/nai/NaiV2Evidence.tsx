@@ -51,7 +51,7 @@ export function NaiV2Evidence({ row, compact = false }: { row: NaiV2View; compac
       )}
       {row.hiddenLatentSourceCount > 0 && (
         <p className="mt-1">
-          {row.hiddenLatentSourceCount} latent-evidence source(s) available on Informed tier.
+          {row.hiddenLatentSourceCount} latent-evidence source(s) locked during launch.
         </p>
       )}
     </div>

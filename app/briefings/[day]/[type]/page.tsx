@@ -162,7 +162,7 @@ export default async function BriefingReaderPage({ params }: PageProps) {
       <div className="max-w-4xl mx-auto px-4 pt-4">
         <p
           data-testid="ai-disclosure-line"
-          style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, lineHeight: 1.6, color: 'var(--text-muted)', margin: 0, letterSpacing: '0.3px' }}
+          style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, lineHeight: 1.6, color: 'var(--text-muted)', margin: 0, letterSpacing: '0.3px' }}
         >
           {PRE_PUBLICATION_HUMAN_REVIEW
             ? 'Drafted with AI from linked public sources and reviewed by an editor before publication. '

@@ -74,26 +74,47 @@ body {
   overflow-x: hidden;
 }
 
-/* ── GRAIN OVERLAY ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  opacity: 0.35;
-}
-
-/* All page content must sit above grain */
+/* The full-viewport SVG-turbulence grain overlay (body::before) was removed (perf batch 1,
+   2026-10-13): a fixed feTurbulence layer is re-rasterised over every page, data pages included,
+   for a 1 % texture. The rule below stays so existing stacking (page above any backdrop) is unchanged. */
 body > * { position: relative; z-index: 1; }
+
+/* ── HOME HERO BACKDROP ──
+   Static layer for everyone (and the fallback when the WebGL field is skipped: reduced motion,
+   Save-Data, < 4 GB device memory, no hardware WebGL). components/home/HeroScene.tsx.
+   Absolutely positioned with a fixed height: never shifts layout. */
+.hero-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 440px;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 18% 0%, rgba(78, 201, 138, 0.10), transparent 70%),
+    radial-gradient(45% 60% at 85% 10%, rgba(232, 197, 71, 0.07), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+@media (max-width: 639px) {
+  .hero-scene { height: 320px; }
+}
+.hero-scene__canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.hero-scene__canvas[data-ready] { opacity: 0.75; }
 
 /* ── TYPOGRAPHY ── */
 .font-display { font-family: var(--font-bebas), 'Bebas Neue', sans-serif; letter-spacing: 0.02em; }
 .font-mono    { font-family: var(--font-mono), 'IBM Plex Mono', monospace; }
 .font-body    { font-family: var(--font-dm), 'DM Sans', sans-serif; }
 
-/* ── SCANLINES ── */
+/* ── SCANLINES ── (home cards only; removed from data pages in perf batch 1. A plain gradient, no filter.) */
 .scanlines {
   position: relative;
 }
@@ -639,6 +660,17 @@ body > * { position: relative; z-index: 1; }
 .indicator-value { color: var(--text-primary); font-size: 11px; font-weight: 500; margin-right: 8px; }
 .change.up   { color: var(--accent-green); font-size: 11px; }
 .change.down { color: var(--accent-red);   font-size: 11px; }
+/* War Room markets list: wraps instead of squeezing; long daily-build units and the collection time sit on
+   their own full-width line (readable at 390 px). */
+.indicator-row.warroom-indicator { flex-wrap: wrap; gap: 2px 8px; }
+.warroom-indicator .indicator-name { min-width: 0; }
+.warroom-indicator .indicator-value { margin-right: 0; white-space: nowrap; }
+.indicator-meta {
+  flex-basis: 100%;
+  display: flex; flex-direction: column; gap: 2px;
+  color: var(--text-muted); font-size: 11px; line-height: 1.45; letter-spacing: 0.2px;
+}
+.indicator-unit { color: var(--text-secondary); }
 
 .warroom-tags {
   display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;
@@ -1000,4 +1032,56 @@ input:focus, textarea:focus, select:focus {
 /* TranslationBanner: dismissed visitors are hidden before first paint (root layout boot script). */
 html[data-tb-dismissed] .translation-banner {
   display: none !important;
+}
+
+/* ── Accessibility helpers (UX audit 2026-10-13, change #10) ── */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -100px;
+  z-index: 1000;
+  padding: 10px 16px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  color: var(--accent-gold);
+  border: 2px solid var(--accent-gold);
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  text-decoration: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible { top: 8px; }
+
+/* War Room headings keep the panel-header look (they were spans before). */
+.warroom-h1,
+.warroom-h2 { font: inherit; letter-spacing: inherit; margin: 0; }
+.warroom-briefing { margin: 8px 12px; }
+
+/* "How to read this page" disclosure (components/PageBriefing.tsx) */
+.page-briefing > summary { list-style: none; }
+.page-briefing > summary::-webkit-details-marker { display: none; }
+.page-briefing > summary::after { content: '▸'; margin-left: auto; transition: transform 0.15s ease; }
+.page-briefing[open] > summary::after { transform: rotate(90deg); }
+.page-briefing > summary:hover { background: rgba(232,197,71,0.05); }
+@media (prefers-reduced-motion: reduce) {
+  .page-briefing > summary::after { transition: none; }
+}
+
+/* /track-record tables: normal table from 640 px; below that each row stacks as label/value lines. */
+.tr-table-wrap { overflow-x: auto; }
+@media (max-width: 639px) {
+  .tr-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tr-table, .tr-table tbody, .tr-table tr, .tr-table td { display: block; width: 100%; }
+  .tr-table tr { padding: 10px 0; }
+  .tr-table td { padding: 2px 0 !important; white-space: normal !important; }
+  .tr-table td:not(:first-child)::before {
+    content: attr(data-label) ': ';
+    color: var(--text-muted);
+    font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 }

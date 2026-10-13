@@ -45,7 +45,7 @@ const Li = ({ children }: { children: ReactNode }) => (
 const Tag = ({ children, color = 'var(--accent-gold)' }: { children: ReactNode; color?: string }) => (
   <span
     style={{
-      fontFamily: 'IBM Plex Mono',
+      fontFamily: 'var(--font-mono), monospace',
       fontSize: 11,
       color,
       border: '1px solid currentColor',
@@ -549,7 +549,7 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
                 { feed: 'War Posture (checked daily; a new position row only when a captured statement changes it), country reports, daily briefs', freq: 'Once a day by the daily build, after source checks' },
               ].map((r) => (
                 <div key={r.feed} style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, width: 220 }}>{r.feed}</span>
+                  <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0, width: 220 }}>{r.feed}</span>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1, minWidth: 200 }}>{r.freq}</span>
                 </div>
               ))}
@@ -649,13 +649,13 @@ export default async function MethodologyPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div style={{ marginBottom: 32, borderBottom: '1px solid var(--border)', paddingBottom: 24 }}>
-        <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
           ◆ MENA INTEL DESK — METHODOLOGY &amp; TRANSPARENCY
         </div>
-        <h1 style={{ fontFamily: 'Bebas Neue', fontSize: 40, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0' }}>
+        <h1 style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 40, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0' }}>
           HOW THIS PLATFORM WORKS
         </h1>
-        <p style={{ fontFamily: 'DM Sans', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 680, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-dm), sans-serif', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.7, maxWidth: 680, margin: 0 }}>
           How War Posture is scored, how scenario probabilities are computed from markets, where the data comes from and how
           sources are labelled. Every rule described here is in force today.
         </p>
@@ -667,7 +667,7 @@ export default async function MethodologyPage() {
             key={s.id}
             href={`#${s.id}`}
             style={{
-              fontFamily: 'IBM Plex Mono',
+              fontFamily: 'var(--font-mono), monospace',
               fontSize: 11,
               letterSpacing: '1.5px',
               padding: '10px 14px',
@@ -684,10 +684,10 @@ export default async function MethodologyPage() {
       {sections.map((section) => (
         <section key={section.id} id={section.id} style={{ marginBottom: 36, scrollMarginTop: 72 }} aria-labelledby={`${section.id}-h`}>
           <div style={{ marginBottom: 14 }}>
-            <h2 id={`${section.id}-h`} style={{ fontFamily: 'Bebas Neue', fontSize: 24, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 4px 0' }}>
+            <h2 id={`${section.id}-h`} style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 24, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 4px 0' }}>
               {section.title}
             </h2>
-            <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', margin: 0, letterSpacing: '1px' }}>
+            <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', margin: 0, letterSpacing: '1px' }}>
               {section.subtitle}
             </p>
           </div>
@@ -698,7 +698,7 @@ export default async function MethodologyPage() {
                   style={{
                     padding: '14px 0',
                     cursor: 'pointer',
-                    fontFamily: 'IBM Plex Mono',
+                    fontFamily: 'var(--font-mono), monospace',
                     fontSize: 12,
                     color: 'var(--text-primary)',
                     lineHeight: 1.5,
@@ -716,10 +716,10 @@ export default async function MethodologyPage() {
       <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
         <EmailCapture source="methodology" compact />
         <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)' }}>
+          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>
             MENA INTEL DESK — OPEN SOURCE INTELLIGENCE PLATFORM
           </span>
-          <Link prefetch={false} href="/" style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
+          <Link prefetch={false} href="/" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
             ← RETURN TO DASHBOARD
           </Link>
         </div>

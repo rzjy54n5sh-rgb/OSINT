@@ -5,6 +5,8 @@ import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method'
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
+import { HeroScene } from '@/components/home/HeroScene';
+import { formatArticleCount } from '@/lib/article-count';
 import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useArticles } from '@/hooks/useArticles';
@@ -12,16 +14,7 @@ import { useScenarios } from '@/hooks/useScenarios';
 import { useNewScenarioAlert } from '@/hooks/usePlatformAlert';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
-import {
-  ComposedChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { HomeScenarioChartLazy } from '@/components/home/HomeScenarioChartLazy';
 import { useI18n } from '@/components/I18nProvider';
 import { useLatestBriefing } from '@/hooks/useBriefing';
 import { useMarketData } from '@/hooks/useMarketData';
@@ -29,6 +22,8 @@ import { DataAsOf } from '@/components/ui/DataAsOf';
 import { maxConflictDay } from '@/lib/conflict-calendar';
 import { ARCHIVE_TYPES, CURRENT_LINEUP } from '@/lib/brief-types';
 import { residualRange } from '@/lib/scenario-range';
+import { filterHomeFeed } from '@/lib/home-feed';
+import type { HomeMarketMetric } from '@/lib/market-latest';
 
 function briefingLeadToPlainText(lead: string | null | undefined): string {
   if (!lead?.trim()) return '';
@@ -54,7 +49,8 @@ const QUICK_LINKS = [
 
 interface ServerData {
   conflictDay: number;
-  articleCount: number;
+  /** Estimated total (count=estimated); null when unknown. */
+  articleCount: number | null;
   articles: import('@/types/supabase').Article[];
   scenarios: import('@/types/supabase').ScenarioProbability[];
   topFindingLead: string | null;
@@ -62,22 +58,37 @@ interface ServerData {
   briefingDay: number | null;
   /** report_types that have a row on briefingDay (the strip links only to published briefs). */
   briefingTypes?: string[];
-  marketMetrics: { label: string; value: string; change: string; up: boolean }[];
+  marketMetrics: HomeMarketMetric[];
   /** conflict_day of the market rows shown (market_data's own max). */
   marketDay: number | null;
 }
 
-export default function HomeDashboard({ children, serverData }: { children?: ReactNode; serverData?: ServerData }) {
+export default function HomeDashboard({
+  children,
+  serverData,
+  corridors,
+  scenarioRow,
+}: {
+  /** War Posture banner (server component), shown compact under the scenario row. */
+  children?: ReactNode;
+  serverData?: ServerData;
+  /** Server-rendered CorridorStrip (first element of the first screen). */
+  corridors?: ReactNode;
+  /** Server-rendered ScenarioRow (registry numbers, same as /scenarios). */
+  scenarioRow?: ReactNode;
+}) {
   const { t } = useI18n();
   // Use server data if available, fall back to client hooks for real-time updates
   const rtCount = useRealtimeCount();
-  const clientArticles = useArticles({}, 3);
-  const clientScenarios = useScenarios();
+  // Client reads only as a fallback when the server render had no rows (they used to run on every
+  // home view and re-download what the HTML already carried).
+  const clientArticles = useArticles({}, 3, !serverData?.articles?.length);
+  const clientScenarios = useScenarios(!serverData?.scenarios?.length);
   const newScenarioAlert = useNewScenarioAlert();
   // Client fallback only when there is no server payload. Latest briefing by daily_briefings'
   // own max day — never keyed to another table's day.
   const clientBriefing = useLatestBriefing(serverData ? null : 'general');
-  const clientMarket = useMarketData();
+  const clientMarket = useMarketData(!serverData?.marketMetrics?.length);
 
   // Calendar day (DAY LOCK) — both sources are calendar-derived now.
   const conflictDay = serverData?.conflictDay ?? rtCount.conflictDay;
@@ -85,7 +96,8 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const lastUpdate = rtCount.lastUpdate;
   // LIVE reflects real ingestion freshness once measured (server payload alone proves nothing).
   const live = rtCount.loaded ? rtCount.live : false;
-  const articles = serverData?.articles?.length ? serverData.articles : clientArticles.articles;
+  // Server rows are already scope-filtered (app/page.tsx); the client fallback gets the same filter.
+  const articles = serverData?.articles?.length ? serverData.articles : filterHomeFeed(clientArticles.articles, 3);
   const scenarios = serverData?.scenarios?.length ? serverData.scenarios : clientScenarios.scenarios;
   const topFindingLoading = !serverData && clientBriefing.loading;
   const topFindingText = briefingLeadToPlainText(
@@ -130,32 +142,78 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
   const hasMeasuredE = scenarioChartData.some((r) => r.E != null);
 
   return (
-    <div className="relative">
+    // `isolate`: the hero backdrop (z-index -1) paints behind this page's content, never behind <body>.
+    <div className="relative isolate">
+      {/* One restrained 3D touch, home only: static gradient for everyone, a lazy WebGL particle field
+          on capable devices (components/home/HeroScene.tsx, lib/hero-3d.ts). */}
+      <HeroScene />
       {/* The animated "SYSTEM BOOT" opener was removed (shop-window pass, 2026-10-08): real content
           starts at the top. The page keeps one h1 for screen readers and search engines. */}
       <h1 className="sr-only">MENA Intel Desk — live conflict and corridor risk dashboard</h1>
-      <div aria-hidden style={{ height: 24 }} />
+      <div aria-hidden style={{ height: 16 }} />
 
-      {children != null && (
-        <div className="max-w-6xl mx-auto px-4 w-full">{children}</div>
-      )}
-
+      {/* First screen, in order (UX audit §6): corridor status → top finding → scenario row →
+          War Posture line → markets. Briefings, latest intelligence and the history chart follow;
+          the feature tiles and the newsletter box come last so data comes first. */}
       <section className="max-w-6xl mx-auto px-4 pb-12">
         <div
-          className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-6 mb-10"
+          className="font-mono text-xs uppercase tracking-widest flex flex-wrap gap-x-6 gap-y-1 mb-4"
           style={{ color: 'var(--text-secondary)' }}
         >
           <span>
             {t('conflictDay')} <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span>
           </span>
           <span>
-            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span>
+            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
           </span>
           <span>
             {t('lastUpdateLabel')} <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span>
           </span>
           <span>{live ? '● LIVE' : '○ STANDBY'}</span>
         </div>
+
+        {/* ── CORRIDORS THIS WEEK (Hormuz · Bab el-Mandeb · Suez) ── */}
+        {corridors != null && <div className="mb-6">{corridors}</div>}
+
+        {/* ── TOP FINDING STRIP ──────────────────────────────────── */}
+        <div className="mb-6 px-4 py-3"
+             style={{ background: 'rgba(232,197,71,0.04)',
+                      border: '1px solid rgba(232,197,71,0.15)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
+                           fontFamily: 'var(--font-mono), monospace', letterSpacing: '2px' }}>
+              ◆ DAY {briefingDay ?? '—'} TOP FINDING
+            </span>
+          </div>
+          {!topFindingLoading && (
+            <DataAsOf section="GENERAL BRIEFING" latestDay={briefingDay} currentDay={conflictDay} className="mb-2" />
+          )}
+          <p className="font-body text-sm leading-relaxed min-h-[3.5rem] line-clamp-3 md:line-clamp-none"
+             style={{ color: 'var(--text-secondary)' }}>
+            {topFindingLoading && (
+              <span style={{ color: 'var(--text-muted)' }}>Loading latest synthesis…</span>
+            )}
+            {!topFindingLoading && topFindingText && (
+              <>
+                {topFindingText.length > 520 ? `${topFindingText.slice(0, 520).trim()}…` : topFindingText}
+              </>
+            )}
+            {!topFindingLoading && !topFindingText && (
+              <span style={{ color: 'var(--text-muted)' }}>
+                No general briefing available for Day {conflictDay}. Open briefings to view the latest
+                available synthesis.
+              </span>
+            )}
+          </p>
+          <Link prefetch={false} href={`/briefings/${briefingDay ?? conflictDay}/general`}
+                className="font-mono text-xs mt-2 inline-block"
+                style={{ color: 'var(--accent-gold)' }}>
+            READ FULL BRIEF →
+          </Link>
+        </div>
+
+        {/* ── SCENARIO ROW (same numbers as /scenarios) ──────────── */}
+        {scenarioRow}
 
         {newScenarioAlert && (
           <div
@@ -182,42 +240,8 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           </div>
         )}
 
-        {/* ── TOP FINDING STRIP ──────────────────────────────────── */}
-        <div className="mb-6 px-4 py-3"
-             style={{ background: 'rgba(232,197,71,0.04)',
-                      border: '1px solid rgba(232,197,71,0.15)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
-                           fontFamily: 'IBM Plex Mono', letterSpacing: '2px' }}>
-              ◆ DAY {briefingDay ?? '—'} TOP FINDING
-            </span>
-          </div>
-          {!topFindingLoading && (
-            <DataAsOf section="GENERAL BRIEFING" latestDay={briefingDay} currentDay={conflictDay} className="mb-2" />
-          )}
-          <p className="font-body text-sm leading-relaxed min-h-[3.5rem]"
-             style={{ color: 'var(--text-secondary)' }}>
-            {topFindingLoading && (
-              <span style={{ color: 'var(--text-muted)' }}>Loading latest synthesis…</span>
-            )}
-            {!topFindingLoading && topFindingText && (
-              <>
-                {topFindingText.length > 520 ? `${topFindingText.slice(0, 520).trim()}…` : topFindingText}
-              </>
-            )}
-            {!topFindingLoading && !topFindingText && (
-              <span style={{ color: 'var(--text-muted)' }}>
-                No general briefing available for Day {conflictDay}. Open briefings to view the latest
-                available synthesis.
-              </span>
-            )}
-          </p>
-          <Link prefetch={false} href={`/briefings/${briefingDay ?? conflictDay}/general`}
-                className="font-mono text-xs mt-2 inline-block"
-                style={{ color: 'var(--accent-gold)' }}>
-            READ FULL BRIEF →
-          </Link>
-        </div>
+        {/* ── WAR POSTURE (compact one-liner) ─────────────────────── */}
+        {children}
 
         {/* ── KEY METRICS ROW ─────────────────────────────────────── */}
         {!marketLoading && marketMetrics.length > 0 && (
@@ -234,7 +258,7 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               MARKET DATA UNAVAILABLE
             </div>
           )}
-          {!marketLoading && marketMetrics.map(({ label, value, change, up }) => (
+          {!marketLoading && marketMetrics.map(({ label, value, change, up, asOf }) => (
             <div key={label} className="px-3 py-2"
                  style={{ border: '1px solid var(--border)',
                           background: 'var(--bg-card)' }}>
@@ -251,6 +275,10 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
               <div className="font-mono" style={{ fontSize: '11px',
                    color: 'var(--text-muted)', marginTop: '2px' }}>
                 {change}
+              </div>
+              <div className="font-mono" style={{ fontSize: '11px',
+                   color: 'var(--text-muted)', marginTop: '2px' }} translate="no">
+                <span className="sr-only">Collected </span>{asOf}
               </div>
             </div>
           ))}
@@ -302,32 +330,18 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
-          {QUICK_LINKS.map((link, i) => (
-            <Link prefetch={false} key={link.href} href={link.href}>
-              <OsintCard className={`fade-up fade-up-${(i % 6) + 1} block hover:border-accent-gold/30`}>
-                <span className="font-mono text-xs uppercase" style={{ color: 'var(--accent-gold)' }}>
-                  {link.label}
-                </span>
-                <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
-                  {link.description}
-                </p>
-              </OsintCard>
-            </Link>
-          ))}
-        </div>
 
-        <div style={{ maxWidth: 480, margin: '32px auto', padding: '0 16px' }}>
-          <div style={{ border: '1px solid var(--border)', padding: 20 }}>
-            <EmailCapture source="home" />
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6 mb-10">
           <OsintCard className="scanlines">
             <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
               LATEST INTELLIGENCE
             </h2>
+            <p className="font-mono mb-3" style={{ fontSize: '11px', color: 'var(--text-muted)' }} data-testid="home-feed-scope-note">
+              Tracked theatres only: posts from Telegram channels that mostly cover other wars are left off this panel unless they name a tracked theatre.{' '}
+              <Link prefetch={false} href="/feed" style={{ color: 'var(--accent-gold)' }}>
+                Every collected item is on the Feed →
+              </Link>
+            </p>
             {articles.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (
@@ -378,41 +392,31 @@ export default function HomeDashboard({ children, serverData }: { children?: Rea
             {scenarioChartData.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={scenarioChartData}>
-                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 2,
-                      }}
-                      labelStyle={{ color: 'var(--text-secondary)' }}
-                      formatter={(v: unknown) =>
-                        Array.isArray(v) ? (v[0] === v[1] ? `${v[0]}%` : `${v[0]}\u2013${v[1]}%`) : v == null ? 'unmeasured' : `${v}%`
-                      }
-                    />
-                    <Legend />
-                    <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={1.5} dot={false} name="A" />
-                    {bAsRange ? (
-                      <Area type="linear" dataKey="B_range" stroke="var(--accent-gold)" strokeWidth={1} strokeDasharray="2 2"
-                            fill="var(--accent-gold)" fillOpacity={0.18} dot={false} activeDot={false} name="B (range)"
-                            isAnimationActive={false} connectNulls={false} />
-                    ) : (
-                      <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
-                    )}
-                    <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
-                    <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
-                    {hasMeasuredE && (
-                      <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
-                    )}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
+              // recharts (~370 KB of JS before compression) is loaded only when this card nears the
+              // viewport; the h-48 box is reserved either way, so nothing shifts when it arrives.
+              <HomeScenarioChartLazy data={scenarioChartData} bAsRange={bAsRange} hasMeasuredE={hasMeasuredE} />
             )}
           </OsintCard>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-10">
+          {QUICK_LINKS.map((link, i) => (
+            <Link prefetch={false} key={link.href} href={link.href}>
+              <OsintCard className={`fade-up fade-up-${(i % 6) + 1} block hover:border-accent-gold/30`}>
+                <span className="font-mono text-xs uppercase" style={{ color: 'var(--accent-gold)' }}>
+                  {link.label}
+                </span>
+                <p className="font-mono text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
+                  {link.description}
+                </p>
+              </OsintCard>
+            </Link>
+          ))}
+        </div>
+
+        <div style={{ maxWidth: 480, margin: '32px auto', padding: '0 16px' }}>
+          <div style={{ border: '1px solid var(--border)', padding: 20 }}>
+            <EmailCapture source="home" />
+          </div>
         </div>
       </section>
     </div>

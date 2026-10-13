@@ -139,7 +139,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
         )}
         {locked ? (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-            Headline articles for this day are available on the Informed plan.
+            Headline articles for this day are locked during launch.
           </p>
         ) : articles === null ? (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -191,7 +191,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
             style={{ background: 'rgba(7, 10, 15, 0.82)', backdropFilter: 'blur(4px)' }}
           >
             <p className="font-mono text-xs text-center" style={{ color: '#E2E8F0' }}>
-              Upgrade to Informed for full timeline
+              The full timeline is locked during launch.
             </p>
             <PaywallOverlay requiredTier="informed" featureName="Full conflict timeline" compact />
           </div>
