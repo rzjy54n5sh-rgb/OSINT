@@ -8,23 +8,26 @@ import s from './corridors.module.css';
  * Compact three-lane strip for the home first screen (UX audit §6: "Is Hormuz / Bab el-Mandeb /
  * Suez open this week?"). Server- and client-safe: no hooks, no fetch. Pass `view` to reuse a
  * view computed by the page; otherwise it is computed from the committed files at render time.
- * Not placed on the home page in this change.
+ * `compact` (home first screen): tighter spacing, no gauge scale labels, and the per-lane week
+ * label only when it differs from the strip's week.
  */
 export function CorridorStrip({
   view,
   now,
   showPageLink = true,
   headingId = 'corridor-strip-h',
+  compact = false,
 }: {
   view?: CorridorsView;
   now?: Date;
   showPageLink?: boolean;
   headingId?: string;
+  compact?: boolean;
 }) {
   const v = view ?? getCorridors(now ?? new Date());
   const stale = v.state !== 'current';
   return (
-    <section aria-labelledby={headingId} className={`${s.root} ${s.strip} ${corridorFontVars}`}>
+    <section aria-labelledby={headingId} className={`${s.root} ${s.strip} ${corridorFontVars}`} data-compact={compact ? 'true' : undefined}>
       <div className={s.stripHead}>
         <h2 id={headingId} className={s.stripTitle}>
           Corridors this week
@@ -71,7 +74,7 @@ export function CorridorStrip({
                 <dd className={`${s.num} ${stale ? s.greyed : ''}`}>{l.wow ? l.wow.text : '—'}</dd>
               </div>
             </dl>
-            {l.weekLabel ? <p className={`${s.meta} ${s.num}`}>Week {l.weekLabel}</p> : null}
+            {l.weekLabel && !(compact && l.weekLabel === v.weekLabel) ? <p className={`${s.meta} ${s.num}`}>Week {l.weekLabel}</p> : null}
           </li>
         ))}
       </ul>

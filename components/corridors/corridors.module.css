@@ -266,6 +266,47 @@
   font-size: 13px;
   color: var(--cor-muted);
 }
+.strip[data-compact='true'] {
+  gap: 12px;
+  padding: 4px 0 0;
+}
+.strip[data-compact='true'] .stripGrid {
+  gap: 12px;
+}
+.strip[data-compact='true'] .stripCard {
+  padding: 12px 14px;
+  gap: 8px;
+}
+.strip[data-compact='true'] .gaugeScale {
+  display: none;
+}
+.strip[data-compact='true'] .idxBig {
+  font-size: 30px;
+}
+@media (max-width: 640px) {
+  .strip[data-compact='true'] .laneSub {
+    display: none;
+  }
+  .strip[data-compact='true'] .stripCard {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  .strip[data-compact='true'] .idxBig {
+    font-size: 26px;
+  }
+  .strip[data-compact='true'] .laneName {
+    font-size: 16px;
+  }
+  .strip[data-compact='true'] .facts dt {
+    font-size: 12px;
+  }
+  .strip[data-compact='true'] .facts dd {
+    font-size: 15px;
+  }
+  .strip[data-compact='true'] .stripFoot {
+    font-size: 12px;
+  }
+}
 .staleNote {
   margin: 0;
   display: flex;
