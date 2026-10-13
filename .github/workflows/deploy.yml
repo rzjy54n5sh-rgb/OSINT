@@ -8,52 +8,54 @@ on:
 concurrency:
   group: deploy-production
   cancel-in-progress: true
-# Least privilege: the job only reads the repo; Cloudflare is reached with its own API token.
+# Least privilege: every job only reads the repo; Cloudflare is reached with its own API token.
 permissions:
   contents: read
+# Trust split (2026-10-13). `next build` executes application code (app/, components/, lib/, ...),
+# which may be auto-merged. It therefore runs in `build`, a job that never references the
+# Cloudflare secrets: GitHub only sends a job the secrets that job references, so nothing in this
+# job (not even a memory dump of the runner) can reach CLOUDFLARE_API_TOKEN. `build` hands over
+# only the built .open-next directory as an artifact. `deploy` runs on a fresh runner, executes no
+# repository code (no npm ci, no npm run, no node scripts/, no repo binaries), installs wrangler
+# itself at the lockfile's exact version, and deploys with wrangler.jsonc (+ tsconfig.json) from
+# this commit, never a copy that build-time code could have rewritten. `verify` runs the
+# post-deploy asset check (repo code) without any secret.
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
-      - name: Check required secrets
+      # Only the two public NEXT_PUBLIC_* values (also committed in wrangler.jsonc `vars`).
+      - name: Check required build secrets
         run: |
           missing=""
           [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] && missing="$missing NEXT_PUBLIC_SUPABASE_URL"
           [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && missing="$missing NEXT_PUBLIC_SUPABASE_ANON_KEY"
-          [ -z "$CLOUDFLARE_API_TOKEN" ] && missing="$missing CLOUDFLARE_API_TOKEN"
-          [ -z "$CLOUDFLARE_ACCOUNT_ID" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
           if [ -n "$missing" ]; then
             echo "::error::Missing required secrets:$missing"
-            echo "Add them in repo Settings → Secrets and variables → Actions, then re-run."
+            echo "Add them in repo Settings → Secrets and variables → Actions (see PROJECT.md §11), then re-run."
             exit 1
           fi
-          echo "Required secrets present."
+          echo "Required build secrets present."
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # npm ci installs exactly package-lock.json (fails if it is out of sync) instead of
       # re-resolving ranges at deploy time. The Worker's SUPABASE_SERVICE_KEY lives in
       # Cloudflare (wrangler secret), not in this build.
       - name: Install dependencies
         run: npm ci
-      - name: Check Supabase secrets (required for live data)
-        run: |
-          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then
-            echo "::error::Missing GitHub secrets. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in repo Settings → Secrets and variables → Actions (see PROJECT.md §11). Then re-run this workflow."
-            exit 1
-          fi
-          echo "Supabase env vars present; writing .env.production for Next.js build."
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       # Next.js inlines NEXT_PUBLIC_* from env at build time. Write .env.production so the
       # OpenNext/Next build (possibly in a subprocess) definitely sees them.
       - name: Create .env.production for build
@@ -92,9 +94,6 @@ jobs:
       - name: Fail if generated env missing (do not cache build between jobs)
         run: |
           grep -q 'supabase\.co' lib/supabase/env.client.generated.ts || { echo "::error::env.client.generated.ts has no URL — build would serve no data"; exit 1; }
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       - name: Clean build
         run: rm -rf .next .open-next
       - name: Build
@@ -126,18 +125,114 @@ jobs:
           done
           echo "::error::Project ID $PROJECT_ID not in client bundle. Ensure 'Write Supabase env into client module' ran and built."
           exit 1
+      # The deploy inputs: wrangler.jsonc's `main` (.open-next/worker.js and everything it imports,
+      # including the hidden .open-next/.build/) and `assets.directory` (.open-next/assets).
+      # wrangler.jsonc itself is NOT shipped: `deploy` takes it from the commit.
+      - name: Upload worker bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: open-next-${{ github.sha }}
+          path: .open-next/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      # Both outside the workspace: SITE_DIR is where wrangler runs, WRANGLER_DIR holds wrangler.
+      - name: Set working paths
+        run: |
+          echo "SITE_DIR=$RUNNER_TEMP/site" >> "$GITHUB_ENV"
+          echo "WRANGLER_DIR=$RUNNER_TEMP/wrangler-cli" >> "$GITHUB_ENV"
+      - name: Check required deploy secrets
+        run: |
+          missing=""
+          [ -z "$CLOUDFLARE_API_TOKEN" ] && missing="$missing CLOUDFLARE_API_TOKEN"
+          [ -z "$CLOUDFLARE_ACCOUNT_ID" ] && missing="$missing CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required secrets:$missing"
+            echo "Add them in repo Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+          echo "Required deploy secrets present."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Three files from the commit being deployed, read as data, never executed: wrangler.jsonc
+      # (deploy config, human-only path), package-lock.json (wrangler's pinned version + integrity,
+      # human-only path) and tsconfig.json (wrangler's esbuild reads it; `strict` makes it emit the
+      # same "use strict" prologues as the single-job deploy did, so the bundle is byte-identical).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /wrangler.jsonc
+            /package-lock.json
+            /tsconfig.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      # Exact version from package-lock.json, installed into an empty directory outside the
+      # workspace (no repo package.json/.npmrc in scope), lifecycle scripts off, and the tarball
+      # integrity checked against the lockfile's.
+      - name: Install wrangler (lockfile-pinned, isolated from the repo)
+        run: |
+          set -euo pipefail
+          ver="$(jq -r '.packages["node_modules/wrangler"].version // empty' package-lock.json)"
+          want="$(jq -r '.packages["node_modules/wrangler"].integrity // empty' package-lock.json)"
+          [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::No exact wrangler version in package-lock.json (got '$ver')"; exit 1; }
+          [ -n "$want" ] || { echo "::error::No wrangler integrity in package-lock.json"; exit 1; }
+          mkdir -p "$WRANGLER_DIR"
+          cd "$WRANGLER_DIR"
+          echo '{"private":true}' > package.json
+          npm install --ignore-scripts --no-audit --no-fund "wrangler@$ver"
+          got="$(jq -r '.packages["node_modules/wrangler"].integrity // empty' node_modules/.package-lock.json)"
+          [ "$got" = "$want" ] || { echo "::error::wrangler $ver integrity $got != lockfile $want"; exit 1; }
+          echo "wrangler $(node_modules/.bin/wrangler --version) installed; integrity matches package-lock.json"
+      - name: Download worker bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: open-next-${{ github.sha }}
+          path: ${{ env.SITE_DIR }}/.open-next
+      # wrangler loads .env/.env.local from its cwd and, when it finds next.config.* +
+      # open-next.config.* + @opennextjs/cloudflare there, hands the deploy to
+      # `npx opennextjs-cloudflare deploy` (repo code). So it runs in a directory that holds
+      # exactly the commit's wrangler.jsonc + tsconfig.json and the artifact's .open-next/.
+      - name: Assemble deploy directory
+        run: |
+          set -euo pipefail
+          cp wrangler.jsonc tsconfig.json "$SITE_DIR/"
+          cd "$SITE_DIR"
+          entries="$(find . -mindepth 1 -maxdepth 1 -printf '%P\n' | LC_ALL=C sort | tr '\n' ' ')"
+          if [ "$entries" != ".open-next tsconfig.json wrangler.jsonc " ]; then
+            echo "::error::unexpected entries in deploy dir: $entries"; exit 1
+          fi
+          if [ ! -f .open-next/worker.js ] || [ ! -d .open-next/assets ]; then
+            echo "::error::artifact lacks .open-next/worker.js or .open-next/assets"; exit 1
+          fi
+          echo "deploy dir: $entries($(du -sh .open-next | cut -f1) bundle, $(find .open-next -type f | wc -l) files)"
       # A fresh random CACHE_PURGE_SECRET is uploaded WITH this deployment (--secrets-file: same
       # version, no extra deploy; other secrets such as SUPABASE_SERVICE_KEY are kept). It
       # authorises POST /api/internal/cache-purge below. Needs no extra token permission: the
       # deploy token's "Workers Scripts: Edit" already covers secrets, and the purge itself runs
       # inside the Worker (ctx.cache.purge), not through the Cloudflare API.
       - name: Deploy
+        working-directory: ${{ env.SITE_DIR }}
         run: |
           umask 077
           CACHE_PURGE_SECRET="$(openssl rand -hex 32)"
           echo "::add-mask::$CACHE_PURGE_SECRET"
           printf '{"CACHE_PURGE_SECRET":"%s"}' "$CACHE_PURGE_SECRET" > "$RUNNER_TEMP/deploy-secrets.json"
-          npx wrangler deploy --secrets-file "$RUNNER_TEMP/deploy-secrets.json"
+          "$WRANGLER_DIR/node_modules/.bin/wrangler" deploy --config wrangler.jsonc --secrets-file "$RUNNER_TEMP/deploy-secrets.json"
           rm -f "$RUNNER_TEMP/deploy-secrets.json"
           echo "CACHE_PURGE_SECRET=$CACHE_PURGE_SECRET" >> "$GITHUB_ENV"
         env:
@@ -145,11 +240,12 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # Incident 2026-10-08: 5 s after the new version went live, Workers Cache stored /warroom
       # HTML rendered by the PREVIOUS version and kept serving it (s-maxage=1y) while that HTML's
-      # /_next/static chunks no longer existed. Wait for the rollout to settle, purge the
+      # /_next/static chunks no longer existed. Wait for the rollout to settle, then purge the
       # Worker's cache (documented pattern: developers.cloudflare.com/workers/cache/cache-keys/
-      # #purge-everything-after-deploy), then prove every cached page points at live assets.
-      # On a mismatch: purge once more and re-check, then fail loudly.
-      - name: Purge Workers Cache and verify pages match the deployed assets
+      # #purge-everything-after-deploy). Plain curl: the asset check (repo code) runs in `verify`,
+      # which cannot hold this secret, so instead of "purge again only if the check finds stale
+      # HTML" this job always purges a second time once the rollout has had longer to finish.
+      - name: Purge Workers Cache (twice, after the rollout settles)
         env:
           SITE_URL: https://mena-intel-desk.mores-cohorts9x.workers.dev
         run: |
@@ -167,13 +263,37 @@ jobs:
             sleep 20
           done
           [ "$ok" = 1 ] || echo "::warning::Workers Cache purge failed; relying on per-version cache keys + revalidate caps"
-          sleep 5
-          if node scripts/check-deployed-assets.mjs "$SITE_URL"; then exit 0; fi
-          echo "::warning::Stale HTML found after purge; purging again"
           sleep 30
-          purge || true
-          sleep 5
+          purge || { sleep 20; purge; } || echo "::warning::second Workers Cache purge failed"
+
+  # Repo code (scripts/check-deployed-assets.mjs, no dependencies) on a runner with no secret at all.
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            /scripts/check-deployed-assets.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Verify pages match the deployed assets
+        env:
+          SITE_URL: https://mena-intel-desk.mores-cohorts9x.workers.dev
+        run: |
+          if node scripts/check-deployed-assets.mjs "$SITE_URL"; then exit 0; fi
+          echo "::warning::Stale HTML found after the purges; re-checking in 30 s"
+          sleep 30
           node scripts/check-deployed-assets.mjs "$SITE_URL" || {
-            echo "::error::Live pages reference /_next/static assets that this deployment does not serve (stale cached HTML). Re-run this workflow; see PR hotfix/stale-cache."
+            echo "::error::Live pages reference /_next/static assets that this deployment does not serve (stale cached HTML). Re-run ALL jobs of this workflow (a new deploy uploads a new purge secret and purges again); see PR hotfix/stale-cache."
             exit 1
           }
