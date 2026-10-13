@@ -13,7 +13,7 @@ INSERT INTO x_outlets VALUES
   ('Middle East Monitor', 'state_aligned', 'Qatar (state-financed)'),
   ('Gulf News', 'independent', NULL),
   ('Daily Sabah', 'state_aligned', 'Turkey (Turkuvaz Media Group / Kalyon Group; pro-government)'),
-  ('Hürriyet Daily News', 'independent', NULL),
+  ('Hürriyet Daily News', 'state_aligned', 'Turkey (Demirören Holding; pro-government since 2018)'),
   ('ANI (Asian News International)', 'state_aligned', 'India (private agency documented as closely associated with the government)'),
   ('France 24', 'independent', NULL),
   ('Kurdistan 24', 'state_aligned', 'Iraq - Kurdistan Regional Government (KDP; Barzani family)'),
@@ -96,8 +96,9 @@ SELECT 'ruled outlets: basis cites a URL, the 2026-10-13 opening and the delegat
  WHERE o.classification_basis !~ 'https?://' OR o.classification_basis !~ 'opened 2026-10-13'
     OR o.classification_basis NOT LIKE '%Classification rule (operator delegated, 2026-10-13)%';
 INSERT INTO r (label, pass, detail)
-SELECT 'Iran International basis states the allegation AND the denial', count(*) = 1, NULL
-  FROM public.outlets WHERE name = 'Iran International' AND classification_basis LIKE '%ALLEGATION:%' AND classification_basis LIKE '%DENIAL:%';
+SELECT 'Iran International basis: allegation, denial, UK corporate records, 2023 tone-down report, Reza Pahlavi', count(*) = 1, NULL
+  FROM public.outlets WHERE name = 'Iran International' AND classification_basis LIKE '%ALLEGATION:%' AND classification_basis LIKE '%DENIAL:%'
+   AND classification_basis LIKE '%UK corporate records%' AND classification_basis LIKE '%tone down the coverage%' AND classification_basis LIKE '%Reza Pahlavi%';
 INSERT INTO r (label, pass, detail)
 SELECT 'NIAC basis labels it an advocacy organisation (party_affiliation NULL)', count(*) = 1, NULL
   FROM public.outlets WHERE name = 'NIAC (National Iranian American Council)' AND classification_basis LIKE 'Advocacy organisation%' AND party_affiliation IS NULL;

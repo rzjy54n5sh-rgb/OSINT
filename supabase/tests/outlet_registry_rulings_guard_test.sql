@@ -21,7 +21,9 @@ CREATE FUNCTION pg_temp.ev(VARIADIC x text[]) RETURNS jsonb LANGUAGE sql AS $$
                                       'party_status', split_part(u, '|', 2))) FROM unnest(x) u $$;
 SELECT pg_temp.try('two ruled independents (france24.com + abc.net.au)', 'accepted',
        pg_temp.ev('https://www.france24.com/en/a|independent', 'https://www.abc.net.au/news/b|independent'));
-SELECT pg_temp.try('ruled independents with government-linked owners (gulfnews.com + hurriyetdailynews.com)', 'accepted',
+SELECT pg_temp.try('ruled independents with government-linked owners (gulfnews.com + samaa.tv)', 'accepted',
+       pg_temp.ev('https://gulfnews.com/a|independent', 'https://www.samaa.tv/b|independent'));
+SELECT pg_temp.try('Hürriyet Daily News is state_aligned, not counted (gulfnews.com + hurriyetdailynews.com)', 'rejected',
        pg_temp.ev('https://gulfnews.com/a|independent', 'https://www.hurriyetdailynews.com/b|independent'));
 SELECT pg_temp.try('one ruled outlet, two hosts (niacouncil.org + insights.niacouncil.org)', 'rejected',
        pg_temp.ev('https://www.niacouncil.org/a|independent', 'https://insights.niacouncil.org/b|independent'));

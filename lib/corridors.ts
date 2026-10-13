@@ -125,12 +125,19 @@ export function formatShortDay(iso: string): string {
 export const fmtInt = (n: number): string => n.toLocaleString('en-GB');
 export const fmtPct = (n: number): string => `${n.toFixed(1)}%`;
 
+/** An unrestricted PortWatch USE status: "USE", "USE.", "USE (...)" or the legacy "USE-PROVISIONAL". */
+const PLAIN_USE_STATUS = /^USE(?:-PROVISIONAL)?(?=$|[\s(.])/;
+
 /**
- * The printed licence line. Any PortWatch licence status ("USE (operator ruling 2026-10-13) ...", or the
- * pre-ruling "USE-PROVISIONAL ..." still in older files) prints the plain wording; anything else verbatim.
+ * The printed licence line. An unrestricted USE status (operator ruling 2026-10-13; also the pre-ruling
+ * "USE-PROVISIONAL" still in older files) prints the plain wording. Any other status — a restriction such as
+ * "USE-RESTRICTED: ...", a pending check, other casing — prints verbatim so no condition is dropped. Empty,
+ * whitespace-only or non-string input falls back to the plain wording (never an empty paragraph).
  */
-export function licenceLine(licence: string): string {
-  if (/^USE\b/.test(licence.trim())) return PORTWATCH_LICENCE_LINE;
+export function licenceLine(licence: unknown): string {
+  if (typeof licence !== 'string') return PORTWATCH_LICENCE_LINE;
+  const t = licence.trim();
+  if (t === '' || PLAIN_USE_STATUS.test(t)) return PORTWATCH_LICENCE_LINE;
   return licence;
 }
 
