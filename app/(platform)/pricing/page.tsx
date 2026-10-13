@@ -25,7 +25,7 @@ export const metadata: Metadata = pageMetadata({
 const FOUNDING_SOURCE = 'founding-access';
 
 const eyebrow: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace',
+  fontFamily: 'var(--font-mono), monospace',
   fontSize: 11,
   letterSpacing: '2px',
   color: 'var(--accent-gold)',

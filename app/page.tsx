@@ -33,8 +33,15 @@ export default async function Page() {
   const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes, registry] = await Promise.all([
     // Read a window and keep the first 3 in-scope items (lib/home-feed.ts: scope flag, else the documented
     // off-theatre Telegram list). Only this tile is filtered; /feed and /warroom show everything.
-    supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(HOME_FEED_FETCH_ROWS),
-    supabase.from('articles').select('*', { count: 'exact', head: true }),
+    // Only the columns the tile renders plus what the scope filter reads (summary, content_json); the
+    // filter inputs are dropped again below so they are not serialised into the cached HTML.
+    supabase
+      .from('articles')
+      .select('id, title, summary, content_json, source_name, source_logo_url, source_type, conflict_day, published_at, confidence_score')
+      .order('published_at', { ascending: false })
+      .limit(HOME_FEED_FETCH_ROWS),
+    // Estimated, not exact: a full COUNT(*) for a rough total (shown with "≈", lib/article-count.ts).
+    supabase.from('articles').select('id', { count: 'estimated', head: true }),
     supabase.from('scenario_probabilities').select('*').order('conflict_day', { ascending: true }),
     // Latest general briefing by daily_briefings' OWN max day (not the nai_scores day, not
     // "exactly today"). Its day is passed through and labelled against the calendar day.
@@ -60,8 +67,12 @@ export default async function Page() {
   if (registry.error) console.error('[home] scenario registry read failed:', registry.error);
   const scenarioRow = buildScenarioRow(registry);
 
-  const articles = filterHomeFeed((articlesRes.data as Article[]) ?? [], 3);
-  const articleCount = countRes.count ?? 0;
+  const articles = filterHomeFeed((articlesRes.data as unknown as Article[]) ?? [], 3).map((a) => ({
+    ...a,
+    summary: null,
+    content_json: null,
+  }));
+  const articleCount = countRes.error ? null : countRes.count ?? null;
   const scenarios = (scenariosRes.data as ScenarioProbability[]) ?? [];
   const briefingRow = briefingRes.data as { lead?: string | null; conflict_day?: number | null } | null;
   const topFindingLead = briefingRow?.lead ?? null;

@@ -167,7 +167,7 @@ export function CountryReportClient({
       )}
 
       {!summaryOnly && !n && (
-        <OsintCard className="scanlines mb-6">
+        <OsintCard className="mb-6">
           <h2 className="font-display text-lg mb-2">DAILY COUNTRY REPORT</h2>
           <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
             No sourced data available{report.conflict_day != null ? ` for Day ${report.conflict_day}` : ''} — the daily build

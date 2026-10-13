@@ -27,7 +27,7 @@ export function PageBriefing({ description, note, className = '' }: PageBriefing
       <summary
         className="page-briefing__summary"
         style={{
-          fontFamily: 'IBM Plex Mono',
+          fontFamily: 'var(--font-mono), monospace',
           fontSize: 12,
           color: 'var(--accent-gold)',
           letterSpacing: '1px',
@@ -43,11 +43,11 @@ export function PageBriefing({ description, note, className = '' }: PageBriefing
         How to read this page
       </summary>
       <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
           {description}
         </p>
         {note && (
-          <p style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
             {note}
           </p>
         )}

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
+import { formatArticleCount } from '@/lib/article-count';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { useDataFreshness } from '@/hooks/useDataFreshness';
 import { resolveViewerProfile } from '@/hooks/useViewerTier';
@@ -156,7 +157,7 @@ export function CommandHeader() {
             display: 'flex',
             alignItems: 'center',
             gap: '20px',
-            fontFamily: 'IBM Plex Mono, monospace',
+            fontFamily: 'var(--font-mono), monospace',
             fontSize: '11px',
             letterSpacing: '1.5px',
             color: 'var(--text-muted)',
@@ -179,7 +180,7 @@ export function CommandHeader() {
           <span style={{ color: 'var(--border-bright)' }}>|</span>
           <span>
             ARTICLES:{' '}
-            <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span>
+            <span style={{ color: 'var(--accent-gold)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
           </span>
           <span style={{ color: 'var(--border-bright)' }}>|</span>
           {/* Live indicator */}
@@ -215,7 +216,7 @@ export function CommandHeader() {
           {stale && (
             <span
               style={{
-                fontFamily: 'IBM Plex Mono', fontSize: 11, letterSpacing: '1px',
+                fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
                 color: 'var(--accent-orange)',
                 border: '1px solid var(--accent-orange)',
                 padding: '2px 8px',
@@ -228,7 +229,7 @@ export function CommandHeader() {
           )}
           {!stale && lastUpdateAt && (
             <span
-              style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}
+              style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}
               title={`Briefings, articles and scenarios are current. Newest item: ${new Date(lastUpdateAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
             >
               ◆ SYNCED
@@ -370,7 +371,7 @@ export function CommandHeader() {
         >
           <span
             style={{
-              fontFamily: 'IBM Plex Mono, monospace',
+              fontFamily: 'var(--font-mono), monospace',
               fontSize: '11px',
               letterSpacing: '2px',
             }}
@@ -399,7 +400,7 @@ export function CommandHeader() {
                 <div
                   style={{
                     gridColumn: '1 / -1',
-                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontFamily: 'var(--font-mono), monospace',
                     fontSize: 11,
                     letterSpacing: '1.5px',
                     color: 'var(--text-muted)',
@@ -437,7 +438,7 @@ export function CommandHeader() {
           >
             <div
               style={{
-                fontFamily: 'IBM Plex Mono, monospace',
+                fontFamily: 'var(--font-mono), monospace',
                 fontSize: 11,
                 letterSpacing: '1.5px',
                 color: 'var(--text-muted)',

@@ -434,7 +434,7 @@ export default function MediaRoomPage() {
         >
           <span
             style={{
-              fontFamily: 'IBM Plex Mono',
+              fontFamily: 'var(--font-mono), monospace',
               fontSize: 11,
               color: 'var(--accent-red)',
               letterSpacing: '2px',
@@ -455,7 +455,7 @@ export default function MediaRoomPage() {
                 rel="noopener noreferrer"
                 style={{
                   display: 'block',
-                  fontFamily: 'IBM Plex Mono',
+                  fontFamily: 'var(--font-mono), monospace',
                   fontSize: 12,
                   color: 'var(--text-primary)',
                   textDecoration: 'none',
@@ -469,7 +469,7 @@ export default function MediaRoomPage() {
               </a>
             ))}
           </div>
-          <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
             {Math.round((Date.now() - new Date(breakingAlerts[0].published_at!).getTime()) / 60000)}m ago
           </span>
         </div>
@@ -658,7 +658,7 @@ export default function MediaRoomPage() {
             </div>
             {/* Narrative Divergence Matrix — [STATIC CONFIG] */}
             <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
                 ANALYST-CURATED EDITORIAL POSITIONS — Updated manually
               </div>
               <div className="narrative-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
@@ -673,9 +673,9 @@ export default function MediaRoomPage() {
                         borderRadius: 2,
                       }}
                     >
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
+                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
                       <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
-                      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
+                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
                       {latest ? (
                         <a
                           href={latest.url ?? '#'}
@@ -822,12 +822,12 @@ export default function MediaRoomPage() {
                     transition: 'background 0.15s',
                   }}
                 >
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
                     {(a.source_type ?? 'wire').toUpperCase()}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.6 }}>{a.title ?? '—'}</div>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
-                  <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                     {a.published_at ? formatRelativeTime(a.published_at) : '—'}
                   </div>
                 </a>

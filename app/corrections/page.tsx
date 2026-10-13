@@ -31,7 +31,7 @@ function targetLink(c: CorrectionRow): { href: string; label: string } | null {
 function Excerpt({ label, text }: { label: string; text: string }) {
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '1px' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '1px' }}>{label}</div>
       <blockquote style={{ margin: '2px 0 0 0', paddingLeft: 10, borderLeft: '2px solid var(--border)', whiteSpace: 'pre-wrap', fontSize: 14 }}>
         {text}
       </blockquote>
@@ -65,10 +65,10 @@ export default async function CorrectionsPage() {
             return (
               <li key={c.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline', marginBottom: 6 }}>
-                  <time dateTime={c.created_at} style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)' }}>
+                  <time dateTime={c.created_at} style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-muted)' }}>
                     {formatUtc(c.created_at)}
                   </time>
-                  <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: cls.color, border: '1px solid currentColor', padding: '0 6px', letterSpacing: '1px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 10, color: cls.color, border: '1px solid currentColor', padding: '0 6px', letterSpacing: '1px' }}>
                     {cls.label}
                   </span>
                   {target && <A href={target.href}>{target.label}</A>}

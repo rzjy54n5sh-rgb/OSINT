@@ -5,6 +5,8 @@ import { scenarioMethodForDay, scenarioMethodNote } from '@/lib/scenario-method'
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
+import { HeroScene } from '@/components/home/HeroScene';
+import { formatArticleCount } from '@/lib/article-count';
 import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
 import { useArticles } from '@/hooks/useArticles';
@@ -12,16 +14,7 @@ import { useScenarios } from '@/hooks/useScenarios';
 import { useNewScenarioAlert } from '@/hooks/usePlatformAlert';
 import { SourceBadge } from '@/components/SourceBadge';
 import { SentimentBar } from '@/components/SentimentBar';
-import {
-  ComposedChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { HomeScenarioChartLazy } from '@/components/home/HomeScenarioChartLazy';
 import { useI18n } from '@/components/I18nProvider';
 import { useLatestBriefing } from '@/hooks/useBriefing';
 import { useMarketData } from '@/hooks/useMarketData';
@@ -56,7 +49,8 @@ const QUICK_LINKS = [
 
 interface ServerData {
   conflictDay: number;
-  articleCount: number;
+  /** Estimated total (count=estimated); null when unknown. */
+  articleCount: number | null;
   articles: import('@/types/supabase').Article[];
   scenarios: import('@/types/supabase').ScenarioProbability[];
   topFindingLead: string | null;
@@ -86,13 +80,15 @@ export default function HomeDashboard({
   const { t } = useI18n();
   // Use server data if available, fall back to client hooks for real-time updates
   const rtCount = useRealtimeCount();
-  const clientArticles = useArticles({}, 3);
-  const clientScenarios = useScenarios();
+  // Client reads only as a fallback when the server render had no rows (they used to run on every
+  // home view and re-download what the HTML already carried).
+  const clientArticles = useArticles({}, 3, !serverData?.articles?.length);
+  const clientScenarios = useScenarios(!serverData?.scenarios?.length);
   const newScenarioAlert = useNewScenarioAlert();
   // Client fallback only when there is no server payload. Latest briefing by daily_briefings'
   // own max day — never keyed to another table's day.
   const clientBriefing = useLatestBriefing(serverData ? null : 'general');
-  const clientMarket = useMarketData();
+  const clientMarket = useMarketData(!serverData?.marketMetrics?.length);
 
   // Calendar day (DAY LOCK) — both sources are calendar-derived now.
   const conflictDay = serverData?.conflictDay ?? rtCount.conflictDay;
@@ -146,7 +142,11 @@ export default function HomeDashboard({
   const hasMeasuredE = scenarioChartData.some((r) => r.E != null);
 
   return (
-    <div className="relative">
+    // `isolate`: the hero backdrop (z-index -1) paints behind this page's content, never behind <body>.
+    <div className="relative isolate">
+      {/* One restrained 3D touch, home only: static gradient for everyone, a lazy WebGL particle field
+          on capable devices (components/home/HeroScene.tsx, lib/hero-3d.ts). */}
+      <HeroScene />
       {/* The animated "SYSTEM BOOT" opener was removed (shop-window pass, 2026-10-08): real content
           starts at the top. The page keeps one h1 for screen readers and search engines. */}
       <h1 className="sr-only">MENA Intel Desk — live conflict and corridor risk dashboard</h1>
@@ -164,7 +164,7 @@ export default function HomeDashboard({
             {t('conflictDay')} <span style={{ color: 'var(--accent-gold)' }}>{conflictDay ?? '—'}</span>
           </span>
           <span>
-            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }}>{articleCount}</span>
+            {t('articlesLabel')} <span style={{ color: 'var(--accent-gold)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
           </span>
           <span>
             {t('lastUpdateLabel')} <span style={{ color: 'var(--accent-gold)' }}>{lastUpdate}</span>
@@ -181,7 +181,7 @@ export default function HomeDashboard({
                       border: '1px solid rgba(232,197,71,0.15)' }}>
           <div className="flex items-center gap-2 mb-2">
             <span style={{ color: 'var(--accent-gold)', fontSize: '11px',
-                           fontFamily: 'IBM Plex Mono', letterSpacing: '2px' }}>
+                           fontFamily: 'var(--font-mono), monospace', letterSpacing: '2px' }}>
               ◆ DAY {briefingDay ?? '—'} TOP FINDING
             </span>
           </div>
@@ -392,39 +392,9 @@ export default function HomeDashboard({
             {scenarioChartData.length === 0 ? (
               <p className="redacted">NO INTEL AVAILABLE</p>
             ) : (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={scenarioChartData}>
-                    <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                    <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={{
-                        background: 'var(--bg-card)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 2,
-                      }}
-                      labelStyle={{ color: 'var(--text-secondary)' }}
-                      formatter={(v: unknown) =>
-                        Array.isArray(v) ? (v[0] === v[1] ? `${v[0]}%` : `${v[0]}\u2013${v[1]}%`) : v == null ? 'unmeasured' : `${v}%`
-                      }
-                    />
-                    <Legend />
-                    <Line type="monotone" dataKey="A" stroke="var(--accent-green)" strokeWidth={1.5} dot={false} name="A" />
-                    {bAsRange ? (
-                      <Area type="linear" dataKey="B_range" stroke="var(--accent-gold)" strokeWidth={1} strokeDasharray="2 2"
-                            fill="var(--accent-gold)" fillOpacity={0.18} dot={false} activeDot={false} name="B (range)"
-                            isAnimationActive={false} connectNulls={false} />
-                    ) : (
-                      <Line type="monotone" dataKey="B" stroke="var(--accent-gold)" strokeWidth={1.5} dot={false} name="B" />
-                    )}
-                    <Line type="monotone" dataKey="C" stroke="var(--accent-blue)" strokeWidth={1.5} dot={false} name="C" />
-                    <Line type="monotone" dataKey="D" stroke="var(--accent-red)" strokeWidth={1.5} dot={false} name="D" />
-                    {hasMeasuredE && (
-                      <Line type="monotone" dataKey="E" stroke="#a855f7" strokeWidth={1.5} dot={false} name="E" strokeDasharray="4 2" connectNulls={false} />
-                    )}
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
+              // recharts (~370 KB of JS before compression) is loaded only when this card nears the
+              // viewport; the h-48 box is reserved either way, so nothing shifts when it arrives.
+              <HomeScenarioChartLazy data={scenarioChartData} bAsRange={bAsRange} hasMeasuredE={hasMeasuredE} />
             )}
           </OsintCard>
         </div>
