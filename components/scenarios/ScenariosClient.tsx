@@ -14,6 +14,7 @@ import {
   LEGACY_SERIES_MARKER,
   RESIDUAL_SCENARIO_CODE,
   deltaWithinMethod,
+  formatScenarioDelta,
   isResidual,
   probabilityOn,
   residualComponentCodes,
@@ -135,9 +136,7 @@ function ScenarioCard({
               </p>
             )}
             <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
-              {delta
-                ? `${delta.delta > 0 ? '+' : ''}${delta.delta} pts since Day ${delta.sinceDay} (same method)`
-                : 'No earlier day under this method'}
+              {delta ? formatScenarioDelta(delta) : 'No earlier day under this method'}
             </p>
           </>
         )}

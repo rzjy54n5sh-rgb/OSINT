@@ -2,6 +2,10 @@ import { pageMetadata } from '@/lib/site';
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
 import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
+import { ScenarioRow } from '@/components/home/ScenarioRow';
+import { CorridorStrip } from '@/components/corridors/CorridorStrip';
+import { getScenarioRegistryView } from '@/lib/scenario-registry';
+import { buildScenarioRow } from '@/lib/scenario-row';
 import type { Metadata } from 'next';
 import type { Article, MarketData, ScenarioProbability } from '@/types/supabase';
 import { filterHomeFeed, HOME_FEED_FETCH_ROWS } from '@/lib/home-feed';
@@ -26,7 +30,7 @@ export default async function Page() {
   const conflictDay = await getConflictDay();
 
   // Parallel server-side fetches — data baked into HTML, no loading states
-  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes] = await Promise.all([
+  const [articlesRes, countRes, scenariosRes, briefingRes, marketRes, recentTypesRes, registry] = await Promise.all([
     // Read a window and keep the first 3 in-scope items (lib/home-feed.ts: scope flag, else the documented
     // off-theatre Telegram list). Only this tile is filtered; /feed and /warroom show everything.
     supabase.from('articles').select('*').order('published_at', { ascending: false }).limit(HOME_FEED_FETCH_ROWS),
@@ -50,7 +54,11 @@ export default async function Page() {
       .limit(MARKET_LATEST_ROWS),
     // Which brief types exist on the latest days (for the home strip: link only what was published).
     supabase.from('daily_briefings').select('conflict_day, report_type').order('conflict_day', { ascending: false }).limit(40),
+    // The scenario row reads the SAME registry view /scenarios renders (never the legacy table).
+    getScenarioRegistryView(supabase),
   ]);
+  if (registry.error) console.error('[home] scenario registry read failed:', registry.error);
+  const scenarioRow = buildScenarioRow(registry);
 
   const articles = filterHomeFeed((articlesRes.data as Article[]) ?? [], 3);
   const articleCount = countRes.count ?? 0;
@@ -78,6 +86,8 @@ export default async function Page() {
         marketMetrics,
         marketDay: latestDay ?? null,
       }}
+      corridors={<CorridorStrip now={new Date()} headingId="home-corridor-strip-h" compact />}
+      scenarioRow={<ScenarioRow row={scenarioRow} currentDay={conflictDay} />}
     >
       <NaiBiggestMoveBanner />
     </HomeDashboard>
