@@ -1,0 +1,287 @@
+{
+  "schema": "chokepoints-history/v1",
+  "retrieved_at": "2026-10-13T13:42:05Z",
+  "written_by": "scripts/chokepoints/pw_history.py",
+  "method": "Weekly transits = PortWatch n_total summed Mon-Sun. Index = transits / frozen 2023 baseline week (mean daily n_total 1 Jan - 31 Oct 2023 x 7) x 100. A week missing any day has transits null; nothing is interpolated.",
+  "source_name": "IMF PortWatch",
+  "source_credit": "Transits: IMF PortWatch (UN Global Platform), AIS-based",
+  "source_home": "https://portwatch.imf.org",
+  "source_url": "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0",
+  "licence": "USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.",
+  "weeks": 12,
+  "lanes": [
+    {
+      "lane": "suez",
+      "portwatch_portid": "chokepoint1",
+      "baseline_week": 515.4,
+      "weeks": [
+        {
+          "week_start": "2026-07-13",
+          "week_end": "2026-07-19",
+          "transits": 291,
+          "index_pct_of_2023": 56.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-20",
+          "week_end": "2026-07-26",
+          "transits": 286,
+          "index_pct_of_2023": 55.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-27",
+          "week_end": "2026-08-02",
+          "transits": 291,
+          "index_pct_of_2023": 56.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-03",
+          "week_end": "2026-08-09",
+          "transits": 287,
+          "index_pct_of_2023": 55.7,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-10",
+          "week_end": "2026-08-16",
+          "transits": 286,
+          "index_pct_of_2023": 55.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-17",
+          "week_end": "2026-08-23",
+          "transits": 294,
+          "index_pct_of_2023": 57.0,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-24",
+          "week_end": "2026-08-30",
+          "transits": 301,
+          "index_pct_of_2023": 58.4,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-31",
+          "week_end": "2026-09-06",
+          "transits": 291,
+          "index_pct_of_2023": 56.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-07",
+          "week_end": "2026-09-13",
+          "transits": 265,
+          "index_pct_of_2023": 51.4,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-14",
+          "week_end": "2026-09-20",
+          "transits": 293,
+          "index_pct_of_2023": 56.8,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-21",
+          "week_end": "2026-09-27",
+          "transits": 280,
+          "index_pct_of_2023": 54.3,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-28",
+          "week_end": "2026-10-04",
+          "transits": 302,
+          "index_pct_of_2023": 58.6,
+          "days": 7
+        }
+      ]
+    },
+    {
+      "lane": "bam_redsea",
+      "portwatch_portid": "chokepoint4",
+      "baseline_week": 522.1,
+      "weeks": [
+        {
+          "week_start": "2026-07-13",
+          "week_end": "2026-07-19",
+          "transits": 284,
+          "index_pct_of_2023": 54.4,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-20",
+          "week_end": "2026-07-26",
+          "transits": 198,
+          "index_pct_of_2023": 37.9,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-27",
+          "week_end": "2026-08-02",
+          "transits": 215,
+          "index_pct_of_2023": 41.2,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-03",
+          "week_end": "2026-08-09",
+          "transits": 178,
+          "index_pct_of_2023": 34.1,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-10",
+          "week_end": "2026-08-16",
+          "transits": 206,
+          "index_pct_of_2023": 39.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-17",
+          "week_end": "2026-08-23",
+          "transits": 206,
+          "index_pct_of_2023": 39.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-24",
+          "week_end": "2026-08-30",
+          "transits": 184,
+          "index_pct_of_2023": 35.2,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-31",
+          "week_end": "2026-09-06",
+          "transits": 178,
+          "index_pct_of_2023": 34.1,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-07",
+          "week_end": "2026-09-13",
+          "transits": 191,
+          "index_pct_of_2023": 36.6,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-14",
+          "week_end": "2026-09-20",
+          "transits": 173,
+          "index_pct_of_2023": 33.1,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-21",
+          "week_end": "2026-09-27",
+          "transits": 190,
+          "index_pct_of_2023": 36.4,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-28",
+          "week_end": "2026-10-04",
+          "transits": 207,
+          "index_pct_of_2023": 39.6,
+          "days": 7
+        }
+      ]
+    },
+    {
+      "lane": "hormuz",
+      "portwatch_portid": "chokepoint6",
+      "baseline_week": 669.4,
+      "weeks": [
+        {
+          "week_start": "2026-07-13",
+          "week_end": "2026-07-19",
+          "transits": 44,
+          "index_pct_of_2023": 6.6,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-20",
+          "week_end": "2026-07-26",
+          "transits": 25,
+          "index_pct_of_2023": 3.7,
+          "days": 7
+        },
+        {
+          "week_start": "2026-07-27",
+          "week_end": "2026-08-02",
+          "transits": 37,
+          "index_pct_of_2023": 5.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-03",
+          "week_end": "2026-08-09",
+          "transits": 39,
+          "index_pct_of_2023": 5.8,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-10",
+          "week_end": "2026-08-16",
+          "transits": 31,
+          "index_pct_of_2023": 4.6,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-17",
+          "week_end": "2026-08-23",
+          "transits": 35,
+          "index_pct_of_2023": 5.2,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-24",
+          "week_end": "2026-08-30",
+          "transits": 30,
+          "index_pct_of_2023": 4.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-08-31",
+          "week_end": "2026-09-06",
+          "transits": 22,
+          "index_pct_of_2023": 3.3,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-07",
+          "week_end": "2026-09-13",
+          "transits": 37,
+          "index_pct_of_2023": 5.5,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-14",
+          "week_end": "2026-09-20",
+          "transits": 22,
+          "index_pct_of_2023": 3.3,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-21",
+          "week_end": "2026-09-27",
+          "transits": 22,
+          "index_pct_of_2023": 3.3,
+          "days": 7
+        },
+        {
+          "week_start": "2026-09-28",
+          "week_end": "2026-10-04",
+          "transits": 19,
+          "index_pct_of_2023": 2.8,
+          "days": 7
+        }
+      ]
+    }
+  ]
+}
