@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect } from 'react';
+import { readThemePref } from '@/lib/theme-pref';
 
 /**
  * The admin panel is not converted to the light theme (about 190 hard-coded dark colours), so it is
@@ -18,13 +19,7 @@ export function AdminThemeLock() {
     const before = root.getAttribute('data-theme');
     root.setAttribute('data-theme', 'dark');
     return () => {
-      let stored: string | null = null;
-      try {
-        stored = localStorage.getItem('mid-theme');
-      } catch {
-        /* storage blocked */
-      }
-      const next = stored === 'light' || stored === 'dark' ? stored : before;
+      const next = readThemePref() ?? before;
       if (next) root.setAttribute('data-theme', next);
       else root.removeAttribute('data-theme');
     };

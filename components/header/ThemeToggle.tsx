@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/ui/icons';
+import { THEME_STORAGE_KEY, writeThemePref } from '@/lib/theme-pref';
 
 /** localStorage key read by the root layout's boot script (applied before first paint, so no flash). */
-export const THEME_STORAGE_KEY = 'mid-theme';
+export { THEME_STORAGE_KEY };
 
 type Theme = 'dark' | 'light';
 
@@ -38,12 +39,10 @@ export function ThemeToggle({ className = '', withLabel = false }: { className?:
 
   const toggle = () => {
     const next: Theme = readTheme() === 'light' ? 'dark' : 'light';
+    // Choice first (memory + storage), then the attribute: ThemeGuard re-applies the recorded choice on
+    // any change to data-theme, so recording it first means the guard never undoes the switch.
+    writeThemePref(next);
     document.documentElement.setAttribute('data-theme', next);
-    try {
-      localStorage.setItem(THEME_STORAGE_KEY, next);
-    } catch {
-      /* storage blocked: the switch still applies to this page view */
-    }
     syncThemeColor();
     setTheme(next);
   };

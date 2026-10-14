@@ -71,6 +71,15 @@ const RULES: { name: string; re: RegExp }[] = [
     ),
   },
   { name: 'oklch()/lab()/lch()/hwb() literal', re: /\b(?:oklch|oklab|lch|lab|hwb)\(\s*[\d.]/g },
+  { name: 'color() literal', re: /\bcolor\(\s*(?:srgb|srgb-linear|display-p3|a98-rgb|prophoto-rgb|rec2020|xyz(?:-d50|-d65)?)\b/g },
+  {
+    // Named colours inside shadows and gradients (hex / rgb() there are already caught by the rules above).
+    name: 'named colour in shadow / gradient',
+    re: new RegExp(
+      `(?:\\b(?:box-shadow|text-shadow|boxShadow|textShadow)\\s*:\\s*['"\`]?[^;'"\`\\n]*?|-gradient\\([^;\\n]*?)(?<![\\w-])(?:${NAMED_COLOURS})(?![\\w-])`,
+      'gi',
+    ),
+  },
   { name: 'Tailwind theme(colors.…)', re: /\btheme\(\s*['"]?colors\./g },
   { name: 'flag emoji', re: /[\u{1F1E6}-\u{1F1FF}]{2}/gu },
 ];
@@ -105,7 +114,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 export function scan(): { file: string; line: number; rule: string; text: string }[] {
   const hits: { file: string; line: number; rule: string; text: string }[] = [];
-  for (const p of [...walk(join(root, 'app')), ...walk(join(root, 'components')), ...walk(join(root, 'lib'))]) {
+  for (const p of [...walk(join(root, 'app')), ...walk(join(root, 'components')), ...walk(join(root, 'lib')), ...walk(join(root, 'hooks'))]) {
     const r = rel(p);
     let src = stripComments(readFileSync(p, 'utf8'));
     if (r === 'app/globals.css') src = blankTokenBlocks(src);
@@ -138,14 +147,15 @@ ok('the rules catch each kind of literal (self-test)', () => {
   const samples = [
     "style={{ color: 'red' }}", 'border: 1px solid navy;', 'fill="tomato"', "background: 'oklch(0.7 0.1 30)'",
     'color: lab(50% 40 59)', "color: theme('colors.slate.500')", 'className="text-white"', "color: '#E8C547'",
-    'rgba(255,255,255,0.1)', '🇮🇷',
+    'rgba(255,255,255,0.1)', '🇮🇷', 'color(srgb 1 0 0)', 'box-shadow: 0 0 4px crimson;', "boxShadow: '0 0 4px gold'",
+    'background: linear-gradient(to right, navy, transparent);',
   ];
   for (const t of samples) assert.ok(RULES.some((r) => { r.re.lastIndex = 0; return r.re.test(t); }), `not caught: ${t}`);
   for (const t of ["color: 'var(--text)'", "border: '1px solid var(--line)'", 'color-mix(in oklch, var(--a) 20%, transparent)', "label: 'Red Sea'"])
     assert.ok(!RULES.some((r) => { r.re.lastIndex = 0; return r.re.test(t); }), `false positive: ${t}`);
 });
 
-ok('no hard-coded colour literal in public app/, components/ and lib/ outside the allowlist', () => {
+ok('no hard-coded colour literal in public app/, components/, lib/ and hooks/ outside the allowlist', () => {
   const hits = scan();
   if (process.env.LIGHT_THEME_LIST) for (const h of hits) console.log(`${h.file}:${h.line}  [${h.rule}] ${h.text}`);
   const byFile = new Map<string, number>();
@@ -167,7 +177,7 @@ ok('no text control dims on hover (opacity hovers took gold and muted text under
     const r = rel(p);
     stripComments(readFileSync(p, 'utf8')).split('\n').forEach((line, i) => {
       // Tailwind hover/focus opacity utilities, and inline hover handlers that lower opacity.
-      if (/(?<![\w-])(?:group-)?(?:hover|focus|focus-visible|active):opacity-(?!100\b)\d+/.test(line)) offenders.push(`${r}:${i + 1}`);
+      if (/(?<![\w-])(?:group-)?(?:hover|focus|focus-visible|active):opacity-(?:\[[^\]]+\]|(?!100\b)\d+)/.test(line)) offenders.push(`${r}:${i + 1}`);
       if (/onMouse(?:Enter|Over)[^\n]*opacity\s*=\s*['"]?0?\.\d/.test(line)) offenders.push(`${r}:${i + 1}`);
     });
     // CSS: a :hover / :focus rule that sets opacity below 1 (revealing an overlay with opacity: 1 is fine).
@@ -228,7 +238,23 @@ ok('LIGHT_THEME_ENABLED is on and the header renders the ThemeToggle', () => {
   assert.match(header, /<ThemeToggle\b/);
   const toggle = readFileSync(join(root, 'components/header/ThemeToggle.tsx'), 'utf8');
   assert.match(toggle, /aria-label=/, 'icon button needs an accessible name');
-  assert.match(toggle, /try\s*\{[\s\S]*localStorage\.setItem/, 'storage write must be wrapped in try/catch');
+  const pref = readFileSync(join(root, 'lib/theme-pref.ts'), 'utf8');
+  assert.match(pref, /try\s*\{\s*localStorage\.setItem/, 'storage write must be wrapped in try/catch');
+});
+
+ok('ThemeGuard: a failed root hydration cannot drop the stored theme or banner dismissal; it never fights the toggle', () => {
+  assert.match(rootLayout, /<ThemeGuard\s*\/>/, 'root layout must render <ThemeGuard />');
+  const guard = readFileSync(join(root, 'components/ThemeGuard.tsx'), 'utf8');
+  assert.match(guard, /useLayoutEffect\(/, 'guard must re-apply before paint');
+  assert.match(guard, /new MutationObserver\(/);
+  assert.match(guard, /attributeFilter:\s*\[\s*'data-theme',\s*'data-tb-dismissed'\s*\]/);
+  assert.match(guard, /admin \? 'dark'/, 'on /admin the guard applies dark');
+  assert.match(guard, /readThemePref\(\)/);
+  const toggle = readFileSync(join(root, 'components/header/ThemeToggle.tsx'), 'utf8');
+  const body = toggle.slice(toggle.indexOf('const toggle = () =>'));
+  const write = body.indexOf('writeThemePref(next)');
+  const attr = body.indexOf("setAttribute('data-theme', next)");
+  assert.ok(write >= 0 && attr > write, 'ThemeToggle must record the choice (writeThemePref) before it changes data-theme');
 });
 
 console.log(`\n${n} passed, ${failed} failed`);

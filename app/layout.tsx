@@ -8,6 +8,7 @@ import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
+import { ThemeGuard } from '@/components/ThemeGuard';
 import type { Lang } from '@/lib/i18n';
 import {
   INJECTED_NEXT_PUBLIC_GLOBAL,
@@ -181,6 +182,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <a href="#main-content" className="skip-link">
           Skip to content
         </a>
+        {/* Re-applies the stored theme / banner dismissal if a failed root hydration wipes them from <html>. */}
+        <ThemeGuard />
         <TranslationBanner />
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
