@@ -144,8 +144,8 @@ export default function HomeDashboard({
   return (
     // `isolate`: the hero backdrop (z-index -1) paints behind this page's content, never behind <body>.
     <div className="relative isolate">
-      {/* One restrained 3D touch, home only: static gradient for everyone, a lazy WebGL particle field
-          on capable devices (components/home/HeroScene.tsx, lib/hero-3d.ts). */}
+      {/* One restrained 3D touch, home only: static gradient for everyone, then a lazy corridor relief
+          (SVG poster, or raw WebGL on capable devices) — components/home/HeroScene.tsx, lib/hero-3d.ts. */}
       <HeroScene />
       {/* The animated "SYSTEM BOOT" opener was removed (shop-window pass, 2026-10-08): real content
           starts at the top. The page keeps one h1 for screen readers and search engines. */}

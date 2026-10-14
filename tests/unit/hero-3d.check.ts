@@ -7,7 +7,16 @@
  * Not named *.test.ts / *.spec.ts so Playwright's testMatch ignores it.
  */
 import assert from 'node:assert/strict';
-import { hero3DDecision, isSoftwareRenderer, readHero3DEnv, HERO_3D_MIN_DEVICE_MEMORY_GB, type Hero3DEnv } from '../../lib/hero-3d';
+import {
+  hero3DDecision,
+  heroReliefMode,
+  isSoftwareRenderer,
+  readHero3DEnv,
+  HERO_3D_MIN_CORES,
+  HERO_3D_MIN_DEVICE_MEMORY_GB,
+  HERO_3D_MIN_VIEWPORT_PX,
+  type Hero3DEnv,
+} from '../../lib/hero-3d';
 
 let n = 0;
 const ok = (label: string, fn: () => void) => {
@@ -70,18 +79,43 @@ ok('non-finite / non-positive memory values are treated as unknown, not as low',
   assert.equal(hero3DDecision({ ...capable, deviceMemoryGb: 0 }).render, true);
 });
 
+ok('viewport below 768 px (phones): skip; 768 and unknown render', () => {
+  assert.equal(HERO_3D_MIN_VIEWPORT_PX, 768);
+  assert.deepEqual(hero3DDecision({ ...capable, viewportWidth: 390 }), { render: false, reason: 'small-viewport' });
+  assert.equal(hero3DDecision({ ...capable, viewportWidth: 767 }).render, false);
+  assert.equal(hero3DDecision({ ...capable, viewportWidth: 768 }).render, true);
+  assert.equal(hero3DDecision({ ...capable, viewportWidth: null }).render, true);
+});
+
+ok('fewer than 4 cores: skip; unknown is not a reason', () => {
+  assert.equal(HERO_3D_MIN_CORES, 4);
+  assert.deepEqual(hero3DDecision({ ...capable, cores: 2 }), { render: false, reason: 'few-cores' });
+  assert.equal(hero3DDecision({ ...capable, cores: 4 }).render, true);
+  assert.equal(hero3DDecision({ ...capable, cores: null }).render, true);
+});
+
+ok('heroReliefMode: gl only when the decision renders; Save-Data gets nothing; everyone else the poster', () => {
+  assert.equal(heroReliefMode(capable), 'gl');
+  assert.equal(heroReliefMode({ ...capable, webgl: false }), 'poster');
+  assert.equal(heroReliefMode({ ...capable, reducedMotion: true }), 'poster');
+  assert.equal(heroReliefMode({ ...capable, viewportWidth: 390 }), 'poster');
+  assert.equal(heroReliefMode({ ...capable, saveData: true }), 'none');
+});
+
 // --- readHero3DEnv (pure: takes the browser objects as arguments) -------------------------------
 ok('readHero3DEnv: reads matchMedia, navigator.connection.saveData and navigator.deviceMemory', () => {
   const env = readHero3DEnv({
     matchMedia: (q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)' }),
-    navigator: { connection: { saveData: true }, deviceMemory: 2 },
+    navigator: { connection: { saveData: true }, deviceMemory: 2, hardwareConcurrency: 8 },
+    innerWidth: 1440,
   });
-  assert.deepEqual(env, { reducedMotion: true, saveData: true, deviceMemoryGb: 2, webgl: null });
+  assert.deepEqual(env, { reducedMotion: true, saveData: true, deviceMemoryGb: 2, webgl: null, viewportWidth: 1440, cores: 8 });
 });
 
 ok('readHero3DEnv: missing APIs give safe defaults (no throw)', () => {
-  assert.deepEqual(readHero3DEnv({ navigator: {} }), { reducedMotion: false, saveData: false, deviceMemoryGb: null, webgl: null });
-  assert.deepEqual(readHero3DEnv({}), { reducedMotion: false, saveData: false, deviceMemoryGb: null, webgl: null });
+  const none = { reducedMotion: false, saveData: false, deviceMemoryGb: null, webgl: null, viewportWidth: null, cores: null };
+  assert.deepEqual(readHero3DEnv({ navigator: {} }), none);
+  assert.deepEqual(readHero3DEnv({}), none);
 });
 
 ok('readHero3DEnv: a throwing matchMedia is treated as reduced motion (fail closed)', () => {
