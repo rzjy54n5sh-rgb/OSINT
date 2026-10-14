@@ -340,8 +340,8 @@ function buildSections(scenarios: RegistryRow[]): Section[] {
             <>
               <P>
                 Days 1–35 used a retired, US-referenced definition (&quot;alignment&quot; with one side). Those rows are
-                archived, read-only and not comparable; they are shown only behind an explicit &quot;archived&quot; toggle on
-                the War Posture page. Version 1 War Posture (one number per country) runs from Day 221; version 2 (per conflict)
+                archived, read-only and not comparable; they are not shown on the War Posture page. Version 1 War Posture
+                (one number per country) runs from Day 221; version 2 (per conflict)
                 replaces it country by country as positions are captured.
               </P>
             </>

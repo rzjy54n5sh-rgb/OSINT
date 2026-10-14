@@ -436,6 +436,11 @@ export interface PostureBoard {
   rows: PostureView[];
   hasLatentAccess: boolean;
   hasGapAccess: boolean;
+  /**
+   * Every War Posture v2 coding day (ascending, public.posture_v2_days), whatever day the board shows. Only
+   * when asked for (withDays: /nai, /api/viewer/posture) and readable; drives the day stepper (operator R2).
+   */
+  v2Days?: number[];
 }
 
 export interface CountryPosture {
@@ -690,6 +695,35 @@ export async function readPostureV2(
   }
 }
 
+/**
+ * Board-level defence in depth (operator R6): an 'uncoded' row (statement captured, no score) never carries
+ * its quote, speaker or links into the /nai payload (RSC or API JSON). The country page ledger shows the
+ * public posture_evidence rows separately.
+ */
+export function stripUncodedEvidence(r: PostureView): PostureView {
+  return r.stance === 'uncoded' && r.method === POSTURE_V2_METHOD ? { ...r, evidence: null, evidence_date: null } : r;
+}
+
+export const POSTURE_V2_DAYS_RPC = 'posture_v2_days';
+/**
+ * Every War Posture v2 coding day the public board can show, ascending (public.posture_v2_days(), migration
+ * 20261014090000; viewer_posture_v2 publication rules). null when the RPC fails or is not applied yet
+ * (PGRST202 / 42883): callers then fall back to the days on the board's own rows.
+ */
+export async function readPostureV2Days(supabase: Sb): Promise<number[] | null> {
+  try {
+    const { data, error } = await supabase.rpc(POSTURE_V2_DAYS_RPC);
+    if (error || !Array.isArray(data)) return null;
+    const days = data
+      .map((d) => (typeof d === 'number' ? d : isObjDay(d) ? Number(d.posture_v2_days) : NaN))
+      .filter((d) => Number.isInteger(d) && d > 0);
+    return [...new Set(days)].sort((a, b) => a - b);
+  } catch {
+    return null;
+  }
+}
+const isObjDay = (d: unknown): d is { posture_v2_days: unknown } => typeof d === 'object' && d !== null && 'posture_v2_days' in d;
+
 export function currentConflictDayUtc(now = new Date()): number {
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return Math.floor((today - Date.UTC(2026, 1, 28)) / 86_400_000) + 1;
@@ -712,13 +746,28 @@ export function currentConflictDayUtc(now = new Date()): number {
  */
 export async function getPostureBoard(
   supabase: Sb,
-  { day = null, access, v1Loader }: { day?: number | null; access: Access; v1Loader?: (day: number) => Promise<NaiV2View[]> },
+  {
+    day = null,
+    access,
+    v1Loader,
+    withDays = false,
+  }: {
+    day?: number | null;
+    access: Access;
+    v1Loader?: (day: number) => Promise<NaiV2View[]>;
+    /** /nai and /api/viewer/posture only: also read the v2 coding days (one posture_v2_days call) for the stepper. */
+    withDays?: boolean;
+  },
 ): Promise<PostureBoard> {
   const today = currentConflictDayUtc();
-  const [v2, conflicts] = await Promise.all([readPostureV2(supabase, { day: day ?? today }), getConflicts(supabase)]);
+  const [v2, conflicts, days] = await Promise.all([
+    readPostureV2(supabase, { day: day ?? today }),
+    getConflicts(supabase),
+    withDays ? readPostureV2Days(supabase) : Promise.resolve(null),
+  ]);
   if (!v2.missing && v2.rows.length > 0) {
     const boardDay = day ?? today;
-    const v2All = v2.rows.map((r) => fromV2Row(r, access));
+    const v2All = v2.rows.map((r) => stripUncodedEvidence(fromV2Row(r, access)));
     // Every rule below is per LINE = country x actor (a single-actor country has one line = the country;
     // YE has two). A line "has v2" only with a CODED v2 row.
     const lineOf = (r: Pick<PostureView, 'country_code' | 'actor'>) => postureLineKey(r.country_code, r.actor);
@@ -765,6 +814,8 @@ export async function getPostureBoard(
       rows: [...v2Rows, ...policyRows, ...v1Rows],
       hasLatentAccess: access.latent,
       hasGapAccess: access.gap,
+      // Absent unless asked for and readable: the stepper then uses the board's own rows (lib/posture-board.ts).
+      ...(days ? { v2Days: days } : {}),
     };
   }
   const { firstDay, latestDay } = await getNaiV2DayRange(supabase);
