@@ -74,7 +74,15 @@ const FIX_CURRENT = buildCorridors(issue1, null, new Date('2026-10-13T09:00:00Z'
 const FIX_STALE = buildCorridors(issue1, null, new Date('2026-10-17T00:01:00Z'));
 const FIX_WITHHELD = buildCorridors((malformedBundle as { chokepoints: unknown }).chokepoints, null, new Date('2026-10-08T12:30:00Z'));
 // The committed file, one hour after its own as_of (whatever issue it is) and 30 days later.
-const liveAsOf = Date.parse((latestJson as { as_of: string }).as_of);
+/** Newest timestamp in the file: top-level as_of or any lane's as_of (the gate requires neither at top level). */
+function newestAsOf(file: unknown): number {
+  const f = (file ?? {}) as { as_of?: unknown; lanes?: unknown };
+  const stamps = [f.as_of, ...(Array.isArray(f.lanes) ? f.lanes.map((l) => (l as { as_of?: unknown } | null)?.as_of) : [])];
+  const ts = stamps.map((x) => (typeof x === 'string' ? Date.parse(x) : NaN)).filter((t) => Number.isFinite(t));
+  assert.ok(ts.length, 'data/chokepoints/latest.json has no as_of anywhere');
+  return Math.max(...ts);
+}
+const liveAsOf = newestAsOf(latestJson as unknown);
 const LIVE_FRESH = buildCorridors(latestJson, null, new Date(liveAsOf + 3600_000));
 const LIVE_OLD = buildCorridors(latestJson, null, new Date(liveAsOf + 30 * 86400_000));
 const VIEWS: [string, CorridorsView][] = [
