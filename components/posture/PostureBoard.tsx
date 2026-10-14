@@ -6,7 +6,7 @@
  * (arrow keys, Home/End); the tile map is aria-hidden decoration and the list carries every fact.
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import type { PostureBoard as Board } from '@/lib/posture';
+import { V1_FROZEN_CONFLICT, type PostureBoard as Board } from '@/lib/posture';
 import {
   ARCHIVED_LAST_DAY,
   SORTS,
@@ -15,17 +15,17 @@ import {
   countryName,
   dayLabel,
   isHistorical,
-  isShownPosition,
   noPositionOnRecord,
   rowName,
   sortPositions,
   stepperState,
+  v1Group,
   type SortKey,
   type SourceLabels,
 } from '@/lib/posture-board';
 import { stanceText } from '@/components/posture/PostureParts';
 import { PostureLegend, PostureTiles } from '@/components/posture/PostureTiles';
-import { OtherCodedCard, PositionCard } from '@/components/posture/PostureRows';
+import { OtherCodedCard, PositionCard, StatedPanel, V1Card, YemenPanel } from '@/components/posture/PostureRows';
 import s from './posture.module.css';
 
 const Chevron = ({ d }: { d: string }) => (
@@ -56,8 +56,7 @@ export function PostureBoard({
   onRetry?: () => void;
   initialTab?: string;
 }) {
-  // Conflict fronts only; the old-method (v1) group is not drawn on this page yet (never filed under a front).
-  const tabs = useMemo(() => boardTabs(board).filter((t) => !t.v1), [board]);
+  const tabs = useMemo(() => boardTabs(board), [board]);
   const [tabCode, setTabCode] = useState<string>(initialTab ?? tabs[0]?.code ?? '');
   const [sort, setSort] = useState<SortKey>('score');
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -68,6 +67,7 @@ export function PostureBoard({
   const tab = tabs.find((x) => x.code === tabCode) ?? tabs[0];
   const stepper = stepperState(board, latestDay);
   const historical = isHistorical(board, latestDay);
+  const v1 = useMemo(() => v1Group(board), [board]);
   const nothing = useMemo(() => (board.schema === 'v2' ? noPositionOnRecord(board) : []), [board]);
   const archived = board.schema === 'v1' && board.day != null && board.day <= ARCHIVED_LAST_DAY;
   const noRecord = board.schema === 'v1' && (archived || board.rows.length === 0);
@@ -222,17 +222,34 @@ export function PostureBoard({
         {tab ? (
           <div id="posture-panel" role="tabpanel" aria-labelledby={`posture-tab-${tab.code}`} aria-busy={status === 'loading'} className={s.panelBody}>
             <p className={s.tabDesc}>{tab.description}</p>
-            <ConflictPanel board={board} code={tab.code} labels={labels} sort={sort} setSort={setSort} />
+            {tab.v1 ? (
+              <section className={`${s.list} ${s.listOnly}`} aria-labelledby="v1-h" data-testid="posture-v1-group">
+                <div className={s.listHead}>
+                  <h2 id="v1-h" className={s.h2}>
+                    Old method (v1, frozen) · not comparable with method v2, never ranked with it
+                  </h2>
+                </div>
+                <PostureLegend tiles={false} />
+                {v1.rows.length > 0 ? (
+                  <ul className={`${s.cards} ${s.v1}`}>
+                    {v1.rows.map((r) => (
+                      <V1Card key={`${r.country_code}|${r.actor}`} row={r} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={s.empty}>No old-method score with a number is on record.</p>
+                )}
+                {v1.yemen ? <YemenPanel lines={v1.yemen} labels={labels} day={null} v1 /> : null}
+              </section>
+            ) : (
+              <ConflictPanel board={board} code={tab.code} labels={labels} sort={sort} setSort={setSort} v1Count={v1.rows.length + (v1.yemen ? 1 : 0)} onV1={() => setTabCode(V1_FROZEN_CONFLICT.conflict_code)} />
+            )}
             {nothing.length > 0 ? (
               <p className={s.foot} data-testid="posture-nothing">
                 No position on record (all fronts): {nothing.map(countryName).join(', ')}.
               </p>
             ) : null}
           </div>
-        ) : board.schema === 'v1' ? (
-          <p className={s.empty} data-testid="posture-v1-day">
-            This day uses the old method (v1): one blended number per country. Its scores are not shown on this page.
-          </p>
         ) : null}
           </>
         )}
@@ -247,17 +264,19 @@ function ConflictPanel({
   labels,
   sort,
   setSort,
+  v1Count,
+  onV1,
 }: {
   board: Board;
   code: string;
   labels: SourceLabels;
   sort: SortKey;
   setSort: (k: SortKey) => void;
+  v1Count: number;
+  onV1: () => void;
 }) {
   const view = useMemo(() => conflictView(board, code), [board, code]);
-  // Yemen's two lines are listed as two separate cards (posture_actors display names), never merged.
-  const yemen = (view.yemen ?? []).flatMap((l) => (l.row && isShownPosition(l.row) ? [l.row] : []));
-  const rows = sortPositions([...view.positions, ...yemen], sort);
+  const rows = sortPositions(view.positions, sort);
   const heading =
     view.count === 0 ? 'No method-v2 positions on this front' : view.count === 1 ? '1 position on record (method v2)' : `${view.count} positions on record (method v2)`;
   const silence = Object.values(view.tiles).some((x) => x.kind === 'silence');
@@ -314,6 +333,17 @@ function ConflictPanel({
               <OtherCodedCard key={`${r.country_code}|${r.actor}`} row={r} labels={labels} />
             ))}
           </ul>
+        ) : null}
+        {view.yemen ? <YemenPanel lines={view.yemen} labels={labels} day={board.day} /> : null}
+        <StatedPanel blocks={view.stated} labels={labels} />
+        {v1Count > 0 ? (
+          <p className={s.note}>
+            {v1Count} {v1Count === 1 ? 'government has' : 'governments have'} only an old-method score (frozen, one number across
+            wars, not filed under any front):{' '}
+            <button type="button" className={s.linkBtn} onClick={onV1}>
+              see Old method (v1, frozen)
+            </button>
+          </p>
         ) : null}
       </section>
     </div>
