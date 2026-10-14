@@ -65,5 +65,5 @@ export function buildNaiMapShareText(conflictDay: number, countryCode?: string, 
   if (countryCode && score != null && category) {
     return `${countryCode} War Posture: ${score} · ${category} · Day ${conflictDay} — ${BASE_URL}/nai`;
   }
-  return `War Posture Map · Day ${conflictDay} — ${BASE_URL}/nai`;
+  return `War Posture · Day ${conflictDay} — ${BASE_URL}/nai`;
 }

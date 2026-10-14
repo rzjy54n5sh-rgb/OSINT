@@ -39,8 +39,7 @@ export function PostureTiles({ tiles }: { tiles: Record<string, TileState> }) {
             >
               <span className={s.tileLabel}>{tile.label}</span>
               <span className={s.tileVal}>
-                {/* EG / AE / SA: outline and code only; the quote glyph comes with their statements panel (part 2). */}
-                {st.kind === 'position' ? st.score : st.kind === 'silence' ? 'silent' : ''}
+                {st.kind === 'position' ? st.score : st.kind === 'stated' && st.quote ? '“ ”' : st.kind === 'silence' ? 'silent' : ''}
               </span>
             </div>
           );
