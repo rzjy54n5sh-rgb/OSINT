@@ -6,9 +6,10 @@ import { ReliefPoster } from './ReliefPoster';
 
 /**
  * Keeps the relief off the text rows at the top of the hero (the ticker row and, on phones, the
- * CorridorStrip header): fully transparent for the first 72 px, opaque from 128 px.
+ * CorridorStrip header): fully transparent for the first 72 px, opaque from 128 px. A mask only reads
+ * alpha, so any opaque colour works; a token (opaque in both themes) keeps the no-literal rule.
  */
-export const RELIEF_TOP_FADE = 'linear-gradient(to bottom, transparent 0, transparent 72px, #000 128px)';
+export const RELIEF_TOP_FADE = 'linear-gradient(to bottom, transparent 0, transparent 72px, var(--bg) 128px)';
 
 type Lanes = Record<ReliefLaneId, ReliefLaneStyle>;
 type GlModule = typeof import('./relief-gl');

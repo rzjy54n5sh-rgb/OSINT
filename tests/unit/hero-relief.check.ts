@@ -435,7 +435,7 @@ check('no text in the relief, never mirrored, top fade keeps the first 72 px cle
   assert.ok(!/<text|<tspan|<title/.test(html), 'text inside the relief');
   assert.match(html, /aria-hidden="true"/);
   assert.match(html, /direction:ltr/);
-  assert.match(html, /mask-image:linear-gradient\(to bottom, transparent 0, transparent 72px, #000 128px\)/);
+  assert.match(html, /mask-image:linear-gradient\(to bottom, transparent 0, transparent 72px, var\(--bg\) 128px\)/);
   for (const f of ['ReliefPoster.tsx', 'ReliefLayer.tsx', 'relief-gl.ts']) {
     const src = readFileSync(join(ROOT, 'components/home/relief', f), 'utf8');
     assert.ok(!/scaleX\(\s*-1|scale\(\s*-1|rtl:|\[dir=['"]?rtl/.test(src), `${f} mirrors`);
