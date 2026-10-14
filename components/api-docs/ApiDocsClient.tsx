@@ -182,7 +182,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
           </div>
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center"
-            style={{ background: 'rgba(7,10,15,0.88)' }}
+            style={{ background: 'color-mix(in srgb, var(--bg) 88%, transparent)' }}
           >
             <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
               Authentication details are locked during launch.
@@ -206,7 +206,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
       <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
         Query: <code translate="no">day</code> (optional) — conflict day; omit for latest. Optional <code translate="no">country</code> filter.
       </p>
-      <ul className="font-mono text-[11px] space-y-1 mb-2 list-disc ps-5" style={{ color: 'var(--text-muted)' }}>
+      <ul className="font-mono text-[13px] space-y-1 mb-2 list-disc ps-5" style={{ color: 'var(--text-muted)' }}>
         <li>
           <strong>T0:</strong> <code translate="no">expressed_score</code>, <code translate="no">delta</code>; category may be hidden — see{' '}
           <code translate="no">_tier_note</code>.
@@ -219,7 +219,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
         </li>
       </ul>
       <CodeBlock code={curlNai} allowCopy={showSecrets} />
-      <p className="font-mono text-[11px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[13px] uppercase mb-1" style={{ color: 'var(--text-muted)' }}>
         Example JSON (T2-style)
       </p>
       <CodeBlock code={jsonNaiT2} allowCopy={showSecrets} />
@@ -229,7 +229,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
         Query: <code translate="no">day</code> (optional). <code translate="no">history=true</code> returns extra rows for T1+ with scenario history
         feature enabled.
       </p>
-      <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[13px] mb-2" style={{ color: 'var(--text-muted)' }}>
         Free tier receives <code translate="no">conflictDay</code> and <code translate="no">tier</code> with <code translate="no">current: null</code>; Informed
         and Professional receive the <code translate="no">current</code> object with A–E probabilities.
       </p>
@@ -240,7 +240,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
       <p className="font-mono text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
         Query: <code translate="no">code</code> (ISO-style country code, e.g. IR), <code translate="no">day</code> (optional).
       </p>
-      <ul className="font-mono text-[11px] space-y-1 mb-2 list-disc ps-5" style={{ color: 'var(--text-muted)' }}>
+      <ul className="font-mono text-[13px] space-y-1 mb-2 list-disc ps-5" style={{ color: 'var(--text-muted)' }}>
         <li>
           <strong>T0:</strong> <code translate="no">nai_score</code>, <code translate="no">nai_category</code>; <code translate="no">content_json</code> is null with{' '}
           <code translate="no">_tier_note</code>.
@@ -282,7 +282,7 @@ export function ApiDocsClient({ isPro, baseUrl }: Props) {
       <SectionTitle>5. Webhooks</SectionTitle>
       <div
         className="rounded border p-4 font-mono text-xs space-y-2"
-        style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.02)', color: 'var(--text-muted)' }}
+        style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--text) 2%, transparent)', color: 'var(--text-muted)' }}
       >
         <p className="uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
           Coming soon

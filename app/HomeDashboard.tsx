@@ -256,25 +256,26 @@ export default function HomeDashboard({
               MARKET DATA UNAVAILABLE
             </div>
           )}
-          {!marketLoading && marketMetrics.map(({ label, value, change, up, asOf }) => (
+          {!marketLoading && marketMetrics.map(({ label, value, change, asOf }) => (
             <div key={label} className="px-3 py-2"
                  style={{ border: '1px solid var(--border)',
                           background: 'var(--bg-card)' }}>
-              <div className="font-mono" style={{ fontSize: '11px',
+              <div className="font-mono" style={{ fontSize: '13px',
                    letterSpacing: '1px', color: 'var(--text-muted)',
                    marginBottom: '4px' }}>
                 {label}
               </div>
+              {/* Price levels are never red/green (design system v2): text colour, direction as ▲ / ▼. */}
               <div className="font-display text-xl"
-                   style={{ color: up ? 'var(--accent-green)' : 'var(--accent-red)',
-                            lineHeight: 1.1 }}>
+                   style={{ color: 'var(--text-primary)', lineHeight: 1.1 }}>
                 {value}
               </div>
-              <div className="font-mono" style={{ fontSize: '11px',
-                   color: 'var(--text-muted)', marginTop: '2px' }}>
+              <div className="font-mono" style={{ fontSize: '13px',
+                   color: 'var(--text-secondary)', marginTop: '2px' }} translate="no">
+                {change.startsWith('+') ? <span aria-hidden="true">▲ </span> : change.startsWith('−') ? <span aria-hidden="true">▼ </span> : null}
                 {change}
               </div>
-              <div className="font-mono" style={{ fontSize: '11px',
+              <div className="font-mono" style={{ fontSize: '13px',
                    color: 'var(--text-muted)', marginTop: '2px' }} translate="no">
                 <span className="sr-only">Collected </span>{asOf}
               </div>
@@ -304,7 +305,7 @@ export default function HomeDashboard({
                 <>
                   <span>{emoji}</span>
                   <span className="font-mono"
-                        style={{ fontSize: '11px', letterSpacing: '1.5px',
+                        style={{ fontSize: '13px', letterSpacing: '1.5px',
                                  color: published ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
                     {shortLabel}{cadence === 'weekly' ? ' · WEEKLY' : ''}
                   </span>
@@ -319,7 +320,7 @@ export default function HomeDashboard({
                   {body}
                 </Link>
               ) : (
-                <span key={code} className="shrink-0 flex items-center gap-2 px-3 py-2 border opacity-50" style={style}
+                <span key={code} className="shrink-0 flex items-center gap-2 px-3 py-2 border border-dashed" style={style}
                       title={`No ${shortLabel.toLowerCase()} brief on Day ${briefingDay ?? conflictDay}`}>
                   {body}
                 </span>
@@ -334,7 +335,7 @@ export default function HomeDashboard({
             <h2 className="font-display text-lg mb-4" style={{ color: 'var(--text-primary)' }}>
               LATEST INTELLIGENCE
             </h2>
-            <p className="font-mono mb-3" style={{ fontSize: '11px', color: 'var(--text-muted)' }} data-testid="home-feed-scope-note">
+            <p className="font-mono mb-3" style={{ fontSize: '13px', color: 'var(--text-muted)' }} data-testid="home-feed-scope-note">
               Tracked theatres only: posts from Telegram channels that mostly cover other wars are left off this panel unless they name a tracked theatre.{' '}
               <Link prefetch={false} href="/feed" style={{ color: 'var(--accent-gold)' }}>
                 Every collected item is on the Feed →
@@ -374,7 +375,7 @@ export default function HomeDashboard({
               <DataAsOf section="SCENARIOS" latestDay={scenariosDay} currentDay={conflictDay} className="mb-3" />
             )}
             {chartMethod && scenarioChartData.length > 0 && (
-              <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              <p className="font-mono mb-2" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
                 Method: {scenarioMethodNote(chartMethod)} · Days {scenarioChartData[0].day}
                 {'\u2013'}{scenarioChartData[scenarioChartData.length - 1].day}
                 {chartMethod === 'market-anchored-v1' ? ' · earlier desk estimates (Days 1\u201335: retired method, cannot be scored) are not plotted' : ''}
@@ -382,7 +383,7 @@ export default function HomeDashboard({
               </p>
             )}
             {latestBRange && (
-              <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-secondary)' }} data-testid="home-b-range">
+              <p className="font-mono mb-2" style={{ fontSize: '13px', color: 'var(--text-secondary)' }} data-testid="home-b-range">
                 B (none of A, C or D): {latestBRange[0] === latestBRange[1] ? `${latestBRange[0]}%` : `${latestBRange[0]}\u2013${latestBRange[1]}%`}{' '}
                 <span style={{ color: 'var(--text-muted)' }}>· a range, because A, C and D can happen in the same window (shaded)</span>
               </p>

@@ -54,7 +54,7 @@ export default function ContactPage() {
 
   const field = (key: keyof typeof form, label: string, placeholder: string, required = true, multiline = false) => (
     <div style={{ marginBottom: 16 }}>
-      <label htmlFor={`contact-${key}`} style={{ display: 'block', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6 }}>
+      <label htmlFor={`contact-${key}`} style={{ display: 'block', fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6 }}>
         {label}{required && <span style={{ color: 'var(--accent-red)' }}> *</span>}
       </label>
       {multiline ? (
@@ -68,7 +68,7 @@ export default function ContactPage() {
           rows={5}
           style={{
             width: '100%', background: 'var(--bg-primary)', border: '1px solid var(--border)',
-            color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 11,
+            color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 13,
             padding: '10px 12px', resize: 'vertical', boxSizing: 'border-box',
           }}
         />
@@ -84,7 +84,7 @@ export default function ContactPage() {
           placeholder={placeholder}
           style={{
             width: '100%', background: 'var(--bg-primary)', border: '1px solid var(--border)',
-            color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 11,
+            color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 13,
             padding: '10px 12px', boxSizing: 'border-box',
           }}
         />
@@ -96,13 +96,13 @@ export default function ContactPage() {
     <div className="max-w-2xl mx-auto px-4 py-8">
       {/* Header */}
       <div style={{ marginBottom: 28, borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
-        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
           ◆ MENA INTEL DESK — CONTACT
         </div>
         <h1 style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 36, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0' }}>
           GET IN TOUCH
         </h1>
-        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
           For professional subscriptions, media inquiries, research collaboration, or technical issues. All submissions are reviewed by the platform operator.
           Response time: 24–48 hours.
         </p>
@@ -115,10 +115,10 @@ export default function ContactPage() {
             <div style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 20, color: 'var(--text-primary)', letterSpacing: '2px', marginBottom: 8 }}>
               INQUIRY RECEIVED
             </div>
-            <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 }}>
+            <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 20 }}>
               Your message has been logged. The platform operator will respond to {form.email} within 24–48 hours.
             </p>
-            <Link href="/" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
+            <Link href="/" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', textDecoration: 'none' }}>
               ← RETURN TO DASHBOARD
             </Link>
           </div>
@@ -131,7 +131,7 @@ export default function ContactPage() {
             {field('organization', 'ORGANIZATION', 'Company, institution, or publication (optional)', false)}
 
             <fieldset style={{ marginBottom: 16, border: 0, padding: 0, minWidth: 0 }}>
-              <legend style={{ display: 'block', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6, padding: 0 }}>
+              <legend style={{ display: 'block', fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 6, padding: 0 }}>
                 INQUIRY TYPE <span style={{ color: 'var(--accent-red)' }}>*</span>
               </legend>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -143,7 +143,7 @@ export default function ContactPage() {
                       padding: '8px 12px',
                       border: '1px solid',
                       borderColor: form.inquiry_type === t.value ? 'var(--accent-gold)' : 'var(--border)',
-                      background: form.inquiry_type === t.value ? 'rgba(232,197,71,0.05)' : 'transparent',
+                      background: form.inquiry_type === t.value ? 'color-mix(in srgb, var(--accent) 5%, transparent)' : 'transparent',
                     }}
                   >
                     <input
@@ -154,7 +154,7 @@ export default function ContactPage() {
                       onChange={(e) => setForm((p) => ({ ...p, inquiry_type: e.target.value }))}
                       style={{ accentColor: 'var(--accent-gold)', flexShrink: 0 }}
                     />
-                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-secondary)' }}>{t.label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)' }}>{t.label}</span>
                   </label>
                 ))}
               </div>
@@ -168,11 +168,11 @@ export default function ContactPage() {
               disabled={!isValid || status === 'submitting'}
               style={{
                 width: '100%', padding: '12px 0',
-                fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '2px',
+                fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '2px',
                 border: '1px solid',
                 borderColor: isValid ? 'var(--accent-gold)' : 'var(--border)',
                 color: isValid ? 'var(--accent-gold)' : 'var(--text-muted)',
-                background: isValid ? 'rgba(232,197,71,0.05)' : 'transparent',
+                background: isValid ? 'color-mix(in srgb, var(--accent) 5%, transparent)' : 'transparent',
                 cursor: isValid ? 'pointer' : 'default',
                 opacity: status === 'submitting' ? 0.6 : 1,
               }}
@@ -181,7 +181,7 @@ export default function ContactPage() {
             </button>
 
             {status === 'error' && (
-              <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-red)', marginTop: 10 }}>
+              <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-red)', marginTop: 10 }}>
                 Failed to submit — please try again. If the problem persists, the database may be temporarily unavailable.
               </p>
             )}
@@ -190,10 +190,10 @@ export default function ContactPage() {
       )}
 
       <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>
+        <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)' }}>
           All submissions are stored securely. Never shared with third parties.
         </span>
-        <Link href="/" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', textDecoration: 'none' }}>
+        <Link href="/" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', textDecoration: 'none' }}>
           ← RETURN TO DASHBOARD
         </Link>
       </div>

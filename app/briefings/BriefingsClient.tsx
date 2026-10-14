@@ -215,7 +215,7 @@ export default function BriefingsClient({
 
         {gridOpen && (
           <div className="mt-3 p-3 border" style={{ borderColor: 'var(--border)', borderRadius: 2 }}>
-            <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <p className="font-mono mb-2" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
               <span style={{ color: 'var(--accent-gold)' }}>{'\u25A0'}</span> briefs{' '}
               <span style={{ color: 'var(--accent-blue)' }}>{'\u25A0'}</span> weekly digest only{' '}
               <span>{'\u25A1'}</span> nothing published (covered by a digest if one spans it)
@@ -403,16 +403,17 @@ function DayChip({
       className="shrink-0 font-mono text-xs border transition-colors"
       style={{
         borderColor: selected ? 'var(--accent-gold)' : kind === 'none' ? 'var(--border)' : accent,
-        color: selected ? 'var(--accent-gold)' : accent,
-        background: selected ? 'rgba(232,197,71,0.08)' : 'transparent',
-        opacity: kind === 'none' && !selected ? 0.55 : 1,
+        borderStyle: kind === 'none' && !selected ? 'dashed' : 'solid',
+        // No opacity dimming (it took day labels under 4.5:1): a day without briefs is muted text, dashed.
+        color: selected ? 'var(--accent-gold)' : kind === 'none' ? 'var(--text-muted)' : accent,
+        background: selected ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent',
         minWidth: compact ? '44px' : '52px',
         padding: compact ? '4px 6px' : '6px 12px',
         borderRadius: '2px',
       }}
     >
       <div>{d}</div>
-      {!compact && <div style={{ fontSize: '11px', opacity: 0.7 }}>{dayLabel(d)}</div>}
+      {!compact && <div style={{ fontSize: '13px' }}>{dayLabel(d)}</div>}
     </button>
   );
 }
@@ -422,12 +423,12 @@ function QualityBadge({ quality }: { quality: string }) {
     full:          { label: 'PLATFORM', color: 'var(--accent-gold)' },
     auto:          { label: 'AUTO', color: 'var(--accent-blue)' },
     reconstructed: { label: 'RECONSTRUCTED', color: 'var(--text-muted)' },
-    community:     { label: 'COMMUNITY', color: '#a855f7' },
+    community:     { label: 'COMMUNITY', color: 'var(--text-secondary)' },
   };
   const q = map[quality] ?? { label: quality.toUpperCase(), color: 'var(--text-muted)' };
   return (
     <span className="font-mono shrink-0"
-          style={{ fontSize: '11px', letterSpacing: '1px', color: q.color,
+          style={{ fontSize: '13px', letterSpacing: '1px', color: q.color,
                    border: `1px solid ${q.color}`, padding: '1px 4px' }}>
       {q.label}
     </span>
@@ -464,7 +465,7 @@ function CoverStats({ stats, type }: { stats: Record<string, unknown>; type: str
     <div className="flex flex-wrap gap-3">
       {entries.map((e, i) => (
         <div key={i}>
-          <div className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+          <div className="font-mono" style={{ fontSize: '13px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
             {e.label}
           </div>
           <div className="font-display text-sm"

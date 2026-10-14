@@ -47,7 +47,7 @@ export function TranslationBanner() {
       aria-label="Translation notice"
     >
       <Icon name="globe" size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>
+      <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)', flex: 1, lineHeight: 1.5 }}>
         This platform is published in English only.{' '}
         <span style={{ color: 'var(--text-muted)' }}>
           Chrome/Edge: right-click → Translate · Safari: tap AA → Translate · Firefox: translate icon in address bar ·{' '}
@@ -66,7 +66,7 @@ export function TranslationBanner() {
         onClick={dismiss}
         aria-label="Dismiss translation notice"
         style={{
-          fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)',
           background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, padding: 0,
           letterSpacing: '1px',
           // 44×44 tap target; the negative margins keep the banner its original height.

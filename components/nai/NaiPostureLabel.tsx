@@ -20,7 +20,7 @@ export function NaiPostureLabel({ expressed, countryCode, hideHeading = false, c
   if (label === null) return null;
   return (
     <span
-      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[11px] ${className}`}
+      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[13px] ${className}`}
       title={NAI_POSTURE_NOTE}
       data-nai-posture={label}
       translate="no"

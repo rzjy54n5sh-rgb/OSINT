@@ -19,7 +19,7 @@ export function EgyptCoverage({ ledgerCount, economyBriefDay }: { ledgerCount: n
       </p>
       <ul className="space-y-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
         <li>
-          <span className="block uppercase text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="block uppercase text-[13px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
             Stated positions and acts
           </span>
           What Egypt&apos;s government says about continuing the wars, word for word with date and link, and what it
@@ -29,7 +29,7 @@ export function EgyptCoverage({ ledgerCount, economyBriefDay }: { ledgerCount: n
           </a>
         </li>
         <li>
-          <span className="block uppercase text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="block uppercase text-[13px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
             Economy
           </span>
           The daily Egypt &amp; Gulf Economy brief: currency, energy, shipping, Suez and market access.{' '}
@@ -38,7 +38,7 @@ export function EgyptCoverage({ ledgerCount, economyBriefDay }: { ledgerCount: n
           </Link>
         </li>
         <li>
-          <span className="block uppercase text-[11px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
+          <span className="block uppercase text-[13px] mb-0.5" style={{ color: 'var(--text-muted)' }}>
             Pound and shipping indicators
           </span>
           The USD/EGP rate and the Hormuz and Bab al-Mandeb transit counts, each with its source and collection time.{' '}

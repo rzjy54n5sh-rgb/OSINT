@@ -20,13 +20,13 @@ export default function NotFound() {
         <div style={{ position: 'absolute', bottom: -1, left: -1, width: 16, height: 16, borderBottom: '2px solid var(--accent-gold)', borderLeft: '2px solid var(--accent-gold)' }} />
         <div style={{ position: 'absolute', bottom: -1, right: -1, width: 16, height: 16, borderBottom: '2px solid var(--accent-gold)', borderRight: '2px solid var(--accent-gold)' }} />
 
-        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 12 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 12 }}>
           ◆ ERROR 404
         </div>
         <h1 style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 48, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '2px', margin: '0 0 12px 0' }}>
           Page not found
         </h1>
-        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 24px 0' }}>
+        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.7, margin: '0 0 24px 0' }}>
           There is no page at this address. It may have been moved, or the link may be mistyped. Use the links below or
           the menu to find what you need.
         </p>
@@ -34,7 +34,7 @@ export default function NotFound() {
           <Link prefetch={false}
             href="/"
             style={{
-              fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1.5px',
+              fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1.5px',
               padding: '8px 20px', border: '1px solid var(--accent-gold)', minHeight: 44, display: 'inline-flex', alignItems: 'center',
               color: 'var(--accent-gold)', textDecoration: 'none',
             }}
@@ -44,7 +44,7 @@ export default function NotFound() {
           <Link prefetch={false}
             href="/warroom"
             style={{
-              fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1.5px',
+              fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1.5px',
               padding: '8px 20px', border: '1px solid var(--accent-red)', minHeight: 44, display: 'inline-flex', alignItems: 'center',
               color: 'var(--accent-red)', textDecoration: 'none',
             }}

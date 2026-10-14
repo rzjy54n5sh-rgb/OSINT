@@ -57,14 +57,6 @@ import {
 } from '@/lib/scenario-registry';
 import type { Article, MarketData, SocialTrend, DisinfoClaim } from '@/types/supabase';
 
-const COUNTRY_EMOJI: Record<string, string> = {
-  IR: '🇮🇷', IL: '🇮🇱', IQ: '🇮🇶', YE: '🇾🇪', AE: '🇦🇪', SA: '🇸🇦', EG: '🇪🇬',
-  TR: '🇹🇷', RU: '🇷🇺', SY: '🇸🇾', LB: '🇱🇧', JO: '🇯🇴', QA: '🇶🇦', KW: '🇰🇼',
-  BH: '🇧🇭', OM: '🇴🇲', PS: '🇵🇸', LY: '🇱🇾', SD: '🇸🇩', DZ: '🇩🇿', MA: '🇲🇦',
-  TN: '🇹🇳', CN: '🇨🇳', US: '🇺🇸', GB: '🇬🇧', FR: '🇫🇷', DE: '🇩🇪', IN: '🇮🇳', PK: '🇵🇰',
-  ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
-};
-
 /**
  * Identity + (only when the viewer's tier unlocks it) the narrative, from viewer_country_report.
  * Operator ruling 2026-10-07: paid War Posture / country-report details are locked everywhere for
@@ -161,7 +153,7 @@ type IndexRow = Pick<Article, 'country' | 'published_at'>;
 /** Fixed-size placeholder grid shown until the first read completes (same classes as the real grid). */
 function WarRoomSkeleton() {
   const bar = (w: string, h = 10) => (
-    <div style={{ width: w, height: h, background: 'rgba(255,255,255,0.06)', borderRadius: 1 }} />
+    <div style={{ width: w, height: h, background: 'color-mix(in srgb, var(--text) 6%, transparent)', borderRadius: 1 }} />
   );
   return (
     <div className="warroom-grid" aria-busy="true" aria-label="Loading War Room data">
@@ -546,7 +538,7 @@ export default function WarRoomPage() {
     return countryMatches(a.country, activeCountry) && Date.now() - new Date(a.published_at).getTime() < 86400000;
   }).length;
   const confidence = countryRecentCount > 15 ? 'HIGH' : countryRecentCount > 5 ? 'MEDIUM' : 'LOW';
-  const confColor = confidence === 'HIGH' ? 'var(--nai-safe)' : confidence === 'MEDIUM' ? 'var(--accent-gold)' : 'var(--accent-red)';
+  const confColor = confidence === 'HIGH' ? 'var(--status-normal)' : confidence === 'MEDIUM' ? 'var(--status-elevated)' : 'var(--status-closed)';
 
   const mono = { fontFamily: 'var(--font-mono), monospace' } as const;
 
@@ -557,10 +549,10 @@ export default function WarRoomPage() {
         <div
           style={{
             padding: '10px 16px',
-            background: 'rgba(224,82,82,0.1)',
+            background: 'color-mix(in srgb, var(--status-closed) 10%, transparent)',
             borderBottom: '1px solid var(--accent-red)',
             fontFamily: 'var(--font-mono), monospace',
-            fontSize: 11,
+            fontSize: 13,
             color: 'var(--accent-red)',
           }}
           role="alert"
@@ -578,7 +570,7 @@ export default function WarRoomPage() {
           justifyContent: 'center',
           gap: 16,
           fontFamily: 'var(--font-mono), monospace',
-          fontSize: 11,
+          fontSize: 13,
           letterSpacing: '1.5px',
           color: 'var(--text-muted)',
           background: 'var(--bg-secondary)',
@@ -639,14 +631,14 @@ export default function WarRoomPage() {
               alignItems: 'center',
               gap: 12,
               padding: '7px 16px',
-              background: 'rgba(224,82,82,0.08)',
-              borderBottom: '1px solid rgba(224,82,82,0.3)',
+              background: 'color-mix(in srgb, var(--status-closed) 8%, transparent)',
+              borderBottom: '1px solid color-mix(in srgb, var(--status-closed) 30%, transparent)',
             }}
           >
             <span
               style={{
                 fontFamily: 'var(--font-mono), monospace',
-                fontSize: 11,
+                fontSize: 13,
                 color: 'var(--accent-red)',
                 letterSpacing: '2px',
                 border: '1px solid var(--accent-red)',
@@ -667,7 +659,7 @@ export default function WarRoomPage() {
                   style={{
                     display: 'block',
                     fontFamily: 'var(--font-mono), monospace',
-                    fontSize: 12,
+                    fontSize: 13,
                     color: 'var(--text-primary)',
                     textDecoration: 'none',
                     overflow: 'hidden',
@@ -683,7 +675,7 @@ export default function WarRoomPage() {
             <span
               style={{
                 fontFamily: 'var(--font-mono), monospace',
-                fontSize: 11,
+                fontSize: 13,
                 color: 'var(--text-muted)',
                 flexShrink: 0,
               }}
@@ -697,7 +689,7 @@ export default function WarRoomPage() {
         <aside className="warroom-panel warroom-left-panel" style={{ width: 280, minWidth: 0 }} aria-label="Theatre countries">
           <div className="warroom-panel-header">
             <h2 className="warroom-h2">◆ THEATRE COUNTRIES</h2>
-            <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: 13, letterSpacing: '1px' }}>
               {countries.length} TRACKED · WAR POSTURE DAY {naiDay ?? '—'}
             </span>
           </div>
@@ -727,16 +719,16 @@ export default function WarRoomPage() {
                   <span
                     translate="no"
                     title={d === null ? 'No change on new evidence' : `Changed on new evidence since Day ${r?.previous_day}`}
-                    style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
+                    style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, fontWeight: 'bold', color: 'var(--text-secondary)', flexShrink: 0, width: 16 }}
                   >
                     {/* neutral colour: a move toward escalation or ceasefire is not "good" or "bad" */}
                     {d === null ? '·' : d > 0 ? '↑' : d < 0 ? '↓' : '→'}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }} translate="no">
-                    <div className="country-name" style={{ color: 'var(--text-primary)', fontSize: 12, fontWeight: 500 }}>
+                    <div className="country-name" style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}>
                       {name}
                     </div>
-                    <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 11, marginTop: 2 }}>
+                    <div className="country-meta" style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 2 }}>
                       {dual ? (
                         // One line per authority (Yemen), never one merged number.
                         actorsFor(code).map((a, i) => {
@@ -770,7 +762,7 @@ export default function WarRoomPage() {
                       )}
                     </div>
                   </div>
-                  <span className="article-count" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)' }} title="Articles in the last 500 collected">
+                  <span className="article-count" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)' }} title="Articles in the last 500 collected">
                     {count}
                   </span>
                 </button>
@@ -778,7 +770,7 @@ export default function WarRoomPage() {
             })}
           </div>
           <div style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}>
-            <h2 className="warroom-h2" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
+            <h2 className="warroom-h2" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1.5px', color: 'var(--accent-gold)', marginBottom: 8, padding: '0 14px' }}>
               SCENARIOS — DAY {scenarioDay ?? '—'}
             </h2>
             <DataAsOf section="SCENARIOS" latestDay={scenarioDay} currentDay={CONFLICT_DAY} className="mx-3 mb-2" />
@@ -798,7 +790,7 @@ export default function WarRoomPage() {
                     data-testid={`warroom-scenario-${s.code}`}
                   >
                     <span style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 14, color, width: 12, flexShrink: 0 }}>{s.code}</span>
-                    <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ ...mono, fontSize: 13, color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {s.name_en}
                     </span>
                     {spark.filter((v) => v !== null).length > 1 && (
@@ -807,18 +799,18 @@ export default function WarRoomPage() {
                       </svg>
                     )}
                     <span
-                      style={{ ...mono, fontSize: 12, color: shown.kind === 'unmeasured' ? 'var(--text-muted)' : color, fontWeight: 500, minWidth: 32, textAlign: 'right', flexShrink: 0 }}
+                      style={{ ...mono, fontSize: 13, color: shown.kind === 'unmeasured' ? 'var(--text-muted)' : color, fontWeight: 500, minWidth: 32, textAlign: 'right', flexShrink: 0 }}
                       title={shown.kind === 'range' ? 'Range: A, C and D can happen in the same window' : undefined}
                     >
                       {shown.kind === 'unmeasured' ? '—' : shown.text}
                     </span>
-                    <span style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', minWidth: 30, textAlign: 'right' }} title={delta ? `since Day ${delta.sinceDay}, same method` : undefined}>
+                    <span style={{ ...mono, fontSize: 13, color: 'var(--text-secondary)', minWidth: 30, textAlign: 'right' }} title={delta ? `since Day ${delta.sinceDay}, same method` : undefined}>
                       {shown.kind === 'unmeasured' || p === null ? 'unmeasured' : residual ? 'range' : delta ? `${delta.delta > 0 ? '+' : ''}${delta.delta}` : '—'}
                     </span>
                   </div>
                 );
               })}
-            <div style={{ padding: '6px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
+            <div style={{ padding: '6px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', borderTop: '1px solid var(--border)', lineHeight: 1.5 }}>
               {currentSeries
                 ? `Changes since Day ${currentSeries.firstDay}, ${currentSeries.method} only. Earlier days used a retired method and are not compared.`
                 : 'No published scenario day yet.'}{' '}
@@ -834,15 +826,15 @@ export default function WarRoomPage() {
           {/* Selected country header — wraps (never overlaps) on narrow screens */}
           <div className="warroom-panel-header warroom-center-head" style={{ flexShrink: 0, flexWrap: 'wrap', gap: '6px 12px', minHeight: 44 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
-              <span style={{ fontSize: 18 }} aria-hidden="true">{COUNTRY_EMOJI[activeCountry] ?? '🏳️'}</span>
+              <span style={{ fontSize: 13, fontFamily: 'var(--font-mono), monospace', color: 'var(--text-secondary)', border: '1px solid var(--border)', padding: '1px 5px', borderRadius: 2 }} translate="no">{activeCountry}</span>
               <span style={{ color: 'var(--text-primary)', fontSize: 14, fontFamily: 'var(--font-bebas), sans-serif' }} data-testid="warroom-country">
                 {activeName}
               </span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 11 }} translate="no" data-testid="warroom-wp">
+              <span style={{ color: 'var(--text-secondary)', fontSize: 13 }} translate="no" data-testid="warroom-wp">
                 WAR POSTURE{activeDual ? ' · TWO AUTHORITIES, TWO LINES' : posture?.expressed_score != null ? ` ${posture.expressed_score}` : ''}
               </span>
               {posture && <PostureChip row={posture} />}
-              <span style={{ color: 'var(--text-muted)', fontSize: 11 }} translate="no">
+              <span style={{ color: 'var(--text-muted)', fontSize: 13 }} translate="no">
                 AS OF DAY {naiDay ?? '—'}
               </span>
             </div>
@@ -850,29 +842,29 @@ export default function WarRoomPage() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '5px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>FEED COVERAGE</span>
-            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
-            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>{countryRecentCount} articles / 24h</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '1px' }}>FEED COVERAGE</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: confColor, letterSpacing: '2px', border: `1px solid ${confColor}`, padding: '1px 7px' }}>{confidence}</span>
+            <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)' }}>{countryRecentCount} articles / 24h</span>
           </div>
 
           {/* War Posture block — fixed min-height so loading never shifts the feed below it */}
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', minHeight: 132 }} data-testid="warroom-posture">
             {!loaded ? (
-              <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)' }}>LOADING WAR POSTURE…</p>
+              <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)' }}>LOADING WAR POSTURE…</p>
             ) : postureRows.length === 0 ? (
-              <p style={{ ...mono, fontSize: 12, color: 'var(--text-secondary)' }}>
+              <p style={{ ...mono, fontSize: 13, color: 'var(--text-secondary)' }}>
                 No position on record for this government{board?.schema === 'v1' && naiDay != null ? ` on Day ${naiDay}` : ''}. Nothing is shown in place of a captured statement.
               </p>
             ) : postureRows[0].withheld ? (
               <div data-testid="warroom-posture-withheld">
                 <PostureChip row={postureRows[0]} />
-                <p style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>{POSTURE_WITHHELD_TEXT}</p>
+                <p style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>{POSTURE_WITHHELD_TEXT}</p>
                 {postureRows.find((r) => r.evidence)?.evidence ? (
                   <div style={{ marginTop: 6 }}>
                     <EvidenceQuote e={postureRows.find((r) => r.evidence)!.evidence!} compact />
                   </div>
                 ) : (
-                  <p style={{ ...mono, fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>No verbatim statement captured yet.</p>
+                  <p style={{ ...mono, fontSize: 13, color: 'var(--text-secondary)', marginTop: 6 }}>No verbatim statement captured yet.</p>
                 )}
               </div>
             ) : (
@@ -884,7 +876,7 @@ export default function WarRoomPage() {
                       {isFrozenV1(r) ? (
                         <V1FrozenTag row={r} />
                       ) : (
-                        <span style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
+                        <span style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', letterSpacing: '1px' }}>{cName(r.conflict_code).toUpperCase()}</span>
                       )}
                       {r.expressed_score !== null && (
                         <span style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 24, color: 'var(--text-primary)', lineHeight: 1 }}>{r.expressed_score}</span>
@@ -893,7 +885,7 @@ export default function WarRoomPage() {
                     </div>
                     <PostureAge row={r} className="block" />
                     {r.stance === 'position' && (
-                      <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 2 }}>
+                      <div style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', display: 'flex', flexWrap: 'wrap', gap: '2px 12px', marginTop: 2 }}>
                         <span data-locked={r.latentLocked ? 'latent' : undefined}>
                           SOCIETY {r.latentLocked ? `◆ ${LOCKED_TEXT}` : r.latent_low === null ? 'no admissible evidence' : formatBand(r.latent_low, r.latent_high)}
                         </span>
@@ -912,9 +904,9 @@ export default function WarRoomPage() {
               style={{
                 overflow: 'hidden',
                 height: 28,
-                background: 'rgba(224,82,82,0.04)',
+                background: 'color-mix(in srgb, var(--status-closed) 4%, transparent)',
                 borderBottom: '1px solid var(--border)',
-                borderTop: '1px solid rgba(224,82,82,0.15)',
+                borderTop: '1px solid color-mix(in srgb, var(--status-closed) 15%, transparent)',
                 display: 'flex',
                 alignItems: 'center',
               }}
@@ -924,7 +916,7 @@ export default function WarRoomPage() {
                   flexShrink: 0,
                   padding: '0 10px',
                   fontFamily: 'var(--font-mono), monospace',
-                  fontSize: 11,
+                  fontSize: 13,
                   color: 'var(--accent-red)',
                   letterSpacing: '2px',
                   borderRight: '1px solid var(--border)',
@@ -951,13 +943,13 @@ export default function WarRoomPage() {
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
                         fontFamily: 'var(--font-mono), monospace',
-                        fontSize: 11,
+                        fontSize: 13,
                         color: 'var(--text-secondary)',
                         letterSpacing: '0.3px',
                       }}
                     >
-                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{(a.country ?? 'INTL').toUpperCase().slice(0, 6)}</span>
-                      <span style={{ color: 'var(--border-bright)' }}>|</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>{(a.country ?? 'INTL').toUpperCase().slice(0, 6)}</span>
+                      <span style={{ color: 'var(--text-muted)' }} aria-hidden="true">|</span>
                       {(a.title ?? '').slice(0, 80)}
                       {(a.title?.length ?? 0) > 80 ? '…' : ''}
                     </a>
@@ -967,13 +959,13 @@ export default function WarRoomPage() {
             </div>
             {/* Live feed - top ~55% */}
             <div className="warroom-feed" style={{ flex: '0 0 55%', display: 'flex', flexDirection: 'column', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
-              <div style={{ padding: '8px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
+              <div style={{ padding: '8px 14px', fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '1px' }}>
                 ▸ LIVE INTELLIGENCE — {activeName} — REFRESHES EVERY 60s
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {filteredArticles.length === 0 ? (
                   feedLoading ? (
-                    <p style={{ padding: 14, fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)' }}>LOADING FEED…</p>
+                    <p style={{ padding: 14, fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)' }}>LOADING FEED…</p>
                   ) : feedError ? null : (
                     <p className="redacted" style={{ padding: 14 }}>{'// NO DATA AVAILABLE'}</p>
                   )
@@ -989,7 +981,7 @@ export default function WarRoomPage() {
                           </span>
                         )}
                         {a.sentiment && (
-                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 11 }} translate="no">
+                          <span className={`sentiment-badge ${(a.sentiment ?? 'neutral').toLowerCase()}`} style={{ fontSize: 13 }} translate="no">
                             {a.sentiment}
                           </span>
                         )}
@@ -1013,7 +1005,7 @@ export default function WarRoomPage() {
                 {/* A failed read is not "no data": say so and offer a retry (the 60 s refresh also retries). */}
                 {feedError && !feedLoading && (
                   <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }} role="status">
-                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-red)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-red)' }}>
                       FEED COULD NOT BE LOADED JUST NOW
                     </span>
                     <button
@@ -1045,7 +1037,7 @@ export default function WarRoomPage() {
             {/* Bottom row — War Posture evidence, risks/stabilizers (daily build), social */}
             <div className="warroom-intel-bottom" style={{ flex: '0 0 45%', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, minHeight: 0, overflow: 'hidden' }}>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="War Posture evidence">
-                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ WAR POSTURE EVIDENCE</div>
                 <hr className="data-rule" />
                 {postureRows.length > 0 ? (
                   <div style={{ marginTop: 8, display: 'grid', gap: 10 }}>
@@ -1057,16 +1049,16 @@ export default function WarRoomPage() {
                         </div>
                       ) : null,
                     )}
-                    <Link prefetch={false} href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 11, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
+                    <Link prefetch={false} href={`/countries/${activeCountry.toLowerCase()}`} style={{ ...mono, fontSize: 13, color: 'var(--accent-gold)', display: 'inline-block', marginTop: 6 }}>
                       Full country page →
                     </Link>
                   </div>
                 ) : (
-                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO SOURCED DATA'}</p>
+                  <p className="redacted" style={{ fontSize: 13, marginTop: 8 }}>{'// NO SOURCED DATA'}</p>
                 )}
               </div>
               <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', padding: 12 }} tabIndex={0} role="region" aria-label="Key risks and stabilizers">
-                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>
                   ▸ KEY RISKS{activeReport?.conflict_day != null && narrative ? ` · DAY ${activeReport.conflict_day}` : ''}
                 </div>
                 <hr className="data-rule" />
@@ -1075,25 +1067,25 @@ export default function WarRoomPage() {
                     <PaywallOverlay requiredTier={narrativeTier} featureName="Country report" compact />
                   </div>
                 )}
-                {narrativeLocked ? null : keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
-                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
+                {narrativeLocked ? null : keyRisks.length === 0 ? <p className="redacted" style={{ fontSize: 13, marginTop: 8 }}>{'// NONE'}</p> : keyRisks.map((r, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6 }}><span style={{ color: 'var(--accent-red)' }} aria-hidden="true">▸ </span>{r}</div>)}
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '1px', marginTop: 12, marginBottom: 8 }}>▸ STABILIZERS</div>
                 <hr className="data-rule" />
-                {narrativeLocked ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// LOCKED'}</p> : stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
+                {narrativeLocked ? <p className="redacted" style={{ fontSize: 13, marginTop: 8 }}>{'// LOCKED'}</p> : stabilizers.length === 0 ? <p className="redacted" style={{ fontSize: 13, marginTop: 8 }}>{'// NONE'}</p> : stabilizers.map((s, i) => <div key={i} style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 6 }}><span style={{ color: 'var(--accent-green)' }} aria-hidden="true">▸ </span>{s}</div>)}
               </div>
               <div style={{ overflowY: 'auto', padding: 12 }}>
-                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
+                <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '1px', marginBottom: 8 }}>▸ SOCIAL PULSE</div>
                 <hr className="data-rule" />
                 {!socialForCountry ? (
-                  <p className="redacted" style={{ fontSize: 12, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
+                  <p className="redacted" style={{ fontSize: 13, marginTop: 8 }}>{'// NO DATA AVAILABLE'}</p>
                 ) : (
                   <>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-primary)', marginTop: 4 }}>Trend: {socialForCountry.trend ?? '—'}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Platform: {socialForCountry.platform ?? '—'}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-primary)', marginTop: 4 }}>Trend: {socialForCountry.trend ?? '—'}</div>
                     <div style={{ marginTop: 4 }}>
-                      <span style={{ fontSize: 11, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
+                      <span style={{ fontSize: 13, color: mapSentimentDisplay(socialForCountry.sentiment).color, fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.5px' }}>{mapSentimentDisplay(socialForCountry.sentiment).label}</span>
                     </div>
                     {socialForCountry.engagement_estimate != null && (
-                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
                         Engagement: {formatEngagement(socialForCountry.engagement_estimate)}
                         {socialEngagement != null && socialEngagement > 0 && (
                           <span style={{ color: 'var(--text-muted)' }}> ({Math.round(socialEngagement).toLocaleString()})</span>
@@ -1150,7 +1142,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <h2 className="warroom-h2">▸ SENTIMENT MATRIX</h2>
           </div>
-          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 11, fontFamily: 'var(--font-mono), monospace' }}>
+          <div style={{ padding: 10, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 13, fontFamily: 'var(--font-mono), monospace' }}>
             {countries.slice(0, 12).map((code) => {
               const sentRaw = sentimentByCountry[code] ?? null;
               const { label, color } = mapSentimentDisplay(sentRaw);
@@ -1175,7 +1167,7 @@ export default function WarRoomPage() {
                 <span
                   className="verdict-badge"
                   style={{
-                    fontSize: 11,
+                    fontSize: 13,
                     padding: '2px 5px',
                     marginRight: 8,
                     color: c.verdict === 'FALSE' ? 'var(--accent-red)' : c.verdict === 'MISLEADING' ? 'var(--accent-orange)' : c.verdict === 'TRUE' ? 'var(--accent-green)' : 'var(--text-muted)',
@@ -1184,7 +1176,7 @@ export default function WarRoomPage() {
                 >
                   {c.verdict ?? 'UNVERIFIED'}
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{(c.claim_text ?? '').slice(0, 80)}…</span>
+                <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{(c.claim_text ?? '').slice(0, 80)}…</span>
               </div>
             ))
           )}
@@ -1192,7 +1184,7 @@ export default function WarRoomPage() {
           <div className="warroom-panel-header" style={{ marginTop: 8 }}>
             <h2 className="warroom-h2">▸ LATEST ROW PER FEED</h2>
           </div>
-          <div style={{ padding: '8px 14px', fontSize: 11, fontFamily: 'var(--font-mono), monospace' }}>
+          <div style={{ padding: '8px 14px', fontSize: 13, fontFamily: 'var(--font-mono), monospace' }}>
             {['articles', 'markets', 'social', 'disinfo'].map((key) => {
               const status = pipelineStatus(key);
               const color = status === 'green' ? 'var(--accent-green)' : status === 'orange' ? 'var(--accent-orange)' : 'var(--accent-red)';

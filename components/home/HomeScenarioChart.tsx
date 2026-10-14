@@ -26,8 +26,8 @@ export function HomeScenarioChart({
     <div className="h-48">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={scenarioChartData}>
-          <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
-          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} />
+          <XAxis dataKey="day" tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
+          <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 12 }} />
           <Tooltip
             contentStyle={{
               background: 'var(--bg-card)',

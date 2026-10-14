@@ -54,19 +54,20 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
               {latest.conflict_day !== currentDay ? ` · NO DATA FOR DAY ${currentDay}` : ''}
             </span>
             {latest.change_pct != null && (
-              <span style={{ color: latest.change_pct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }} translate="no">
+              <span style={{ color: 'var(--text-primary)' }} translate="no">
+                {latest.change_pct !== 0 ? <span aria-hidden="true">{latest.change_pct > 0 ? '▲ ' : '▼ '}</span> : null}
                 {latest.change_pct >= 0 ? '+' : ''}
                 {latest.change_pct}%
               </span>
             )}
           </div>
-          <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }} translate="no">
+          <p className="font-mono text-[13px] mb-2" style={{ color: 'var(--text-muted)' }} translate="no">
             COLLECTED {fmtUtc(latest.created_at)} · {v.cadence}
             {latest.reconstructed ? ' · RECONSTRUCTED' : ''}
           </p>
           {latest.source && (
             <details className="mb-3">
-              <summary className="font-mono text-[11px] cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+              <summary className="font-mono text-[13px] cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
                 SOURCE: {latest.source.length > 70 ? `${latest.source.slice(0, 70)}…` : latest.source}
               </summary>
               <p className="font-body text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -83,9 +84,9 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
                   domain={['dataMin', 'dataMax']}
                   allowDecimals={false}
                   padding={{ left: 8, right: 8 }}
-                  tick={{ fill: '#8A9BB5', fontSize: 11 }}
+                  tick={{ fill: 'var(--muted)', fontSize: 12 }}
                 />
-                <YAxis tick={{ fill: '#8A9BB5', fontSize: 11 }} domain={['auto', 'auto']} width={56} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} domain={['auto', 'auto']} width={56} />
                 <Tooltip
                   contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 2 }}
                   labelFormatter={(d) => `Day ${d}`}
@@ -97,7 +98,7 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
                 <Line
                   type="linear"
                   dataKey="value"
-                  stroke="var(--accent-gold)"
+                  stroke="var(--text-secondary)"
                   strokeWidth={1.5}
                   dot={showDots ? { r: 3 } : false}
                   isAnimationActive={false}
@@ -105,7 +106,7 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="font-mono text-[13px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             Chart: {v.series.length} day{v.series.length === 1 ? '' : 's'} in this unit only (one point per day, latest
             collection of the day).
             {recon > 0 ? ` ${recon} point${recon === 1 ? ' is a' : 's are'} reconstructed daily close${recon === 1 ? '' : 's'} (backfill 2026-10).` : ''}

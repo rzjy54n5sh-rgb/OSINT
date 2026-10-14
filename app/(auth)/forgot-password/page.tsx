@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full font-mono text-sm py-2 border rounded-sm hover:opacity-90 disabled:opacity-50"
+              className="w-full font-mono text-sm py-2 border rounded-sm hover:underline underline-offset-4 disabled:opacity-50"
               style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
             >
               Send reset link

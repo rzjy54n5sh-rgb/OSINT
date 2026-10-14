@@ -186,8 +186,8 @@ export function postureSwatchHex(row: { label: PostureLabelCode | null; expresse
   const score = typeof row.expressed_score === 'number' ? row.expressed_score : postureLabelDef(row.label)?.anchor;
   return postureScaleColor(score, { countryCode: row.country_code });
 }
-export const POSTURE_SILENCE_COLOR = '#5B6472';
-export const POSTURE_NODATA_COLOR = '#2E3A4E';
+export const POSTURE_SILENCE_COLOR = 'var(--muted)';
+export const POSTURE_NODATA_COLOR = 'var(--line-strong)';
 export const POSTURE_DEFENSIVE_TEXT = 'citing attacks on its own territory';
 
 export function postureLabelFor(e: number | null | undefined): PostureLabelCode | null {

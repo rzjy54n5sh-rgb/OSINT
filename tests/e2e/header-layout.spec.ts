@@ -4,7 +4,9 @@
  * NEXT_PUBLIC_ENABLE_AR=1 build) the Arabic toggle and Arabic UI:
  *  - no two header children overlap and every visible control is clickable at its centre;
  *  - the visible stamp never shows a time without its date unless that time is today (UTC);
- *  - with stale data the stale chip and its visible word ("Stale") are on screen.
+ *  - with stale data the stale chip and its visible word ("Stale") are on screen;
+ *  - the theme toggle ("Light theme", in More on desktop and in the menu on phones) is reachable, switches
+ *    <html> to data-theme="light", persists the choice, and the light header passes the same layout audit.
  *
  *   PW_BASE_URL=http://127.0.0.1:3000 npx playwright test tests/e2e/header-layout.spec.ts --reporter=list
  *   (AR build: also set HEADER_EXPECT_AR=1 so the Arabic cases run and the toggle must exist.)
@@ -136,5 +138,39 @@ for (const w of WIDTHS)
         await opener.click();
         await expect(page.locator('header').getByRole('button', { name: /Switch to (Arabic|English)/ })).toBeVisible();
       }
+      // Theme toggle: reachable from the More / menu disclosure at every width and state.
+      const disclosure = page.locator('header').locator('button[aria-expanded]').filter({ visible: true }).first();
+      if ((await disclosure.getAttribute('aria-expanded')) !== 'true') await disclosure.click();
+      const themeButton = page.locator('header').getByRole('button', { name: 'Light theme' });
+      await expect(themeButton).toBeVisible();
+      await expect(themeButton).toHaveAttribute('aria-pressed', 'false');
+      await themeButton.click();
+      await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+      await expect(themeButton).toHaveAttribute('aria-pressed', 'true');
+      expect(await page.evaluate(() => localStorage.getItem('mid-theme'))).toBe('light');
+      await page.keyboard.press('Escape');
+      const light = await audit(page);
+      expect(light, `light: ${JSON.stringify(light)}`).toMatchObject({ overlaps: [], notClickable: [], outside: [], pageOverflow: false });
       await ctx.close();
     });
+
+/** The stored choice is applied before the first frame (no flash); without one the OS light preference is ignored. */
+for (const stored of ['light', 'dark', null] as const)
+  test(`theme before first paint — stored ${stored ?? 'none'} (OS prefers light)`, async ({ browser }) => {
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 800 }, colorScheme: 'light' });
+    await ctx.addInitScript((s) => {
+      try {
+        if (s) localStorage.setItem('mid-theme', s);
+      } catch {}
+      requestAnimationFrame(() => {
+        (window as unknown as { __firstFrameTheme: string | null }).__firstFrameTheme = document.documentElement.getAttribute('data-theme');
+      });
+    }, stored);
+    const page = await ctx.newPage();
+    await page.goto('/scenarios', { waitUntil: 'load' });
+    const first = await page.evaluate(() => (window as unknown as { __firstFrameTheme: string | null }).__firstFrameTheme);
+    expect(first).toBe(stored === 'light' ? 'light' : stored === 'dark' ? 'dark' : null);
+    const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(bg).toBe(stored === 'light' ? 'rgb(255, 255, 255)' : 'rgb(11, 15, 20)');
+    await ctx.close();
+  });

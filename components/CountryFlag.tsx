@@ -1,13 +1,10 @@
 'use client';
 
-const COUNTRY_EMOJI: Record<string, string> = {
-  IR: '🇮🇷', SA: '🇸🇦', IQ: '🇮🇶', SY: '🇸🇾', LB: '🇱🇧', YE: '🇾🇪',
-  EG: '🇪🇬', JO: '🇯🇴', AE: '🇦🇪', QA: '🇶🇦', KW: '🇰🇼', BH: '🇧🇭',
-  OM: '🇴🇲', IL: '🇮🇱', PS: '🇵🇸', TR: '🇹🇷', LY: '🇱🇾', SD: '🇸🇩',
-  DZ: '🇩🇿', MA: '🇲🇦', TN: '🇹🇳', GB: '🇬🇧', IN: '🇮🇳', US: '🇺🇸', FR: '🇫🇷', DE: '🇩🇪', PK: '🇵🇰', CN: '🇨🇳', RU: '🇷🇺',
-  ET: '🇪🇹', ER: '🇪🇷', SO: '🇸🇴', DJ: '🇩🇯',
-};
-
+/**
+ * No flag emoji (design system v2): flags render inconsistently across platforms (Windows shows two
+ * letters), carry national colour into a neutral desk and do not follow the theme. The ISO code and the
+ * name are the identifier.
+ */
 export const COUNTRY_NAMES: Record<string, string> = {
   IL: 'Israel', GB: 'United Kingdom', AE: 'UAE', QA: 'Qatar', SA: 'Saudi Arabia',
   KW: 'Kuwait', IN: 'India', US: 'United States', JO: 'Jordan', TR: 'Turkey',
@@ -24,12 +21,10 @@ type CountryFlagProps = {
 };
 
 export function CountryFlag({ code, name, className = '' }: CountryFlagProps) {
-  const emoji = COUNTRY_EMOJI[code?.toUpperCase()] ?? '🏳️';
   const displayName = name ?? COUNTRY_NAMES[code?.toUpperCase()] ?? code ?? '—';
   const label = code ? `${code} — ${displayName}` : displayName;
   return (
     <span className={`inline-flex items-center gap-1.5 font-mono text-sm ${className}`} translate="no">
-      <span aria-hidden>{emoji}</span>
       <span>{label}</span>
     </span>
   );

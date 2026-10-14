@@ -4,6 +4,7 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import AgentPanel from '@/components/admin/AgentPanel';
 import { AdminNotificationBanner } from '@/components/admin/AdminNotificationBanner';
+import { AdminThemeLock } from '@/components/admin/AdminThemeLock';
 import type { AdminRole } from '@/types';
 
 export default async function AdminLayout({
@@ -37,7 +38,9 @@ export default async function AdminLayout({
   const failingSourcesCount = sourcesRes.count ?? 0;
 
   return (
-    <div className="flex h-screen" style={{ background: 'var(--bg)', color: 'var(--text-primary)' }}>
+    // Forced dark: the admin panel is not converted to the light theme (see AdminThemeLock).
+    <div data-theme="dark" className="flex h-screen" style={{ background: 'var(--bg)', color: 'var(--text-primary)' }}>
+      <AdminThemeLock />
       <AdminSidebar role={role} disputeCount={disputeCount} failingSourcesCount={failingSourcesCount} />
       <main className="flex-1 overflow-auto">
         <div style={{ position: 'fixed', top: 8, right: 80, zIndex: 50 }}>

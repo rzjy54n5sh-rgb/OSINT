@@ -13,12 +13,12 @@
 export type Theme = 'dark' | 'light';
 
 /**
- * Light theme on screen. OFF in this release: 19 of 37 routes still hard-code dark-only colours, so the
- * header renders no theme toggle and the root layout's boot script ignores a stored 'light'. The
- * [data-theme='light'] tokens stay (and print always uses them); the route-by-route migration is a
- * follow-up. Flip to true only when that sweep lands.
+ * Light theme on screen: ON. Every public route takes its colours from the tokens (tests/unit/
+ * light-theme.check.ts fails on a new hard-coded colour). Dark stays the default; the header's
+ * ThemeToggle stores a choice and the root layout's boot script applies it before first paint. The admin
+ * panel is not converted and is forced dark (app/(admin)/admin/layout.tsx). Print always uses light.
  */
-export const LIGHT_THEME_ENABLED = false;
+export const LIGHT_THEME_ENABLED = true;
 
 export const LANE_STATUSES = ['NORMAL', 'ELEVATED', 'DISRUPTED', 'CLOSED', 'UNKNOWN'] as const;
 export type LaneStatusCode = (typeof LANE_STATUSES)[number];

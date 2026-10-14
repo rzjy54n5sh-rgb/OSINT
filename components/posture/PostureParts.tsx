@@ -82,7 +82,7 @@ export function PostureActorTag({
   if (!label) return null;
   return (
     <span
-      className={`font-mono text-[11px] uppercase ${className}`}
+      className={`font-mono text-[13px] uppercase ${className}`}
       style={{ color: 'var(--text-secondary)' }}
       data-testid="posture-actor"
       data-actor={row.actor}
@@ -98,7 +98,7 @@ export function PostureActorTag({
 export function PostureChip({ row, className = '' }: { row: PostureView; className?: string }) {
   return (
     <span
-      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[11px] ${className}`}
+      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[13px] ${className}`}
       data-posture-stance={row.stance}
       data-posture-label={row.label ?? undefined}
       translate="no"
@@ -122,7 +122,7 @@ export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 's
   const note = v2UncodedNote(row);
   return (
     <span
-      className={`font-mono text-[11px] ${className}`}
+      className={`font-mono text-[13px] ${className}`}
       style={{ color: 'var(--text-muted)' }}
       data-testid="posture-v1-frozen"
       title="Last score under the old method (one blended number across wars). No longer updated, and never counted as a change."
@@ -140,7 +140,7 @@ export function PostureAge({ row, className = '' }: { row: PostureView; classNam
   if (!line && !row.confidence_now) return null;
   const decayed = row.confidence_now && row.confidence_base && row.confidence_now !== row.confidence_base;
   return (
-    <span className={`font-mono text-[11px] ${className}`} style={{ color: 'var(--text-muted)' }} data-testid="posture-age" data-freshness={row.freshness ?? undefined}>
+    <span className={`font-mono text-[13px] ${className}`} style={{ color: 'var(--text-muted)' }} data-testid="posture-age" data-freshness={row.freshness ?? undefined}>
       {line}
       {row.confidence_now && (
         <>
@@ -167,7 +167,7 @@ export function PostureScaleLegend({ compact = false, showWithheld = true }: { c
     <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 10, background: postureBandVar(band), flexShrink: 0 }} />
   );
   return (
-    <div className={`font-mono text-[10px] flex ${compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-0.5'}`} data-testid="posture-legend">
+    <div className={`font-mono text-[13px] flex ${compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-0.5'}`} data-testid="posture-legend">
       <span className={`inline-flex items-center gap-1 ${compact ? 'basis-full' : ''}`} data-testid="posture-legend-bands">
         {POSTURE_BANDS.map((b) => (
           <span key={b.band} className="inline-flex items-center gap-0.5">
@@ -205,7 +205,7 @@ export function EvidenceQuote({ e, compact = false }: { e: PostureEvidenceView; 
   const kindTag = e.kind === 'act' ? (ACT_TEXT[e.act_type ?? 'other'] ?? 'Act') : e.kind === 'silence_trigger' ? 'Unanswered trigger' : 'Statement';
   return (
     <figure className="m-0" data-testid="posture-evidence" data-kind={e.kind}>
-      <p className="font-mono text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
+      <p className="font-mono text-[13px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
         {kindTag}
         {stated ? ` · ${stated}` : ''}
         {captured && captured !== stated ? ` · captured ${captured}` : ''}
@@ -214,11 +214,11 @@ export function EvidenceQuote({ e, compact = false }: { e: PostureEvidenceView; 
       </p>
       <blockquote
         className="m-0 pl-3 text-sm leading-relaxed"
-        style={{ borderLeft: '2px solid var(--border-bright, #3A4458)', color: 'var(--text-primary)' }}
+        style={{ borderLeft: '2px solid var(--border-bright)', color: 'var(--text-primary)' }}
       >
         {e.kind === 'statement' ? <>&ldquo;{compact && e.quote.length > 220 ? `${e.quote.slice(0, 217)}…` : e.quote}&rdquo;</> : compact && e.quote.length > 220 ? `${e.quote.slice(0, 217)}…` : e.quote}
       </blockquote>
-      <figcaption className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+      <figcaption className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
         {(e.speaker || e.speaker_office) && (
           <span style={{ color: 'var(--text-secondary)' }}>
             {e.speaker}
@@ -253,8 +253,8 @@ export function CitedReporting({ sources, compact = false }: { sources: NaiSourc
   if (sources.length === 0) return null;
   const list = compact ? sources.slice(0, 2) : sources;
   return (
-    <div className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="posture-cited">
-      <p className="uppercase text-[10px] tracking-wide">Reporting cited by the desk (summaries, not verbatim quotes)</p>
+    <div className="font-mono text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="posture-cited">
+      <p className="uppercase text-[13px] tracking-wide">Reporting cited by the desk (summaries, not verbatim quotes)</p>
       <ul className="mt-1 space-y-1">
         {list.map((s, i) => (
           <li key={`${s.url}-${i}`}>
@@ -294,12 +294,12 @@ export function PositionsLedger({
   return (
     <div className="space-y-4" data-testid="positions-ledger">
       {withheld && (
-        <p className="font-mono text-[11px] leading-relaxed border px-3 py-2" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-testid="posture-policy-note">
+        <p className="font-mono text-[13px] leading-relaxed border px-3 py-2" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-testid="posture-policy-note">
           {POSTURE_WITHHELD_TEXT}
         </p>
       )}
       <section aria-label="Stated positions">
-        <h3 className="font-mono text-[11px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
+        <h3 className="font-mono text-[13px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           Stated positions (verbatim)
         </h3>
         {statements.length === 0 ? (
@@ -310,7 +310,7 @@ export function PositionsLedger({
           <ul className="space-y-3">
             {statements.map((e, i) => (
               <li key={e.id ?? `${e.source_url}-${i}`}>
-                <p className="font-mono text-[10px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
+                <p className="font-mono text-[13px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
                   {conflictName(e.conflict_code)}
                 </p>
                 <EvidenceQuote e={e} />
@@ -320,7 +320,7 @@ export function PositionsLedger({
         )}
       </section>
       <section aria-label="Behavioural acts">
-        <h3 className="font-mono text-[11px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
+        <h3 className="font-mono text-[13px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           Behavioural acts (deployments, basing, votes)
         </h3>
         {acts.length === 0 ? (
@@ -331,7 +331,7 @@ export function PositionsLedger({
           <ul className="space-y-3">
             {acts.map((e, i) => (
               <li key={e.id ?? `${e.source_url}-${i}`}>
-                <p className="font-mono text-[10px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
+                <p className="font-mono text-[13px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
                   {conflictName(e.conflict_code)}
                 </p>
                 <EvidenceQuote e={e} />

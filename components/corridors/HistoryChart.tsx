@@ -86,7 +86,7 @@ export function HistoryChart({
         </div>
         <div className={s.plot}>
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
-            <line x1="0" x2="100" y1={y(100)} y2={y(100)} stroke="#5B6878" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+            <line x1="0" x2="100" y1={y(100)} y2={y(100)} stroke="var(--line-strong)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             <line x1="0" x2="100" y1={y(90)} y2={y(90)} stroke="var(--st-normal)" strokeOpacity="0.6" strokeDasharray="4 4" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             <line x1="0" x2="100" y1={y(50)} y2={y(50)} stroke="var(--st-elevated)" strokeOpacity="0.6" strokeDasharray="4 4" strokeWidth="1" vectorEffect="non-scaling-stroke" />
             {segments.map((seg, k) => {
@@ -118,7 +118,7 @@ export function HistoryChart({
               position: 'absolute',
               right: 0,
               top: `calc(${y(last.index!)}% - 26px)`,
-              fontSize: 12,
+              fontSize: 13,
               color: 'var(--tone)',
             }}
           >
