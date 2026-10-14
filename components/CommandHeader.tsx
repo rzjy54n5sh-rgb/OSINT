@@ -47,6 +47,7 @@ const s = {
   stamp: 'hdr-stamp',
   stampDate: 'hdr-stamp-date',
   stampDay: 'hdr-stamp-day',
+  stampWhen: 'hdr-stamp-when',
 } as const;
 
 /**
@@ -218,18 +219,19 @@ export function CommandHeader() {
   const groups = [...MORE_GROUPS, { key: 'navGroupAccount' as UIStringKey, en: 'Account', links: accountLinks }];
 
   // "Day 228 · 10:05 UTC" (or "· 13 Oct 22:40 UTC" when the newest article is from an earlier UTC day):
-  // calendar day (DAY LOCK) and the newest article's real timestamp. The parts are separate spans so the
-  // bar can drop the date (stale, phones) or keep the time only (Arabic UI) without overlapping the nav.
+  // calendar day (DAY LOCK) and the newest article's real timestamp. Rule: a time is never shown without
+  // its date unless it is today's (UTC). The parts are separate spans so the bar can drop "Day N" (stale,
+  // phones when dated, Arabic UI) or the whole stamp (stale on narrow phones), never the date alone.
   const updated = formatUtcStamp(lastUpdateAt);
   const dated = /^(\d{2} \w{3}) (.+)$/.exec(updated);
   const staleTitle = staleReasons.join(' · ') || 'Data may be out of date';
   const stamp = (
-    <span className={s.stamp} dir="ltr" translate="no">
+    <span className={s.stamp} dir="ltr" translate="no" data-dated={dated ? 'true' : undefined}>
       <span className={s.stampDay}>Day {conflictDay}</span>
       <span className={s.sep} aria-hidden="true">
         {' · '}
       </span>
-      <span>
+      <span className={s.stampWhen}>
         <span className="sr-only">, updated </span>
         {dated ? <span className={s.stampDate}>{dated[1]} </span> : null}
         {dated ? dated[2] : updated}
@@ -317,11 +319,8 @@ export function CommandHeader() {
 
         <div className={s.right}>
           {stamp}
-          {stale ? (
-            <span className={s.desktopOnly}>
-              <TrustChip kind="stale" label={staleLabel} title={staleTitle} className={s.staleChip} />
-            </span>
-          ) : null}
+          {/* Every width: glyph + visible "Stale". On narrow phones the stamp gives way to it (CSS). */}
+          {stale ? <TrustChip kind="stale" label={staleLabel} title={staleTitle} className={s.staleChip} /> : null}
           <Link prefetch={false} href={HEADER_CTA.href} className={`${s.cta} ${s.desktopOnly}`}>
             {HEADER_CTA.en}
           </Link>
@@ -343,6 +342,10 @@ export function CommandHeader() {
         <nav ref={menuPanel} id="header-menu" aria-label="Menu" className={s.menu}>
           <div className={s.menuInner}>
             {stale ? <TrustChip kind="stale" label="Data stale" title={staleTitle} /> : null}
+            {/* The full stamp (the bar may shorten or hide it on phones). */}
+            <span className={s.planLine} translate="no">
+              Day {conflictDay} · updated {updated}
+            </span>
             <ul className={s.menuPrimary}>
               {PRIMARY_NAV.map((item) => (
                 <li key={item.href}>

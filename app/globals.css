@@ -1192,7 +1192,9 @@ html[data-tb-dismissed] .translation-banner {
    fixed 1152 px; below it, the menu button. Nothing in the bar shrinks below its content (no clipping, no
    overlap): the nav keeps its width and the right cluster drops optional parts instead — the stamp's
    "Day N ·" when the stale chip shows or in the Arabic UI (longer nav labels; there the whole stamp yields
-   to the stale chip, whose word always stays); the language toggle lives in More on desktop.
+   to the stale chip, whose word always stays); the language toggle lives in More on desktop. Phones: the
+   stale chip shows in the bar; a time that is not today's always keeps its date (own line, "Day N"
+   dropped); below 420 px with stale data the whole stamp yields to the chip (full stamp in the menu).
    tests/e2e/header-layout.spec.ts checks 1024 / 1280 / 1440 px for overlaps and centre hit-tests.
    ============================================================ */
 .hdr {
@@ -1500,7 +1502,7 @@ html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
     display: none;
   }
   .hdr-right {
-    gap: 4px;
+    gap: 8px;
   }
   /* Phones: day over time, right-aligned, so the logo, stamp and menu button fit at 360 px. */
   .hdr-bar .hdr-stamp {
@@ -1512,6 +1514,16 @@ html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
   .hdr-sep {
     display: none;
   }
+  .hdr-stamp-when {
+    text-align: end;
+  }
+  /* Not today's time: drop "Day N" and put the date on its own line above the time — never the time alone. */
+  .hdr-stamp[data-dated] .hdr-stamp-day {
+    display: none;
+  }
+  .hdr-stamp[data-dated] .hdr-stamp-date {
+    display: block;
+  }
   .hdr-menu-button {
     display: inline-flex;
   }
@@ -1519,8 +1531,10 @@ html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
     color: var(--text);
   }
 }
+/* Narrow phones with stale data: the stamp (date and time together) gives way to the stale chip, whose
+   word always stays; the full stamp is in the menu. */
 @media (max-width: 419px) {
-  .hdr-bar .hdr-stamp-date {
+  .hdr-right:has([data-kind='stale']) .hdr-stamp {
     display: none;
   }
 }
@@ -1528,7 +1542,11 @@ html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
   .hdr-bar .hdr-stamp {
     display: none;
   }
+  .hdr-logo-text {
+    height: 16px;
+  }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .hdr-more-button svg {
     transition: none;
