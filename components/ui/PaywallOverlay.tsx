@@ -33,7 +33,7 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
         <Link
           prefetch={false}
           href={FOUNDING_ACCESS_HREF}
-          className="border px-2 py-1 rounded-sm hover:opacity-90 transition-opacity inline-flex items-center min-h-[24px]"
+          className="border px-2 py-1 rounded-sm hover:underline underline-offset-4 inline-flex items-center min-h-[24px]"
           style={{ borderColor: 'var(--line-strong)', color: 'var(--text)' }}
         >
           {FOUNDING_ACCESS_SHORT} →<span className="sr-only"> (unlocks: {featureName})</span>

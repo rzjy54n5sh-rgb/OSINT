@@ -61,7 +61,7 @@ export function TimelineDayNav({ dayNumbers }: Props) {
           <a
             key={d}
             href={`#day-${d}`}
-            className="font-mono text-[13px] px-2 py-1 rounded-sm border transition-colors hover:opacity-90"
+            className="font-mono text-[13px] px-2 py-1 rounded-sm border transition-colors hover:underline underline-offset-4"
             style={{
               borderColor: hash === `#day-${d}` ? 'var(--accent-gold)' : 'var(--border)',
               color: hash === `#day-${d}` ? 'var(--accent-gold)' : 'var(--text-secondary)',

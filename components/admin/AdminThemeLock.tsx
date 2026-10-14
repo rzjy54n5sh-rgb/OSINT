@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 /**
  * The admin panel is not converted to the light theme (about 190 hard-coded dark colours), so it is
@@ -10,7 +10,10 @@ import { useEffect } from 'react';
  * the site header around the panel is never half-light. Leaving the panel restores the stored choice.
  */
 export function AdminThemeLock() {
-  useEffect(() => {
+  // Layout effect: on a client-side navigation into /admin it runs after the DOM update and BEFORE the
+  // browser paints, so the header around the panel never shows one light frame. (On a full load the root
+  // boot script already skipped a stored 'light' on /admin, and the server-rendered wrapper is dark.)
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const before = root.getAttribute('data-theme');
     root.setAttribute('data-theme', 'dark');

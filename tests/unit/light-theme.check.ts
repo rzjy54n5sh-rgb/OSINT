@@ -1,8 +1,9 @@
 /**
  * Light theme readiness (design system v2):
- *  1. no public file in app/ or components/ (admin excluded) hard-codes a colour that cannot follow the
- *     theme: hex literals, rgb()/rgba()/hsl() literals, Tailwind palette classes (text-white, bg-black,
- *     text-red-500 …), the keywords white/black as a colour value, or a flag emoji. Colours come from the
+ *  1. no public file in app/, components/ or lib/ (admin and e-mail templates excluded) hard-codes a colour
+ *     that cannot follow the theme: hex, rgb()/hsl()/oklch()/lab() literals, Tailwind palette classes
+ *     (text-white, bg-black, text-red-500 …) or theme(colors.…), CSS named colours (white, red, navy …) as a
+ *     colour value, or a flag emoji; and no text control dims on hover (opacity hover). Colours come from the
  *     tokens in app/globals.css (var(--…)), currentColor or color-mix() of tokens. The only exceptions
  *     are listed in ALLOW below, each with its reason; a new literal anywhere else fails;
  *  2. the admin panel (app/(admin)/**, about 190 hard-coded dark colours, not converted) is forced dark:
@@ -20,12 +21,16 @@ import { join, relative, sep } from 'node:path';
 const root = join(__dirname, '../..');
 const rel = (p: string) => relative(root, p).split(sep).join('/');
 
-/** Not scanned: the admin panel (forced dark, see 2), and files another workstream owns. */
-const SKIP_DIRS = ['app/(admin)', 'components/admin', 'app/api'];
+/**
+ * Not scanned: the admin panel (forced dark, see 2), route handlers, e-mail templates (rendered by mail
+ * clients, not the site), the admin API layer, and files another workstream owns.
+ */
+const SKIP_DIRS = ['app/(admin)', 'components/admin', 'app/api', 'lib/email/templates', 'lib/admin', 'lib/api/admin'];
 const SKIP_FILES = [
   // 3D hero relief: owned by the hero workstream (WebGL colours are uniforms, not CSS).
   'components/home/HeroScene.tsx',
   'components/home/HeroStarfield.tsx',
+  'lib/hero-3d.ts',
 ];
 
 /**
@@ -39,10 +44,16 @@ const ALLOW: Record<string, { re: RegExp; why: string }[]> = {
   'app/layout.tsx': [
     { re: /#0B0F14|#FFFFFF/, why: 'theme-color meta: viewport default (dark --bg) and the boot script (light --bg), before CSS loads' },
   ],
+  // The source of truth for the hex values that charts and maps need in TypeScript; tokens.check.ts asserts
+  // each equals its CSS custom property. Components use the var() forms.
+  'lib/design-tokens.ts': [{ re: /^#[0-9A-F]{6}$/, why: 'TS mirror of the v2 tokens (tokens.check.ts keeps it equal to globals.css)' }],
+  'lib/home-feed.ts': [{ re: /^[\u{1F1E6}-\u{1F1FF}]{2}$/u, why: 'classifier: matches flag emoji inside collected posts (input text), never rendered' }],
   'app/global-error.tsx': [
     { re: /#0B0F14|#E8EDF2|#8593A3|#E8C547|#243041/, why: 'renders without globals.css (replaces the root layout): inline dark tokens' },
   ],
 };
+
+const NAMED_COLOURS = 'aliceblue|antiquewhite|aqua|aquamarine|azure|beige|bisque|black|blanchedalmond|blue|blueviolet|brown|burlywood|cadetblue|chartreuse|chocolate|coral|cornflowerblue|cornsilk|crimson|cyan|darkblue|darkcyan|darkgoldenrod|darkgray|darkgreen|darkgrey|darkkhaki|darkmagenta|darkolivegreen|darkorange|darkorchid|darkred|darksalmon|darkseagreen|darkslateblue|darkslategray|darkslategrey|darkturquoise|darkviolet|deeppink|deepskyblue|dimgray|dimgrey|dodgerblue|firebrick|floralwhite|forestgreen|fuchsia|gainsboro|ghostwhite|gold|goldenrod|gray|green|greenyellow|grey|honeydew|hotpink|indianred|indigo|ivory|khaki|lavender|lavenderblush|lawngreen|lemonchiffon|lightblue|lightcoral|lightcyan|lightgoldenrodyellow|lightgray|lightgreen|lightgrey|lightpink|lightsalmon|lightseagreen|lightskyblue|lightslategray|lightslategrey|lightsteelblue|lightyellow|lime|limegreen|linen|magenta|maroon|mediumaquamarine|mediumblue|mediumorchid|mediumpurple|mediumseagreen|mediumslateblue|mediumspringgreen|mediumturquoise|mediumvioletred|midnightblue|mintcream|mistyrose|moccasin|navajowhite|navy|oldlace|olive|olivedrab|orange|orangered|orchid|palegoldenrod|palegreen|paleturquoise|palevioletred|papayawhip|peachpuff|peru|pink|plum|powderblue|purple|rebeccapurple|red|rosybrown|royalblue|saddlebrown|salmon|sandybrown|seagreen|seashell|sienna|silver|skyblue|slateblue|slategray|slategrey|snow|springgreen|steelblue|tan|teal|thistle|tomato|turquoise|violet|wheat|white|whitesmoke|yellow|yellowgreen';
 
 const RULES: { name: string; re: RegExp }[] = [
   { name: 'hex colour', re: /(?<![\w&/#-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\w-])/g },
@@ -52,9 +63,15 @@ const RULES: { name: string; re: RegExp }[] = [
     re: /(?<![\w-])(?:text|bg|border|from|via|to|ring|fill|stroke|divide|outline|decoration|placeholder|shadow|accent|caret)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3})(?![\w-])/g,
   },
   {
-    name: 'white/black keyword',
-    re: /(?:color|background|backgroundColor|fill|stroke|borderColor|stopColor|stop-color|border(?:-\w+)?)\s*[:=]\s*\{?\s*['"]?(?:white|black)\b/gi,
+    // CSS named colours (white, red, navy …) as a colour value: style props, CSS declarations, SVG attributes.
+    name: 'named colour keyword',
+    re: new RegExp(
+      `(?:\\b(?:color|background|backgroundColor|fill|stroke|borderColor|outlineColor|stopColor|stop-color|caretColor|textDecorationColor|border(?:-\\w+)?)\\s*[:=]\\s*\\{?\\s*['"\`]?|\\b(?:solid|dashed|dotted|double)\\s+)(?:${NAMED_COLOURS})(?![\\w-])`,
+      'gi',
+    ),
   },
+  { name: 'oklch()/lab()/lch()/hwb() literal', re: /\b(?:oklch|oklab|lch|lab|hwb)\(\s*[\d.]/g },
+  { name: 'Tailwind theme(colors.…)', re: /\btheme\(\s*['"]?colors\./g },
   { name: 'flag emoji', re: /[\u{1F1E6}-\u{1F1FF}]{2}/gu },
 ];
 
@@ -88,7 +105,7 @@ function walk(dir: string, out: string[] = []): string[] {
 
 export function scan(): { file: string; line: number; rule: string; text: string }[] {
   const hits: { file: string; line: number; rule: string; text: string }[] = [];
-  for (const p of [...walk(join(root, 'app')), ...walk(join(root, 'components'))]) {
+  for (const p of [...walk(join(root, 'app')), ...walk(join(root, 'components')), ...walk(join(root, 'lib'))]) {
     const r = rel(p);
     let src = stripComments(readFileSync(p, 'utf8'));
     if (r === 'app/globals.css') src = blankTokenBlocks(src);
@@ -117,7 +134,18 @@ const ok = (label: string, fn: () => void) => {
   }
 };
 
-ok('no hard-coded colour literal in public app/ and components/ outside the allowlist', () => {
+ok('the rules catch each kind of literal (self-test)', () => {
+  const samples = [
+    "style={{ color: 'red' }}", 'border: 1px solid navy;', 'fill="tomato"', "background: 'oklch(0.7 0.1 30)'",
+    'color: lab(50% 40 59)', "color: theme('colors.slate.500')", 'className="text-white"', "color: '#E8C547'",
+    'rgba(255,255,255,0.1)', '🇮🇷',
+  ];
+  for (const t of samples) assert.ok(RULES.some((r) => { r.re.lastIndex = 0; return r.re.test(t); }), `not caught: ${t}`);
+  for (const t of ["color: 'var(--text)'", "border: '1px solid var(--line)'", 'color-mix(in oklch, var(--a) 20%, transparent)', "label: 'Red Sea'"])
+    assert.ok(!RULES.some((r) => { r.re.lastIndex = 0; return r.re.test(t); }), `false positive: ${t}`);
+});
+
+ok('no hard-coded colour literal in public app/, components/ and lib/ outside the allowlist', () => {
   const hits = scan();
   if (process.env.LIGHT_THEME_LIST) for (const h of hits) console.log(`${h.file}:${h.line}  [${h.rule}] ${h.text}`);
   const byFile = new Map<string, number>();
@@ -133,11 +161,33 @@ ok('no hard-coded colour literal in public app/ and components/ outside the allo
   );
 });
 
+ok('no text control dims on hover (opacity hovers took gold and muted text under 4.5:1 in light)', () => {
+  const offenders: string[] = [];
+  for (const p of [...walk(join(root, 'app')), ...walk(join(root, 'components'))]) {
+    const r = rel(p);
+    stripComments(readFileSync(p, 'utf8')).split('\n').forEach((line, i) => {
+      // Tailwind hover/focus opacity utilities, and inline hover handlers that lower opacity.
+      if (/(?<![\w-])(?:group-)?(?:hover|focus|focus-visible|active):opacity-(?!100\b)\d+/.test(line)) offenders.push(`${r}:${i + 1}`);
+      if (/onMouse(?:Enter|Over)[^\n]*opacity\s*=\s*['"]?0?\.\d/.test(line)) offenders.push(`${r}:${i + 1}`);
+    });
+    // CSS: a :hover / :focus rule that sets opacity below 1 (revealing an overlay with opacity: 1 is fine).
+    if (r.endsWith('.css')) {
+      const css = stripComments(readFileSync(p, 'utf8'));
+      for (const m of css.matchAll(/([^{}]*:(?:hover|focus|active)[^{}]*)\{([^}]*)\}/g))
+        if (/(?:^|;|\s)opacity\s*:\s*0?\.\d/.test(m[2])) offenders.push(`${r}: ${m[1].trim().slice(0, 60)}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `opacity hovers: ${offenders.join(', ')}`);
+});
+
 ok('every allowlist entry is still needed (no stale exemptions)', () => {
   for (const [file, entries] of Object.entries(ALLOW)) {
     assert.ok(existsSync(join(root, file)), `${file} no longer exists`);
     const src = readFileSync(join(root, file), 'utf8');
-    for (const a of entries) assert.ok(a.re.test(src), `${file}: allowlist entry ${a.re} matches nothing`);
+    for (const a of entries) {
+      const unanchored = new RegExp(a.re.source.replace(/^\^|\$$/g, ''), a.re.flags); // entries may match whole tokens
+      assert.ok(unanchored.test(src), `${file}: allowlist entry ${a.re} matches nothing`);
+    }
   }
 });
 
@@ -148,6 +198,13 @@ const rootLayout = readFileSync(join(root, 'app/layout.tsx'), 'utf8');
 ok('admin layout wraps the panel in data-theme="dark"', () => {
   assert.match(adminLayout, /data-theme=["']dark["']/, 'no data-theme="dark" wrapper in app/(admin)/admin/layout.tsx');
   assert.match(adminLayout, /<AdminThemeLock\b/, 'AdminThemeLock (keeps <html> dark while an admin route is open) is not rendered');
+  const lock = readFileSync(join(root, 'components/admin/AdminThemeLock.tsx'), 'utf8');
+  assert.match(lock, /useLayoutEffect\(/, 'AdminThemeLock must apply before paint (useLayoutEffect, not useEffect)');
+  const header = readFileSync(join(root, 'components/CommandHeader.tsx'), 'utf8');
+  assert.ok(
+    [...header.matchAll(/<ThemeToggle\b/g)].every((m) => /!isAdminRoute \? $/.test(header.slice(Math.max(0, m.index! - 40), m.index))),
+    'every ThemeToggle in the header must be hidden on /admin (isAdminRoute)',
+  );
 });
 
 ok("globals.css re-declares the dark tokens for [data-theme='dark'] (a dark island inside a light page)", () => {

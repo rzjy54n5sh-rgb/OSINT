@@ -105,7 +105,7 @@ export function DisinfoDisputeForm() {
         <button
           type="submit"
           disabled={loading}
-          className="font-mono text-sm px-4 py-2 border rounded-sm hover:opacity-90 disabled:opacity-50"
+          className="font-mono text-sm px-4 py-2 border rounded-sm hover:underline underline-offset-4 disabled:opacity-50"
           style={{ borderColor: 'var(--accent-gold)', color: 'var(--accent-gold)' }}
         >
           {loading ? 'Submitting…' : 'Submit challenge'}

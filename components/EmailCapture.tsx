@@ -63,7 +63,7 @@ export function EmailCapture({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: compact ? 'row' : 'column', gap: compact ? 8 : 10 }}>
+    <div style={{ display: 'flex', flexDirection: compact ? 'row' : 'column', flexWrap: compact ? 'wrap' : undefined, gap: compact ? 8 : 10 }}>
       {!compact && (
         <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 4 }}>
           {heading}
@@ -89,7 +89,8 @@ export function EmailCapture({
         placeholder="your@email.com"
         disabled={status === 'submitting'}
         style={{
-          flex: compact ? 1 : undefined,
+          flex: compact ? '1 1 12rem' : undefined,
+          minWidth: 0,
           background: 'var(--bg-primary)',
           border: '1px solid var(--border)',
           color: 'var(--text-primary)',
