@@ -91,6 +91,50 @@ export function driftStep(
   return { draw: true, pose, again: !pose.done };
 }
 
+/**
+ * The relief's animation loop with the browser injected (requestAnimationFrame, visibility), so it is
+ * unit-tested. Reduced motion: exactly one frame, at the rest pose, and no further frames. Otherwise
+ * frames run while active until the drift settles (DRIFT_MS of active time), then stop for good;
+ * `redraw` repaints the current pose once (resize, theme change, new lane styles).
+ */
+export function createDriftLoop(o: {
+  reducedMotion: boolean;
+  isActive: () => boolean;
+  raf: (cb: (now: number) => void) => number;
+  caf: (id: number) => void;
+  draw: (pose: ReturnType<typeof cameraPose>) => void;
+  onFirstFrame: () => void;
+}) {
+  const clock: DriftClock = { elapsed: 0, last: 0 };
+  let id = 0;
+  let ready = false;
+  let pose = cameraPose(0, { reducedMotion: o.reducedMotion });
+  const frame = (now: number) => {
+    id = 0;
+    const step = driftStep(clock, now, { active: o.isActive(), reducedMotion: o.reducedMotion });
+    if (!step.draw) return;
+    pose = step.pose;
+    o.draw(pose);
+    if (!ready) {
+      ready = true;
+      o.onFirstFrame();
+    }
+    if (step.again) id = o.raf(frame);
+  };
+  return {
+    kick() {
+      if (!id && o.isActive() && (!pose.done || !ready)) id = o.raf(frame);
+    },
+    redraw() {
+      if (ready) o.draw(pose);
+    },
+    stop() {
+      if (id) o.caf(id);
+      id = 0;
+    },
+  };
+}
+
 const VS_T = `attribute vec3 p;attribute vec3 q;uniform mat4 m;varying vec3 v;void main(){v=q;gl_Position=m*vec4(p,1.);}`;
 const FS_T = `precision mediump float;varying vec3 v;uniform vec3 l0,l1,s0,s1;void main(){
 vec3 c=v.y>0.?mix(l0,l1,v.x):mix(s0,s1,-v.y)*(.8+.4*v.x);float a=(v.y>0.?.92:.7)*v.z;gl_FragColor=vec4(c*a,a);}`;
@@ -315,40 +359,32 @@ export function startRelief(
   };
 
   // ---- drift loop: runs only while on screen and visible, stops for good once settled -------------
-  let raf = 0;
-  const clock: DriftClock = { elapsed: 0, last: 0 };
   let onScreen = true;
-  let ready = false;
   const active = () => onScreen && !document.hidden;
-  const frame = (now: number) => {
-    raf = 0;
-    const step = driftStep(clock, now, { active: active(), reducedMotion: opts.reducedMotion });
-    if (!step.draw) return;
-    pose = step.pose;
-    draw();
-    if (!ready) {
-      ready = true;
-      opts.onReady();
-    }
-    if (step.again) raf = requestAnimationFrame(frame);
-  };
-  const kick = () => {
-    if (!raf && active() && (!pose.done || !ready)) raf = requestAnimationFrame(frame);
-  };
+  const loop = createDriftLoop({
+    reducedMotion: opts.reducedMotion,
+    isActive: active,
+    raf: (cb) => requestAnimationFrame(cb),
+    caf: (id) => cancelAnimationFrame(id),
+    draw: (p) => {
+      pose = p;
+      draw();
+    },
+    onFirstFrame: opts.onReady,
+  });
+  const kick = () => loop.kick();
   const io = new IntersectionObserver(([e]) => {
     onScreen = e?.isIntersecting ?? true;
     kick();
   });
   io.observe(canvas);
   document.addEventListener('visibilitychange', kick);
-  const ro = new ResizeObserver(() => {
-    if (ready) draw();
-  });
+  const ro = new ResizeObserver(() => loop.redraw());
   ro.observe(canvas);
   // Theme switch ([data-theme] / class on <html>): re-read the tokens and redraw once.
   const mo = new MutationObserver(() => {
     readPalette();
-    if (ready) draw();
+    loop.redraw();
   });
   mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
   const lost = (e: Event) => {
@@ -361,10 +397,10 @@ export function startRelief(
   return {
     setStyles(next) {
       styles = next;
-      if (ready) draw();
+      loop.redraw();
     },
     destroy() {
-      if (raf) cancelAnimationFrame(raf);
+      loop.stop();
       io.disconnect();
       ro.disconnect();
       mo.disconnect();

@@ -46,8 +46,8 @@ import {
   type ReliefLaneId,
 } from '../../components/home/relief/model';
 import { ReliefPoster } from '../../components/home/relief/ReliefPoster';
-import { ReliefLayer } from '../../components/home/relief/ReliefLayer';
-import { driftStep, laneDrawParams } from '../../components/home/relief/relief-gl';
+import { ReliefLayer, startReliefGl } from '../../components/home/relief/ReliefLayer';
+import { createDriftLoop, driftStep, laneDrawParams } from '../../components/home/relief/relief-gl';
 import { HeroScene } from '../../components/home/HeroScene';
 import { CorridorStrip } from '../../components/corridors/CorridorStrip';
 
@@ -112,7 +112,7 @@ if (!existsSync(join(NEXT, 'react-loadable-manifest.json'))) {
   if (process.env.RELIEF_REQUIRE_BUILD === '1') check('build output present', () => assert.fail('no .next build output: run npm run build'));
   else console.log('SKIP budget: no .next build output (run npm run build first, or set RELIEF_REQUIRE_BUILD=1)');
 } else {
-  check(`relief transfer (whole lazy import graph from HeroScene, gzip + heightfield) ≤ ${BUDGET_BYTES / 1024} KB, none in the initial load`, () => {
+  check(`relief transfer (whole lazy import graph from HeroScene, gzip + every public/relief file) ≤ ${BUDGET_BYTES / 1024} KB, none in the initial load`, () => {
     const loadable = JSON.parse(readFileSync(join(NEXT, 'react-loadable-manifest.json'), 'utf8')) as Record<string, { files: string[] }>;
     const appManifest = JSON.parse(readFileSync(join(NEXT, 'app-build-manifest.json'), 'utf8')) as { pages: Record<string, string[]> };
     const initial = new Set([...(appManifest.pages['/page'] ?? []), ...(appManifest.pages['/layout'] ?? [])]);
@@ -165,9 +165,13 @@ if (!existsSync(join(NEXT, 'react-loadable-manifest.json'))) {
     }
     const sizes = [...files].map((f) => [f, gzipSync(readFileSync(join(NEXT, f)), { level: 9 }).length] as const);
     const chunkBytes = sizes.reduce((a, [, b]) => a + b, 0);
-    const bin = statSync(binPath).size;
-    const total = chunkBytes + bin;
-    console.log(`     ${sizes.map(([f, b]) => `${f.split('/').pop()} ${b} B`).join(', ')}; heightfield ${bin} B; total ${total} B`);
+    // Everything the relief may fetch from public/relief/ counts, as served (no assumption of compression).
+    const pub = join(ROOT, 'public/relief');
+    const assets = readdirSync(pub).map((f) => [f, statSync(join(pub, f)).size] as const);
+    assert.ok(assets.some(([f]) => `/relief/${f}` === HEIGHTFIELD_URL), 'heightfield not in public/relief');
+    const assetBytes = assets.reduce((a, [, b]) => a + b, 0);
+    const total = chunkBytes + assetBytes;
+    console.log(`     ${sizes.map(([f, b]) => `${f.split('/').pop()} ${b} B`).join(', ')}; public/relief ${assets.map(([f, b]) => `${f} ${b} B`).join(', ')}; total ${total} B`);
     assert.ok(total <= BUDGET_BYTES, `relief transfer ${total} B > ${BUDGET_BYTES} B`);
   });
 }
@@ -326,7 +330,8 @@ check('reduced motion in the WebGL loop: one frame at rest, no further frames; t
   assert.equal(driftStep(c, 5000, { active: false, reducedMotion: false }).draw, false);
   assert.equal(c.elapsed, 500);
   const glSrc = readFileSync(join(ROOT, 'components/home/relief/relief-gl.ts'), 'utf8');
-  assert.match(glSrc, /driftStep\(clock, now, \{ active: active\(\), reducedMotion: opts\.reducedMotion \}\)/, 'renderer drops reducedMotion');
+  assert.match(glSrc, /driftStep\(clock, now, \{ active: o\.isActive\(\), reducedMotion: o\.reducedMotion \}\)/, 'loop drops reducedMotion');
+  assert.match(glSrc, /const loop = createDriftLoop\(\{\s*reducedMotion: opts\.reducedMotion,/, 'startRelief does not pass opts.reducedMotion to its loop');
   assert.match(glSrc, /let pose = cameraPose\(0, \{ reducedMotion: opts\.reducedMotion \}\)/);
 });
 
@@ -336,6 +341,61 @@ check('motion: drift is a few degrees, ends within DRIFT_MS on the rest pose (th
   assert.ok(Math.abs(p0.az - REST.az) <= (6 * Math.PI) / 180 && Math.abs(p0.el - REST.el) <= (6 * Math.PI) / 180);
   assert.ok(DRIFT_MS <= 5000);
   assert.deepEqual(cameraPose(DRIFT_MS, { reducedMotion: false }), { az: REST.az, el: REST.el, done: true });
+});
+
+check('WebGL loop (createDriftLoop): reduced motion draws one frame at rest and requests no more', () => {
+  const run = (reducedMotion: boolean, activeFor = Infinity) => {
+    const queue: ((t: number) => void)[] = [];
+    const poses: { az: number; el: number }[] = [];
+    let first = 0;
+    let now = 1000;
+    let frames = 0;
+    const loop = createDriftLoop({
+      reducedMotion,
+      isActive: () => frames < activeFor,
+      raf: (cb) => queue.push(cb),
+      caf: () => {},
+      draw: (p) => poses.push({ az: p.az, el: p.el }),
+      onFirstFrame: () => first++,
+    });
+    loop.kick();
+    while (queue.length && frames < 10_000) {
+      frames++;
+      now += 16;
+      queue.shift()!(now);
+    }
+    return { poses, first, loop, queue };
+  };
+  const r = run(true);
+  assert.equal(r.poses.length, 1, 'reduced motion: more than one frame');
+  assert.deepEqual(r.poses[0], { az: REST.az, el: REST.el });
+  assert.equal(r.first, 1);
+  r.loop.kick();
+  assert.equal(r.queue.length, 0, 'reduced motion: kick after the frame schedules another');
+  r.loop.redraw();
+  assert.equal(r.poses.length, 2, 'redraw repaints once');
+  const f = run(false);
+  assert.ok(f.poses.length > 100, `full motion drew only ${f.poses.length} frames`);
+  assert.notDeepEqual(f.poses[1], { az: REST.az, el: REST.el });
+  assert.deepEqual(f.poses.at(-1), { az: REST.az, el: REST.el }, 'drift does not settle on the rest pose');
+  assert.ok(f.poses.length <= Math.ceil(DRIFT_MS / 16) + 2, 'drift runs past DRIFT_MS');
+  const paused = run(false, 3); // goes inactive (hidden / off-screen) after 2 frames
+  assert.equal(paused.poses.length, 2, 'drew while inactive');
+});
+
+check('ReliefLayer → startRelief wiring: lanes prop (latest) and reducedMotion pass through (helper itself: async check below)', () => {
+  const src = readFileSync(join(ROOT, 'components/home/relief/ReliefLayer.tsx'), 'utf8');
+  assert.match(src, /^\s*lanesRef\.current = lanes;$/m, 'lanesRef is not updated from the prop on every render');
+  assert.match(src, /startReliefGl\(\{[\s\S]*?lanes: \(\) => lanesRef\.current,\s*reducedMotion,\s*isCancelled/, 'ReliefLayer does not pass its lanes / reducedMotion');
+  assert.match(src, /ctlRef\.current\?\.setStyles\(lanes\);\s*\}, \[lanes\]\);/, 'a running renderer does not get new lanes');
+  assert.match(src, /styles: d\.lanes\(\),\s*reducedMotion: d\.reducedMotion,/, 'startReliefGl does not pass lanes / reducedMotion');
+});
+
+check('HeroScene keeps the decided mode as is (no rewrite of gl / reducedMotion)', () => {
+  const src = readFileSync(join(ROOT, 'components/home/HeroScene.tsx'), 'utf8');
+  assert.match(src, /const m = heroSceneMode\([^;]+\);\s*if \(m\) setMode\(m\);/, 'HeroScene alters the decision before storing it');
+  assert.match(src, /data-relief-motion=\{mode \? \(mode\.reducedMotion \? 'reduced' : 'full'\) : undefined\}/);
+  // In a browser: tests/e2e/hero-relief.spec.ts (reduced motion → data-relief-motion="reduced", no fade, no canvas).
 });
 
 // ---- 4. No WebGL ---------------------------------------------------------------------------------
@@ -407,5 +467,51 @@ check('poster and WebGL share one camera: project → unproject round-trips', ()
   }
 });
 
-console.log(`\n${n} passed, ${failed} failed`);
-if (failed) process.exit(1);
+// ---- async: startReliefGl with a stub renderer ---------------------------------------------------
+async function asyncChecks() {
+  const label = 'startReliefGl: starts with the CURRENT lanes object and the reducedMotion flag; nothing after cancel';
+  try {
+    const A = { hormuz: laneStyle('CLOSED'), bam_redsea: laneStyle('NORMAL'), suez: laneStyle('UNKNOWN') };
+    const B = { hormuz: laneStyle('ELEVATED'), bam_redsea: laneStyle('DISRUPTED'), suez: laneStyle('NORMAL') };
+    const canvas = {} as HTMLCanvasElement;
+    for (const reducedMotion of [true, false]) {
+      let current: typeof A = A;
+      const seen: { styles: unknown; reducedMotion: boolean }[] = [];
+      const ctl = { setStyles() {}, destroy() {} };
+      const deps = {
+        load: async () => ({
+          decodeHeightfield: async () => new Uint8Array(1),
+          startRelief: (_c: HTMLCanvasElement, o: { styles: unknown; reducedMotion: boolean }) => (seen.push(o), ctl),
+        }),
+        fetchHeightfield: async () => {
+          current = B; // the prop changes while the heightfield downloads
+          return new ArrayBuffer(1);
+        },
+        canvas: () => canvas,
+        lanes: () => current,
+        reducedMotion,
+        isCancelled: () => false,
+        onReady: () => {},
+        onFail: () => {},
+      };
+      const got = await startReliefGl(deps as unknown as Parameters<typeof startReliefGl>[0]);
+      assert.equal(got, ctl);
+      assert.equal(seen.length, 1);
+      assert.equal(seen[0].styles, B, 'not the lanes current at start');
+      assert.equal(seen[0].reducedMotion, reducedMotion, 'reducedMotion not passed through');
+      const none = await startReliefGl({ ...deps, isCancelled: () => true } as unknown as Parameters<typeof startReliefGl>[0]);
+      assert.equal(none, undefined);
+      assert.equal(seen.length, 1, 'started after cancel');
+    }
+    n++;
+    console.log(`ok   ${label}`);
+  } catch (err) {
+    failed++;
+    console.log(`FAIL ${label}\n     ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`);
+  }
+}
+
+asyncChecks().then(() => {
+  console.log(`\n${n} passed, ${failed} failed`);
+  if (failed) process.exit(1);
+});

@@ -93,7 +93,13 @@ export function HeroScene({ lanes }: { lanes?: Record<ReliefLaneId, ReliefLaneSt
   }, []);
 
   return (
-    <div ref={ref} className="hero-scene" aria-hidden="true" data-hero-3d={mode?.gl ? 'on' : 'off'}>
+    <div
+      ref={ref}
+      className="hero-scene"
+      aria-hidden="true"
+      data-hero-3d={mode?.gl ? 'on' : 'off'}
+      data-relief-motion={mode ? (mode.reducedMotion ? 'reduced' : 'full') : undefined}
+    >
       {mode && <ReliefLayer gl={mode.gl} reducedMotion={mode.reducedMotion} lanes={lanes} />}
     </div>
   );

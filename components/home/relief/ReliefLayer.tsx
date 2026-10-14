@@ -10,6 +10,38 @@ import { ReliefPoster } from './ReliefPoster';
  */
 export const RELIEF_TOP_FADE = 'linear-gradient(to bottom, transparent 0, transparent 72px, #000 128px)';
 
+type Lanes = Record<ReliefLaneId, ReliefLaneStyle>;
+type GlModule = typeof import('./relief-gl');
+export type ReliefController = ReturnType<GlModule['startRelief']>;
+
+/**
+ * Loads the renderer and the heightfield, then starts the relief with the CURRENT lanes (read when
+ * it starts, so a prop change while loading is not lost) and the reduced-motion flag passed through.
+ * The browser pieces are injected, so tests run it with a stub renderer.
+ */
+export async function startReliefGl(d: {
+  load: () => Promise<Pick<GlModule, 'decodeHeightfield' | 'startRelief'>>;
+  fetchHeightfield: () => Promise<ArrayBuffer>;
+  canvas: () => HTMLCanvasElement | null;
+  lanes: () => Lanes;
+  reducedMotion: boolean;
+  isCancelled: () => boolean;
+  onReady: () => void;
+  onFail: () => void;
+}): Promise<ReliefController | undefined> {
+  const [m, buf] = await Promise.all([d.load(), d.fetchHeightfield()]);
+  const heights = await m.decodeHeightfield(buf);
+  const canvas = d.canvas();
+  if (d.isCancelled() || !canvas) return undefined;
+  return m.startRelief(canvas, {
+    heights,
+    styles: d.lanes(),
+    reducedMotion: d.reducedMotion,
+    onReady: d.onReady,
+    onFail: d.onFail,
+  });
+}
+
 /**
  * The corridor relief inside the home hero (mounted by HeroScene after first paint and idle, so
  * nothing here is on the LCP path). Always renders the static poster; when `gl` is true it also
@@ -33,8 +65,10 @@ export function ReliefLayer({
   const [glState, setGlState] = useState<'off' | 'loading' | 'on'>(gl ? 'loading' : 'off');
   const [shown, setShown] = useState(reducedMotion);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Latest lanes for a renderer that starts later (set during render, so it is never one prop behind).
   const lanesRef = useRef(lanes);
-  const ctlRef = useRef<{ setStyles(s: Record<ReliefLaneId, ReliefLaneStyle>): void; destroy(): void } | undefined>(undefined);
+  lanesRef.current = lanes;
+  const ctlRef = useRef<ReliefController | undefined>(undefined);
 
   // Fade the poster in (instant with reduced motion).
   useEffect(() => {
@@ -44,7 +78,6 @@ export function ReliefLayer({
   }, [shown]);
 
   useEffect(() => {
-    lanesRef.current = lanes;
     ctlRef.current?.setStyles(lanes);
   }, [lanes]);
 
@@ -60,23 +93,23 @@ export function ReliefLayer({
       stop();
       if (!cancelled) setGlState('off');
     };
-    Promise.all([
-      import('./relief-gl'),
-      fetch(HEIGHTFIELD_URL, { signal: ac.signal }).then((r) => {
-        if (!r.ok) throw new Error(`heightfield ${r.status}`);
-        return r.arrayBuffer();
-      }),
-    ])
-      .then(async ([m, buf]) => {
-        const heights = await m.decodeHeightfield(buf);
-        if (cancelled || !canvasRef.current) return;
-        ctlRef.current = m.startRelief(canvasRef.current, {
-          heights,
-          styles: lanesRef.current,
-          reducedMotion,
-          onReady: () => !cancelled && setGlState('on'),
-          onFail: fail,
-        });
+    startReliefGl({
+      load: () => import('./relief-gl'),
+      fetchHeightfield: () =>
+        fetch(HEIGHTFIELD_URL, { signal: ac.signal }).then((r) => {
+          if (!r.ok) throw new Error(`heightfield ${r.status}`);
+          return r.arrayBuffer();
+        }),
+      canvas: () => canvasRef.current,
+      lanes: () => lanesRef.current,
+      reducedMotion,
+      isCancelled: () => cancelled,
+      onReady: () => !cancelled && setGlState('on'),
+      onFail: fail,
+    })
+      .then((ctl) => {
+        if (cancelled) ctl?.destroy();
+        else ctlRef.current = ctl;
       })
       .catch(fail);
     return () => {

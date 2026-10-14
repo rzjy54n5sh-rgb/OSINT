@@ -63,6 +63,12 @@ At most 60 KB gzip in total for the relief, on top of the home page: every chunk
 - It follows the `react-loadable-manifest.json` chain from `components/home/HeroScene` recursively (HeroScene → ReliefLayer → relief-gl, and any import added later).
 - It then follows every webpack chunk those files load (`.e(<id>)`), mapped through the webpack runtime.
 - It fails if a relief chunk is in the home page's initial load.
+- It counts every file in `public/relief/` (all of it, as served), not only the heightfield.
+
+**Browser test.** `tests/e2e/hero-relief.spec.ts` runs against a running server (`PW_BASE_URL=http://localhost:3000 npx playwright test tests/e2e/hero-relief.spec.ts`). It checks three things:
+- Under reduced motion, on a simulated capable GPU, the relief stays a static poster: no fade, no canvas, and `data-relief-motion="reduced"`.
+- Without reduced motion, WebGL starts.
+- The relief lanes match the strip's chips.
 
 **The budget is not enforced in CI yet.** PR CI runs unit tests before `next build`, so the check skips there. Enforcing it needs a human to add a step after the build in `.github/workflows/pr-ci.yml`, which is a human-only path:
 
