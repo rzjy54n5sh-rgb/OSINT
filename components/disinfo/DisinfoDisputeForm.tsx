@@ -55,7 +55,7 @@ export function DisinfoDisputeForm() {
   };
 
   return (
-    <OsintCard className="mt-10 border border-white/10">
+    <OsintCard className="mt-10 border border-[var(--line)]">
       <h2 className="font-display text-lg mb-2" style={{ color: 'var(--accent-gold)' }}>
         CHALLENGE A VERDICT
       </h2>

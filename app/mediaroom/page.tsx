@@ -9,23 +9,23 @@ import { YOUTUBE_CHANNELS as YT } from '@/lib/youtube-channels';
 // ── Constants ──
 
 const COUNTRIES = [
-  { code: 'ALL', label: 'ALL', flag: '🌍' },
-  { code: 'IR', label: 'IRN', flag: '🇮🇷' },
-  { code: 'IL', label: 'ISR', flag: '🇮🇱' },
-  { code: 'IQ', label: 'IRQ', flag: '🇮🇶' },
-  { code: 'YE', label: 'YEM', flag: '🇾🇪' },
-  { code: 'SA', label: 'SAU', flag: '🇸🇦' },
-  { code: 'AE', label: 'UAE', flag: '🇦🇪' },
-  { code: 'LB', label: 'LBN', flag: '🇱🇧' },
-  { code: 'EG', label: 'EGY', flag: '🇪🇬' },
-  { code: 'TR', label: 'TUR', flag: '🇹🇷' },
-  { code: 'RU', label: 'RUS', flag: '🇷🇺' },
+  { code: 'ALL', label: 'ALL' },
+  { code: 'IR', label: 'IRN' },
+  { code: 'IL', label: 'ISR' },
+  { code: 'IQ', label: 'IRQ' },
+  { code: 'YE', label: 'YEM' },
+  { code: 'SA', label: 'SAU' },
+  { code: 'AE', label: 'UAE' },
+  { code: 'LB', label: 'LBN' },
+  { code: 'EG', label: 'EGY' },
+  { code: 'TR', label: 'TUR' },
+  { code: 'RU', label: 'RUS' },
   // Horn of Africa & Red Sea theatre (ruling 2026-10-07)
-  { code: 'ET', label: 'ETH', flag: '🇪🇹' },
-  { code: 'ER', label: 'ERI', flag: '🇪🇷' },
-  { code: 'SD', label: 'SDN', flag: '🇸🇩' },
-  { code: 'SO', label: 'SOM', flag: '🇸🇴' },
-  { code: 'DJ', label: 'DJI', flag: '🇩🇯' },
+  { code: 'ET', label: 'ETH' },
+  { code: 'ER', label: 'ERI' },
+  { code: 'SD', label: 'SDN' },
+  { code: 'SO', label: 'SOM' },
+  { code: 'DJ', label: 'DJI' },
 ];
 
 const COUNTRY_KEYWORDS: Record<string, string[]> = {
@@ -68,34 +68,29 @@ const COUNTRY_PHOTO_TAGS: Record<string, string> = {
 };
 
 const LIVE_CHANNELS = [
-  { id: YT.ALJAZEERA_EN.id, name: 'Al Jazeera English', flag: '🇶🇦', bias: 'Qatari', color: '#E8C547' },
-  { id: YT.FRANCE24_EN.id, name: 'France 24', flag: '🇫🇷', bias: 'French', color: '#36B8C8' },
-  { id: YT.BBC_NEWS.id, name: 'BBC News', flag: '🇬🇧', bias: 'UK', color: '#E05252' },
-  { id: YT.CNN.id, name: 'CNN', flag: '🇺🇸', bias: 'US', color: '#4A8FE8' },
-  { id: YT.SKY_NEWS.id, name: 'Sky News', flag: '🇬🇧', bias: 'UK', color: '#8A9BB5' },
-  { id: YT.DW_NEWS.id, name: 'DW', flag: '🇩🇪', bias: 'German', color: '#E8EDF5' },
-  { id: YT.TRT_WORLD.id, name: 'TRT World', flag: '🇹🇷', bias: 'Turkish', color: '#E05252' },
-  { id: YT.I24NEWS_EN.id, name: 'i24 News', flag: '🇮🇱', bias: 'Israeli', color: '#4EC98A' },
+  { id: YT.ALJAZEERA_EN.id, name: 'Al Jazeera English', origin: 'QA', bias: 'Qatari' },
+  { id: YT.FRANCE24_EN.id, name: 'France 24', origin: 'FR', bias: 'French' },
+  { id: YT.BBC_NEWS.id, name: 'BBC News', origin: 'GB', bias: 'UK' },
+  { id: YT.CNN.id, name: 'CNN', origin: 'US', bias: 'US' },
+  { id: YT.SKY_NEWS.id, name: 'Sky News', origin: 'GB', bias: 'UK' },
+  { id: YT.DW_NEWS.id, name: 'DW', origin: 'DE', bias: 'German' },
+  { id: YT.TRT_WORLD.id, name: 'TRT World', origin: 'TR', bias: 'Turkish' },
+  { id: YT.I24NEWS_EN.id, name: 'i24 News', origin: 'IL', bias: 'Israeli' },
 ];
 
 const CLIP_CHANNELS = [YT.ALJAZEERA_EN, YT.FRANCE24_EN, YT.BBC_NEWS, YT.CNN, YT.TRT_WORLD, YT.I24NEWS_EN];
 const CLIP_CHANNEL_IDS = CLIP_CHANNELS.map((c) => c.id);
 
 /** [STATIC CONFIG — editorial assessment, update manually as needed] */
-const ACCENT_GOLD = 'var(--accent-gold)';
-const ACCENT_BLUE = 'var(--accent-blue)';
-const ACCENT_ORANGE = 'var(--accent-orange)';
-const ACCENT_TEAL = 'var(--accent-teal)';
-const ACCENT_RED = 'var(--accent-red)';
 const CHANNEL_NARRATIVES = [
-  { channel: 'AL JAZEERA EN', frame: 'Civilian Impact', bias: 'Gulf / Anti-Western', color: ACCENT_GOLD },
-  { channel: 'AL JAZEERA AR', frame: 'Arab Street View', bias: 'Pan-Arab / Islamist', color: ACCENT_GOLD },
-  { channel: 'FRANCE 24', frame: 'Western Liberal', bias: 'French / NATO-aligned', color: ACCENT_BLUE },
-  { channel: 'DW NEWS', frame: 'European Inst.', bias: 'German / EU-aligned', color: ACCENT_BLUE },
-  { channel: 'TRT WORLD', frame: 'Turkish Geopolitical', bias: 'Ankara / Independent', color: ACCENT_ORANGE },
-  { channel: 'i24 NEWS', frame: 'Israeli Security', bias: 'Tel Aviv / Pro-Western', color: ACCENT_TEAL },
-  { channel: 'RT NEWS', frame: 'Russian State', bias: 'Moscow / Anti-NATO', color: ACCENT_RED },
-  { channel: 'CGTN', frame: 'Chinese Strategic', bias: 'Beijing / Non-interventionist', color: ACCENT_RED },
+  { channel: 'AL JAZEERA EN', frame: 'Civilian Impact', bias: 'Gulf / Anti-Western' },
+  { channel: 'AL JAZEERA AR', frame: 'Arab Street View', bias: 'Pan-Arab / Islamist' },
+  { channel: 'FRANCE 24', frame: 'Western Liberal', bias: 'French / NATO-aligned' },
+  { channel: 'DW NEWS', frame: 'European Inst.', bias: 'German / EU-aligned' },
+  { channel: 'TRT WORLD', frame: 'Turkish Geopolitical', bias: 'Ankara / Independent' },
+  { channel: 'i24 NEWS', frame: 'Israeli Security', bias: 'Tel Aviv / Pro-Western' },
+  { channel: 'RT NEWS', frame: 'Russian State', bias: 'Moscow / Anti-NATO' },
+  { channel: 'CGTN', frame: 'Chinese Strategic', bias: 'Beijing / Non-interventionist' },
 ];
 
 /** Match narrative channel to article source_name (from RSS/sources_registry). Used for dynamic "Latest" in analyst cards. */
@@ -428,14 +423,14 @@ export default function MediaRoomPage() {
             alignItems: 'center',
             gap: 12,
             padding: '7px 16px',
-            background: 'rgba(224,82,82,0.08)',
-            borderBottom: '1px solid rgba(224,82,82,0.3)',
+            background: 'color-mix(in srgb, var(--status-closed) 8%, transparent)',
+            borderBottom: '1px solid color-mix(in srgb, var(--status-closed) 30%, transparent)',
           }}
         >
           <span
             style={{
               fontFamily: 'var(--font-mono), monospace',
-              fontSize: 11,
+              fontSize: 13,
               color: 'var(--accent-red)',
               letterSpacing: '2px',
               border: '1px solid var(--accent-red)',
@@ -456,7 +451,7 @@ export default function MediaRoomPage() {
                 style={{
                   display: 'block',
                   fontFamily: 'var(--font-mono), monospace',
-                  fontSize: 12,
+                  fontSize: 13,
                   color: 'var(--text-primary)',
                   textDecoration: 'none',
                   overflow: 'hidden',
@@ -469,7 +464,7 @@ export default function MediaRoomPage() {
               </a>
             ))}
           </div>
-          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
+          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }}>
             {Math.round((Date.now() - new Date(breakingAlerts[0].published_at!).getTime()) / 60000)}m ago
           </span>
         </div>
@@ -485,7 +480,7 @@ export default function MediaRoomPage() {
         />
         {/* Top bar: country chips + view mode */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <span className="font-mono text-[11px] text-[var(--text-muted)] uppercase tracking-widest mr-2">Filter:</span>
+          <span className="font-mono text-[13px] text-[var(--text-muted)] uppercase tracking-widest mr-2">Filter:</span>
           {COUNTRIES.map((c) => (
             <button
               key={c.code}
@@ -493,12 +488,11 @@ export default function MediaRoomPage() {
               className={`country-chip ${activeCountry === c.code ? 'active' : ''}`}
               onClick={() => setActiveCountry(c.code)}
             >
-              <span className="mr-1">{c.flag}</span>
               {c.label}
             </button>
           ))}
           <span className="flex-1" />
-          <span className="font-mono text-[11px] text-[var(--text-muted)] uppercase tracking-widest mr-2">View:</span>
+          <span className="font-mono text-[13px] text-[var(--text-muted)] uppercase tracking-widest mr-2">View:</span>
           <button
             type="button"
             className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
@@ -515,7 +509,7 @@ export default function MediaRoomPage() {
           </button>
           {viewMode === 'focus' && (
             <>
-              <span className="font-mono text-[11px] text-[var(--text-muted)] ml-2">Section:</span>
+              <span className="font-mono text-[13px] text-[var(--text-muted)] ml-2">Section:</span>
               {(['tv', 'photos', 'clips', 'wire'] as const).map((s) => (
                 <button
                   key={s}
@@ -593,8 +587,10 @@ export default function MediaRoomPage() {
                 const isActive = activeChannel === ch.id;
                 const isLoaded = loadedChannels.has(ch.id);
                 return (
+                  // Video tiles stay dark in both themes (a dark island: the labels sit on a scrim over the stream).
                   <div
                     key={ch.id}
+                    data-theme="dark"
                     className={`channel-tile ${isActive ? 'active' : ''}`}
                     onClick={() => setActiveChannel(ch.id)}
                   >
@@ -634,14 +630,13 @@ export default function MediaRoomPage() {
                           loadChannel(ch.id);
                         }}
                       >
-                        <span className="channel-flag" style={{ fontSize: '48px' }}>{ch.flag}</span>
-                        <span className="channel-name" style={{ color: ch.color }}>{ch.name}</span>
+                        <span className="channel-name">{ch.name}</span>
                         <span className="load-prompt">▶ CLICK TO LOAD STREAM</span>
                       </div>
                     )}
                     <div className="channel-bar">
-                      <span className="channel-flag">{ch.flag}</span>
-                      <span className="channel-name" style={{ color: ch.color }}>{ch.name}</span>
+                      <span className="channel-flag" translate="no">{ch.origin}</span>
+                      <span className="channel-name">{ch.name}</span>
                       <a
                         href={`https://www.youtube.com/channel/${ch.id}/live`}
                         target="_blank"
@@ -658,7 +653,7 @@ export default function MediaRoomPage() {
             </div>
             {/* Narrative Divergence Matrix — [STATIC CONFIG] */}
             <div style={{ marginTop: 12, padding: 12, border: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-              <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
+              <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '1px', marginBottom: 8 }}>
                 ANALYST-CURATED EDITORIAL POSITIONS — Updated manually
               </div>
               <div className="narrative-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
@@ -673,9 +668,9 @@ export default function MediaRoomPage() {
                         borderRadius: 2,
                       }}
                     >
-                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: n.color, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
-                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
+                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, letterSpacing: '1px', marginBottom: 4 }}>{n.channel}</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 2 }}>{n.frame}</div>
+                      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>{n.bias}</div>
                       {latest ? (
                         <a
                           href={latest.url ?? '#'}
@@ -683,7 +678,7 @@ export default function MediaRoomPage() {
                           rel="noopener noreferrer"
                           style={{
                             display: 'block',
-                            fontSize: 11,
+                            fontSize: 13,
                             color: 'var(--accent-teal)',
                             textDecoration: 'none',
                             lineHeight: 1.5,
@@ -696,7 +691,7 @@ export default function MediaRoomPage() {
                           Latest: {(latest.title ?? '').slice(0, 52)}{(latest.title ?? '').length > 52 ? '…' : ''} ↗
                         </a>
                       ) : (
-                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>No matching article in feed</div>
+                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, fontStyle: 'italic' }}>No matching article in feed</div>
                       )}
                     </div>
                   );
@@ -804,7 +799,7 @@ export default function MediaRoomPage() {
             <div className="media-section-header">
               ◈ COVERAGE COMPARISON — SAME EVENT, 3 SOURCES
             </div>
-            <p className="font-mono text-[11px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
+            <p className="font-mono text-[13px] text-[var(--text-muted)] px-3 pb-2" style={{ letterSpacing: '0.5px' }}>
               Same story covered by 3 different source types (e.g. wire, broadcast, official). Algorithm: recent 24h articles → cluster by shared tags → pick top 3 with distinct source_type.
             </p>
             <div className="coverage-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, padding: 12 }}>
@@ -822,12 +817,12 @@ export default function MediaRoomPage() {
                     transition: 'background 0.15s',
                   }}
                 >
-                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-teal)', letterSpacing: '1px', marginBottom: 4 }}>
                     {(a.source_type ?? 'wire').toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.6 }}>{a.title ?? '—'}</div>
-                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
-                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>{a.title ?? '—'}</div>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>{a.source_name ?? '—'}</div>
+                  <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
                     {a.published_at ? formatRelativeTime(a.published_at) : '—'}
                   </div>
                 </a>

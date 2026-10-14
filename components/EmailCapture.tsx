@@ -48,7 +48,7 @@ export function EmailCapture({
 
   if (status === 'done') {
     return (
-      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--accent-green)', padding: compact ? '6px 0' : '12px 0' }}>
+      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-green)', padding: compact ? '6px 0' : '12px 0' }}>
         {successText}
       </div>
     );
@@ -56,7 +56,7 @@ export function EmailCapture({
 
   if (status === 'duplicate') {
     return (
-      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--accent-gold)', padding: compact ? '6px 0' : '12px 0' }}>
+      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', padding: compact ? '6px 0' : '12px 0' }}>
         ◆ Already subscribed.
       </div>
     );
@@ -65,12 +65,12 @@ export function EmailCapture({
   return (
     <div style={{ display: 'flex', flexDirection: compact ? 'row' : 'column', gap: compact ? 8 : 10 }}>
       {!compact && (
-        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 4 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 4 }}>
           {heading}
         </div>
       )}
       {!compact && blurb && (
-        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', margin: '0 0 8px 0', lineHeight: 1.6 }}>
+        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', margin: '0 0 8px 0', lineHeight: 1.6 }}>
           {blurb}
         </p>
       )}
@@ -94,7 +94,7 @@ export function EmailCapture({
           border: '1px solid var(--border)',
           color: 'var(--text-primary)',
           fontFamily: 'var(--font-mono), monospace',
-          fontSize: 12,
+          fontSize: 13,
           padding: '7px 10px',
           outline: 'none',
         }}
@@ -104,7 +104,7 @@ export function EmailCapture({
         onClick={submit}
         disabled={!isValidEmail(email) || status === 'submitting'}
         style={{
-          fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1.5px',
+          fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1.5px',
           padding: '7px 16px', border: '1px solid',
           borderColor: isValidEmail(email) ? 'var(--accent-gold)' : 'var(--border)',
           color: isValidEmail(email) ? 'var(--accent-gold)' : 'var(--text-muted)',
@@ -116,7 +116,7 @@ export function EmailCapture({
         {status === 'submitting' ? 'SAVING...' : compact ? 'SUBSCRIBE ↗' : buttonLabel}
       </button>
       {status === 'error' && (
-        <span role="alert" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-red)' }}>
+        <span role="alert" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-red)' }}>
           Error — please try again.
         </span>
       )}

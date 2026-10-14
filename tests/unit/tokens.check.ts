@@ -34,7 +34,7 @@ function block(selector: string): Record<string, string> {
   return out;
 }
 
-const darkDecl = block(':root');
+const darkDecl = block(":root,\n[data-theme='dark']");
 const lightDecl = { ...darkDecl, ...block(":root[data-theme='light']") };
 
 /** The `:root` rule inside `@media print { … }` (print always uses the light inks). */

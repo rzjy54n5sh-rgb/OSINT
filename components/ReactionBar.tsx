@@ -84,7 +84,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+              fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
               padding: '3px 8px', border: '1px solid var(--border)',
               color: 'var(--accent-green)', textDecoration: 'none',
               display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -99,7 +99,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
           type="button"
           onClick={() => toggle('bookmarked')}
           style={{
-            fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+            fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
             padding: '3px 8px', border: '1px solid',
             borderColor: reactions.bookmarked ? 'var(--accent-gold)' : 'var(--border)',
             color: reactions.bookmarked ? 'var(--accent-gold)' : 'var(--text-muted)',
@@ -114,7 +114,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
           type="button"
           onClick={copyLink}
           style={{
-            fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+            fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
             padding: '3px 8px', border: '1px solid var(--border)',
             color: copied ? 'var(--accent-green)' : 'var(--text-muted)',
             background: 'none', cursor: 'pointer',
@@ -129,7 +129,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
           onClick={() => !alreadyDisputed && setDisputeOpen((v) => !v)}
           disabled={alreadyDisputed}
           style={{
-            fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+            fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
             padding: '3px 8px', border: '1px solid',
             borderColor: disputeOpen ? 'var(--accent-orange)' : 'var(--border)',
             color: disputeOpen ? 'var(--accent-orange)' : 'var(--text-muted)',
@@ -141,15 +141,15 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
         </button>
 
         {disputeSubmitted && (
-          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-green)' }}>
+          <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-green)' }}>
             ✓ Dispute logged — thank you
           </span>
         )}
       </div>
 
       {disputeOpen && (
-        <div style={{ marginTop: 10, padding: 12, border: '1px solid var(--accent-orange)', background: 'rgba(232,135,74,0.05)' }}>
-          <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-orange)', letterSpacing: '1px', marginBottom: 8 }}>
+        <div style={{ marginTop: 10, padding: 12, border: '1px solid var(--accent-orange)', background: 'color-mix(in srgb, var(--status-disrupted) 5%, transparent)' }}>
+          <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-orange)', letterSpacing: '1px', marginBottom: 8 }}>
             SUBMIT A FACTUAL DISPUTE — requires a source URL
           </div>
           <textarea
@@ -158,7 +158,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
             placeholder="Describe the specific factual inaccuracy..."
             style={{
               width: '100%', background: 'var(--bg-primary)', border: '1px solid var(--border)',
-              color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 12,
+              color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 13,
               padding: 8, resize: 'vertical', minHeight: 60, boxSizing: 'border-box',
             }}
           />
@@ -170,12 +170,12 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
             aria-invalid={disputeError ? true : undefined}
             style={{
               width: '100%', marginTop: 6, background: 'var(--bg-primary)', border: '1px solid var(--border)',
-              color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 12,
+              color: 'var(--text-primary)', fontFamily: 'var(--font-mono), monospace', fontSize: 13,
               padding: 8, boxSizing: 'border-box',
             }}
           />
           {disputeError && (
-            <p role="alert" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-red)', marginTop: 6 }} data-testid="dispute-error">
+            <p role="alert" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-red)', marginTop: 6 }} data-testid="dispute-error">
               {disputeError}
             </p>
           )}
@@ -185,7 +185,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
               onClick={submitDispute}
               disabled={!disputeText.trim() || !disputeSource.trim() || disputeSaving}
               style={{
-                fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+                fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
                 padding: '5px 14px', border: '1px solid var(--accent-orange)',
                 color: 'var(--accent-orange)', background: 'none', cursor: 'pointer',
                 opacity: (!disputeText.trim() || !disputeSource.trim()) ? 0.4 : 1,
@@ -197,7 +197,7 @@ export function ReactionBar({ articleId, articleUrl }: ReactionBarProps) {
               type="button"
               onClick={() => setDisputeOpen(false)}
               style={{
-                fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
+                fontFamily: 'var(--font-mono), monospace', fontSize: 13, letterSpacing: '1px',
                 padding: '5px 14px', border: '1px solid var(--border)',
                 color: 'var(--text-muted)', background: 'none', cursor: 'pointer',
               }}

@@ -95,7 +95,7 @@ export default async function ConflictTimelinePage() {
         to any day: <span style={{ color: 'var(--text-muted)' }}>/timeline#day-15</span>
       </p>
       {isFreeTier && (
-        <p className="font-mono text-[11px] mb-6" style={{ color: 'var(--accent-gold)' }}>
+        <p className="font-mono text-[13px] mb-6" style={{ color: 'var(--accent-gold)' }}>
           ◆ Days 1–7 are open to everyone. Days 8+ are locked during launch.
         </p>
       )}

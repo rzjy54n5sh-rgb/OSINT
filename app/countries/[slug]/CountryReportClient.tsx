@@ -158,7 +158,7 @@ export function CountryReportClient({
                   </li>
                 ))}
               </ul>
-              <p className="font-mono text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+              <p className="font-mono text-[13px] mt-3" style={{ color: 'var(--text-muted)' }}>
                 Party/state labels for the War Posture evidence are shown in the War Posture panel above.
               </p>
             </OsintCard>

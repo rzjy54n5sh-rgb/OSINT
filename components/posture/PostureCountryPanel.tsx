@@ -29,7 +29,7 @@ function ConflictCard({ r, conflicts, schema }: { r: PostureView; conflicts: rea
           <PostureActorTag row={r} className="block mt-0.5" />
         </h3>
         {r.score_day != null && (
-          <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }} translate="no">
+          <span className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }} translate="no">
             CODED DAY {r.score_day}
             {r.as_of ? ` · ${r.as_of}` : ''}
           </span>
@@ -48,17 +48,17 @@ function ConflictCard({ r, conflicts, schema }: { r: PostureView; conflicts: rea
       {r.method === 'war-posture-v1' && (r.v2UncodedConflicts.length > 0 || schema === 'v2') && <V1FrozenTag row={r} className="block mt-1" />}
       <PostureAge row={r} className="block mt-1" />
       {r.change_reason === 'new_evidence' && r.previous_score != null && r.expressed_score != null && (
-        <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
+        <p className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-muted)' }} translate="no">
           Changed on new evidence: {r.previous_score} → {r.expressed_score} (since Day {r.previous_day})
         </p>
       )}
       {r.change_reason === 'reverification' && r.note && (
-        <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
           Re-coded on the same evidence: {r.note}
         </p>
       )}
       {r.stance === 'nulled' && r.note && (
-        <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+        <p className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>
           Correction: {r.note}
         </p>
       )}
@@ -71,7 +71,7 @@ function ConflictCard({ r, conflicts, schema }: { r: PostureView; conflicts: rea
         <div className="mt-3 space-y-2">
           {r.expressed_basis && (
             <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              <span className="font-mono text-[11px] uppercase block" style={{ color: 'var(--text-muted)' }}>
+              <span className="font-mono text-[13px] uppercase block" style={{ color: 'var(--text-muted)' }}>
                 Basis (desk summary)
               </span>
               {r.expressed_basis}
@@ -81,7 +81,7 @@ function ConflictCard({ r, conflicts, schema }: { r: PostureView; conflicts: rea
         </div>
       )}
       {r.stance === 'position' && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[13px]" style={{ color: 'var(--text-muted)' }}>
           {r.latentLocked ? (
             <span className="inline-flex items-center gap-1">
               SOCIETY (BAND) <PaywallOverlay requiredTier="informed" featureName="War Posture latent band" compact />
@@ -130,7 +130,7 @@ export function PostureCountryPanel({
         <h2 id="war-posture-h" className="font-display text-lg" style={{ color: 'var(--text-primary)' }}>
           WAR POSTURE
         </h2>
-        <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }} translate="no">
+        <span className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }} translate="no">
           {withheld ? 'STATED POSITIONS LEDGER' : posture?.schema === 'v2' ? 'PER CONFLICT · METHOD V2' : 'ONE NUMBER ACROSS WARS · METHOD V1'}
         </span>
       </div>
@@ -144,7 +144,7 @@ export function PostureCountryPanel({
       ) : (
         <>
           {posture?.schema === 'v1' && (
-            <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            <p className="font-mono text-[13px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               This country is still shown with its last score under the old method: one number across wars, no longer
               updated since Day 227. Positions per conflict replace it once recorded.
             </p>
@@ -152,13 +152,13 @@ export function PostureCountryPanel({
           {dual ? (
             // Two authorities (Yemen): one section per line, government first, never merged into one number.
             <div className="space-y-4" data-testid="posture-dual-actor">
-              <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              <p className="font-mono text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                 Two authorities, two separate lines, never averaged. Each line rests only on statements by its own
                 officials.
               </p>
               {actorSections.map((sec) => (
                 <section key={sec.actor} aria-label={sec.title} data-actor={sec.actor}>
-                  <h3 className="font-mono text-[11px] uppercase mb-2" style={{ color: 'var(--text-secondary)' }} translate="no">
+                  <h3 className="font-mono text-[13px] uppercase mb-2" style={{ color: 'var(--text-secondary)' }} translate="no">
                     {sec.title}
                   </h3>
                   {sec.rows.length === 0 ? (
@@ -184,7 +184,7 @@ export function PostureCountryPanel({
           )}
           {ledger.length > 0 && (
             <details className="mt-4">
-              <summary className="font-mono text-[11px] uppercase cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+              <summary className="font-mono text-[13px] uppercase cursor-pointer" style={{ color: 'var(--text-muted)' }}>
                 Evidence ledger ({ledger.length})
               </summary>
               <div className="mt-3">
@@ -194,7 +194,7 @@ export function PostureCountryPanel({
           )}
         </>
       )}
-      <p className="font-mono text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[13px] mt-4" style={{ color: 'var(--text-muted)' }}>
         <Link prefetch={false} href="/methodology#war-posture" style={{ color: 'var(--accent-gold)' }}>
           How War Posture is coded →
         </Link>

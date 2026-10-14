@@ -77,7 +77,7 @@ export default function AnalyticsClient({ posture, scenarioDays, scenarioCodes, 
   );
 
   const xIsDay = xAxis === 'conflict_day';
-  const axisProps = { tick: { fill: '#8A9BB5', fontSize: 11 } };
+  const axisProps = { tick: { fill: 'var(--muted)', fontSize: 12 } };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

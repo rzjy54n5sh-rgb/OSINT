@@ -167,7 +167,7 @@ function LoginContent() {
         <p className="font-mono text-xs uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           {signUpMode ? 'Create account' : 'Sign in'}
         </p>
-        <p className="font-mono text-[11px] mb-6 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-mono text-[13px] mb-6 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           {signUpMode
             ? 'After signing up you can complete checkout on the pricing page.'
             : 'Subscribe requires an account — use Create account if you are new.'}
@@ -375,7 +375,7 @@ function LoginContent() {
         </div>
 
         <p className="font-mono text-xs mt-6 mb-2" style={{ color: 'var(--text-muted)' }}>
-          Magic link <span style={{ color: 'var(--text-muted)', opacity: 0.8 }}>(new accounts welcome)</span>
+          Magic link <span style={{ color: 'var(--text-muted)' }}>(new accounts welcome)</span>
         </p>
         <form onSubmit={handleMagicLink} className="flex gap-2">
           <input
@@ -383,7 +383,7 @@ function LoginContent() {
             value={magicEmail}
             onChange={(e) => setMagicEmail(e.target.value)}
             placeholder="your@email.com"
-            className="flex-1 font-mono text-sm px-3 py-2 rounded-sm border bg-transparent"
+            className="flex-1 min-w-0 font-mono text-sm px-3 py-2 rounded-sm border bg-transparent"
             style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
           />
           <button

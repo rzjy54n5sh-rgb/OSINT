@@ -12,8 +12,10 @@ import { LanguageToggle } from '@/components/ui/LanguageToggle';
 import { TrustChip } from '@/components/ui/TrustChip';
 import { Icon } from '@/components/ui/icons';
 import { Wordmark } from '@/components/header/Wordmark';
+import { ThemeToggle } from '@/components/header/ThemeToggle';
 import { useI18n } from '@/components/I18nProvider';
 import { ARABIC_ENABLED } from '@/lib/site';
+import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import type { UserTier } from '@/types';
 import type { UIStringKey } from '@/lib/i18n';
 
@@ -55,7 +57,9 @@ const s = {
  * Primary nav = the design's five destinations; every other route stays one click away under "More"
  * (desktop) or in the menu (mobile), grouped as before. Both menus are disclosures: a button with
  * aria-expanded, aria-controls only while the panel exists, Escape closes and returns focus to it.
- * Dark-only for now (LIGHT_THEME_ENABLED = false): no theme toggle; it returns with the light-theme PR.
+ * Theme: dark by default; the ThemeToggle (moon / sun icon + "Light theme", aria-pressed) switches to light
+ * and remembers the choice. It sits with the language toggle: in More (desktop) and in the menu (phones),
+ * because the bar has no room for a third control. Not rendered on /admin, which stays dark.
  * Every href here is an existing app route (tests/unit/header-links.check.ts).
  */
 type NavItem = { href: string; en: string; key?: UIStringKey };
@@ -164,6 +168,7 @@ export function CommandHeader() {
   const { t, lang } = useI18n();
   const label = (item: { en: string; key?: UIStringKey }) => (lang === 'ar' && item.key ? t(item.key) : item.en);
   const pathname = usePathname() ?? '/';
+  const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
   const conflictDay = useConflictDay();
   const { lastUpdateAt, stale, staleReasons } = useDataFreshness();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -309,7 +314,9 @@ export function CommandHeader() {
             <div ref={morePanel} id="header-more" className={s.morePanel}>
               {groupBlocks(closeMore)}
               <div className={s.group}>
-                {/* Language lives here on desktop: the bar has no room for it next to the nav and stamp. */}
+                {/* Theme and language live here on desktop: the bar has no room for them next to the nav, the
+                    dated stamp and the stale chip (tests/e2e/header-layout.spec.ts). */}
+                {LIGHT_THEME_ENABLED && !isAdminRoute ? <ThemeToggle withLabel /> : null}
                 {ARABIC_ENABLED ? <LanguageToggle /> : null}
                 <GlobeMenu inline />
               </div>
@@ -368,6 +375,7 @@ export function CommandHeader() {
             </ul>
             <div className={s.menuGroups}>{groupBlocks(closeMenu)}</div>
             <div className={s.menuTools}>
+              {LIGHT_THEME_ENABLED && !isAdminRoute ? <ThemeToggle withLabel /> : null}
               {ARABIC_ENABLED ? <LanguageToggle /> : null}
               <GlobeMenu inline />
             </div>

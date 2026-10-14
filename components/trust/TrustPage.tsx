@@ -24,7 +24,7 @@ export function TrustPage({
   return (
     <div className="max-w-3xl mx-auto px-4 py-8" style={{ overflowWrap: 'anywhere' }}>
       <header style={{ marginBottom: 24, borderBottom: '1px solid var(--border)', paddingBottom: 20 }}>
-        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
+        <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--accent-gold)', letterSpacing: '2px', marginBottom: 8 }}>
           ◆ {kicker}
         </div>
         <h1 style={{ fontFamily: 'var(--font-bebas), sans-serif', fontSize: 38, color: 'var(--text-primary)', letterSpacing: '2px', margin: '0 0 12px 0', lineHeight: 1.05 }}>
@@ -32,7 +32,7 @@ export function TrustPage({
         </h1>
         <div style={{ fontFamily: 'var(--font-dm), sans-serif', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>{intro}</div>
         {updated && (
-          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', margin: '12px 0 0 0', letterSpacing: '1px' }}>
+          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', margin: '12px 0 0 0', letterSpacing: '1px' }}>
             LAST UPDATED {updated.toUpperCase()}
           </p>
         )}
@@ -49,7 +49,7 @@ export function TrustPage({
               aria-current={active ? 'page' : undefined}
               style={{
                 fontFamily: 'var(--font-mono), monospace',
-                fontSize: 11,
+                fontSize: 13,
                 letterSpacing: '1px',
                 padding: '8px 10px',
                 minHeight: 36,
@@ -120,7 +120,7 @@ export function NotYetAvailable({ what, reason }: { what: string; reason: 'not_d
         border: '1px dashed var(--border)',
         padding: '16px 18px',
         fontFamily: 'var(--font-mono), monospace',
-        fontSize: 12,
+        fontSize: 13,
         color: 'var(--text-muted)',
         lineHeight: 1.6,
         margin: '8px 0 20px 0',

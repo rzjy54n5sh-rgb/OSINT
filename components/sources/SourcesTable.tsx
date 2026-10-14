@@ -25,8 +25,8 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   if (tier === 1) {
     return (
       <span
-        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
-        style={{ background: 'rgba(26, 122, 74, 0.25)', color: '#4ade80', border: '1px solid #1A7A4A' }}
+        className="inline-block font-mono text-[13px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+        style={{ background: 'var(--surface-2)', color: 'var(--text-primary)', border: '1px solid var(--line-strong)' }}
       >
         TIER 1 — INDEPENDENT
       </span>
@@ -35,8 +35,8 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   if (tier === 2) {
     return (
       <span
-        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
-        style={{ background: 'rgba(232, 197, 71, 0.12)', color: '#E8C547', border: '1px solid rgba(232, 197, 71, 0.45)' }}
+        className="inline-block font-mono text-[13px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+        style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--line-strong)' }}
       >
         TIER 2 — REGIONAL
       </span>
@@ -44,8 +44,8 @@ function TierBadge({ tier }: { tier: 1 | 2 | 3 }) {
   }
   return (
     <span
-      className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm whitespace-nowrap"
-      style={{ background: 'rgba(217, 119, 6, 0.2)', color: '#fdba74', border: '1px solid #D97706' }}
+      className="inline-block font-mono text-[13px] px-2 py-0.5 rounded-sm whitespace-nowrap"
+      style={{ background: 'var(--status-disrupted-tint)', color: 'var(--status-disrupted)', border: '1px solid var(--status-disrupted)' }}
     >
       TIER 3 — PARTY/STATE
     </span>
@@ -62,7 +62,7 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
               <th
                 key={h}
                 className="text-left py-3 px-3 uppercase tracking-wider"
-                style={{ color: 'var(--text-muted)', fontSize: '11px' }}
+                style={{ color: 'var(--text-muted)', fontSize: '13px' }}
               >
                 {h}
               </th>
@@ -75,10 +75,10 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
             return (
               <tr
                 key={s.name}
-                className="transition-colors hover:bg-white/[0.04]"
+                className="transition-colors hover:bg-[var(--surface-2)]"
                 style={{
-                  borderBottom: '1px solid rgba(255,255,255,0.06)',
-                  borderLeft: s.is_party_source ? '3px solid rgba(239, 68, 68, 0.45)' : '3px solid transparent',
+                  borderBottom: '1px solid color-mix(in srgb, var(--text) 6%, transparent)',
+                  borderLeft: s.is_party_source ? '3px solid color-mix(in srgb, var(--status-closed) 45%, transparent)' : '3px solid transparent',
                 }}
               >
                 <td className="py-3 px-3 align-top" style={{ color: 'var(--text-primary)' }}>
@@ -89,8 +89,8 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
                     <TierBadge tier={s.tier} />
                     {s.is_party_source && (
                       <span
-                        className="inline-block font-mono text-[11px] px-2 py-0.5 rounded-sm cursor-help"
-                        style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.5)' }}
+                        className="inline-block font-mono text-[13px] px-2 py-0.5 rounded-sm cursor-help"
+                        style={{ background: 'var(--status-closed-tint)', color: 'var(--status-closed)', border: '1px solid var(--status-closed)' }}
                         title="This source represents a conflict party. All claims require independent corroboration before use."
                       >
                         PARTY SOURCE
@@ -108,7 +108,7 @@ export function SourcesTable({ sources }: { sources: SourceRow[] }) {
                     </span>
                   ) : (
                     <span>
-                      {lang.flag && <span className="mr-2 opacity-70">{lang.flag}</span>}
+                      {lang.flag && <span className="mr-2">{lang.flag}</span>}
                       {lang.label}
                     </span>
                   )}

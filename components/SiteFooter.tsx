@@ -9,7 +9,7 @@ export function SiteFooter() {
 
   return (
     <footer
-      className="mt-auto border-t py-4 px-4 text-center font-mono text-[11px] uppercase tracking-wider"
+      className="mt-auto border-t py-4 px-4 text-center font-mono text-[13px] uppercase tracking-wider"
       style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
     >
       <nav aria-label="Corridors" className="mb-2 flex flex-wrap justify-center gap-x-4 gap-y-1">

@@ -29,7 +29,7 @@ export function PageShareButton({ getCopyText, label = 'SHARE PAGE', className =
       className={className}
       style={{
         fontFamily: 'var(--font-mono), monospace',
-        fontSize: 11,
+        fontSize: 13,
         letterSpacing: '1px',
         padding: '4px 10px',
         border: '1px solid var(--border)',

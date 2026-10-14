@@ -1,7 +1,9 @@
 /*
- * War Posture board v2 (/nai, artboard Posture.dc.html). Site-wide v2 tokens (app/globals.css); dark only on
- * screen (LIGHT_THEME_ENABLED=false). Posture colours are fills only — text on a fill is ink (--on-accent),
- * never a posture colour (tests/unit/tokens.check.ts). Hairlines, radius 2, no shadows, 44 px targets.
+ * War Posture board v2 (/nai, artboard Posture.dc.html). Site-wide v2 tokens (app/globals.css), both themes.
+ * Posture colours are fills only — text on a fill is ink (--on-accent), never a posture colour
+ * (tests/unit/tokens.check.ts). Light theme: the light band inks are too dark for ink text and too light for
+ * white (band 3 fails both at 4.5:1), so a tile is a tint of its band with a solid band edge and text ink.
+ * Hairlines, radius 2, no shadows, 44 px targets.
  */
 .root {
   color: var(--text);
@@ -148,7 +150,7 @@
 .listOnly { flex-basis: 100%; }
 .stageWrap { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
 .stage { position: relative; width: 100%; max-width: 624px; aspect-ratio: 624 / 468; margin: 0 auto; }
-.sea { position: absolute; font-size: 12px; font-style: italic; color: var(--muted); text-align: center; }
+.sea { position: absolute; font-size: 13px; font-style: italic; color: var(--muted); text-align: center; }
 .tile {
   position: absolute;
   height: 15.385%;
@@ -161,7 +163,7 @@
   justify-content: space-between;
   overflow: hidden;
 }
-.tileLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
+.tileLabel { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap; }
 .tileVal { font-family: var(--font-numeric); font-size: 17px; font-weight: 500; line-height: 1; }
 .tile[data-kind='position'] { border-style: solid; color: var(--on-accent); }
 .tile[data-kind='stated'] { border-style: solid; border-color: var(--text-2); color: var(--text); }
@@ -171,6 +173,11 @@
 .root [data-band='3'] { --pst: var(--posture-3); }
 .root [data-band='4'] { --pst: var(--posture-4); }
 .tile[data-kind='position'] { background: var(--pst); border-color: var(--pst); }
+:global(:root[data-theme='light']) .tile[data-kind='position'] {
+  background: color-mix(in srgb, var(--pst) 26%, var(--bg));
+  box-shadow: inset 4px 0 0 var(--pst);
+  color: var(--text);
+}
 .legend { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; font-size: 13px; color: var(--text-2); }
 .legendItem { display: inline-flex; align-items: center; gap: 6px; }
 .legendBands { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -253,7 +260,7 @@
 .blockName { font-weight: 600; font-size: 15px; }
 .v1 { border-style: dashed; }
 .v1 .card { border-style: dashed; background: transparent; }
-.v1Body { opacity: 0.86; display: flex; flex-direction: column; gap: 6px; }
+.v1Body { display: flex; flex-direction: column; gap: 6px; }
 .basis { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text-2); }
 .foot { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
 @media (max-width: 639px) {

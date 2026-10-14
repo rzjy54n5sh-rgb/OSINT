@@ -27,8 +27,8 @@ export default function GlobalError({
       <body style={{
         margin: 0,
         fontFamily: 'system-ui, sans-serif',
-        background: '#070A0F',
-        color: '#E8EDF5',
+        background: '#0B0F14',
+        color: '#E8EDF2',
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
@@ -44,7 +44,7 @@ export default function GlobalError({
           <h1 style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>
             Something went wrong
           </h1>
-          <p style={{ color: '#8A9BB5', fontSize: 14, marginBottom: 24 }}>
+          <p style={{ color: '#8593A3', fontSize: 14, marginBottom: 24 }}>
             A client error occurred. Try refreshing. If the problem continues, check the browser console.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -54,7 +54,7 @@ export default function GlobalError({
               style={{
                 padding: '10px 20px',
                 background: '#E8C547',
-                color: '#070A0F',
+                color: '#0B0F14',
                 border: 'none',
                 borderRadius: 4,
                 fontSize: 14,

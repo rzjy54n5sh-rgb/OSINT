@@ -22,23 +22,23 @@ export function CodeBlock({ code, allowCopy = true }: CodeBlockProps) {
   return (
     <div
       className={`relative my-4 rounded border overflow-x-auto max-w-full ${allowCopy ? '' : 'pointer-events-none select-none blur-sm opacity-45'}`}
-      style={{ borderColor: 'var(--border)', background: '#0D1B2A' }}
+      style={{ borderColor: 'var(--border)', background: 'var(--surface)' }}
     >
       {allowCopy && (
         <button
           type="button"
           onClick={copy}
-          className="absolute top-2 end-2 z-10 font-mono text-[11px] px-2 py-1 rounded-sm border transition-colors"
+          className="absolute top-2 end-2 z-10 font-mono text-[13px] px-2 py-1 rounded-sm border transition-colors"
           style={{
             borderColor: copied ? 'var(--accent-green)' : 'var(--border)',
             color: copied ? 'var(--accent-green)' : 'var(--text-secondary)',
-            background: 'rgba(7,10,15,0.9)',
+            background: 'color-mix(in srgb, var(--bg) 90%, transparent)',
           }}
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
       )}
-      <pre className="p-4 pt-11 font-mono text-[11px] leading-relaxed text-start whitespace-pre" style={{ color: 'var(--text-secondary)' }}>
+      <pre className="p-4 pt-11 font-mono text-[13px] leading-relaxed text-start whitespace-pre" style={{ color: 'var(--text-secondary)' }}>
         <code>{code}</code>
       </pre>
     </div>

@@ -102,11 +102,12 @@ const LANG_BOOT_SCRIPT =
   (ARABIC_ENABLED ? "if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" : '') +
   // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
   "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}" +
-  // Theme (design system v2): dark is the default. While LIGHT_THEME_ENABLED is false (lib/design-tokens.ts)
-  // the screen is dark-only and a stored 'light' from an earlier visit is ignored (print still uses the
-  // light tokens). When enabled, a saved choice is applied before first paint (no flash), in its own try.
+  // Theme (design system v2): dark is the default and the OS colour-scheme setting is not read.
+  // A choice stored by the header's ThemeToggle is applied before first paint (no flash), in its own try,
+  // except on /admin, which is not converted and stays dark. The browser chrome colour follows it.
   (LIGHT_THEME_ENABLED
-    ? "try{var th=localStorage.getItem('mid-theme');if(th==='light'||th==='dark')document.documentElement.setAttribute('data-theme',th);}catch(e){}"
+    ? "try{var th=localStorage.getItem('mid-theme');if((th==='light'||th==='dark')&&!/^\\/admin(?:\\/|$)/.test(location.pathname)){document.documentElement.setAttribute('data-theme',th);" +
+      "if(th==='light'){var tc=document.querySelector('meta[name=\"theme-color\"]');if(tc)tc.setAttribute('content','#FFFFFF');}}}catch(e){}"
     : '');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -28,12 +28,12 @@ export function TimelineDayNav({ dayNumbers }: Props) {
     <div
       className="sticky top-[52px] z-30 mb-8 py-3 -mx-4 px-4 border-b"
       style={{
-        background: 'rgba(7, 10, 15, 0.92)',
+        background: 'color-mix(in srgb, var(--bg) 92%, transparent)',
         backdropFilter: 'blur(10px)',
         borderColor: 'var(--border)',
       }}
     >
-      <p className="font-mono text-[11px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[13px] uppercase tracking-wider mb-2" style={{ color: 'var(--text-muted)' }}>
         Jump to day
       </p>
       {/* Mobile: dropdown */}
@@ -61,12 +61,12 @@ export function TimelineDayNav({ dayNumbers }: Props) {
           <a
             key={d}
             href={`#day-${d}`}
-            className="font-mono text-[11px] px-2 py-1 rounded-sm border transition-colors hover:opacity-90"
+            className="font-mono text-[13px] px-2 py-1 rounded-sm border transition-colors hover:opacity-90"
             style={{
               borderColor: hash === `#day-${d}` ? 'var(--accent-gold)' : 'var(--border)',
               color: hash === `#day-${d}` ? 'var(--accent-gold)' : 'var(--text-secondary)',
               background:
-                hash === `#day-${d}` ? 'rgba(232, 197, 71, 0.08)' : 'rgba(13, 27, 42, 0.5)',
+                hash === `#day-${d}` ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'color-mix(in srgb, var(--bg) 50%, transparent)',
             }}
           >
             {d}

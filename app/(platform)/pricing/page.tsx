@@ -26,7 +26,7 @@ const FOUNDING_SOURCE = 'founding-access';
 
 const eyebrow: React.CSSProperties = {
   fontFamily: 'var(--font-mono), monospace',
-  fontSize: 11,
+  fontSize: 13,
   letterSpacing: '2px',
   color: 'var(--accent-gold)',
   textTransform: 'uppercase',

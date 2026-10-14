@@ -18,7 +18,7 @@ export function PageBriefing({ description, note, className = '' }: PageBriefing
       className={`page-briefing ${className}`}
       style={{
         border: '1px solid var(--border)',
-        background: 'rgba(232,197,71,0.03)',
+        background: 'color-mix(in srgb, var(--accent) 3%, transparent)',
         borderRadius: 2,
         maxWidth: '72ch',
       }}
@@ -28,7 +28,7 @@ export function PageBriefing({ description, note, className = '' }: PageBriefing
         className="page-briefing__summary"
         style={{
           fontFamily: 'var(--font-mono), monospace',
-          fontSize: 12,
+          fontSize: 13,
           color: 'var(--accent-gold)',
           letterSpacing: '1px',
           padding: '10px 14px',
@@ -43,11 +43,11 @@ export function PageBriefing({ description, note, className = '' }: PageBriefing
         How to read this page
       </summary>
       <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
+        <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
           {description}
         </p>
         {note && (
-          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>
             {note}
           </p>
         )}

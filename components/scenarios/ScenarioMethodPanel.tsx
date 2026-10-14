@@ -10,10 +10,10 @@ function MarketRow({ m }: { m: RunInput }) {
   return (
     <li className="border-t pt-2" style={{ borderColor: 'var(--border)' }} data-testid="driving-market">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-mono text-[11px] px-1 border rounded-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} translate="no">
+        <span className="font-mono text-[13px] px-1 border rounded-sm" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} translate="no">
           {m.scenario_class}
         </span>
-        <span className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }} translate="no">
+        <span className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }} translate="no">
           {m.venue}
         </span>
         <a
@@ -26,13 +26,13 @@ function MarketRow({ m }: { m: RunInput }) {
           {m.question}
         </a>
       </div>
-      <p className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }} translate="no">
+      <p className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }} translate="no">
         PRICE {pct(m.probability)}
         {m.yes_bid !== null && m.yes_ask !== null ? ` · YES bid ${cents(m.yes_bid)} / ask ${cents(m.yes_ask)}` : ''}
         {m.liquidity ? ` · ${m.liquidity.replace(/_/g, ' ')}` : ''}
       </p>
       {m.transform && (
-        <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }}>
           Transform: {m.transform}
         </p>
       )}
@@ -121,7 +121,7 @@ export function ScenarioMethodPanel({
           </ul>
 
           {run.raw_percent && (
-            <p className="font-mono text-[11px] mb-4" style={{ color: 'var(--text-muted)' }} translate="no">
+            <p className="font-mono text-[13px] mb-4" style={{ color: 'var(--text-muted)' }} translate="no">
               RAW → PUBLISHED:{' '}
               {Object.entries(run.raw_percent)
                 .map(([k, v]) => `${k} ${v} → ${published(k) ?? '—'}`)
@@ -147,7 +147,7 @@ export function ScenarioMethodPanel({
               <h3 className="font-mono text-xs uppercase mb-2 mt-4" style={{ color: 'var(--accent-gold)' }}>
                 Run flags
               </h3>
-              <ul className="font-mono text-[11px] space-y-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }} data-testid="run-flags">
+              <ul className="font-mono text-[13px] space-y-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }} data-testid="run-flags">
                 {run.flags.map((f, i) => (
                   <li key={i}>▸ {f}</li>
                 ))}
@@ -164,7 +164,7 @@ export function ScenarioMethodPanel({
             ) : (
               <ul className="space-y-2">
                 {excluded.map((m, i) => (
-                  <li key={`${m.url}-${i}`} className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  <li key={`${m.url}-${i}`} className="font-mono text-[13px]" style={{ color: 'var(--text-secondary)' }}>
                     <span translate="no">{m.scenario_class} · {m.venue} · </span>
                     <a href={m.url} target="_blank" rel="noopener noreferrer nofollow" style={{ color: 'var(--accent-gold)' }}>
                       {m.question}

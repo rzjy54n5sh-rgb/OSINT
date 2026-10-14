@@ -6,7 +6,7 @@ export function SourcesTierMethodology() {
         style={{ color: 'var(--accent-gold)', listStyle: 'none' }}
       >
         <span>How we classify sources</span>
-        <span className="text-xs opacity-60 group-open:rotate-180 transition-transform">▼</span>
+        <span className="text-xs group-open:rotate-180 transition-transform" aria-hidden="true">▼</span>
       </summary>
       <div className="px-4 pb-4 pt-0 space-y-4 font-mono text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
         <p>

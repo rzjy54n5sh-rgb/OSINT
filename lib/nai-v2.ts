@@ -49,19 +49,24 @@ export function unscorableReason(evidence: LatentEvidence, expressed: number | n
 }
 export const NAI_ARCHIVE_LABEL = 'Archived — previous method (not comparable)';
 
-/** Grey for UNSCORABLE is deliberate: no category is shown rather than a guessed one. */
+/**
+ * Category swatches (design system v2): neutral ink at rising strength from ALIGNED (smallest
+ * government–society gap) to INVERSION — never red/green, never a posture or status colour, and never a
+ * text colour (the label is always written next to the swatch). UNSCORABLE has no fill (dashed outline):
+ * no category is shown rather than a guessed one. Theme-aware CSS values (var(--text) mixes).
+ */
 export const NAI_V2_COLOR: Record<NaiCategoryV2, string> = {
-  ALIGNED: '#4EC98A',
-  STABLE: '#4A8FE8',
-  TENSION: '#E8C547',
-  FRACTURE: '#E8874A',
-  INVERSION: '#E05252',
-  UNSCORABLE: '#6B7280',
+  ALIGNED: 'color-mix(in srgb, var(--text) 18%, transparent)',
+  STABLE: 'color-mix(in srgb, var(--text) 38%, transparent)',
+  TENSION: 'color-mix(in srgb, var(--text) 58%, transparent)',
+  FRACTURE: 'color-mix(in srgb, var(--text) 78%, transparent)',
+  INVERSION: 'var(--text)',
+  UNSCORABLE: 'transparent',
 };
-/** Marker colour when the viewer's tier cannot see the category (distinct from UNSCORABLE grey). */
-export const NAI_V2_LOCKED_COLOR = '#1A2233';
+/** Marker colour when the viewer's tier cannot see the category (distinct from UNSCORABLE). */
+export const NAI_V2_LOCKED_COLOR = 'var(--surface-2)';
 /** Marker colour for a tracked country with no nai_scores_v2 row for the day (distinct from both). */
-export const NAI_V2_NODATA_COLOR = '#2E3A4E';
+export const NAI_V2_NODATA_COLOR = 'var(--line-strong)';
 
 export const NAI_V2_SCALE_TEXT =
   '0 = demands immediate ceasefire · 50 = conditional or ambivalent · 100 = backs continuing or escalating military action (by any party)';
