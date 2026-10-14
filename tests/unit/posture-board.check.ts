@@ -315,17 +315,17 @@ async function acheck(label: string, fn: () => Promise<void>) {
   });
   await acheck('13. posture_v2_days missing or failing (deploy before the migration): board intact, stepper from the rows', async () => {
     for (const err of [{ code: 'PGRST202', message: 'Could not find the function public.posture_v2_days' }, { code: '42883', message: 'function does not exist' }, { code: '57014', message: 'timeout' }]) {
-      const { b } = await boardFromRpc(LIVE, { withDays: true, daysError: err });
+      const { b } = await boardFromRpc(LIVE, { day: 229, withDays: true, daysError: err });
       assert.equal(b.schema, 'v2', err.code);
       assert.equal(b.v2Days, undefined, err.code);
       assert.ok(b.rows.some((r) => r.country_code === 'IR'), err.code);
       assert.deepEqual(v2CodingDays(b), [228, 229], err.code);
       assert.deepEqual(stepperState(b, 229), { show: true, prev: 228, next: null }, err.code);
     }
-    const thrown = await boardFromRpc(LIVE, { withDays: true, daysThrow: true });
+    const thrown = await boardFromRpc(LIVE, { day: 229, withDays: true, daysThrow: true });
     assert.equal(thrown.b.v2Days, undefined, 'a thrown RPC call must not break the board');
     assert.deepEqual(stepperState(thrown.b, 229), { show: true, prev: 228, next: null });
-    const one = await boardFromRpc([raw({ country_code: 'GB', conflict_code: 'us-iran', score_day: 228 })], { withDays: true, daysError: { code: 'PGRST202', message: 'x' } });
+    const one = await boardFromRpc([raw({ country_code: 'GB', conflict_code: 'us-iran', score_day: 228 })], { day: 229, withDays: true, daysError: { code: 'PGRST202', message: 'x' } });
     assert.equal(stepperState(one.b, 229).show, false, 'one day on the rows: stepper hidden');
   });
   console.log(failed ? `\n${failed} of ${n + failed} checks FAILED` : `\nall ${n} checks passed`);

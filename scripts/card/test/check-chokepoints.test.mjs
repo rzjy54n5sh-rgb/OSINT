@@ -9,7 +9,9 @@ import { chokepointErrors } from '../check-chokepoints.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CP = JSON.parse(readFileSync(join(HERE, '..', '..', '..', 'data', 'chokepoints', 'latest.json'), 'utf8'));
-const FRESH = new Date(Date.parse(CP.as_of) + 60 * 60 * 1000);
+// Newest timestamp in the file (top-level as_of may be absent or older than a lane's as_of).
+const NEWEST = Math.max(...[CP.as_of, ...(CP.lanes ?? []).map((l) => l.as_of)].map((t) => Date.parse(t)).filter(Number.isFinite));
+const FRESH = new Date(NEWEST + 60 * 60 * 1000);
 
 test('the committed file passes one hour after its own as_of', () => {
   assert.deepEqual(chokepointErrors(structuredClone(CP), FRESH), []);

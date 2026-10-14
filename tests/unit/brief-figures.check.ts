@@ -4,8 +4,10 @@
  *
  *   npx --yes tsx@4.23.13 tests/unit/brief-figures.check.ts
  *
- * Fixtures are copies of production rows (Day 228 general sources, its cited market_data collection and
- * the committed data/chokepoints/latest.json), read 2026-10-13.
+ * Fixtures are copies of production rows (Day 228 general sources and its cited market_data collection,
+ * read 2026-10-13) and the FROZEN Chokepoint Weekly #1 file scripts/card/test/fixtures/chokepoints-issue1.json.
+ * Nothing here reads the live data/chokepoints/latest.json or the wall clock: the weekly file changes every
+ * week and must never break this check.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -23,7 +25,8 @@ import {
   parseCoverStats,
   type MarketRow,
 } from '../../lib/brief-figures';
-import { getCorridors } from '../../lib/corridors';
+import { buildCorridors } from '../../lib/corridors';
+import issue1 from '../../scripts/card/test/fixtures/chokepoints-issue1.json';
 
 (globalThis as unknown as { React: typeof React }).React = React;
 require.extensions['.css'] = (m: NodeJS.Module) => {
@@ -31,8 +34,10 @@ require.extensions['.css'] = (m: NodeJS.Module) => {
 };
 const { BriefReader } = require('../../components/briefing/BriefReader') as typeof import('../../components/briefing/BriefReader');
 
-const NOW = new Date('2026-10-13T12:00:00Z');
-const view = getCorridors(NOW);
+// "now" is fixed relative to the frozen file's own as_of (2026-10-08T10:52Z): current at +5 days, stale at +9.
+const AS_OF = Date.parse(issue1.as_of);
+const NOW = new Date(AS_OF + 5 * 86400e3);
+const view = buildCorridors(issue1, null, NOW);
 const CW = {
   name: 'MENA Intel Desk Chokepoint Weekly #1 (IMF PortWatch, UN Global Platform, AIS-based)',
   url: 'https://raw.githubusercontent.com/rzjy54n5sh-rgb/OSINT/main/data/chokepoints/latest.json',
@@ -85,7 +90,7 @@ assert.equal(cs.length, 1);
 assert.deepEqual([cs[0].value, cs[0].label, cs[0].sub, cs[0].src], ['$567.1m', 'Suez revenue, Aug 2026', '+56.7% y/y, SCA', null]);
 
 // ---- chokepoint gate + R3 title ------------------------------------------------------------
-assert.equal(view.state, 'current', 'fixture: committed latest.json is current on 13 Oct');
+assert.equal(view.state, 'current', 'fixture: frozen Issue #1 is current 5 days after its as_of');
 assert.equal(citedChokepointEdition(list, view)?.n, 2);
 const older = collectBriefSources([{ subsections: [{ paragraphs: [{ sources: [{ ...CW, published_at: '2026-10-01T09:00:00Z' }] }] }] }]).list;
 assert.equal(citedChokepointEdition(older, view), null, 'a brief citing another edition gets no chart');
@@ -157,8 +162,8 @@ const edge = marketFigures(
 assert.deepEqual(edge.map((f) => f.value), ['105.77', '4,185.9', '15.21'], 'window is [cited second, +1 s)');
 
 // ---- archived edition: once the file is stale the chart still prints the status that edition published --
-const stale = getCorridors(new Date('2026-10-17T00:00:00Z'));
-assert.equal(stale.state, 'stale', 'fixture: stale from 17 Oct');
+const stale = buildCorridors(issue1, null, new Date('2026-10-17T00:00:00Z'));
+assert.equal(stale.state, 'stale', 'fixture: frozen Issue #1 is stale from 17 Oct (as_of + 8 days)');
 const staleHtml = renderToStaticMarkup(React.createElement(BriefReader, { briefing: brief, day: 228, type: 'general', corridors: stale }));
 assert.ok(staleHtml.includes('Hormuz at 2.8% of an average 2023 week'), 'chart kept for the cited edition');
 assert.ok(/data-status="DISRUPTED"/.test(staleHtml) && /data-status="ELEVATED"/.test(staleHtml), 'published statuses');

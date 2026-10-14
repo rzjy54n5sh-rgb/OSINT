@@ -1,6 +1,9 @@
 /**
  * Corridors view-model (lib/corridors.ts): staleness and gate parity with the daily card's
  * scripts/card/lib/gates.mjs, UNKNOWN on stale, index math, week labels, history parsing.
+ * Every value assertion runs on FROZEN fixtures (Chokepoint Weekly #1 and its history file, in
+ * scripts/card/test/fixtures/). The live data/chokepoints/latest.json changes weekly; it appears only in the
+ * gate-parity loop, which compares two implementations on whatever the file holds and asserts no values.
  *   npx --yes tsx@4.23.13 tests/unit/corridors.check.ts
  */
 import assert from 'node:assert/strict';
@@ -10,7 +13,8 @@ import * as wrapper from '../../lib/card-gates';
 import issue1 from '../../scripts/card/test/fixtures/chokepoints-issue1.json';
 import malformedBundle from '../../scripts/card/test/fixtures/malformed.json';
 import latest from '../../data/chokepoints/latest.json';
-import history from '../../data/chokepoints/history.json';
+// Frozen copy of data/chokepoints/history.json as of Issue #1 (retrieved 2026-10-13, newest week 28 Sep).
+import history from '../../scripts/card/test/fixtures/chokepoints-history-issue1.json';
 import {
   buildCorridors,
   chokepointGate,
@@ -100,9 +104,9 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
   eq(v.licenceLine, 'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.', 'printed licence line (pre-ruling USE-PROVISIONAL file)');
   ok(!/provisional/i.test(v.licenceLine), 'no "provisional" wording printed');
   eq(
-    buildCorridors(latest, history, new Date('2026-10-13T09:00:00Z')).licenceLine,
+    buildCorridors({ ...clone(issue1), licence: 'USE (operator ruling 2026-10-13). Do not resell the raw series.' }, history, new Date('2026-10-13T09:00:00Z')).licenceLine,
     'Transit data: IMF PortWatch (UN Global Platform), AIS-based. We do not resell the raw series.',
-    'printed licence line (latest.json, licence USE per operator ruling 2026-10-13)',
+    'printed licence line (licence USE per operator ruling 2026-10-13)',
   );
   eq(licenceLine('Some other licence text.'), 'Some other licence text.', 'a non-PortWatch licence prints verbatim');
   // licenceLine: only an unrestricted USE status ("USE", "USE.", "USE (...)", legacy "USE-PROVISIONAL") prints the
@@ -124,7 +128,6 @@ eq(CHOKEPOINT_MAX_WEEK_END_AGE_DAYS, 13, 'week_end allowance re-exported from ga
       ['USE.', PLAIN],
       ['USE (operator ruling 2026-10-13). Do not resell the raw series.', PLAIN],
       ['USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series.', PLAIN],
-      [(latest as { licence: string }).licence, PLAIN],
     ];
     const bad: string[] = [];
     for (const [input, want] of cases) {
@@ -219,16 +222,16 @@ eq(formatDay('nope'), null, 'bad day -> null');
 // ---- 5. History parsing -----------------------------------------------------------------------
 {
   const h = parseHistory(history);
-  ok(h !== null, 'committed history.json parses');
+  ok(h !== null, 'frozen Issue #1 history parses');
   eq(Object.keys(h!.lanes).sort(), ['bam_redsea', 'hormuz', 'suez'], 'three lanes');
   for (const id of LANE_ORDER) {
     const weeks = h!.lanes[id]!;
     eq(weeks.length, 12, `${id}: 12 weeks`);
     ok(weeks.every((w, i) => i === 0 || w.weekStart > weeks[i - 1].weekStart), `${id}: ascending`);
-    const lw = (latest.lanes as { lane: string; week_start: string; transits_week: number; transits_prev_week: number }[]).find((x) => x.lane === id)!;
+    const lw = (issue1.lanes as { lane: string; week_start: string; transits_week: number; transits_prev_week: number }[]).find((x) => x.lane === id)!;
     const newest = weeks.find((w) => w.weekStart === lw.week_start);
-    ok(newest, `${id}: history contains the latest.json week`);
-    eq(newest!.transits, lw.transits_week, `${id}: history week equals latest.json transits`);
+    ok(newest, `${id}: history contains the Issue #1 week`);
+    eq(newest!.transits, lw.transits_week, `${id}: history week equals Issue #1 transits`);
   }
   eq(parseHistory(null), null, 'null -> null');
   eq(parseHistory({}), null, 'empty object -> null');
