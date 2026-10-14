@@ -1,79 +1,189 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/utils/supabase/client';
-import { useRealtimeCount } from '@/hooks/useRealtimeCount';
-import { formatArticleCount } from '@/lib/article-count';
 import { useConflictDay } from '@/hooks/useConflictDay';
 import { useDataFreshness } from '@/hooks/useDataFreshness';
 import { resolveViewerProfile } from '@/hooks/useViewerTier';
-import { GlossaryTooltip } from '@/components/GlossaryTooltip';
-import { GLOSSARY } from '@/lib/glossary';
+import { formatUtcStamp } from '@/lib/data-freshness';
 import { GlobeMenu } from '@/components/GlobeMenu';
 import { LanguageToggle } from '@/components/ui/LanguageToggle';
+import { TrustChip } from '@/components/ui/TrustChip';
+import { Icon } from '@/components/ui/icons';
+import { Wordmark } from '@/components/header/Wordmark';
 import { useI18n } from '@/components/I18nProvider';
 import { ARABIC_ENABLED } from '@/lib/site';
 import type { UserTier } from '@/types';
 import type { UIStringKey } from '@/lib/i18n';
 
-type NavItem = { href: string; labelKey: UIStringKey; isWarRoom?: boolean };
+/** Global .hdr-* classes (app/globals.css, "SITE HEADER") */
+const s = {
+  bar: 'hdr-bar',
+  cta: 'hdr-cta',
+  desktopOnly: 'hdr-desktop-only',
+  group: 'hdr-group',
+  groupLabel: 'hdr-group-label',
+  groupLink: 'hdr-group-link',
+  groupList: 'hdr-group-list',
+  header: 'hdr',
+  iconButton: 'hdr-icon-button',
+  logo: 'hdr-logo',
+  logoText: 'hdr-logo-text',
+  menu: 'hdr-menu',
+  menuButton: 'hdr-menu-button',
+  menuGroups: 'hdr-menu-groups',
+  menuInner: 'hdr-menu-inner',
+  menuPrimary: 'hdr-menu-primary',
+  menuTools: 'hdr-menu-tools',
+  moreButton: 'hdr-more-button',
+  morePanel: 'hdr-more-panel',
+  nav: 'hdr-nav',
+  navLink: 'hdr-nav-link',
+  planLine: 'hdr-plan-line',
+  right: 'hdr-right',
+  sep: 'hdr-sep',
+  staleChip: 'hdr-stale-chip',
+  stamp: 'hdr-stamp',
+  stampDate: 'hdr-stamp-date',
+  stampDay: 'hdr-stamp-day',
+  stampWhen: 'hdr-stamp-when',
+} as const;
 
-const NAV_GROUPS: { groupLabelKey: UIStringKey; links: NavItem[] }[] = [
+/**
+ * Site header, design system v2 (Main.dc.html desktop, Home-Mobile.dc.html mobile).
+ * Primary nav = the design's five destinations; every other route stays one click away under "More"
+ * (desktop) or in the menu (mobile), grouped as before. Both menus are disclosures: a button with
+ * aria-expanded, aria-controls only while the panel exists, Escape closes and returns focus to it.
+ * Dark-only for now (LIGHT_THEME_ENABLED = false): no theme toggle; it returns with the light-theme PR.
+ * Every href here is an existing app route (tests/unit/header-links.check.ts).
+ */
+type NavItem = { href: string; en: string; key?: UIStringKey };
+
+export const PRIMARY_NAV: readonly NavItem[] = [
+  { href: '/briefings', en: 'Today', key: 'navBriefings' },
+  { href: '/corridors', en: 'Corridors' },
+  { href: '/nai', en: 'War Posture', key: 'navNai' },
+  { href: '/scenarios', en: 'Scenarios', key: 'navScenarios' },
+  { href: '/countries', en: 'Countries', key: 'navCountries' },
+];
+
+export const MORE_GROUPS: readonly { key: UIStringKey; en: string; links: readonly NavItem[] }[] = [
   {
-    groupLabelKey: 'navGroupIntel',
+    key: 'navGroupIntel',
+    en: 'Intel',
     links: [
-      { href: '/warroom', labelKey: 'navWarRoom', isWarRoom: true },
-      { href: '/briefings', labelKey: 'navBriefings' },
-      { href: '/mediaroom', labelKey: 'navMediaRoom' },
-      { href: '/feed', labelKey: 'navFeed' },
+      { href: '/warroom', en: 'War Room', key: 'navWarRoom' },
+      { href: '/mediaroom', en: 'Media Room', key: 'navMediaRoom' },
+      { href: '/feed', en: 'Feed', key: 'navFeed' },
     ],
   },
   {
-    groupLabelKey: 'navGroupData',
+    key: 'navGroupData',
+    en: 'Data',
     links: [
-      { href: '/nai', labelKey: 'navNai' },
-      { href: '/countries', labelKey: 'navCountries' },
-      { href: '/scenarios', labelKey: 'navScenarios' },
-      { href: '/disinfo', labelKey: 'navDisinfo' },
+      { href: '/disinfo', en: 'Disinfo', key: 'navDisinfo' },
+      { href: '/timeline', en: 'Timeline', key: 'timeline' },
     ],
   },
   {
-    groupLabelKey: 'navGroupMarketsSocial',
+    key: 'navGroupMarketsSocial',
+    en: 'Markets & social',
     links: [
-      { href: '/markets', labelKey: 'navMarkets' },
-      { href: '/social', labelKey: 'navSocial' },
-      { href: '/analytics', labelKey: 'navAnalytics' },
+      { href: '/markets', en: 'Markets', key: 'navMarkets' },
+      { href: '/social', en: 'Social', key: 'navSocial' },
+      { href: '/analytics', en: 'Analytics', key: 'navAnalytics' },
     ],
   },
   {
-    groupLabelKey: 'navGroupPlatform',
+    key: 'navGroupPlatform',
+    en: 'Platform',
     links: [
-      { href: '/pricing', labelKey: 'pricing' },
-      { href: '/methodology', labelKey: 'methodology' },
-      { href: '/sources', labelKey: 'sources' },
-      { href: '/timeline', labelKey: 'timeline' },
-      { href: '/api-docs', labelKey: 'navApiDocs' },
-      { href: '/contact', labelKey: 'navContact' },
+      { href: '/methodology', en: 'Methodology', key: 'methodology' },
+      { href: '/sources', en: 'Sources', key: 'sources' },
+      { href: '/api-docs', en: 'API docs', key: 'navApiDocs' },
+      { href: '/contact', en: 'Contact', key: 'navContact' },
     ],
   },
 ];
 
+/** The one primary call to action (gold). */
+export const HEADER_CTA = { href: '/corridors#weekly', en: 'Chokepoint Weekly' } as const;
+
 function tierLabel(tier: UserTier, t: (k: UIStringKey) => string): string {
-  if (tier === 'professional') return `◆ ${t('proLabel')}`;
+  if (tier === 'professional') return t('proLabel');
   if (tier === 'informed') return t('informedLabel');
   return t('freeLabel');
 }
 
+function isCurrent(pathname: string, href: string): boolean {
+  return pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
+}
+
+/** Diamond mark (gold, decorative). */
+function Mark() {
+  return (
+    <svg className="hdr-mark" width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false">
+      <path d="M9 1.5 16.5 9 9 16.5 1.5 9Z" fill="none" stroke="var(--accent)" strokeWidth="2" />
+      <path d="M9 6 12 9 9 12 6 9Z" fill="var(--accent)" />
+    </svg>
+  );
+}
+
+/** Escape closes an open disclosure and returns focus to its button; a click or focus outside closes it too. */
+function useDisclosure(open: boolean, close: () => void, button: React.RefObject<HTMLButtonElement | null>, panel: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        close();
+        button.current?.focus();
+      }
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !button.current?.contains(t)) close();
+    };
+    // Focus moving anywhere outside the panel and its button (Tab past the last link, a click elsewhere) closes it.
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Node;
+      if (!panel.current?.contains(t) && !button.current?.contains(t)) close();
+    };
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('focusin', onFocusIn);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('focusin', onFocusIn);
+    };
+  }, [open, close, button, panel]);
+}
+
 export function CommandHeader() {
-  const { t } = useI18n();
-  const pathname = usePathname();
-  const { articleCount, lastUpdate, live } = useRealtimeCount();
+  const { t, lang } = useI18n();
+  const label = (item: { en: string; key?: UIStringKey }) => (lang === 'ar' && item.key ? t(item.key) : item.en);
+  const pathname = usePathname() ?? '/';
   const conflictDay = useConflictDay();
   const { lastUpdateAt, stale, staleReasons } = useDataFreshness();
+  const [moreOpen, setMoreOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userTier, setUserTier] = useState<UserTier | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState(false);
+  const moreButton = useRef<HTMLButtonElement>(null);
+  const morePanel = useRef<HTMLDivElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const menuPanel = useRef<HTMLElement>(null);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useDisclosure(moreOpen, closeMore, moreButton, morePanel);
+  useDisclosure(menuOpen, closeMenu, menuButton, menuPanel);
+
+  // A route change closes both menus.
+  useEffect(() => {
+    setMoreOpen(false);
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -101,398 +211,169 @@ export function CommandHeader() {
   }, []);
 
   const loggedIn = userTier === 'free' || userTier === 'informed' || userTier === 'professional';
-  const showGuestAuth = !loggedIn; /* null, undefined, or unexpected */
+  const accountLinks: NavItem[] = [
+    loggedIn ? { href: '/account', en: 'Account', key: 'account' } : { href: '/login', en: 'Sign in', key: 'login' },
+    { href: '/pricing', en: 'Access', key: 'pricing' },
+    ...(isAdmin ? [{ href: '/admin', en: 'Admin', key: 'admin' as UIStringKey }] : []),
+  ];
+  const groups = [...MORE_GROUPS, { key: 'navGroupAccount' as UIStringKey, en: 'Account', links: accountLinks }];
+
+  // "Day 228 · 10:05 UTC" (or "· 13 Oct 22:40 UTC" when the newest article is from an earlier UTC day):
+  // calendar day (DAY LOCK) and the newest article's real timestamp. Rule: a time is never shown without
+  // its date unless it is today's (UTC). The parts are separate spans so the bar can drop "Day N" (stale,
+  // phones when dated, Arabic UI) or the whole stamp (stale on narrow phones), never the date alone.
+  const updated = formatUtcStamp(lastUpdateAt);
+  const dated = /^(\d{2} \w{3}) (.+)$/.exec(updated);
+  const staleTitle = staleReasons.join(' · ') || 'Data may be out of date';
+  const stamp = (
+    <span className={s.stamp} dir="ltr" translate="no" data-dated={dated ? 'true' : undefined}>
+      <span className={s.stampDay}>Day {conflictDay}</span>
+      <span className={s.sep} aria-hidden="true">
+        {' · '}
+      </span>
+      <span className={s.stampWhen}>
+        <span className="sr-only">, updated </span>
+        {dated ? <span className={s.stampDate}>{dated[1]} </span> : null}
+        {dated ? dated[2] : updated}
+      </span>
+    </span>
+  );
+  // Bar: glyph + the visible word "Stale" ("Data" for screen readers); the menu shows "Data stale".
+  const staleLabel = (
+    <>
+      <span className="sr-only">Data </span>Stale
+    </>
+  );
+
+  const groupBlocks = (onNavigate?: () => void) =>
+    groups.map((g) => (
+      <div key={g.key} className={s.group}>
+        <p className={s.groupLabel} id={`hdr-${g.key}`}>
+          {label(g)}
+        </p>
+        {g.key === 'navGroupAccount' && loggedIn ? (
+          <span className={s.planLine} translate="no">
+            {t('navCurrentPlan')}: {tierLabel(userTier, t)}
+          </span>
+        ) : null}
+        <ul className={s.groupList} aria-labelledby={`hdr-${g.key}`}>
+          {g.links.map((l) => (
+            <li key={l.href}>
+              <Link
+                prefetch={false}
+                href={l.href}
+                className={s.groupLink}
+                aria-current={isCurrent(pathname, l.href) ? 'page' : undefined}
+                onClick={onNavigate}
+              >
+                {label(l)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ));
 
   return (
-    <header
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        background: 'rgba(7, 10, 15, 0.88)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid var(--border)',
-      }}
-    >
-      <div
-        style={{
-          maxWidth: '1800px',
-          margin: '0 auto',
-          padding: '0 24px',
-          height: '44px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
-        }}
-      >
-        {/* Logo */}
-        <Link prefetch={false}
-          href="/"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            textDecoration: 'none',
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ color: 'var(--accent-gold)', fontSize: '14px', lineHeight: 1 }}>◆</span>
-          <span
-            style={{
-              fontFamily: 'Bebas Neue, sans-serif',
-              fontSize: '16px',
-              letterSpacing: '2px',
-              color: 'var(--text-primary)',
-            }}
-          >
-            MENA INTEL DESK
-          </span>
+    <header className={s.header}>
+      <div className={s.bar}>
+        <Link prefetch={false} href="/" className={s.logo} aria-current={pathname === '/' ? 'page' : undefined}>
+          <Mark />
+          <Wordmark className={s.logoText} />
         </Link>
 
-        {/* Center stats */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            fontFamily: 'var(--font-mono), monospace',
-            fontSize: '11px',
-            letterSpacing: '1.5px',
-            color: 'var(--text-muted)',
-            textTransform: 'uppercase',
-            flexShrink: 0,
-          }}
-          className="hidden-mobile"
-        >
-          <GlossaryTooltip term="CONFLICT_DAY" definition={GLOSSARY.CONFLICT_DAY}>
-            <span>
-              <span translate="no">DAY: </span>
-              <span style={{ color: 'var(--accent-red)' }}>{conflictDay ?? '—'}</span>
-            </span>
-          </GlossaryTooltip>
-          <span style={{ color: 'var(--border-bright)' }}>|</span>
-          <span>
-            UPDATE:{' '}
-            <span style={{ color: 'var(--text-secondary)' }}>{lastUpdate}</span>
-          </span>
-          <span style={{ color: 'var(--border-bright)' }}>|</span>
-          <span>
-            ARTICLES:{' '}
-            <span style={{ color: 'var(--accent-gold)' }} title="Approximate total (database estimate)">{formatArticleCount(articleCount)}</span>
-          </span>
-          <span style={{ color: 'var(--border-bright)' }}>|</span>
-          {/* Live indicator */}
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ position: 'relative', display: 'inline-flex', width: '8px', height: '8px' }}>
-              {live && (
-                <span
-                  className="pulse-ring"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    borderRadius: '50%',
-                    background: 'var(--accent-red)',
-                    opacity: 0.6,
-                  }}
-                />
-              )}
-              <span
-                style={{
-                  position: 'relative',
-                  display: 'inline-flex',
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: live ? 'var(--accent-red)' : 'var(--text-muted)',
-                }}
-              />
-            </span>
-            <span style={{ color: live ? 'var(--accent-red)' : 'var(--text-muted)' }}>
-              {live ? 'LIVE' : 'STANDBY'}
-            </span>
-          </span>
-          {stale && (
-            <span
-              style={{
-                fontFamily: 'var(--font-mono), monospace', fontSize: 11, letterSpacing: '1px',
-                color: 'var(--accent-orange)',
-                border: '1px solid var(--accent-orange)',
-                padding: '2px 8px',
-                animation: 'pulse 2s infinite',
-              }}
-              title={staleReasons.join(' · ') || 'Data may be out of date'}
+        <nav aria-label="Main" className={s.nav}>
+          {PRIMARY_NAV.map((item) => (
+            <Link
+              prefetch={false}
+              key={item.href}
+              href={item.href}
+              className={s.navLink}
+              aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
             >
-              ⚠ DATA STALE
-            </span>
-          )}
-          {!stale && lastUpdateAt && (
-            <span
-              style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 11, color: 'var(--text-muted)', letterSpacing: '1px' }}
-              title={`Briefings, articles and scenarios are current. Newest item: ${new Date(lastUpdateAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`}
-            >
-              ◆ SYNCED
-            </span>
-          )}
-        </div>
-
-        {/* Desktop nav — mega menu (hover / focus-within) */}
-        <nav
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            flexShrink: 1,
-            flexWrap: 'wrap',
-            justifyContent: 'flex-end',
-          }}
-          className="hidden-mobile"
-          aria-label="Main navigation"
-        >
-          <div className="desktop-nav-mega">
-            {NAV_GROUPS.map((group) => (
-              <div key={group.groupLabelKey} className="desktop-nav-mega__item">
-                <button type="button" className="desktop-nav-mega__trigger" aria-haspopup="true" aria-label={t(group.groupLabelKey)}>
-                  <span>{t(group.groupLabelKey)}</span>
-                  <span className="desktop-nav-mega__chev" aria-hidden>
-                    ▾
-                  </span>
-                </button>
-                <div className="desktop-nav-mega__hover-bridge" aria-hidden />
-                <div className="desktop-nav-mega__panel" aria-label={t(group.groupLabelKey)}>
-                  {group.links.map(({ href, labelKey, isWarRoom }) => {
-                    const active = pathname === href;
-                    return (
-                      <Link prefetch={false}
-                        key={href}
-                        href={href}
-                        className={`desktop-nav-mega__link${active ? ' desktop-nav-mega__link--active' : ''}${isWarRoom ? ' desktop-nav-mega__link--war' : ''}`}
-                      >
-                        {isWarRoom && (
-                          <span className="desktop-nav-mega__dot" aria-hidden>
-                            <span
-                              className="pulse-ring"
-                              style={{
-                                position: 'absolute',
-                                inset: -2,
-                                borderRadius: '50%',
-                                background: 'var(--accent-red)',
-                                opacity: 0.4,
-                              }}
-                            />
-                          </span>
-                        )}
-                        <span>{t(labelKey)}</span>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            {/* Account: tier, sign-in, billing, admin — same hover bridge as other megas */}
-            <div className="desktop-nav-mega__item">
-              <button type="button" className="desktop-nav-mega__trigger" aria-haspopup="true" aria-label={t('navGroupAccount')}>
-                <span>{t('navGroupAccount')}</span>
-                {loggedIn && (
-                  <span className="desktop-nav-mega__trigger-tier" translate="no">
-                    · {tierLabel(userTier, t)}
-                  </span>
-                )}
-                <span className="desktop-nav-mega__chev" aria-hidden>
-                  ▾
-                </span>
-              </button>
-              <div className="desktop-nav-mega__hover-bridge" aria-hidden />
-              <div className="desktop-nav-mega__panel" aria-label={t('navGroupAccount')}>
-                {loggedIn && (
-                  <div className="desktop-nav-mega__tier-meta">
-                    {t('navCurrentPlan')}
-                    <span
-                      className={`desktop-nav-mega__tier-value${userTier === 'professional' ? ' desktop-nav-mega__tier-value--pro' : ''}${userTier === 'informed' ? ' desktop-nav-mega__tier-value--informed' : ''}${userTier === 'free' ? ' desktop-nav-mega__tier-value--free' : ''}`}
-                      translate="no"
-                    >
-                      {tierLabel(userTier, t)}
-                    </span>
-                  </div>
-                )}
-                {showGuestAuth && (
-                  <Link prefetch={false}
-                    href="/login"
-                    className={`desktop-nav-mega__link${pathname === '/login' ? ' desktop-nav-mega__link--active' : ''}`}
-                  >
-                    {t('login')}
-                  </Link>
-                )}
-                {loggedIn && (
-                  <Link prefetch={false}
-                    href="/account"
-                    className={`desktop-nav-mega__link${pathname === '/account' ? ' desktop-nav-mega__link--active' : ''}`}
-                  >
-                    {t('account')}
-                  </Link>
-                )}
-                <Link prefetch={false} href="/pricing" className={`desktop-nav-mega__link${pathname === '/pricing' ? ' desktop-nav-mega__link--active' : ''}`}>
-                  {t('pricing')}
-                </Link>
-                {isAdmin && (
-                  <Link prefetch={false} href="/admin" className={`desktop-nav-mega__link${pathname.startsWith('/admin') ? ' desktop-nav-mega__link--active' : ''}`} style={{ color: 'var(--accent-gold)' }}>
-                    {t('admin')}
-                  </Link>
-                )}
+              {label(item)}
+            </Link>
+          ))}
+          <button
+            ref={moreButton}
+            type="button"
+            className={s.moreButton}
+            aria-expanded={moreOpen}
+            aria-controls={moreOpen ? 'header-more' : undefined}
+            onClick={() => setMoreOpen((v) => !v)}
+          >
+            More
+            <Icon name="chevron-down" />
+          </button>
+          {moreOpen ? (
+            <div ref={morePanel} id="header-more" className={s.morePanel}>
+              {groupBlocks(closeMore)}
+              <div className={s.group}>
+                {/* Language lives here on desktop: the bar has no room for it next to the nav and stamp. */}
+                {ARABIC_ENABLED ? <LanguageToggle /> : null}
+                <GlobeMenu inline />
               </div>
             </div>
-          </div>
-          <span style={{ width: 1, height: 14, background: 'var(--border)', flexShrink: 0 }} aria-hidden />
-          <GlobeMenu />
-          {ARABIC_ENABLED && <LanguageToggle />}
+          ) : null}
         </nav>
 
-        {/* Mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(v => !v)}
-          aria-expanded={menuOpen}
-          // Only point at the menu while it is rendered (aria-controls must reference an element that exists).
-          aria-controls={menuOpen ? 'mobile-nav' : undefined}
-          style={{
-            display: 'none',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '4px 8px',
-            minHeight: 44,
-            minWidth: 44,
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-secondary)',
-          }}
-          className="show-mobile"
-        >
-          <span
-            style={{
-              fontFamily: 'var(--font-mono), monospace',
-              fontSize: '11px',
-              letterSpacing: '2px',
-            }}
+        <div className={s.right}>
+          {stamp}
+          {/* Every width: glyph + visible "Stale". On narrow phones the stamp gives way to it (CSS). */}
+          {stale ? <TrustChip kind="stale" label={staleLabel} title={staleTitle} className={s.staleChip} /> : null}
+          <Link prefetch={false} href={HEADER_CTA.href} className={`${s.cta} ${s.desktopOnly}`}>
+            {HEADER_CTA.en}
+          </Link>
+          <button
+            ref={menuButton}
+            type="button"
+            className={`${s.iconButton} ${s.menuButton}`}
+            aria-expanded={menuOpen}
+            aria-controls={menuOpen ? 'header-menu' : undefined}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+            onClick={() => setMenuOpen((v) => !v)}
           >
-            {menuOpen ? t('menuClose') : t('menuOpen')}
-          </span>
-        </button>
+            <Icon name={menuOpen ? 'close' : 'menu'} size={22} />
+          </button>
+        </div>
       </div>
 
-      {/* Mobile dropdown — grouped, compact */}
-      {menuOpen && (
-        <nav
-          id="mobile-nav"
-          aria-label="Main menu"
-          style={{
-            borderTop: '1px solid var(--border)',
-            padding: '10px 16px 12px',
-            background: 'rgba(7,10,15,0.96)',
-            maxHeight: '70vh',
-            overflowY: 'auto',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', columnGap: 16, rowGap: 12 }}>
-            {NAV_GROUPS.map((group) => (
-              <div key={group.groupLabelKey} style={{ display: 'contents' }}>
-                <div
-                  style={{
-                    gridColumn: '1 / -1',
-                    fontFamily: 'var(--font-mono), monospace',
-                    fontSize: 11,
-                    letterSpacing: '1.5px',
-                    color: 'var(--text-muted)',
-                    marginTop: 4,
-                  }}
-                >
-                  {t(group.groupLabelKey)}
-                </div>
-                {group.links.map(({ href, labelKey, isWarRoom }) => (
-                  <Link prefetch={false}
-                    key={href}
-                    href={href}
-                    className="header-link"
-                    onClick={() => setMenuOpen(false)}
-                    style={{
-                      fontSize: 11,
-                      color: isWarRoom ? 'var(--accent-red)' : pathname === href ? 'var(--accent-gold)' : undefined,
-                    }}
+      {menuOpen ? (
+        <nav ref={menuPanel} id="header-menu" aria-label="Menu" className={s.menu}>
+          <div className={s.menuInner}>
+            {stale ? <TrustChip kind="stale" label="Data stale" title={staleTitle} /> : null}
+            {/* The full stamp (the bar may shorten or hide it on phones). */}
+            <span className={s.planLine} translate="no">
+              Day {conflictDay} · updated {updated}
+            </span>
+            <ul className={s.menuPrimary}>
+              {PRIMARY_NAV.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    prefetch={false}
+                    href={item.href}
+                    className={s.groupLink}
+                    aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
+                    onClick={closeMenu}
                   >
-                    {t(labelKey)}
+                    {label(item)}
                   </Link>
-                ))}
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: 12,
-              paddingTop: 10,
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: 'var(--font-mono), monospace',
-                fontSize: 11,
-                letterSpacing: '1.5px',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {t('navGroupAccount')}
-            </div>
-            {loggedIn && (
-              <span
-                className="font-mono"
-                style={{
-                  fontSize: 12,
-                  ...(userTier === 'professional' ? { color: '#E8C547' } : userTier === 'informed' ? { color: '#1E90FF' } : { color: '#4A5568' }),
-                }}
-                translate="no"
-              >
-                {t('navCurrentPlan')}: {tierLabel(userTier, t)}
-              </span>
-            )}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
-              {showGuestAuth && (
-                <Link prefetch={false} href="/login" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
-                  {t('login')}
+                </li>
+              ))}
+              <li>
+                <Link prefetch={false} href={HEADER_CTA.href} className={s.cta} onClick={closeMenu} style={{ marginBlock: 8 }}>
+                  {HEADER_CTA.en}
                 </Link>
-              )}
-              {loggedIn && (
-                <Link prefetch={false} href="/account" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
-                  {t('account')}
-                </Link>
-              )}
-              <Link prefetch={false} href="/pricing" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11 }}>
-                {t('pricing')}
-              </Link>
-              {isAdmin && (
-                <Link prefetch={false} href="/admin" onClick={() => setMenuOpen(false)} className="header-link" style={{ fontSize: 11, color: 'var(--accent-gold)' }}>
-                  {t('admin')}
-                </Link>
-              )}
-              <GlobeMenu />
-              {ARABIC_ENABLED && <LanguageToggle />}
+              </li>
+            </ul>
+            <div className={s.menuGroups}>{groupBlocks(closeMenu)}</div>
+            <div className={s.menuTools}>
+              {ARABIC_ENABLED ? <LanguageToggle /> : null}
+              <GlobeMenu inline />
             </div>
           </div>
         </nav>
-      )}
-
-      <style>{`
-        @media (max-width: 900px) {
-          .hidden-mobile { display: none !important; }
-          .show-mobile   { display: flex !important; }
-        }
-        @media (min-width: 901px) {
-          .show-mobile { display: none !important; }
-        }
-      `}</style>
+      ) : null}
     </header>
   );
 }

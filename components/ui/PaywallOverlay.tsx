@@ -34,7 +34,7 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
           prefetch={false}
           href={FOUNDING_ACCESS_HREF}
           className="border px-2 py-1 rounded-sm hover:opacity-90 transition-opacity inline-flex items-center min-h-[24px]"
-          style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+          style={{ borderColor: 'var(--line-strong)', color: 'var(--text)' }}
         >
           {FOUNDING_ACCESS_SHORT} →<span className="sr-only"> (unlocks: {featureName})</span>
         </Link>
@@ -66,8 +66,9 @@ export function PaywallOverlay({ requiredTier, featureName, description, compact
       <Link
         prefetch={false}
         href={FOUNDING_ACCESS_HREF}
-        className="inline-flex items-center min-h-[44px] border px-4 py-2 text-sm font-semibold rounded-sm hover:opacity-90 transition-opacity"
-        style={{ background: 'var(--accent-fill)', borderColor: 'var(--accent-fill)', color: 'var(--on-accent)' }}
+        // Secondary style (text-coloured outline): the header's gold CTA is the page's one primary action.
+        className="inline-flex items-center min-h-[44px] border px-4 py-2 text-sm font-medium rounded-sm hover:underline underline-offset-4"
+        style={{ background: 'transparent', borderColor: 'var(--line-strong)', color: 'var(--text)' }}
       >
         {FOUNDING_ACCESS_LABEL} →
       </Link>

@@ -1,8 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '@/components/ui/icons';
 
-export function GlobeMenu() {
+/**
+ * Translation help (the platform is English-only). `inline`: inside a menu panel the help opens in
+ * the flow under the button instead of as a floating popover.
+ */
+export function GlobeMenu({ inline = false }: { inline?: boolean }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -21,23 +26,24 @@ export function GlobeMenu() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Language and translation options"
+        aria-expanded={open}
+        aria-label={inline ? undefined : 'Language and translation options'}
         style={{
-          background: 'none', border: '1px solid var(--border)',
-          color: 'var(--text-muted)', cursor: 'pointer',
-          fontFamily: 'var(--font-mono), monospace', fontSize: 11, padding: '3px 8px',
-          letterSpacing: '1px', transition: 'color 0.15s, border-color 0.15s',
+          display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44, minWidth: 44,
+          justifyContent: 'center', background: 'none', border: 0, padding: inline ? 0 : '0 8px',
+          color: 'var(--text-secondary)', cursor: 'pointer', font: 'inherit', fontSize: 15,
         }}
-        onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.color = 'var(--accent-gold)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--accent-gold)'; }}
-        onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.color = 'var(--text-muted)'; (e.target as HTMLButtonElement).style.borderColor = 'var(--border)'; }}
       >
-        🌐
+        <Icon name="globe" />
+        {inline ? <span>Language / translation</span> : null}
       </button>
       {open && (
         <div
           style={{
-            position: 'absolute', top: '100%', right: 0, marginTop: 6,
-            width: 280, background: 'var(--bg-secondary)',
+            ...(inline
+              ? { position: 'static', marginTop: 4, maxWidth: 320 }
+              : { position: 'absolute', top: '100%', insetInlineEnd: 0, marginTop: 6, width: 280 }),
+            background: 'var(--bg-secondary)',
             border: '1px solid var(--border)', zIndex: 100, padding: 16,
           }}
         >

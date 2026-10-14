@@ -134,9 +134,12 @@ export function postureLabel(e: number | null | undefined): PostureLabel | null 
   return NAI_POSTURE_LABELS[i === -1 ? NAI_POSTURE_LABELS.length - 1 : i];
 }
 
-/** Swatch colour for a score: its SCORE band (0–30 / 31–60 / 61–80 / 81–100), never the label's anchor. */
-export function postureColor(e: number | null | undefined): string | null {
-  return postureLabel(e) === null ? null : postureScaleVar(e);
+/**
+ * Swatch colour for a score: its SCORE band (0–30 / 31–60 / 61–80 / 81–100), never the label's anchor.
+ * EG / AE / SA (stated positions only) get none, even if a score is passed.
+ */
+export function postureColor(e: number | null | undefined, countryCode?: string | null): string | null {
+  return postureLabel(e) === null ? null : postureScaleVar(e, { countryCode });
 }
 
 /**

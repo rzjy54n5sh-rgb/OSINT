@@ -117,7 +117,7 @@ export default function CountriesClient({ initialScores, naiDay, currentDay, tie
                       </GlossaryTooltip>
                     </p>
                     <div className="mt-1">
-                      <NaiPostureLabel expressed={s.expressed_score} />
+                      <NaiPostureLabel expressed={s.expressed_score} countryCode={s.country_code} />
                     </div>
                     </>
                   )}

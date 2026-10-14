@@ -1,5 +1,9 @@
 import { STATUS_GLYPHS, type LaneStatusCode } from '@/lib/design-tokens';
-import s from './chips.module.css';
+/** Global .chip-* classes (app/globals.css, "SHARED CHIPS"). */
+const s = {
+  srOnly: 'chip-sr-only',
+  status: 'chip-status',
+} as const;
 
 /**
  * Lane status (design system v2): glyph + word + colour, always together. The glyph is decorative;
