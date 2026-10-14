@@ -13,7 +13,7 @@ longer loaded on any page. Nothing else imports `three`, so a human can remove i
 | After load, on screen and idle, except Save-Data | Static SVG relief (coastline, 5° graticule, lane lines) |
 | Also: no reduced motion, viewport ≥ 768 px, ≥ 4 cores, ≥ 4 GB device memory (or unknown), hardware WebGL | Raw-WebGL relief over the SVG, cross-faded in |
 
-- **Gate:** `lib/hero-3d.ts`, using `hero3DDecision` and `heroReliefMode`. Software rasterisers (SwiftShader, llvmpipe and others) are still rejected by renderer string. Headless Chromium, and therefore Lighthouse and PageSpeed, gets the SVG.
+- **Gate:** `lib/hero-3d.ts`, using `heroSceneMode`, which is built on `hero3DDecision` and `heroReliefMode`. Software rasterisers (SwiftShader, llvmpipe and others) are still rejected by renderer string. Headless Chromium, and therefore Lighthouse and PageSpeed, gets the SVG.
 - **Motion:** the camera drifts about 5° over at most 5 s and settles on exactly the SVG's view. Then the loop stops for good. The drift clock pauses while the tab is hidden or the hero is off-screen (IntersectionObserver). With reduced motion there is no WebGL, and the SVG appears without a fade.
 - **Layout:** everything is absolutely positioned inside the fixed-height `.hero-scene` box, so its CLS contribution is 0. The LCP element is unchanged: inline SVG and canvas are not LCP candidates, and both mount after load.
 - **Accessibility:** `aria-hidden`, with no text inside. The CorridorStrip prints every status as text.
@@ -21,16 +21,19 @@ longer loaded on any page. Nothing else imports `three`, so a human can remove i
 
 ## Lane colours
 
-- **Source of truth:** `lib/corridors.ts` over `data/chokepoints/latest.json`, evaluated in the browser when the relief mounts.
-- **Mapping:** `reliefLaneStyles` in `components/home/relief/model.ts`. A lane takes its status token `--status-<status>`, the same token as `StatusChip`.
-- **Stale or withheld view:** every lane is `UNKNOWN`. It is drawn in `--status-unknown`, dashed, exactly as the CorridorStrip treats stale data.
+- **One view per render:** `app/page.tsx` computes the corridors view once with `getCorridors(new Date())` from `lib/corridors.ts` over `data/chokepoints/latest.json`.
+- **Shared:** that same view goes to the CorridorStrip (`view=`) and, through `reliefLaneStyles(view)`, to HomeDashboard → HeroScene → ReliefLayer as plain props.
+- **No client-side status:** the browser never reads the corridor file or the visitor's clock. The relief and the strip therefore cannot disagree. `tests/unit/hero-relief.check.ts` renders both from the same view and compares them lane by lane.
+- **Mapping:** a lane takes the token `--status-<status>`, the same token as `StatusChip`.
+- **Stale or withheld view:** every lane is `UNKNOWN`, drawn in `--status-unknown` and dashed, exactly as the CorridorStrip prints it.
 - **Connector:** the Arabian Sea / Gulf of Aden connector is not a status lane, so it is always `--muted` and dotted.
-- **Visitor clock:** a wrong clock can only push the view to stale or withheld, which is neutral. It never pushes it to a status the strip does not show.
+- **Top fade:** the relief wrapper is transparent for its first 72 px and fully drawn from 128 px. No line crosses the ticker row, and text contrast there matches main.
 
 ## Geometry: source and licence
 
 - **Data:** ETOPO1 1 arc-minute global relief model, ice surface, grid-registered. By NOAA NGDC (now NCEI); Amante, C. and B. W. Eakins (2009), *ETOPO1 1 Arc-Minute Global Relief Model: Procedures, Data Sources and Analysis*, NOAA Technical Memorandum NESDIS NGDC-24, doi:10.7289/V5C8276M.
-- **Licence:** a US Government work, in the public domain. NOAA's ERDDAP serves it with: "The data may be used and redistributed for free but is not intended for legal use, since it may contain inaccuracies."
+- **Licence:** public domain, because it is a work of the US federal government (17 U.S.C. §105) and NOAA publishes it without restriction. NOAA's ERDDAP serves it with: "The data may be used and redistributed for free but is not intended for legal use, since it may contain inaccuracies."
+- **Deprecated source:** NOAA has deprecated ETOPO1 and superseded it with ETOPO 2022 (15 arc-second). At 0.15° the difference is not visible. If the relief is regenerated, switching to ETOPO 2022 means a new subset URL in the generator.
 - **Retrieved from:** NOAA ERDDAP dataset `etopo180` (`https://upwell.pfeg.noaa.gov/erddap/griddap/etopo180`), every 9th sample (0.15°) over 31–61.9°E × 9–31.95°N, giving 207 × 154 points.
 - **Coastline:** the 0 m contour of the same grid. Ground below sea level that does not connect to the open sea (the Dead Sea, the Danakil depression) counts as land.
 - **Lane lines:** schematic route lines through the usual sea lanes (`RELIEF_LANES` in `model.ts`), not traffic data. The generator fails if a non-canal point is not over open sea. At this resolution the Suez Canal (about 300 m wide) is on land, so its points are marked `canal`.
@@ -54,29 +57,38 @@ The output is byte-identical for the same input, because the gzip mtime is zeroe
 
 ## Budget
 
-At most 60 KB gzip in total for the relief, on top of the home page: the lazy chunks plus the heightfield.
+At most 60 KB gzip in total for the relief, on top of the home page: every chunk reachable from HeroScene's lazy import, plus the heightfield.
 
-`tests/unit/hero-relief.check.ts` measures this from `.next` and fails if any relief chunk is in the
-home page's initial load. It skips without a build. CI runs unit tests before `next build`, so set
-`RELIEF_REQUIRE_BUILD=1` after a build to enforce it.
+`tests/unit/hero-relief.check.ts` measures this from `.next`:
+- It follows the `react-loadable-manifest.json` chain from `components/home/HeroScene` recursively (HeroScene → ReliefLayer → relief-gl, and any import added later).
+- It then follows every webpack chunk those files load (`.e(<id>)`), mapped through the webpack runtime.
+- It fails if a relief chunk is in the home page's initial load.
 
-Measured on this branch:
+**The budget is not enforced in CI yet.** PR CI runs unit tests before `next build`, so the check skips there. Enforcing it needs a human to add a step after the build in `.github/workflows/pr-ci.yml`, which is a human-only path:
+
+```sh
+RELIEF_REQUIRE_BUILD=1 npx --yes tsx@4.23.13 tests/unit/hero-relief.check.ts
+```
+
+Measured on this branch (see the commit message for the current figures):
 
 | Asset | Gzip size |
 |---|---|
-| Layer, poster and `lib/corridors` chunk | 11.7 KB |
-| WebGL chunk | 3.4 KB |
+| Layer and poster chunk | about 3 KB |
+| WebGL chunk | about 3.6 KB |
 | Heightfield | 19.3 KB |
-| **Total** | **34.4 KB** |
-| Home page chunk (HeroScene changes) | +0.26 KB |
+| **Total** | **about 26 KB** |
+
+The corridor status is computed on the server, so `lib/corridors` and the JSON files are no longer in any relief chunk.
 
 ## Files
 
-- `components/home/HeroScene.tsx`: gate and mount
+- `app/page.tsx`: computes the one corridors view (strip and relief)
+- `components/home/HeroScene.tsx`: gate (`heroSceneMode` in `lib/hero-3d.ts`) and mount
 - `components/home/relief/model.ts`: grid, encoding, camera, lanes, status mapping (pure)
-- `components/home/relief/ReliefLayer.tsx`: status, poster, WebGL loader
+- `components/home/relief/ReliefLayer.tsx`: poster, top fade, WebGL loader
 - `components/home/relief/ReliefPoster.tsx`: the static SVG
-- `components/home/relief/relief-gl.ts`: raw WebGL 1 renderer
+- `components/home/relief/relief-gl.ts`: raw WebGL 1 renderer (`laneDrawParams` and `driftStep` are pure and tested)
 - `components/home/relief/poster.generated.ts`: generated
 - `data/relief/build-relief.ts`: generator
 - `public/relief/corridor-relief.v1.bin`: generated

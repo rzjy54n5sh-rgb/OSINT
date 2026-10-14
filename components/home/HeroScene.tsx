@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
-import { hero3DDecision, heroReliefMode, isSoftwareRenderer, readHero3DEnv, type Hero3DWindowLike } from '@/lib/hero-3d';
+import { heroReliefMode, heroSceneMode, isSoftwareRenderer, readHero3DEnv, type Hero3DWindowLike } from '@/lib/hero-3d';
+import type { ReliefLaneId, ReliefLaneStyle } from '@/components/home/relief/model';
 
 /**
  * The corridor relief (poster + optional raw-WebGL scene) is its own chunk, requested only after the
@@ -39,8 +40,12 @@ function hasFastWebGL(): boolean {
  *  3. Raw-WebGL relief over it, only when lib/hero-3d.ts allows (no reduced motion, no Save-Data,
  *     ≥ 768 px, ≥ 4 cores, ≥ 4 GB or unknown, hardware WebGL — software renderers are rejected).
  * aria-hidden: the CorridorStrip prints every status as text. Only HomeDashboard renders this.
+ *
+ * `lanes`: reliefLaneStyles() of the SAME corridors view the CorridorStrip renders (app/page.tsx), so
+ * the relief never shows a status the strip does not print. Missing → every lane neutral (ReliefLayer).
+ * Type-only import of the relief model: none of its code enters the home page's initial chunk.
  */
-export function HeroScene() {
+export function HeroScene({ lanes }: { lanes?: Record<ReliefLaneId, ReliefLaneStyle> }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<{ gl: boolean; reducedMotion: boolean } | null>(null);
 
@@ -57,12 +62,9 @@ export function HeroScene() {
 
     const decide = () => {
       if (cancelled) return;
-      const env = readHero3DEnv(window as unknown as Hero3DWindowLike);
       // The WebGL probe runs last, and only for a visitor every cheap check already admits.
-      const webgl = hero3DDecision(env).render ? hasFastWebGL() : false;
-      const m = heroReliefMode({ ...env, webgl });
-      if (m === 'none') return;
-      setMode({ gl: m === 'gl', reducedMotion: env.reducedMotion });
+      const m = heroSceneMode(readHero3DEnv(window as unknown as Hero3DWindowLike), hasFastWebGL);
+      if (m) setMode(m);
     };
     const whenIdle = () => {
       if (cancelled) return;
@@ -92,7 +94,7 @@ export function HeroScene() {
 
   return (
     <div ref={ref} className="hero-scene" aria-hidden="true" data-hero-3d={mode?.gl ? 'on' : 'off'}>
-      {mode && <ReliefLayer gl={mode.gl} reducedMotion={mode.reducedMotion} />}
+      {mode && <ReliefLayer gl={mode.gl} reducedMotion={mode.reducedMotion} lanes={lanes} />}
     </div>
   );
 }

@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { getCorridors } from '@/lib/corridors';
-import { HEIGHTFIELD_URL, reliefLaneStyles } from './model';
+import { useEffect, useRef, useState } from 'react';
+import { HEIGHTFIELD_URL, NEUTRAL_STYLES, type ReliefLaneId, type ReliefLaneStyle } from './model';
 import { ReliefPoster } from './ReliefPoster';
+
+/**
+ * Keeps the relief off the text rows at the top of the hero (the ticker row and, on phones, the
+ * CorridorStrip header): fully transparent for the first 72 px, opaque from 128 px.
+ */
+export const RELIEF_TOP_FADE = 'linear-gradient(to bottom, transparent 0, transparent 72px, #000 128px)';
 
 /**
  * The corridor relief inside the home hero (mounted by HeroScene after first paint and idle, so
@@ -11,16 +16,25 @@ import { ReliefPoster } from './ReliefPoster';
  * loads the raw-WebGL renderer and the committed heightfield (same origin, /relief/) and fades the
  * canvas in over the poster. Any failure (fetch, decode, context loss) leaves the poster showing.
  *
- * Lane status: lib/corridors.ts over data/chokepoints/latest.json, evaluated now. Not current
- * (stale or withheld) → every lane UNKNOWN, neutral and dashed, exactly as the CorridorStrip prints it.
- * A wrong visitor clock can only push the view to stale/withheld (neutral), never to a status the
- * strip does not show.
+ * `lanes` comes from the server: reliefLaneStyles() of the same corridors view the CorridorStrip
+ * renders (app/page.tsx), so the relief never colours a lane the strip prints as UNKNOWN. Nothing
+ * here reads the corridor file or the visitor's clock.
  */
-export function ReliefLayer({ gl, reducedMotion }: { gl: boolean; reducedMotion: boolean }) {
-  const styles = useMemo(() => reliefLaneStyles(getCorridors(new Date())), []);
+export function ReliefLayer({
+  gl,
+  reducedMotion,
+  lanes = NEUTRAL_STYLES,
+}: {
+  gl: boolean;
+  reducedMotion: boolean;
+  /** Missing → every lane UNKNOWN (neutral, dashed). */
+  lanes?: Record<ReliefLaneId, ReliefLaneStyle>;
+}) {
   const [glState, setGlState] = useState<'off' | 'loading' | 'on'>(gl ? 'loading' : 'off');
   const [shown, setShown] = useState(reducedMotion);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const lanesRef = useRef(lanes);
+  const ctlRef = useRef<{ setStyles(s: Record<ReliefLaneId, ReliefLaneStyle>): void; destroy(): void } | undefined>(undefined);
 
   // Fade the poster in (instant with reduced motion).
   useEffect(() => {
@@ -30,11 +44,20 @@ export function ReliefLayer({ gl, reducedMotion }: { gl: boolean; reducedMotion:
   }, [shown]);
 
   useEffect(() => {
+    lanesRef.current = lanes;
+    ctlRef.current?.setStyles(lanes);
+  }, [lanes]);
+
+  useEffect(() => {
     if (!gl) return;
     let cancelled = false;
-    let ctl: { destroy(): void } | undefined;
     const ac = new AbortController();
+    const stop = () => {
+      ctlRef.current?.destroy();
+      ctlRef.current = undefined;
+    };
     const fail = () => {
+      stop();
       if (!cancelled) setGlState('off');
     };
     Promise.all([
@@ -47,9 +70,9 @@ export function ReliefLayer({ gl, reducedMotion }: { gl: boolean; reducedMotion:
       .then(async ([m, buf]) => {
         const heights = await m.decodeHeightfield(buf);
         if (cancelled || !canvasRef.current) return;
-        ctl = m.startRelief(canvasRef.current, {
+        ctlRef.current = m.startRelief(canvasRef.current, {
           heights,
-          styles,
+          styles: lanesRef.current,
           reducedMotion,
           onReady: () => !cancelled && setGlState('on'),
           onFail: fail,
@@ -59,13 +82,23 @@ export function ReliefLayer({ gl, reducedMotion }: { gl: boolean; reducedMotion:
     return () => {
       cancelled = true;
       ac.abort();
-      ctl?.destroy();
+      stop();
     };
-  }, [gl, styles, reducedMotion]);
+  }, [gl, reducedMotion]);
 
   return (
-    <div data-relief={glState === 'on' ? 'gl' : 'poster'} style={{ position: 'absolute', inset: 0, direction: 'ltr', opacity: 0.6 }}>
-      <ReliefPoster styles={styles} visible={shown && glState !== 'on'} fade={!reducedMotion} />
+    <div
+      data-relief={glState === 'on' ? 'gl' : 'poster'}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        direction: 'ltr',
+        opacity: 0.6,
+        WebkitMaskImage: RELIEF_TOP_FADE,
+        maskImage: RELIEF_TOP_FADE,
+      }}
+    >
+      <ReliefPoster styles={lanes} visible={shown && glState !== 'on'} fade={!reducedMotion} />
       {glState !== 'off' && (
         <canvas
           ref={canvasRef}

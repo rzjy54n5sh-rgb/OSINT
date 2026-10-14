@@ -4,6 +4,8 @@ import HomeDashboard from './HomeDashboard';
 import { NaiBiggestMoveBanner } from '@/components/home/NaiBiggestMoveBanner';
 import { ScenarioRow } from '@/components/home/ScenarioRow';
 import { CorridorStrip } from '@/components/corridors/CorridorStrip';
+import { getCorridors } from '@/lib/corridors';
+import { reliefLaneStyles } from '@/components/home/relief/model';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
 import { buildScenarioRow } from '@/lib/scenario-row';
 import type { Metadata } from 'next';
@@ -84,6 +86,10 @@ export default async function Page() {
   // Market tiles: newest row per indicator by created_at, one rounding rule, each with its own timestamp.
   const { metrics: marketMetrics, latestDay } = buildHomeMarketMetrics((marketRes.data ?? []) as MarketData[]);
 
+  // Corridors: ONE view per render, shared by the strip (text) and the hero relief (lane colours), so the
+  // relief can never show a status the strip does not print (stale / withheld → UNKNOWN in both).
+  const corridorsView = getCorridors(new Date());
+
   return (
     <HomeDashboard
       serverData={{
@@ -97,7 +103,8 @@ export default async function Page() {
         marketMetrics,
         marketDay: latestDay ?? null,
       }}
-      corridors={<CorridorStrip now={new Date()} headingId="home-corridor-strip-h" compact />}
+      corridors={<CorridorStrip view={corridorsView} headingId="home-corridor-strip-h" compact />}
+      reliefLanes={reliefLaneStyles(corridorsView)}
       scenarioRow={<ScenarioRow row={scenarioRow} currentDay={conflictDay} />}
     >
       <NaiBiggestMoveBanner />

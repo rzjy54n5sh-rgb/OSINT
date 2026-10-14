@@ -57,6 +57,40 @@ export function parseCssColor(v: string): RGB | null {
   return null;
 }
 
+/**
+ * How a lane ribbon is drawn: its status token's colour from the palette (read from the CSS tokens)
+ * and a dash period for UNKNOWN (0 = solid). Pure, unit-tested.
+ */
+export function laneDrawParams(
+  style: ReliefLaneStyle,
+  pal: Record<string, RGB>,
+): { rgb: RGB; alpha: number; dash: number } {
+  const key = style.colorVar.replace(/^--status-/, '');
+  return { rgb: pal[key] ?? pal.unknown, alpha: 0.95, dash: style.dashed ? 28 : 0 };
+}
+
+/** Drift clock: elapsed time only advances while the relief is active (on screen, tab visible). */
+export interface DriftClock { elapsed: number; last: number }
+
+/**
+ * One animation step. Returns the pose to draw and whether to request another frame. Inactive: no
+ * draw, the clock pauses. Reduced motion: the rest pose and no further frames. Pure, unit-tested.
+ */
+export function driftStep(
+  clock: DriftClock,
+  now: number,
+  opts: { active: boolean; reducedMotion: boolean },
+): { draw: boolean; pose: ReturnType<typeof cameraPose>; again: boolean } {
+  if (!opts.active) {
+    clock.last = 0;
+    return { draw: false, pose: cameraPose(clock.elapsed, { reducedMotion: opts.reducedMotion }), again: false };
+  }
+  clock.elapsed += clock.last ? Math.min(now - clock.last, 50) : 0;
+  clock.last = now;
+  const pose = cameraPose(clock.elapsed, { reducedMotion: opts.reducedMotion });
+  return { draw: true, pose, again: !pose.done };
+}
+
 const VS_T = `attribute vec3 p;attribute vec3 q;uniform mat4 m;varying vec3 v;void main(){v=q;gl_Position=m*vec4(p,1.);}`;
 const FS_T = `precision mediump float;varying vec3 v;uniform vec3 l0,l1,s0,s1;void main(){
 vec3 c=v.y>0.?mix(l0,l1,v.x):mix(s0,s1,-v.y)*(.8+.4*v.x);float a=(v.y>0.?.92:.7)*v.z;gl_FragColor=vec4(c*a,a);}`;
@@ -275,33 +309,28 @@ export function startRelief(
     lineDraw(coast, pal.text2, 0.55, 0);
     lineDraw(connector, pal.muted, 0.75, 40);
     for (const { id, mesh } of lanes) {
-      const s = styles[id];
-      lineDraw(mesh, pal[s.status.toLowerCase()], 0.95, s.dashed ? 28 : 0);
+      const d = laneDrawParams(styles[id], pal);
+      lineDraw(mesh, d.rgb, d.alpha, d.dash);
     }
   };
 
   // ---- drift loop: runs only while on screen and visible, stops for good once settled -------------
   let raf = 0;
-  let last = 0;
-  let elapsed = 0;
+  const clock: DriftClock = { elapsed: 0, last: 0 };
   let onScreen = true;
   let ready = false;
   const active = () => onScreen && !document.hidden;
   const frame = (now: number) => {
     raf = 0;
-    if (!active()) {
-      last = 0;
-      return;
-    }
-    elapsed += last ? Math.min(now - last, 50) : 0;
-    last = now;
-    pose = cameraPose(elapsed, { reducedMotion: opts.reducedMotion });
+    const step = driftStep(clock, now, { active: active(), reducedMotion: opts.reducedMotion });
+    if (!step.draw) return;
+    pose = step.pose;
     draw();
     if (!ready) {
       ready = true;
       opts.onReady();
     }
-    if (!pose.done) raf = requestAnimationFrame(frame);
+    if (step.again) raf = requestAnimationFrame(frame);
   };
   const kick = () => {
     if (!raf && active() && (!pose.done || !ready)) raf = requestAnimationFrame(frame);

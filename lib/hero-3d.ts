@@ -62,6 +62,19 @@ export function heroReliefMode(env: Hero3DEnv): HeroReliefMode {
 }
 
 /**
+ * HeroScene's whole decision, pure: null = show nothing beyond the CSS gradient (Save-Data);
+ * otherwise whether to run WebGL and whether motion is reduced. `probeWebGL` (it creates a GL context)
+ * is called only when every cheap check already admits the visitor, never under reduced motion.
+ */
+export function heroSceneMode(env: Hero3DEnv, probeWebGL: () => boolean): { gl: boolean; reducedMotion: boolean } | null {
+  if (heroReliefMode(env) === 'none') return null;
+  const webgl = hero3DDecision(env).render ? probeWebGL() : false;
+  const mode = heroReliefMode({ ...env, webgl });
+  if (mode === 'none') return null;
+  return { gl: mode === 'gl', reducedMotion: env.reducedMotion };
+}
+
+/**
  * `failIfMajorPerformanceCaveat` alone does not exclude software rasterisers: Chromium (verified on
  * build 1208, headless — the Lighthouse / PageSpeed environment) returns a SwiftShader context with
  * the flag set. So the probe also rejects a context whose renderer string names a software
