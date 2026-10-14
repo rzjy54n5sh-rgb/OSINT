@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { OsintCard } from '@/components/OsintCard';
 import { HeroScene } from '@/components/home/HeroScene';
+import type { ReliefLaneId, ReliefLaneStyle } from '@/components/home/relief/model';
 import { formatArticleCount } from '@/lib/article-count';
 import { EmailCapture } from '@/components/EmailCapture';
 import { useRealtimeCount } from '@/hooks/useRealtimeCount';
@@ -67,6 +68,7 @@ export default function HomeDashboard({
   children,
   serverData,
   corridors,
+  reliefLanes,
   scenarioRow,
 }: {
   /** War Posture banner (server component), shown compact under the scenario row. */
@@ -74,6 +76,8 @@ export default function HomeDashboard({
   serverData?: ServerData;
   /** Server-rendered CorridorStrip (first element of the first screen). */
   corridors?: ReactNode;
+  /** Hero relief lane styles from the SAME corridors view as `corridors` (app/page.tsx). */
+  reliefLanes?: Record<ReliefLaneId, ReliefLaneStyle>;
   /** Server-rendered ScenarioRow (registry numbers, same as /scenarios). */
   scenarioRow?: ReactNode;
 }) {
@@ -144,9 +148,9 @@ export default function HomeDashboard({
   return (
     // `isolate`: the hero backdrop (z-index -1) paints behind this page's content, never behind <body>.
     <div className="relative isolate">
-      {/* One restrained 3D touch, home only: static gradient for everyone, a lazy WebGL particle field
-          on capable devices (components/home/HeroScene.tsx, lib/hero-3d.ts). */}
-      <HeroScene />
+      {/* One restrained 3D touch, home only: static gradient for everyone, then a lazy corridor relief
+          (SVG poster, or raw WebGL on capable devices) — components/home/HeroScene.tsx, lib/hero-3d.ts. */}
+      <HeroScene lanes={reliefLanes} />
       {/* The animated "SYSTEM BOOT" opener was removed (shop-window pass, 2026-10-08): real content
           starts at the top. The page keeps one h1 for screen readers and search engines. */}
       <h1 className="sr-only">MENA Intel Desk — live conflict and corridor risk dashboard</h1>
