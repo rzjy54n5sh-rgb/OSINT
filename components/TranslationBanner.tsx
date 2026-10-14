@@ -55,7 +55,7 @@ export function TranslationBanner() {
             href={translateHref}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}
+            style={{ color: 'var(--accent-blue)', textDecoration: 'underline', textUnderlineOffset: 3 }}
           >
             Open in Google Translate ↗
           </a>

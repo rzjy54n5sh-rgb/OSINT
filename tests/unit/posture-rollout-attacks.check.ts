@@ -22,12 +22,15 @@ const out: string[] = []; let fails = 0;
 async function t(name: string, fn: () => Promise<void>) { try { await fn(); out.push(`ok   ${name}`); } catch (e) { fails++; out.push(`FAIL ${name}\n     ${(e as Error).message.split('\n')[0]}`); } }
 (async () => {
   const hist = [v1('KW', 227, null), v1('KW', 222, 25), v1('US', 227, 50), v1('IR', 227, 60), v1('TR', 222, 20)];
-  await t('A1 uncoded-only KW with null-E latest v1 row: its captured v2 statement is still visible on the board', async () => {
+  // Operator ruling R6 (2026-10-14): the board keeps the uncoded line (never replaced by a number-less v1 row) but
+  // never carries the uncoded quote into the /nai payload (stripUncodedEvidence); the country page keeps it (A2).
+  await t('A1 uncoded-only KW with null-E latest v1 row: the uncoded line stays on the board, without its quote', async () => {
     const { c } = client({ v2: [{ ...v2b, country_code: 'KW', position_quote: 'KW-CAPTURED' }, { ...v2b, country_code: 'IR', stance: 'position', expressed_score: 75, label: 'continued_pressure', score_day: 228 }], nai: hist });
     const b = await P.getPostureBoard(c, { day: 228, access: ANON });
     const kw = b.rows.filter((r) => r.country_code === 'KW');
     console.log('   KW rows:', kw.map((r) => `${r.method}|${r.stance}|E=${r.expressed_score}|ev=${r.evidence?.quote ?? null}`));
-    assert.ok(kw.some((r) => r.evidence?.quote === 'KW-CAPTURED'), 'captured KW statement dropped; replaced by a v1 row with no number');
+    assert.ok(kw.some((r) => r.method === 'war-posture-v2' && r.stance === 'uncoded'), 'uncoded KW line dropped; replaced by a v1 row with no number');
+    assert.ok(!JSON.stringify(b).includes('KW-CAPTURED'), 'uncoded quote reached the board payload');
   });
   await t('A2 country page: uncoded-only KW with null-E v1 row keeps the captured statement in the posture block', async () => {
     const { c } = client({ v2: [{ ...v2b, country_code: 'KW', position_quote: 'KW-CAPTURED' }], nai: hist });
