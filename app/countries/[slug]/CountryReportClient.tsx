@@ -6,6 +6,7 @@ import { OsintCard } from '@/components/OsintCard';
 import { CountryFlag } from '@/components/CountryFlag';
 import { PaywallOverlay } from '@/components/ui/PaywallOverlay';
 import { PostureCountryPanel } from '@/components/posture/PostureCountryPanel';
+import { EgyptCoverage } from '@/components/countries/EgyptCoverage';
 import type { ConflictDef, CountryPosture } from '@/lib/posture';
 import type { CountryNarrative } from '@/lib/country-narrative';
 
@@ -30,6 +31,8 @@ type CountryReportClientProps = {
   requiredTier: 'informed' | 'professional';
   summaryOnly: boolean;
   conflictDayBadge?: ReactNode;
+  /** Egypt page: day of the latest Egypt & Gulf Economy brief (null = none found). */
+  economyBriefDay?: number | null;
 };
 
 function fmtUtc(iso: string | null): string | null {
@@ -46,6 +49,7 @@ export function CountryReportClient({
   requiredTier,
   summaryOnly,
   conflictDayBadge,
+  economyBriefDay = null,
 }: CountryReportClientProps) {
   const n = report.narrative;
   const generated = fmtUtc(n?.generated_at ?? null) ?? fmtUtc(report.updated_at);
@@ -71,18 +75,22 @@ export function CountryReportClient({
 
       <PostureCountryPanel countryCode={report.country_code} posture={posture} conflicts={conflicts} />
 
+      {report.country_code.toUpperCase() === 'EG' && (
+        <EgyptCoverage ledgerCount={posture?.ledger.length ?? 0} economyBriefDay={economyBriefDay} />
+      )}
+
+      {/* Lock card in normal flow (never an overlay): it cannot cover the War Posture panel above. */}
       {summaryOnly && (
-        <div className="relative">
-          <OsintCard className="mb-6">
-            <h2 className="font-display text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
-              DAILY COUNTRY REPORT
-            </h2>
-            <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-              Assessment, key risks, stabilizers, data-integrity note and sources for Day {report.conflict_day ?? '—'}.
-            </p>
-          </OsintCard>
-          <PaywallOverlay requiredTier={requiredTier} featureName="Country Intelligence Report" compact={false} />
-        </div>
+        <section className="mb-6 mt-6" aria-labelledby="country-report-locked-heading" data-testid="country-report-locked">
+          <h2 id="country-report-locked-heading" className="font-display text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
+            DAILY COUNTRY REPORT
+          </h2>
+          <PaywallOverlay
+            requiredTier={requiredTier}
+            featureName="Daily country report"
+            description={`The desk's daily assessment for ${report.country_name ?? report.country_code}: key risks, stabilizers, a data-integrity note and the sources it rests on, for Day ${report.conflict_day ?? '—'}.`}
+          />
+        </section>
       )}
 
       {!summaryOnly && n && (
@@ -150,7 +158,7 @@ export function CountryReportClient({
                   </li>
                 ))}
               </ul>
-              <p className="font-mono text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+              <p className="font-mono text-[13px] mt-3" style={{ color: 'var(--text-muted)' }}>
                 Party/state labels for the War Posture evidence are shown in the War Posture panel above.
               </p>
             </OsintCard>
@@ -159,7 +167,7 @@ export function CountryReportClient({
       )}
 
       {!summaryOnly && !n && (
-        <OsintCard className="scanlines mb-6">
+        <OsintCard className="mb-6">
           <h2 className="font-display text-lg mb-2">DAILY COUNTRY REPORT</h2>
           <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
             No sourced data available{report.conflict_day != null ? ` for Day ${report.conflict_day}` : ''} — the daily build

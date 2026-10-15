@@ -85,14 +85,14 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
       <div className="max-w-6xl mx-auto px-6 py-12">
         <h1
           className="text-center mb-12"
-          style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: 'clamp(28px, 4vw, 36px)', letterSpacing: '2px', color: 'var(--accent-gold)' }}
+          style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 36px)', letterSpacing: '2px', color: 'var(--accent-gold)' }}
         >
           ◆ CHOOSE YOUR PLAN
         </h1>
         {error && (
           <div
             className="font-mono text-xs px-4 py-3 mb-6 max-w-xl mx-auto rounded-sm"
-            style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)' }}
+            style={{ background: 'color-mix(in srgb, var(--status-closed) 15%, transparent)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)' }}
           >
             {error}
           </div>
@@ -101,7 +101,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {/* Free */}
           <OsintCard className="flex flex-col">
-            <h2 style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: 'var(--text-primary)', marginBottom: '8px' }}>
               Free
             </h2>
             <p className="font-mono text-sm" style={{ color: 'var(--text-muted)' }}>{CURRENCY_LABELS[preferredCurrency]} 0 /month</p>
@@ -126,7 +126,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
 
           {/* Informed */}
           <OsintCard className="flex flex-col">
-            <h2 style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', letterSpacing: '2px', color: '#1E90FF', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: 'var(--link)', marginBottom: '8px' }}>
               Informed
             </h2>
             <p className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>{primaryPrice('informed')} /month</p>
@@ -143,7 +143,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
               onClick={() => callCheckout('subscription', 'informed')}
               disabled={!!loading}
               className="font-mono text-xs px-4 py-2 border rounded-sm mt-6 w-full"
-              style={{ borderColor: '#1E90FF', color: '#1E90FF' }}
+              style={{ borderColor: 'var(--link)', color: 'var(--link)' }}
             >
               {loading === 'informed' ? 'Opening…' : 'Subscribe →'}
             </button>
@@ -152,7 +152,7 @@ export function PricingClient({ prices, features, preferredCurrency, isLoggedIn 
           {/* Professional */}
           <OsintCard className="flex flex-col relative" style={{ borderColor: 'var(--accent-gold)', borderWidth: '2px' }}>
             <span className="font-mono text-xs absolute top-4 right-4" style={{ color: 'var(--accent-gold)' }}>◆ MOST COMPLETE</span>
-            <h2 style={{ fontFamily: 'Bebas Neue, sans-serif', fontSize: '24px', letterSpacing: '2px', color: 'var(--accent-gold)', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', letterSpacing: '2px', color: 'var(--accent-gold)', marginBottom: '8px' }}>
               Professional
             </h2>
             <p className="font-mono text-sm" style={{ color: 'var(--text-primary)' }}>{primaryPrice('professional')} /month</p>

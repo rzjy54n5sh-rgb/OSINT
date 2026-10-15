@@ -14,6 +14,7 @@ import {
   LEGACY_SERIES_MARKER,
   RESIDUAL_SCENARIO_CODE,
   deltaWithinMethod,
+  formatScenarioDelta,
   isResidual,
   probabilityOn,
   residualComponentCodes,
@@ -76,7 +77,7 @@ function ScenarioCard({
   return (
     <OsintCard
       className={independent ? 'border-2 border-dashed h-full' : 'h-full'}
-      style={independent ? { borderColor: `${color}80` } : undefined}
+      style={independent ? { borderColor: `color-mix(in srgb, ${color} 50%, transparent)` } : undefined}
     >
       <article data-testid={`scenario-card-${s.code}`} data-measurement={unmeasured ? 'unmeasured' : 'measured'}>
         <p className="font-mono text-xs uppercase mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
@@ -95,7 +96,7 @@ function ScenarioCard({
               {unmeasuredHeadline(reason)}
             </p>
             {reason && (
-              <p className="font-mono text-[11px] mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              <p className="font-mono text-[13px] mt-1 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
                 {reason}
               </p>
             )}
@@ -106,7 +107,7 @@ function ScenarioCard({
               {formatRange(range)}
             </p>
             <RangeBar low={range.low} high={range.high} color={color} />
-            <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+            <p className="font-mono text-[13px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               A range, not a forecast point: {components.join(', ')} can happen in the same window, so &quot;none of them&quot; lies
               between 100 − ({components.join(' + ')}) = {Math.round(range.low)}% and 100 − the largest of them ={' '}
               {Math.round(range.high)}%.
@@ -114,7 +115,7 @@ function ScenarioCard({
               number the method computes ({p}%) is the low end.
             </p>
             {range30 && (
-              <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid="scenario-p30-B">
+              <p className="font-mono text-[13px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid="scenario-p30-B">
                 FIXED 30-DAY READING: {formatRange(range30)}
               </p>
             )}
@@ -123,21 +124,19 @@ function ScenarioCard({
           <>
             <p className="font-display text-2xl" style={{ color }} translate="no">
               {p}%
-              <span className="font-mono text-[11px] ml-2 align-middle" style={{ color: 'var(--text-muted)' }}>
+              <span className="font-mono text-[13px] ml-2 align-middle" style={{ color: 'var(--text-muted)' }}>
                 {registry.run?.horizon_end ? `BY ${registry.run.horizon_end}` : 'AT MARKET HORIZON'}
               </span>
             </p>
             <SentimentBar value={(p ?? 0) / 100} className="mt-2" />
             {r30 && (
-              <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid={`scenario-p30-${s.code}`}>
+              <p className="font-mono text-[13px] mt-2" style={{ color: 'var(--text-secondary)' }} translate="no" data-testid={`scenario-p30-${s.code}`}>
                 FIXED 30-DAY READING: {Math.round(r30.p30 * 100)}%
                 <span style={{ color: 'var(--text-muted)' }}> · market closes in {r30.daysToHorizon.toFixed(1)} days</span>
               </p>
             )}
-            <p className="font-mono text-[11px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
-              {delta
-                ? `${delta.delta > 0 ? '+' : ''}${delta.delta} pts since Day ${delta.sinceDay} (same method)`
-                : 'No earlier day under this method'}
+            <p className="font-mono text-[13px] mt-2" style={{ color: 'var(--text-muted)' }} translate="no">
+              {delta ? formatScenarioDelta(delta) : 'No earlier day under this method'}
             </p>
           </>
         )}
@@ -145,7 +144,7 @@ function ScenarioCard({
           {s.definition_en}
         </p>
         {independent && (
-          <p className="font-mono text-[11px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
+          <p className="font-mono text-[13px] mt-3 tracking-wide" style={{ color: 'var(--accent-gold)' }} translate="no">
             ◆ Independent — can overlap with the core set · not part of the 100
           </p>
         )}
@@ -217,11 +216,6 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="CONFLICT SCENARIO PROBABILITIES"
-        description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
-        note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
-      />
       <div className="mb-8">
         <div className="flex flex-wrap items-center gap-4">
           <h1 className="font-display text-3xl mb-0" style={{ color: 'var(--text-primary)' }}>
@@ -237,6 +231,10 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
             {day !== currentDay ? ` · CALENDAR DAY ${currentDay}` : ''}
           </p>
         )}
+        <PageBriefing className="mt-3"
+          description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
+          note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
+        />
       </div>
 
       {registry.error && (
@@ -249,12 +247,13 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       {core.length > 0 && (
         <section aria-label="Core scenarios" className="mb-4">
-          <p className="font-mono text-[11px] mb-2 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="core-set-caption">
+          <h2 className="sr-only">Core scenarios</h2>
+          <p className="font-mono text-[13px] mb-2 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="core-set-caption">
             {hasResidual
               ? `CORE SET — ${componentCodes.join(', ')} measured from markets and can co-occur · ${RESIDUAL_SCENARIO_CODE} = none of them, shown as a range`
               : `CORE SET — ${core.map((s) => s.code).join(', ')}`}
           </p>
-          <p className="font-mono text-[11px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="horizon-caption">
+          <p className="font-mono text-[13px] mb-3 leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="horizon-caption">
             Each percentage is the market price for that market&apos;s own closing date
             {registry.run?.horizon_end ? ` (${registry.run.horizon_end})` : ''}. The fixed 30-day reading converts it to a common
             30-day horizon assuming a constant daily hazard: a conversion, not a market price.
@@ -268,7 +267,8 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
       )}
       {independent.length > 0 && (
         <section aria-label="Independent scenarios" className="mb-8">
-          <p className="font-mono text-[11px] mb-2 mt-4" style={{ color: 'var(--text-muted)' }}>
+          <h2 className="sr-only">Independent scenarios</h2>
+          <p className="font-mono text-[13px] mb-2 mt-4" style={{ color: 'var(--text-muted)' }}>
             INDEPENDENT — measured separately, can overlap with the core set
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,7 +309,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
           />
           {archived.length > 0 && (
             <div
-              className="mt-6 px-3 py-2 border font-mono text-[11px] leading-relaxed"
+              className="mt-6 px-3 py-2 border font-mono text-[13px] leading-relaxed"
               style={{ borderColor: 'var(--accent-orange)', color: 'var(--text-secondary)' }}
               data-testid="method-break"
             >
@@ -346,7 +346,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
 
       <ScenarioMethodPanel registry={registry} hasDetailAccess={hasDetailAccess} />
 
-      <p className="font-mono text-[11px] mt-6" style={{ color: 'var(--text-muted)' }}>
+      <p className="font-mono text-[13px] mt-6" style={{ color: 'var(--text-muted)' }}>
         Full method, floors and retirement rule:{' '}
         <Link prefetch={false} href="/methodology" style={{ color: 'var(--accent-gold)' }}>
           Methodology →

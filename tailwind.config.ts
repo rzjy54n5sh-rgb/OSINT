@@ -22,10 +22,17 @@ const config: Config = {
         gold: 'var(--accent-gold)',
         subtle: 'var(--text-muted)',
       },
+      /** Design system v2: 13 px UI floor (app/globals.css --fs-meta). `text-xs` was Tailwind's 12 px. */
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }],
+      },
+      /** Design system v2 stacks (app/globals.css): Newsreader, IBM Plex Sans, IBM Plex Mono. */
       fontFamily: {
-        display: ['var(--font-bebas)', 'Bebas Neue', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'monospace'],
-        body: ['DM Sans', 'sans-serif'],
+        display: ['var(--font-display)'],
+        serif: ['var(--font-display)'],
+        sans: ['var(--font-ui)'],
+        body: ['var(--font-ui)'],
+        mono: ['var(--font-numeric)'],
       },
     },
   },

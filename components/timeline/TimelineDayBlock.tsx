@@ -100,7 +100,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
     <>
       <div
         className="flex flex-wrap items-baseline gap-2 px-4 py-3 border-b"
-        style={{ background: '#0D1B2A', borderColor: 'rgba(255,255,255,0.08)' }}
+        style={{ background: 'var(--surface)', borderColor: 'color-mix(in srgb, var(--text) 8%, transparent)' }}
       >
         <span className="font-display text-lg" style={{ color: 'var(--accent-gold)' }}>
           ◆ DAY {conflictDay}
@@ -111,7 +111,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
       </div>
       <div className="p-4 space-y-3">
         {scenario ? (
-          <p className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          <p className="font-mono text-[13px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
             {(() => {
               const method = scenarioMethodForDay(conflictDay);
               // null / non-numeric = unmeasured: shown as "—" and passed to the range as unknown (never 0).
@@ -133,13 +133,13 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
             })()}
           </p>
         ) : (
-          <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }}>
+          <p className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }}>
             [Scenario: no row for this day]
           </p>
         )}
         {locked ? (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-            Headline articles for this day are available on the Informed plan.
+            Headline articles for this day are locked during launch.
           </p>
         ) : articles === null ? (
           <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -188,10 +188,10 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
           <div className="pointer-events-none select-none blur-[5px] opacity-40">{inner}</div>
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 py-6"
-            style={{ background: 'rgba(7, 10, 15, 0.82)', backdropFilter: 'blur(4px)' }}
+            style={{ background: 'color-mix(in srgb, var(--bg) 82%, transparent)', backdropFilter: 'blur(4px)' }}
           >
-            <p className="font-mono text-xs text-center" style={{ color: '#E2E8F0' }}>
-              Upgrade to Informed for full timeline
+            <p className="font-mono text-xs text-center" style={{ color: 'var(--text-primary)' }}>
+              The full timeline is locked during launch.
             </p>
             <PaywallOverlay requiredTier="informed" featureName="Full conflict timeline" compact />
           </div>

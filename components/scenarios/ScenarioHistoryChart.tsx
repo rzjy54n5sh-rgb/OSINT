@@ -45,14 +45,14 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
   return (
     <div
       style={{
-        background: '#0D1B2A',
-        border: '1px solid #1C3A5E',
+        background: 'var(--surface)',
+        border: '1px solid var(--line-strong)',
         padding: '12px',
         fontFamily: 'IBM Plex Mono, monospace',
-        fontSize: '12px',
+        fontSize: '13px',
       }}
     >
-      <p style={{ color: '#E8C547', marginBottom: '8px' }}>DAY {label}</p>
+      <p style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>DAY {label}</p>
       {payload.map((entry) => {
         const v = entry.value as unknown;
         const text = Array.isArray(v)
@@ -96,34 +96,34 @@ export function ScenarioHistoryChart({ rows, bands = [], series, title, methodLa
           <h2 className="font-mono text-sm tracking-wider uppercase" style={{ color: 'var(--text-secondary)' }}>
             {title}
           </h2>
-          <p className="font-mono text-[11px]" style={{ color: 'var(--text-muted)' }} translate="no">
+          <p className="font-mono text-[13px]" style={{ color: 'var(--text-muted)' }} translate="no">
             METHOD {methodLabel}
           </p>
         </div>
       </div>
 
-      <div className="w-full rounded-sm" style={{ background: 'var(--bg-card, #0D1B2A)', height }}>
+      <div className="w-full rounded-sm" style={{ background: 'var(--bg-card)', height }}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1C3A5E" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" />
             <XAxis
               dataKey="day"
               type="number"
               domain={['dataMin', 'dataMax']}
               allowDecimals={false}
-              stroke="#8A9BB5"
-              tick={{ fill: '#8A9BB5', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
+              stroke="var(--line-strong)"
+              tick={{ fill: 'var(--muted)', fontSize: 12, fontFamily: 'var(--font-numeric)' }}
               padding={{ left: 12, right: 12 }}
             />
             <YAxis
-              stroke="#8A9BB5"
-              tick={{ fill: '#8A9BB5', fontSize: 11, fontFamily: 'IBM Plex Mono' }}
+              stroke="var(--line-strong)"
+              tick={{ fill: 'var(--muted)', fontSize: 12, fontFamily: 'var(--font-numeric)' }}
               tickFormatter={(v) => `${v}%`}
               domain={[0, 100]}
               width={44}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono', fontSize: '12px', color: '#B8C4D0' }} />
+            <Legend wrapperStyle={{ fontFamily: 'IBM Plex Mono', fontSize: '13px', color: 'var(--text-secondary)' }} />
             {bands.map((b) => (
               <Area
                 key={b.key}
@@ -161,7 +161,7 @@ export function ScenarioHistoryChart({ rows, bands = [], series, title, methodLa
       </div>
 
       {note && (
-        <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+        <p className="font-mono text-[13px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
           {note}
         </p>
       )}

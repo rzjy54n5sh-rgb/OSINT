@@ -16,7 +16,9 @@ import {
   POSTURE_WITHHELD_TEXT,
   POSTURE_WITHHELD_TITLE,
   ageLine,
+  postureActorLineLabel,
   postureLabelDef,
+  postureSwatchColor,
   shortDate,
   v1FrozenText,
   v2UncodedNote,
@@ -24,22 +26,30 @@ import {
   type PostureView,
 } from '@/lib/posture';
 import type { NaiSourceV2 } from '@/types/supabase';
+import { POSTURE_BANDS, postureBandVar, type PostureBand } from '@/lib/design-tokens';
 
 const HATCH = `repeating-linear-gradient(45deg, ${POSTURE_SILENCE_COLOR} 0 2px, transparent 2px 5px)`;
 
-export function PostureSwatch({ row, size = 10 }: { row: Pick<PostureView, 'stance' | 'label'>; size?: number }) {
+/** Colour = the SCORE band when the row has a score (same rule as components/ui/PostureSwatch), else the label's anchor band. */
+export function PostureSwatch({
+  row,
+  size = 10,
+}: {
+  row: Pick<PostureView, 'stance' | 'label'> & Partial<Pick<PostureView, 'expressed_score' | 'country_code'>>;
+  size?: number;
+}) {
   const base: CSSProperties = {
     display: 'inline-block',
     width: size,
     height: size,
     borderRadius: '50%',
-    border: '1px solid #8A9BB5',
+    border: '1px solid var(--line-strong)',
     flexShrink: 0,
   };
   if (row.stance === 'withheld') return <span aria-hidden="true" style={{ ...base, background: 'transparent', borderStyle: 'dashed' }} />;
   if (row.stance === 'deliberate_silence') return <span aria-hidden="true" style={{ ...base, background: HATCH }} />;
-  const def = row.stance === 'position' ? postureLabelDef(row.label) : null;
-  return <span aria-hidden="true" style={{ ...base, background: def?.color ?? POSTURE_NODATA_COLOR }} />;
+  const fill = row.stance === 'position' ? postureSwatchColor(row) : null;
+  return <span aria-hidden="true" style={{ ...base, background: fill ?? POSTURE_NODATA_COLOR }} />;
 }
 
 export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>): string {
@@ -57,11 +67,38 @@ export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>
   }
 }
 
+/**
+ * Which authority a line scores, on a dual-actor country only (Yemen): "Government (PLC)" or
+ * "Ansar Allah (Houthi), de facto authority". Renders nothing for an ordinary (government-only) country.
+ */
+export function PostureActorTag({
+  row,
+  className = '',
+}: {
+  row: Pick<PostureView, 'country_code' | 'actor' | 'actor_display_name'>;
+  className?: string;
+}) {
+  const label = postureActorLineLabel(row);
+  if (!label) return null;
+  return (
+    <span
+      className={`font-mono text-[13px] uppercase ${className}`}
+      style={{ color: 'var(--text-secondary)' }}
+      data-testid="posture-actor"
+      data-actor={row.actor}
+      title={row.actor_display_name ?? undefined}
+      translate="no"
+    >
+      {label}
+    </span>
+  );
+}
+
 /** Label chip: swatch + neutral behavioural label (+ defensive flag). */
 export function PostureChip({ row, className = '' }: { row: PostureView; className?: string }) {
   return (
     <span
-      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[11px] ${className}`}
+      className={`inline-flex flex-wrap items-center gap-1 font-mono text-[13px] ${className}`}
       data-posture-stance={row.stance}
       data-posture-label={row.label ?? undefined}
       translate="no"
@@ -85,10 +122,10 @@ export function V1FrozenTag({ row, className = '' }: { row: Pick<PostureView, 's
   const note = v2UncodedNote(row);
   return (
     <span
-      className={`font-mono text-[11px] ${className}`}
+      className={`font-mono text-[13px] ${className}`}
       style={{ color: 'var(--text-muted)' }}
       data-testid="posture-v1-frozen"
-      title="Not yet re-coded under War Posture v2: the last War Posture v1 number (one blended number across wars), frozen, never counted as a move."
+      title="Last score under the old method (one blended number across wars). No longer updated, and never counted as a change."
       translate="no"
     >
       <span className="uppercase">{v1FrozenText(row)}</span>
@@ -103,7 +140,7 @@ export function PostureAge({ row, className = '' }: { row: PostureView; classNam
   if (!line && !row.confidence_now) return null;
   const decayed = row.confidence_now && row.confidence_base && row.confidence_now !== row.confidence_base;
   return (
-    <span className={`font-mono text-[11px] ${className}`} style={{ color: 'var(--text-muted)' }} data-testid="posture-age" data-freshness={row.freshness ?? undefined}>
+    <span className={`font-mono text-[13px] ${className}`} style={{ color: 'var(--text-muted)' }} data-testid="posture-age" data-freshness={row.freshness ?? undefined}>
       {line}
       {row.confidence_now && (
         <>
@@ -115,6 +152,10 @@ export function PostureAge({ row, className = '' }: { row: PostureView; classNam
   );
 }
 
+/**
+ * Legend: the four scale bands with their score ranges (the colour is the score band), then the label
+ * words as text — a label's range can span two bands (e.g. 63–87 "Supports continued pressure").
+ */
 export function PostureScaleLegend({ compact = false, showWithheld = true }: { compact?: boolean; showWithheld?: boolean }) {
   const item = (swatch: ReactNode, text: string, key: string) => (
     <span key={key} className="inline-flex items-center gap-1" translate="no">
@@ -122,11 +163,22 @@ export function PostureScaleLegend({ compact = false, showWithheld = true }: { c
       {text}
     </span>
   );
+  const bandSwatch = (band: PostureBand) => (
+    <span aria-hidden="true" style={{ display: 'inline-block', width: 14, height: 10, background: postureBandVar(band), flexShrink: 0 }} />
+  );
   return (
-    <div className={`font-mono text-[10px] flex ${compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-0.5'}`} data-testid="posture-legend">
-      {POSTURE_LABELS.map((l) =>
-        item(<PostureSwatch row={{ stance: 'position', label: l.code }} />, `${l.text} (${l.min}–${l.max})`, l.code),
-      )}
+    <div className={`font-mono text-[13px] flex ${compact ? 'flex-wrap gap-x-3 gap-y-1' : 'flex-col gap-0.5'}`} data-testid="posture-legend">
+      <span className={`inline-flex items-center gap-1 ${compact ? 'basis-full' : ''}`} data-testid="posture-legend-bands">
+        {POSTURE_BANDS.map((b) => (
+          <span key={b.band} className="inline-flex items-center gap-0.5">
+            {bandSwatch(b.band)}
+            <span>{b.min}–{b.max}</span>
+          </span>
+        ))}
+      </span>
+      <span className={compact ? 'basis-full' : ''} style={{ color: 'var(--text-secondary)', maxWidth: compact ? undefined : '42ch' }} data-testid="posture-legend-labels">
+        {POSTURE_LABELS.map((l) => `${l.text} ${l.min}–${l.max}`).join(' · ')}
+      </span>
       {item(<PostureSwatch row={{ stance: 'deliberate_silence', label: null }} />, 'Deliberate silence', 'silence')}
       {showWithheld && item(<PostureSwatch row={{ stance: 'withheld', label: null }} />, `${POSTURE_WITHHELD_TITLE} (EG, AE, SA)`, 'withheld')}
       {item(<PostureSwatch row={{ stance: 'uncoded', label: null }} />, 'No position on record', 'none')}
@@ -153,19 +205,20 @@ export function EvidenceQuote({ e, compact = false }: { e: PostureEvidenceView; 
   const kindTag = e.kind === 'act' ? (ACT_TEXT[e.act_type ?? 'other'] ?? 'Act') : e.kind === 'silence_trigger' ? 'Unanswered trigger' : 'Statement';
   return (
     <figure className="m-0" data-testid="posture-evidence" data-kind={e.kind}>
-      <p className="font-mono text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
+      <p className="font-mono text-[13px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-muted)' }} translate="no">
         {kindTag}
         {stated ? ` · ${stated}` : ''}
         {captured && captured !== stated ? ` · captured ${captured}` : ''}
+        {e.actor === 'de_facto_authority' ? ' · de facto authority' : ''}
         {e.party_source ? ' · party / state source' : ''}
       </p>
       <blockquote
         className="m-0 pl-3 text-sm leading-relaxed"
-        style={{ borderLeft: '2px solid var(--border-bright, #3A4458)', color: 'var(--text-primary)' }}
+        style={{ borderLeft: '2px solid var(--border-bright)', color: 'var(--text-primary)' }}
       >
         {e.kind === 'statement' ? <>&ldquo;{compact && e.quote.length > 220 ? `${e.quote.slice(0, 217)}…` : e.quote}&rdquo;</> : compact && e.quote.length > 220 ? `${e.quote.slice(0, 217)}…` : e.quote}
       </blockquote>
-      <figcaption className="font-mono text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>
+      <figcaption className="font-mono text-[13px] mt-1" style={{ color: 'var(--text-muted)' }}>
         {(e.speaker || e.speaker_office) && (
           <span style={{ color: 'var(--text-secondary)' }}>
             {e.speaker}
@@ -200,8 +253,8 @@ export function CitedReporting({ sources, compact = false }: { sources: NaiSourc
   if (sources.length === 0) return null;
   const list = compact ? sources.slice(0, 2) : sources;
   return (
-    <div className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="posture-cited">
-      <p className="uppercase text-[10px] tracking-wide">Reporting cited by the desk (summaries, not verbatim quotes)</p>
+    <div className="font-mono text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }} data-testid="posture-cited">
+      <p className="uppercase text-[13px] tracking-wide">Reporting cited by the desk (summaries, not verbatim quotes)</p>
       <ul className="mt-1 space-y-1">
         {list.map((s, i) => (
           <li key={`${s.url}-${i}`}>
@@ -241,12 +294,12 @@ export function PositionsLedger({
   return (
     <div className="space-y-4" data-testid="positions-ledger">
       {withheld && (
-        <p className="font-mono text-[11px] leading-relaxed border px-3 py-2" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-testid="posture-policy-note">
+        <p className="font-mono text-[13px] leading-relaxed border px-3 py-2" style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }} data-testid="posture-policy-note">
           {POSTURE_WITHHELD_TEXT}
         </p>
       )}
       <section aria-label="Stated positions">
-        <h3 className="font-mono text-[11px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
+        <h3 className="font-mono text-[13px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           Stated positions (verbatim)
         </h3>
         {statements.length === 0 ? (
@@ -257,7 +310,7 @@ export function PositionsLedger({
           <ul className="space-y-3">
             {statements.map((e, i) => (
               <li key={e.id ?? `${e.source_url}-${i}`}>
-                <p className="font-mono text-[10px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
+                <p className="font-mono text-[13px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
                   {conflictName(e.conflict_code)}
                 </p>
                 <EvidenceQuote e={e} />
@@ -267,7 +320,7 @@ export function PositionsLedger({
         )}
       </section>
       <section aria-label="Behavioural acts">
-        <h3 className="font-mono text-[11px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
+        <h3 className="font-mono text-[13px] uppercase mb-2" style={{ color: 'var(--text-muted)' }}>
           Behavioural acts (deployments, basing, votes)
         </h3>
         {acts.length === 0 ? (
@@ -278,7 +331,7 @@ export function PositionsLedger({
           <ul className="space-y-3">
             {acts.map((e, i) => (
               <li key={e.id ?? `${e.source_url}-${i}`}>
-                <p className="font-mono text-[10px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
+                <p className="font-mono text-[13px] uppercase mb-0.5" style={{ color: 'var(--text-muted)' }} translate="no">
                   {conflictName(e.conflict_code)}
                 </p>
                 <EvidenceQuote e={e} />

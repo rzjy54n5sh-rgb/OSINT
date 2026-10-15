@@ -92,9 +92,9 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
   };
 
   const tierStyle = (t: string) => {
-    if (t === 'professional') return { border: '1px solid #E8C547', color: '#E8C547' };
-    if (t === 'informed') return { border: '1px solid #1E90FF', color: '#1E90FF' };
-    return { border: '1px solid #4A5568', color: '#4A5568' };
+    if (t === 'professional') return { border: '1px solid var(--accent)', color: 'var(--accent)' };
+    if (t === 'informed') return { border: '1px solid var(--link)', color: 'var(--link)' };
+    return { border: '1px solid var(--line-strong)', color: 'var(--muted)' };
   };
 
   const nextBilling = subscription?.current_period_end
@@ -250,7 +250,7 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
                     type="button"
                     onClick={() => handleRevokeKey(k.id)}
                     disabled={revokingId === k.id}
-                    className="text-red-500 hover:underline"
+                    className="hover:underline" style={{ color: 'var(--status-closed)' }}
                   >
                     Revoke
                   </button>
@@ -283,7 +283,8 @@ export function AccountClient({ user, subscription, apiKeys, maxApiKeys }: Accou
 
       {newKeyModal && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 flex items-center justify-center z-50 p-4"
+          style={{ background: 'color-mix(in srgb, var(--scrim) 70%, transparent)' }}
           onClick={() => setNewKeyModal(null)}
         >
           <div onClick={(e) => e.stopPropagation()} className="max-w-lg w-full">

@@ -34,7 +34,7 @@ export default function AboutPage() {
           <dl style={{ margin: '0 0 12px 0', display: 'grid', gridTemplateColumns: 'minmax(110px, max-content) 1fr', gap: '6px 16px' }}>
             {identity.map((f) => (
               <div key={f.label} style={{ display: 'contents' }}>
-                <dt style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)' }}>{f.label}</dt>
+                <dt style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)' }}>{f.label}</dt>
                 <dd style={{ margin: 0, color: 'var(--text-primary)' }}>{f.href ? <A href={f.href}>{f.value}</A> : f.value}</dd>
               </div>
             ))}

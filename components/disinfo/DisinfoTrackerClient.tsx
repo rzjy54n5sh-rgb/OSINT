@@ -60,25 +60,24 @@ export function DisinfoTrackerClient({
   const verdictBadgeClass = (v: string | null | undefined) => {
     const vv = (v ?? 'UNVERIFIED').toUpperCase();
     if (vv === 'DEBUNKED' || vv === 'FALSE')
-      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-red-900/30 text-red-400 border-red-700';
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-[var(--status-closed-tint)] text-[var(--status-closed)] border-[var(--status-closed)]';
     if (vv === 'CONTESTED' || vv === 'MISLEADING')
-      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-amber-900/30 text-amber-400 border-amber-700';
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-[var(--status-elevated-tint)] text-[var(--status-elevated)] border-[var(--status-elevated)]';
     if (vv === 'CONFIRMED' || vv === 'TRUE')
-      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-green-900/30 text-green-400 border-green-700';
-    return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-white/5 text-white/40 border-white/20';
+      return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-[var(--status-normal-tint)] text-[var(--status-normal)] border-[var(--status-normal)]';
+    return 'inline-block rounded-sm border px-2 py-0.5 font-mono text-xs bg-[var(--status-unknown-tint)] text-[var(--status-unknown)] border-[var(--status-unknown)]';
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="DISINFORMATION TRACKER"
-        description="Claims flagged here were already circulating publicly before being logged. We do not originate disinformation claims. Verdicts are assigned based on cross-referencing with primary sources, fact-checking organizations, and satellite or documentary evidence where available."
-        note="UNVERIFIED does not mean FALSE — it means the available open-source evidence is insufficient to confirm or deny. Every claim links to its original source and, where available, a debunking source."
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         DISINFORMATION TRACKER
       </h1>
       {conflictDayBadge}
+      <PageBriefing className="mb-4"
+        description="Claims flagged here were already circulating publicly before being logged. We do not originate disinformation claims. Verdicts are assigned based on cross-referencing with primary sources, fact-checking organizations, and satellite or documentary evidence where available."
+        note="UNVERIFIED does not mean FALSE — it means the available open-source evidence is insufficient to confirm or deny. Every claim links to its original source and, where available, a debunking source."
+      />
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         CLAIMS — VERDICT — SPREAD ESTIMATE
         {!hasFullAccess && total > 0 && (
@@ -176,16 +175,16 @@ export function DisinfoTrackerClient({
             <div
               className="font-mono text-sm py-4 px-4 rounded-sm border flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
               style={{
-                background: 'rgba(232, 197, 71, 0.05)',
-                borderColor: '#E8C547',
-                color: '#E2E8F0',
+                background: 'color-mix(in srgb, var(--accent) 5%, transparent)',
+                borderColor: 'var(--accent)',
+                color: 'var(--text-primary)',
               }}
             >
               <span translate="no">
-                <span style={{ color: '#E8C547' }}>◆</span> {total - showing} more claims locked
+                <span style={{ color: 'var(--accent)' }} aria-hidden="true">◆</span> {total - showing} more claims locked
               </span>
               <div className="flex flex-col gap-2 sm:items-end">
-                <p className="font-mono text-xs text-white/70">Upgrade to Informed for full access</p>
+                <p className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>The full tracker is locked during launch.</p>
                 <PaywallOverlay requiredTier="informed" featureName="Disinformation tracker" compact />
               </div>
             </div>

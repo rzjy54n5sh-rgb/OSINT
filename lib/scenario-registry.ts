@@ -13,6 +13,7 @@
  *
  * Safe on server and client (takes the caller's Supabase client; no global client).
  */
+import { SCENARIO_IDENTITY, SCENARIO_UNMEASURED } from './design-tokens';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { constantHorizonProbability, daysBetween, formatRange, residualRange, type ResidualRange } from '@/lib/scenario-range';
 
@@ -350,16 +351,28 @@ export function deltaWithinMethod(
   return { delta: cur.probability - first.probability, sinceDay: first.conflict_day, method: cur.method_version };
 }
 
+/** The delta line the /scenarios cards print (and the home ScenarioRow reuses verbatim). */
+export function formatScenarioDelta(d: { delta: number; sinceDay: number }): string {
+  return `${d.delta > 0 ? '+' : ''}${d.delta} pts since Day ${d.sinceDay} (same method)`;
+}
+
+/**
+ * Scenario identity colours (design system v2, lib/design-tokens.ts): A #4DA6FF, B #D6B370, C #36B8C8,
+ * D #A78BFA — identity, not good/bad, so no red or green. E has no identity colour (unmeasured: the
+ * neutral), and neither has a dynamic scenario beyond A–E. Values are theme-aware CSS colours
+ * (`var(--scn-a, #4DA6FF)`: the light theme swaps them for its own ≥ 4.5:1 inks) usable in inline styles
+ * and SVG/recharts strokes; never append alpha digits to them — use color-mix() instead.
+ */
+const scnVar = (token: string, hex: string) => `var(${token}, ${hex})`;
 export const SCENARIO_COLORS: Record<string, string> = {
-  A: '#4EC98A',
-  B: '#E8C547',
-  C: '#4A8FE8',
-  D: '#E05252',
-  E: '#B78CF5',
+  A: scnVar('--scn-a', SCENARIO_IDENTITY.dark.A),
+  B: scnVar('--scn-b', SCENARIO_IDENTITY.dark.B),
+  C: scnVar('--scn-c', SCENARIO_IDENTITY.dark.C),
+  D: scnVar('--scn-d', SCENARIO_IDENTITY.dark.D),
+  E: scnVar('--scn-unmeasured', SCENARIO_UNMEASURED.dark),
 };
-const FALLBACK_COLORS = ['#3FC1C9', '#F08A5D', '#9BE15D', '#E86ED0'];
-export function scenarioColor(code: string, i = 0): string {
-  return SCENARIO_COLORS[code] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]!;
+export function scenarioColor(code: string, _i = 0): string {
+  return SCENARIO_COLORS[code] ?? SCENARIO_COLORS.E;
 }
 
 /** "the run's flag text" for E-style unmeasured scenarios: the flag that starts with "<code> NULL:". */

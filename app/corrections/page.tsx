@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { TrustPage, H2, P, List, Li, A, NotYetAvailable, EmptyState } from '@/components/trust/TrustPage';
-import { fetchCorrections, formatUtc, type CorrectionRow } from '@/lib/trust-ledgers';
+import { CORRECTION_CLASS_LABEL, fetchCorrections, formatUtc, type CorrectionRow } from '@/lib/trust-ledgers';
 import { CORRECTIONS_LOG_START } from '@/lib/desk-identity';
 
 /** ISR: the log changes rarely; a new correction shows within 15 minutes. No per-visitor content. */
@@ -13,10 +13,10 @@ export const metadata: Metadata = {
 };
 
 const CLASS_LABEL: Record<CorrectionRow['correction_class'], { label: string; color: string }> = {
-  material: { label: 'MATERIAL', color: 'var(--accent-red)' },
-  minor: { label: 'MINOR', color: 'var(--accent-gold)' },
-  clarification: { label: 'CLARIFICATION', color: 'var(--accent-blue)' },
-  reply: { label: 'RIGHT OF REPLY', color: 'var(--text-secondary)' },
+  material: { label: CORRECTION_CLASS_LABEL.material, color: 'var(--accent-red)' },
+  minor: { label: CORRECTION_CLASS_LABEL.minor, color: 'var(--accent-gold)' },
+  clarification: { label: CORRECTION_CLASS_LABEL.clarification, color: 'var(--accent-blue)' },
+  reply: { label: CORRECTION_CLASS_LABEL.reply, color: 'var(--text-secondary)' },
 };
 
 const BRIEF_TYPE = /^[a-z_]{1,40}$/;
@@ -31,7 +31,7 @@ function targetLink(c: CorrectionRow): { href: string; label: string } | null {
 function Excerpt({ label, text }: { label: string; text: string }) {
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '1px' }}>{label}</div>
+      <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '1px' }}>{label}</div>
       <blockquote style={{ margin: '2px 0 0 0', paddingLeft: 10, borderLeft: '2px solid var(--border)', whiteSpace: 'pre-wrap', fontSize: 14 }}>
         {text}
       </blockquote>
@@ -63,12 +63,13 @@ export default async function CorrectionsPage() {
             const cls = CLASS_LABEL[c.correction_class] ?? CLASS_LABEL.minor;
             const target = targetLink(c);
             return (
-              <li key={c.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
+              // id: the anchor a brief's correction notice links to (/corrections#<id>).
+              <li key={c.id} id={c.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0', scrollMarginTop: 80 }}>
                 <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline', marginBottom: 6 }}>
-                  <time dateTime={c.created_at} style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)' }}>
+                  <time dateTime={c.created_at} style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)' }}>
                     {formatUtc(c.created_at)}
                   </time>
-                  <span style={{ fontFamily: 'IBM Plex Mono', fontSize: 10, color: cls.color, border: '1px solid currentColor', padding: '0 6px', letterSpacing: '1px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: cls.color, border: '1px solid currentColor', padding: '0 6px', letterSpacing: '1px' }}>
                     {cls.label}
                   </span>
                   {target && <A href={target.href}>{target.label}</A>}

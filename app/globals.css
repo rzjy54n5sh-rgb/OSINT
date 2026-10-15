@@ -3,57 +3,184 @@
 @tailwind utilities;
 
 /* ============================================================
-   MENA INTEL DESK — DESIGN SYSTEM
-   Do not modify these variables without updating all components
+   MENA INTEL DESK — DESIGN SYSTEM v2 ("Night desk", 2026-10-13)
+   Source of truth: the System artboard (design/mid-v2). Dark is the default (:root); light is
+   [data-theme='light'] and is also used for print. tests/unit/tokens.check.ts parses this file and
+   asserts contrast (text tokens ≥ 4.5:1 on --bg and --surface, both themes) and the spec values.
+   Gold (--accent) is the brand accent only: logo, focus ring, the one primary CTA. Never data.
    ============================================================ */
 
-/* Fonts loaded via next/font in app/layout.tsx (--font-bebas, --font-mono, --font-dm, --font-arabic) */
+/* Fonts: next/font in app/fonts.ts (--font-sans IBM Plex Sans, --font-serif Newsreader,
+   --font-mono IBM Plex Mono, --font-arabic Noto Sans Arabic). */
 
 .font-arabic-ui {
-  font-family: var(--font-arabic), var(--font-dm), system-ui, sans-serif;
+  font-family: var(--font-arabic), var(--font-ui);
 }
 
-:root {
-  /* Background layers */
-  --bg-primary:    #070A0F;
-  --bg-secondary:  #0C1018;
-  --bg-card:       rgba(255,255,255,0.055);
-  --bg-card-hover: rgba(255,255,255,0.09);
-  --bg-elevated:   #141A28;
+/* `[data-theme='dark']` too: a dark island inside a light page (the admin panel is forced dark) gets
+   every dark value, legacy aliases included (custom properties inherit computed values). */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
 
-  /* Borders — raised for visibility */
-  --border:        rgba(255,255,255,0.14);
-  --border-bright: rgba(255,255,255,0.25);
-  --border-gold:   rgba(232, 197, 71, 0.4);
+  /* ── v2 colour tokens (dark) ── */
+  --bg:           #0B0F14;
+  --surface:      #131A23;
+  --surface-2:    #1C2633;  /* hover / grid lines */
+  --line:         #243041;  /* hairlines, decoration only */
+  --line-strong:  #3A4757;
+  --track:        #222C39;  /* empty bar track */
+  --text:         #E8EDF2;
+  --text-2:       #B6C2CF;
+  --muted:        #8593A3;
+  --accent:       #E8C547;  /* brand gold: logo, focus ring, primary CTA */
+  --accent-fill:  #E8C547;  /* CTA / skip-link background (both themes) */
+  --on-accent:    #0B0F14;
+  --link:         #6CB4FF;
+  --link-hover:   #A9D3FF;
+  --focus-ring:   var(--accent);
+  --scrim:        #000;     /* photo / video scrims: dark in both themes (the content behind is a photo) */
 
-  /* Text — WCAG AA compliant on #070A0F */
-  --text-primary:  #F0F4F8;   /* ≥15:1 contrast */
-  --text-secondary:#B8C4D0;   /* ≥7:1 contrast */
-  --text-muted:    #7A8FA6;   /* ≥4.5:1 contrast */
+  /* Lane status (glyph + word + colour, always together) */
+  --status-normal:         #4CC97A;
+  --status-normal-tint:    #11281C;
+  --status-elevated:       #F2B640;
+  --status-elevated-tint:  #2E2410;
+  --status-disrupted:      #FF8A4C;
+  --status-disrupted-tint: #341A10;
+  --status-closed:         #FF6B81;
+  --status-closed-tint:    #3A1219;
+  --status-unknown:        #9AA6B5;
+  --status-unknown-tint:   #1C232D;
 
-  /* Accent colors — brightened for dark bg readability */
-  --accent-gold:   #E8C547;
-  --accent-red:    #E74C3C;
-  --accent-green:  #27AE60;
-  --accent-blue:   #4DA6FF;
-  --accent-orange: #F39C12;
-  --accent-purple: #9B59B6;
-  --accent-teal:   #36B8C8;
+  /* War Posture scale (its own; never status colours). EG / AE / SA: outline only. */
+  --posture-1: #6FA8F0;  /* 0–30   */
+  --posture-2: #98A3B3;  /* 31–60  */
+  --posture-3: #E8A066;  /* 61–80  */
+  --posture-4: #FF7F3F;  /* 81–100 */
 
-  /* Semantic text colors */
-  --text-danger:   #FF5C5C;
-  --text-success:  #2ECC71;
-  --text-warning:  #F5C842;
+  /* Scenario identity (who, not good or bad). B is always a range; E is unmeasured. */
+  --scn-a: #4DA6FF;
+  --scn-b: #D6B370;
+  --scn-c: #36B8C8;
+  --scn-d: #A78BFA;
+  --scn-unmeasured: var(--muted);
 
-  /* NAI category colors — raised luminosity */
-  --nai-aligned:   #2ECC71;
-  --nai-stable:    #4DA6FF;
-  --nai-tension:   #F39C12;
-  --nai-fracture:  #E74C3C;
-  --nai-inversion: #9B59B6;
+  /* ── Type ── */
+  --font-ui:      var(--font-sans), 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-display: var(--font-serif), 'Newsreader', Georgia, serif;
+  --font-numeric: var(--font-mono), 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  /* Scale 1.25, 13 px UI floor (12 px only for chart axis ticks). */
+  --fs-axis: 12px;
+  --fs-meta: 13px;
+  --fs-2:    14px;
+  --fs-body: 16px;
+  --fs-card: 18px;
+  --fs-dek:  22px;
+  --fs-h2:   28px;
+  --fs-fig:  36px;
+  --fs-h1:   48px;
 
-  /* Legacy aliases */
+  /* ── Space (4 px base), radius, motion ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --radius:      2px;
+  --radius-chip: 999px;
+  --target:      44px;
+  --dur-fast: 120ms;
+  --dur-med:  200ms;
+  --dur-slow: 320ms;
+  --ease:     cubic-bezier(0.2, 0, 0, 1);
+
+  /* ── Legacy names → v2 (kept so every existing component shifts at once; prefer v2 names) ── */
+  --font-dm:       var(--font-sans);
+  --font-bebas:    var(--font-serif);
+  --bg-primary:    var(--bg);
+  --bg-secondary:  var(--surface);
+  --bg-card:       var(--surface);
+  --bg-card-hover: var(--surface-2);
+  --bg-elevated:   var(--surface);
+  --border:        var(--line);
+  --border-bright: var(--line-strong);
+  --border-gold:   var(--accent);
+  --text-primary:  var(--text);
+  --text-secondary:var(--text-2);
+  --text-muted:    var(--muted);
+  --accent-gold:   var(--accent);
+  --accent-red:    var(--status-closed);
+  --accent-green:  var(--status-normal);
+  --accent-blue:   var(--link);
+  --accent-orange: var(--status-disrupted);
+  --accent-purple: var(--scn-d);
+  --accent-teal:   var(--scn-c);
+  --text-danger:   var(--status-closed);
+  --text-success:  var(--status-normal);
+  --text-warning:  var(--status-elevated);
+  /* Legacy NAI v1 categories (archived Days 1–35 view only) */
+  --nai-aligned:   var(--status-normal);
+  --nai-stable:    var(--link);
+  --nai-tension:   var(--status-elevated);
+  --nai-fracture:  var(--status-closed);
+  --nai-inversion: var(--scn-d);
   --nai-safe:      var(--nai-aligned);
+}
+
+/* Light: reading, briefs, print and embeds. Same names, light values. */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg:           #FFFFFF;
+  --surface:      #F5F6F8;
+  --surface-2:    #E3E7EC;
+  --line:         #D9DEE5;
+  --line-strong:  #B9C1CC;
+  --track:        #E6E9EE;
+  --text:         #0E1116;
+  --text-2:       #3D4651;
+  --muted:        #5E6875;
+  --accent:       #8A6A00;
+  --link:         #0B5CAD;
+  --link-hover:   #0E1116;
+
+  --status-normal:         #0E7A3E;
+  --status-normal-tint:    #E6F4EC;
+  --status-elevated:       #8A5300;
+  --status-elevated-tint:  #FDF1DC;
+  --status-disrupted:      #B23E0B;
+  --status-disrupted-tint: #FCE9DF;
+  --status-closed:         #B0102C;
+  --status-closed-tint:    #FBE4E8;
+  --status-unknown:        #5B6573;
+  --status-unknown-tint:   #EEF0F3;
+
+  --posture-1: #2F6FC0;
+  --posture-2: #7B8594;
+  --posture-3: #B8611F;
+  --posture-4: #C2410C;
+
+  --scn-a: #1F6FC2;
+  --scn-b: #8C6A1F;
+  --scn-c: #0F7C8A;
+  --scn-d: #6D4FD1;
+}
+
+@media print {
+  :root {
+    color-scheme: light;
+    --bg: #FFFFFF; --surface: #F5F6F8; --surface-2: #E3E7EC; --line: #D9DEE5; --line-strong: #B9C1CC;
+    --track: #E6E9EE; --text: #0E1116; --text-2: #3D4651; --muted: #5E6875; --accent: #8A6A00;
+    --link: #0B5CAD; --link-hover: #0E1116;
+    --status-normal: #0E7A3E; --status-normal-tint: #E6F4EC; --status-elevated: #8A5300; --status-elevated-tint: #FDF1DC;
+    --status-disrupted: #B23E0B; --status-disrupted-tint: #FCE9DF; --status-closed: #B0102C; --status-closed-tint: #FBE4E8;
+    --status-unknown: #5B6573; --status-unknown-tint: #EEF0F3;
+    --posture-1: #2F6FC0; --posture-2: #7B8594; --posture-3: #B8611F; --posture-4: #C2410C;
+    --scn-a: #1F6FC2; --scn-b: #8C6A1F; --scn-c: #0F7C8A; --scn-d: #6D4FD1;
+  }
 }
 
 /* ── BASE ── */
@@ -63,37 +190,65 @@ html {
   scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
 }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-dm), 'DM Sans', sans-serif;
-  font-weight: 300;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-weight: 400;
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
 }
 
-/* ── GRAIN OVERLAY ── */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
-  opacity: 0.35;
-}
-
-/* All page content must sit above grain */
+/* The full-viewport SVG-turbulence grain overlay (body::before) was removed (perf batch 1,
+   2026-10-13): a fixed feTurbulence layer is re-rasterised over every page, data pages included,
+   for a 1 % texture. The rule below stays so existing stacking (page above any backdrop) is unchanged. */
 body > * { position: relative; z-index: 1; }
 
-/* ── TYPOGRAPHY ── */
-.font-display { font-family: var(--font-bebas), 'Bebas Neue', sans-serif; letter-spacing: 0.02em; }
-.font-mono    { font-family: var(--font-mono), 'IBM Plex Mono', monospace; }
-.font-body    { font-family: var(--font-dm), 'DM Sans', sans-serif; }
+/* ── HOME HERO BACKDROP ──
+   Static layer for everyone (and the fallback when the WebGL field is skipped: reduced motion,
+   Save-Data, < 4 GB device memory, no hardware WebGL). components/home/HeroScene.tsx.
+   Absolutely positioned with a fixed height: never shifts layout. */
+.hero-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 440px;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 70% at 18% 0%, color-mix(in srgb, var(--status-normal) 10%, transparent), transparent 70%),
+    radial-gradient(45% 60% at 85% 10%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+@media (max-width: 639px) {
+  .hero-scene { height: 320px; }
+}
+.hero-scene__canvas {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+.hero-scene__canvas[data-ready] { opacity: 0.75; }
 
-/* ── SCANLINES ── */
+/* ── TYPOGRAPHY (v2: Newsreader for display and reading, Plex Sans for the interface, Plex Mono with
+   tabular figures for numbers only) ── */
+.font-display { font-family: var(--font-display); letter-spacing: 0; }
+.font-mono    { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.font-body    { font-family: var(--font-ui); }
+.num          { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+/* Section and page headings default to the display serif; card titles (h3+) stay in the UI face.
+   A utility or inline font on the element still wins. */
+h1, h2 { font-family: var(--font-display); font-weight: 500; }
+
+/* ── SCANLINES ── (home cards only; removed from data pages in perf batch 1. A plain gradient, no filter.) */
 .scanlines {
   position: relative;
 }
@@ -106,8 +261,8 @@ body > * { position: relative; z-index: 1; }
     0deg,
     transparent,
     transparent 2px,
-    rgba(0, 0, 0, 0.07) 2px,
-    rgba(0, 0, 0, 0.07) 4px
+    color-mix(in srgb, var(--scrim) 7%, transparent) 2px,
+    color-mix(in srgb, var(--scrim) 7%, transparent) 4px
   );
   z-index: 2;
 }
@@ -130,7 +285,7 @@ body > * { position: relative; z-index: 1; }
 }
 .osint-card:hover {
   border-color: var(--border-bright);
-  box-shadow: inset 0 0 40px rgba(232, 197, 71, 0.04);
+  box-shadow: inset 0 0 40px color-mix(in srgb, var(--accent) 4%, transparent);
 }
 /* Top-left gold bracket */
 .osint-card::before {
@@ -167,7 +322,7 @@ body > * { position: relative; z-index: 1; }
   font-family: var(--font-bebas), 'Bebas Neue', sans-serif;
   font-size: clamp(140px, 22vw, 380px);
   line-height: 1;
-  color: rgba(232, 197, 71, 0.035);
+  color: color-mix(in srgb, var(--accent) 3.5%, transparent);
   white-space: nowrap;
   z-index: 0;
 }
@@ -175,7 +330,7 @@ body > * { position: relative; z-index: 1; }
 /* ── NAI SCORE BARS ── */
 .nai-bar-track {
   height: 3px;
-  background: rgba(255,255,255,0.06);
+  background: var(--track);
   border-radius: 2px;
   overflow: hidden;
   position: relative;
@@ -185,253 +340,42 @@ body > * { position: relative; z-index: 1; }
   border-radius: 2px;
   transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.nai-bar-fill.safe      { background: var(--nai-safe);      box-shadow: 0 0 8px rgba(78,201,138,0.5); }
-.nai-bar-fill.stable    { background: var(--nai-stable);    box-shadow: 0 0 8px rgba(122,200,110,0.5); }
-.nai-bar-fill.tension   { background: var(--nai-tension);   box-shadow: 0 0 8px rgba(232,197,71,0.5); }
-.nai-bar-fill.fracture  { background: var(--nai-fracture);  box-shadow: 0 0 8px rgba(232,125,43,0.5); }
-.nai-bar-fill.inversion { background: var(--nai-inversion); box-shadow: 0 0 8px rgba(224,82,82,0.5); }
+.nai-bar-fill.safe      { background: var(--nai-safe);      box-shadow: 0 0 8px color-mix(in srgb, var(--status-normal) 50%, transparent); }
+.nai-bar-fill.stable    { background: var(--nai-stable);    box-shadow: 0 0 8px color-mix(in srgb, var(--status-normal) 50%, transparent); }
+.nai-bar-fill.tension   { background: var(--nai-tension);   box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
+.nai-bar-fill.fracture  { background: var(--nai-fracture);  box-shadow: 0 0 8px color-mix(in srgb, var(--status-disrupted) 50%, transparent); }
+.nai-bar-fill.inversion { background: var(--nai-inversion); box-shadow: 0 0 8px color-mix(in srgb, var(--status-closed) 50%, transparent); }
 
 /* ── NAI BADGES ── */
 .nai-badge {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   padding: 2px 7px;
   border-radius: 1px;
   font-weight: 500;
 }
-.nai-badge.safe      { color: var(--nai-safe);      background: rgba(78,201,138,0.1);  border: 1px solid rgba(78,201,138,0.3); }
-.nai-badge.stable    { color: var(--nai-stable);    background: rgba(122,200,110,0.1); border: 1px solid rgba(122,200,110,0.3); }
-.nai-badge.tension   { color: var(--nai-tension);   background: rgba(232,197,71,0.1);  border: 1px solid rgba(232,197,71,0.3); }
-.nai-badge.fracture  { color: var(--nai-fracture);  background: rgba(232,125,43,0.1);  border: 1px solid rgba(232,125,43,0.3); }
-.nai-badge.inversion { color: var(--nai-inversion); background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3); }
+.nai-badge.safe      { color: var(--nai-safe);      background: color-mix(in srgb, var(--status-normal) 10%, transparent);  border: 1px solid color-mix(in srgb, var(--status-normal) 30%, transparent); }
+.nai-badge.stable    { color: var(--nai-stable);    background: color-mix(in srgb, var(--status-normal) 10%, transparent); border: 1px solid color-mix(in srgb, var(--status-normal) 30%, transparent); }
+.nai-badge.tension   { color: var(--nai-tension);   background: color-mix(in srgb, var(--accent) 10%, transparent);  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.nai-badge.fracture  { color: var(--nai-fracture);  background: color-mix(in srgb, var(--status-disrupted) 10%, transparent);  border: 1px solid color-mix(in srgb, var(--status-disrupted) 30%, transparent); }
+.nai-badge.inversion { color: var(--nai-inversion); background: color-mix(in srgb, var(--status-closed) 10%, transparent);   border: 1px solid color-mix(in srgb, var(--status-closed) 30%, transparent); }
 
 /* ── SENTIMENT BADGES ── */
 .sentiment-badge {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 1px;
 }
-.sentiment-badge.positive { color: var(--accent-green);  background: rgba(78,201,138,0.08);  border: 1px solid rgba(78,201,138,0.2); }
-.sentiment-badge.negative { color: var(--accent-red);    background: rgba(224,82,82,0.08);   border: 1px solid rgba(224,82,82,0.2); }
-.sentiment-badge.neutral  { color: var(--text-muted);    background: rgba(74,88,112,0.2);    border: 1px solid rgba(74,88,112,0.3); }
+.sentiment-badge.positive { color: var(--accent-green);  background: color-mix(in srgb, var(--status-normal) 8%, transparent);  border: 1px solid color-mix(in srgb, var(--status-normal) 20%, transparent); }
+.sentiment-badge.negative { color: var(--accent-red);    background: color-mix(in srgb, var(--status-closed) 8%, transparent);   border: 1px solid color-mix(in srgb, var(--status-closed) 20%, transparent); }
+.sentiment-badge.neutral  { color: var(--text-secondary); background: color-mix(in srgb, var(--muted) 12%, transparent);    border: 1px solid color-mix(in srgb, var(--muted) 30%, transparent); }
 
-/* ── HEADER NAV LINKS ── */
-.header-link {
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: color 0.15s ease, transform 0.15s ease;
-  position: relative;
-}
-.header-link:hover {
-  color: var(--accent-gold);
-  transform: translateX(1px);
-}
-.header-link::after {
-  content: '';
-  position: absolute;
-  bottom: -2px; left: 0;
-  width: 0; height: 1px;
-  background: var(--accent-gold);
-  transition: width 0.2s ease;
-}
-.header-link:hover::after { width: 100%; }
-
-/* ── DESKTOP MEGA MENU (CommandHeader) ── */
-.desktop-nav-mega {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 2px;
-  justify-content: flex-end;
-}
-.desktop-nav-mega__item {
-  position: relative;
-}
-/* Invisible hit area between trigger and panel so the menu does not close while moving the cursor */
-.desktop-nav-mega__hover-bridge {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: 14px;
-  z-index: 99;
-  pointer-events: none;
-}
-.desktop-nav-mega__item:hover .desktop-nav-mega__hover-bridge,
-.desktop-nav-mega__item:focus-within .desktop-nav-mega__hover-bridge {
-  pointer-events: auto;
-}
-.desktop-nav-mega__trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 7px 11px;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.desktop-nav-mega__trigger:hover,
-.desktop-nav-mega__item:focus-within > .desktop-nav-mega__trigger {
-  color: var(--accent-gold);
-  background: rgba(232, 197, 71, 0.07);
-  border-color: rgba(232, 197, 71, 0.22);
-  box-shadow: 0 0 0 1px rgba(232, 197, 71, 0.08);
-}
-.desktop-nav-mega__chev {
-  font-size: 11px;
-  opacity: 0.65;
-  transition: transform 0.2s ease;
-}
-.desktop-nav-mega__item:hover .desktop-nav-mega__chev,
-.desktop-nav-mega__item:focus-within .desktop-nav-mega__chev {
-  transform: translateY(1px);
-}
-.desktop-nav-mega__panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  min-width: 232px;
-  max-width: min(320px, 92vw);
-  padding: 6px 0;
-  background: rgba(10, 14, 22, 0.98);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
-  z-index: 100;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-8px) scale(0.98);
-  transition:
-    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0.2s,
-    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-  pointer-events: none;
-}
-.desktop-nav-mega__item:hover .desktop-nav-mega__panel,
-.desktop-nav-mega__item:focus-within .desktop-nav-mega__panel {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-[dir='rtl'] .desktop-nav-mega__panel {
-  left: auto;
-  right: 0;
-}
-[dir='rtl'] .desktop-nav-mega__hover-bridge {
-  left: auto;
-  right: 0;
-}
-.desktop-nav-mega__link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 16px;
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--text-secondary);
-  transition: background 0.12s ease, color 0.12s ease;
-  border-inline-start: 2px solid transparent;
-}
-.desktop-nav-mega__link:hover {
-  color: var(--text-primary);
-  background: rgba(232, 197, 71, 0.09);
-}
-.desktop-nav-mega__link--active {
-  color: var(--accent-gold);
-  background: rgba(232, 197, 71, 0.06);
-  border-inline-start-color: var(--accent-gold);
-}
-.desktop-nav-mega__link--war {
-  color: var(--accent-red);
-}
-.desktop-nav-mega__link--war:hover {
-  color: #ff8a8a;
-  background: rgba(224, 82, 82, 0.12);
-}
-.desktop-nav-mega__tier-meta {
-  padding: 10px 16px 8px;
-  margin-bottom: 2px;
-  border-bottom: 1px solid var(--border);
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.desktop-nav-mega__tier-value {
-  display: block;
-  margin-top: 6px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-primary);
-}
-.desktop-nav-mega__tier-value--pro {
-  color: #e8c547;
-}
-.desktop-nav-mega__tier-value--informed {
-  color: #1e90ff;
-}
-.desktop-nav-mega__tier-value--free {
-  color: #94a3b8;
-}
-.desktop-nav-mega__trigger-tier {
-  margin-inline-start: 6px;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-.desktop-nav-mega__dot {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 8px;
-  height: 8px;
-  flex-shrink: 0;
-}
-.desktop-nav-mega__dot::after {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent-red);
-}
-@media (prefers-reduced-motion: reduce) {
-  .desktop-nav-mega__panel,
-  .desktop-nav-mega__trigger,
-  .desktop-nav-mega__chev {
-    transition: none;
-  }
-  .desktop-nav-mega__item:hover .desktop-nav-mega__panel,
-  .desktop-nav-mega__item:focus-within .desktop-nav-mega__panel {
-    transform: none;
-  }
-}
+/* Header styles: components/header/header.module.css (design system v2). */
 
 /* ── LOADING CURSOR ── */
 @keyframes blink {
@@ -468,12 +412,12 @@ body > * { position: relative; z-index: 1; }
 /* ── REDACTED / EMPTY STATES ── */
 .redacted {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 2px;
   color: var(--text-muted);
   text-transform: uppercase;
 }
-.redacted::before { content: '// '; color: rgba(224,82,82,0.35); }
+.redacted::before { content: '// '; color: color-mix(in srgb, var(--status-closed) 35%, transparent); }
 
 /* ── DATA DIVIDERS ── */
 .data-rule {
@@ -510,11 +454,13 @@ body > * { position: relative; z-index: 1; }
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 2px;
   color: var(--accent-gold);
   text-transform: uppercase;
   display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
   align-items: center;
   justify-content: space-between;
 }
@@ -533,11 +479,11 @@ body > * { position: relative; z-index: 1; }
   text-align: left;
 }
 .country-row:hover {
-  background: rgba(232, 197, 71, 0.04);
-  border-left-color: rgba(232, 197, 71, 0.4);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+  border-left-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .country-row[data-active="true"] {
-  background: rgba(232, 197, 71, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   border-left-color: var(--accent-gold);
 }
 .nai-dot {
@@ -548,7 +494,7 @@ body > * { position: relative; z-index: 1; }
 }
 .country-row[data-nai="INVERSION"] .nai-dot {
   background: var(--accent-red);
-  box-shadow: 0 0 6px rgba(224,82,82,0.8);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--status-closed) 80%, transparent);
   animation: ping 1.5s cubic-bezier(0,0,0.2,1) infinite;
 }
 .country-row[data-nai="FRACTURE"] .nai-dot  { background: var(--accent-orange); }
@@ -563,14 +509,14 @@ body > * { position: relative; z-index: 1; }
   transition: border-color 0.2s, background 0.2s;
 }
 .warroom-item:hover {
-  background: rgba(232, 197, 71, 0.03);
-  border-left-color: rgba(232, 197, 71, 0.3);
+  background: color-mix(in srgb, var(--accent) 3%, transparent);
+  border-left-color: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .warroom-item.new-item {
   animation: newItem 2s ease forwards;
 }
 @keyframes newItem {
-  0%   { border-left-color: var(--accent-gold); background: rgba(232,197,71,0.08); }
+  0%   { border-left-color: var(--accent-gold); background: color-mix(in srgb, var(--accent) 8%, transparent); }
   100% { border-left-color: transparent; background: transparent; }
 }
 
@@ -587,7 +533,7 @@ body > * { position: relative; z-index: 1; }
 .warroom-title:hover { color: var(--accent-gold); }
 
 .warroom-summary {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 3px 0 0;
@@ -601,29 +547,29 @@ body > * { position: relative; z-index: 1; }
 }
 .timestamp {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-muted);
   letter-spacing: 1px;
 }
 .source-name {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--accent-teal);
   letter-spacing: 0.5px;
 }
 .source-type-badge {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 1px 5px;
   border-radius: 1px;
   border: 1px solid;
 }
-.source-type-badge.military { color: var(--accent-red);    border-color: rgba(224,82,82,0.3);    background: rgba(224,82,82,0.08); }
-.source-type-badge.official { color: var(--accent-blue);   border-color: rgba(74,143,232,0.3);   background: rgba(74,143,232,0.08); }
-.source-type-badge.elite    { color: var(--accent-gold);   border-color: rgba(232,197,71,0.3);   background: rgba(232,197,71,0.08); }
-.source-type-badge.broadcast{ color: var(--accent-teal);   border-color: rgba(54,184,200,0.3);   background: rgba(54,184,200,0.08); }
+.source-type-badge.military { color: var(--accent-red);    border-color: color-mix(in srgb, var(--status-closed) 30%, transparent);    background: color-mix(in srgb, var(--status-closed) 8%, transparent); }
+.source-type-badge.official { color: var(--accent-blue);   border-color: color-mix(in srgb, var(--link) 30%, transparent);   background: color-mix(in srgb, var(--link) 8%, transparent); }
+.source-type-badge.elite    { color: var(--accent-gold);   border-color: color-mix(in srgb, var(--accent) 30%, transparent);   background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.source-type-badge.broadcast{ color: var(--accent-teal);   border-color: color-mix(in srgb, var(--scn-c) 30%, transparent);   background: color-mix(in srgb, var(--scn-c) 8%, transparent); }
 .source-type-badge.wire     { color: var(--text-secondary);border-color: var(--border);          background: transparent; }
 
 .indicator-row {
@@ -633,19 +579,30 @@ body > * { position: relative; z-index: 1; }
   padding: 7px 14px;
   border-bottom: 1px solid var(--border);
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
 }
-.indicator-name  { color: var(--text-secondary); font-size: 11px; letter-spacing: 1px; flex: 1; }
-.indicator-value { color: var(--text-primary); font-size: 11px; font-weight: 500; margin-right: 8px; }
-.change.up   { color: var(--accent-green); font-size: 11px; }
-.change.down { color: var(--accent-red);   font-size: 11px; }
+.indicator-name  { color: var(--text-secondary); font-size: 13px; letter-spacing: 1px; flex: 1; }
+.indicator-value { color: var(--text-primary); font-size: 13px; font-weight: 500; margin-right: 8px; }
+.change.up   { color: var(--text-primary); font-size: 13px; }
+.change.down { color: var(--text-primary);  font-size: 13px; }
+/* War Room markets list: wraps instead of squeezing; long daily-build units and the collection time sit on
+   their own full-width line (readable at 390 px). */
+.indicator-row.warroom-indicator { flex-wrap: wrap; gap: 2px 8px; }
+.warroom-indicator .indicator-name { min-width: 0; }
+.warroom-indicator .indicator-value { margin-right: 0; white-space: nowrap; }
+.indicator-meta {
+  flex-basis: 100%;
+  display: flex; flex-direction: column; gap: 2px;
+  color: var(--text-muted); font-size: 13px; line-height: 1.45; letter-spacing: 0.2px;
+}
+.indicator-unit { color: var(--text-secondary); }
 
 .warroom-tags {
   display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px;
 }
 .tag {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-muted);
   letter-spacing: 0.5px;
   padding: 1px 5px;
@@ -690,7 +647,7 @@ body > * { position: relative; z-index: 1; }
     padding: 6px 12px !important;
     gap: 6px 12px !important;
     justify-content: flex-start !important;
-    font-size: 11px !important;
+    font-size: 13px !important;
   }
 }
 
@@ -712,7 +669,7 @@ body > * { position: relative; z-index: 1; }
 }
 .channel-tile.active {
   border-color: var(--accent-gold);
-  box-shadow: 0 0 20px rgba(232,197,71,0.15);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 .channel-embed-wrap {
   position: absolute; inset: 0;
@@ -726,27 +683,32 @@ body > * { position: relative; z-index: 1; }
   position: absolute;
   bottom: 28px; right: 8px;
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 1px;
+  font-size: 13px; letter-spacing: 1px;
   color: var(--text-muted);
-  background: rgba(7,10,15,0.7);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
   padding: 2px 6px;
   border-radius: 2px;
   pointer-events: none;
 }
 .channel-bar {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(transparent, rgba(7,10,15,0.95));
+  background: linear-gradient(transparent, color-mix(in srgb, var(--bg) 95%, transparent));
   padding: 20px 10px 8px;
   display: flex; align-items: center; gap: 8px;
 }
 .channel-name {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  font-size: 13px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--text-primary);
   flex: 1;
+}
+.channel-flag {
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+  font-size: 13px; color: var(--text-secondary);
 }
 .channel-open {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; color: var(--text-muted);
+  font-size: 13px; color: var(--text-muted);
   text-decoration: none; letter-spacing: 1px;
   transition: color 0.15s;
 }
@@ -754,16 +716,16 @@ body > * { position: relative; z-index: 1; }
 .bias-label {
   position: absolute; top: 8px; left: 8px;
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
-  color: var(--text-muted); background: rgba(7,10,15,0.7);
+  font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-muted); background: color-mix(in srgb, var(--bg) 92%, transparent);
   padding: 2px 6px; border-radius: 1px;
 }
 .live-indicator {
   position: absolute; top: 8px; right: 8px;
   display: flex; align-items: center; gap: 5px;
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 2px;
-  color: var(--accent-red); background: rgba(7,10,15,0.8);
+  font-size: 13px; letter-spacing: 2px;
+  color: var(--accent-red); background: color-mix(in srgb, var(--bg) 92%, transparent);
   padding: 3px 7px;
 }
 .channel-poster {
@@ -775,7 +737,7 @@ body > * { position: relative; z-index: 1; }
 }
 .load-prompt {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 2px;
+  font-size: 13px; letter-spacing: 2px;
   color: var(--accent-gold); text-transform: uppercase;
 }
 
@@ -793,20 +755,20 @@ body > * { position: relative; z-index: 1; }
 .photo-card:hover .photo-img { transform: scale(1.03); }
 .photo-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(transparent 40%, rgba(7,10,15,0.95));
+  background: linear-gradient(transparent 40%, color-mix(in srgb, var(--bg) 95%, transparent));
   opacity: 0; transition: opacity 0.2s;
   display: flex; flex-direction: column;
   justify-content: flex-end; padding: 12px;
 }
 .photo-card:hover .photo-overlay { opacity: 1; }
 .photo-title {
-  font-size: 11px; color: var(--text-primary);
+  font-size: 13px; color: var(--text-primary);
   font-family: var(--font-dm), 'DM Sans', sans-serif; margin-bottom: 4px;
 }
-.photo-meta { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.photo-meta { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-muted); }
 .photo-source {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; color: var(--accent-teal);
+  font-size: 13px; color: var(--accent-teal);
   text-decoration: none; margin-top: 4px; display: block;
 }
 
@@ -816,7 +778,7 @@ body > * { position: relative; z-index: 1; }
   text-decoration: none; transition: background 0.15s;
   color: inherit;
 }
-.clip-card:hover { background: rgba(232,197,71,0.03); }
+.clip-card:hover { background: color-mix(in srgb, var(--accent) 3%, transparent); }
 .clip-thumbnail-wrap {
   position: relative; flex-shrink: 0; width: 100px;
 }
@@ -824,21 +786,21 @@ body > * { position: relative; z-index: 1; }
 .play-overlay {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.4); color: var(--accent-gold);
+  background: color-mix(in srgb, var(--scrim) 40%, transparent); color: var(--accent-fill);
   font-size: 20px; opacity: 0; transition: opacity 0.15s;
 }
 .clip-card:hover .play-overlay { opacity: 1; }
 .clip-channel {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; color: var(--accent-teal);
+  font-size: 13px; color: var(--accent-teal);
   letter-spacing: 1px; text-transform: uppercase;
 }
-.clip-title { font-size: 12px; color: var(--text-primary); line-height: 1.5; margin: 3px 0; }
-.clip-date { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.clip-title { font-size: 13px; color: var(--text-primary); line-height: 1.5; margin: 3px 0; }
+.clip-date { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-muted); }
 
 .lightbox-overlay {
   position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.92);
+  background: color-mix(in srgb, var(--scrim) 92%, transparent);
   display: flex; align-items: center; justify-content: center;
 }
 .lightbox-inner { max-width: 90vw; max-height: 90vh; position: relative; }
@@ -846,7 +808,7 @@ body > * { position: relative; z-index: 1; }
 .lightbox-caption {
   display: flex; align-items: center; gap: 16px;
   padding: 12px; background: var(--bg-card);
-  font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 11px;
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 13px;
   color: var(--text-secondary); border-top: 1px solid var(--border);
 }
 
@@ -859,20 +821,20 @@ body > * { position: relative; z-index: 1; }
   transition: background 0.15s; flex-shrink: 0;
   color: inherit;
 }
-.wire-card:hover { background: rgba(232,197,71,0.04); }
+.wire-card:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
 .wire-source-img { width: 48px; height: 48px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .wire-source-img img { width: 32px; height: 32px; object-fit: contain; }
 .wire-source {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; color: var(--accent-teal);
+  font-size: 13px; color: var(--accent-teal);
   letter-spacing: 1px; text-transform: uppercase;
 }
-.wire-title { font-size: 12px; color: var(--text-primary); line-height: 1.5; }
-.wire-time { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-muted); }
+.wire-title { font-size: 13px; color: var(--text-primary); line-height: 1.5; }
+.wire-time { font-family: var(--font-mono), 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text-muted); }
 
 .country-chip {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 1.5px;
+  font-size: 13px; letter-spacing: 1.5px;
   padding: 3px 10px; cursor: pointer;
   border: 1px solid var(--border); background: transparent;
   color: var(--text-muted); transition: all 0.15s;
@@ -881,13 +843,13 @@ body > * { position: relative; z-index: 1; }
 .country-chip:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
 .country-chip.active {
   border-color: var(--accent-gold);
-  background: rgba(232,197,71,0.1);
-  color: var(--accent-gold);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-primary);
 }
 
 .view-mode-btn {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 2px;
+  font-size: 13px; letter-spacing: 2px;
   padding: 3px 10px; cursor: pointer;
   border: 1px solid var(--border); background: transparent;
   color: var(--text-muted); text-transform: uppercase;
@@ -895,8 +857,8 @@ body > * { position: relative; z-index: 1; }
 }
 .view-mode-btn.active {
   border-color: var(--accent-teal);
-  color: var(--accent-teal);
-  background: rgba(54,184,200,0.08);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--scn-c) 8%, transparent);
 }
 
 .media-section-header {
@@ -905,7 +867,7 @@ body > * { position: relative; z-index: 1; }
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 2px;
+  font-size: 13px; letter-spacing: 2px;
   color: var(--accent-teal); text-transform: uppercase;
   position: sticky; top: 0; z-index: 5;
 }
@@ -937,9 +899,9 @@ body > * { position: relative; z-index: 1; }
 }
 .red-line-badge {
   font-family: var(--font-mono), 'IBM Plex Mono', monospace;
-  font-size: 11px; letter-spacing: 1px;
+  font-size: 13px; letter-spacing: 1px;
   color: var(--accent-red);
-  border: 1px solid rgba(224,82,82,0.4);
+  border: 1px solid color-mix(in srgb, var(--status-closed) 40%, transparent);
   padding: 1px 4px;
   animation: blink 2s step-end infinite;
 }
@@ -980,14 +942,14 @@ body > * { position: relative; z-index: 1; }
 
 /* Focus rings for keyboard navigation */
 :focus-visible {
-  outline: 2px solid var(--accent-gold);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
 
 /* Input fields */
 input, textarea, select {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.2);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   color: var(--text-primary);
 }
 input::placeholder, textarea::placeholder {
@@ -1000,4 +962,628 @@ input:focus, textarea:focus, select:focus {
 /* TranslationBanner: dismissed visitors are hidden before first paint (root layout boot script). */
 html[data-tb-dismissed] .translation-banner {
   display: none !important;
+}
+
+/* ── Accessibility helpers (UX audit 2026-10-13, change #10) ── */
+.skip-link {
+  position: absolute;
+  inset-inline-start: 16px;
+  top: -100px;
+  z-index: 1000;
+  padding: 10px 14px;
+  min-height: var(--target);
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus,
+.skip-link:focus-visible { top: 8px; outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* War Room headings keep the panel-header look (they were spans before). */
+.warroom-h1,
+.warroom-h2 { font: inherit; letter-spacing: inherit; margin: 0; }
+.warroom-briefing { margin: 8px 12px; }
+
+/* "How to read this page" disclosure (components/PageBriefing.tsx) */
+.page-briefing > summary { list-style: none; }
+.page-briefing > summary::-webkit-details-marker { display: none; }
+.page-briefing > summary::after { content: '▸'; margin-left: auto; transition: transform 0.15s ease; }
+.page-briefing[open] > summary::after { transform: rotate(90deg); }
+.page-briefing > summary:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .page-briefing > summary::after { transition: none; }
+}
+
+/* /track-record tables: normal table from 640 px; below that each row stacks as label/value lines. */
+.tr-table-wrap { overflow-x: auto; }
+@media (max-width: 639px) {
+  .tr-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tr-table, .tr-table tbody, .tr-table tr, .tr-table td { display: block; width: 100%; }
+  .tr-table tr { padding: 10px 0; }
+  .tr-table td { padding: 2px 0 !important; white-space: normal !important; }
+  .tr-table td:not(:first-child)::before {
+    content: attr(data-label) ': ';
+    color: var(--text-muted);
+    font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+/* ============================================================
+   SHARED CHIPS (components/ui: StatusChip, TrustChip, ScenarioChip, PostureSwatch) — global .chip-*
+   classes, not a CSS module: a module imported by the root layout's header shipped as a third
+   render-blocking stylesheet on every page (−4 Lighthouse on /warroom). Colours come from the theme
+   tokens above. Text is never colour alone: status = glyph + word, scenario = letter (+ "range" for B),
+   posture = number or words, trust = icon + word. Logical properties only (RTL-safe).
+   ============================================================ */
+.chip-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.chip-num {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Lane status ---------------------------------------------------------------------------- */
+.chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-chip);
+  padding-block: 3px;
+  padding-inline: 10px;
+  white-space: nowrap;
+}
+.chip-status[data-size='sm'] {
+  padding-block: 1px;
+  padding-inline: 8px;
+}
+.chip-status[data-status='NORMAL'] { color: var(--status-normal); background: var(--status-normal-tint); }
+.chip-status[data-status='ELEVATED'] { color: var(--status-elevated); background: var(--status-elevated-tint); }
+.chip-status[data-status='DISRUPTED'] { color: var(--status-disrupted); background: var(--status-disrupted-tint); }
+.chip-status[data-status='CLOSED'] { color: var(--status-closed); background: var(--status-closed-tint); }
+.chip-status[data-status='UNKNOWN'] { color: var(--status-unknown); background: var(--status-unknown-tint); border-style: dashed; }
+
+/* ---- Trust ---------------------------------------------------------------------------------- */
+.chip-trust {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  line-height: 1.4;
+  color: var(--text-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-chip);
+  padding-block: 2px;
+  padding-inline: 10px;
+  max-inline-size: 100%;
+}
+.chip-trust svg {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
+}
+.chip-trust .chip-meta {
+  color: var(--muted);
+}
+.chip-trust[data-kind='stale'] {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-unknown);
+  background: var(--status-unknown-tint);
+  border: 1px dashed var(--status-unknown);
+}
+.chip-party {
+  font-size: var(--fs-meta); /* the artboard draws 11 px; the 13 px UI floor wins */
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--status-elevated);
+  background: var(--status-elevated-tint);
+  border-radius: var(--radius-chip);
+  padding-inline: 6px;
+}
+.chip-trust-link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  text-decoration: none;
+  color: inherit;
+}
+.chip-trust-link:hover .chip-trust {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+/* ---- Scenario identity ---------------------------------------------------------------------- */
+.chip-scenario {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-ui);
+  line-height: 1.35;
+}
+.chip-swatch {
+  flex: none;
+  align-self: center;
+  inline-size: 14px;
+  block-size: 14px;
+  background: var(--scn);
+}
+.chip-scenario[data-code='A'] { --scn: var(--scn-a); }
+.chip-scenario[data-code='B'] { --scn: var(--scn-b); }
+.chip-scenario[data-code='C'] { --scn: var(--scn-c); }
+.chip-scenario[data-code='D'] { --scn: var(--scn-d); }
+.chip-scenario[data-code='B'] .chip-swatch {
+  background: repeating-linear-gradient(135deg, var(--scn) 0 3px, transparent 3px 6px);
+  border: 1px solid var(--scn);
+}
+.chip-scenario[data-kind='unmeasured'] .chip-swatch,
+.chip-scenario[data-code='E'] .chip-swatch {
+  background: transparent;
+  border: 1px dashed var(--scn-unmeasured);
+}
+.chip-scenario:not([data-code='A']):not([data-code='B']):not([data-code='C']):not([data-code='D']) {
+  --scn: var(--muted);
+}
+.chip-letter {
+  font-family: var(--font-numeric);
+  font-weight: 600;
+  color: var(--scn, var(--text-2));
+}
+.chip-scenario[data-kind='unmeasured'] .chip-letter,
+.chip-scenario[data-code='E'] .chip-letter {
+  color: var(--text-2);
+}
+.chip-scn-value {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chip-range-word {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+
+/* ---- War Posture ---------------------------------------------------------------------------- */
+.chip-posture {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-2);
+  line-height: 1.35;
+}
+.chip-posture-swatch {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 1px;
+  background: var(--pst, transparent);
+}
+.chip-posture[data-band='1'] { --pst: var(--posture-1); }
+.chip-posture[data-band='2'] { --pst: var(--posture-2); }
+.chip-posture[data-band='3'] { --pst: var(--posture-3); }
+.chip-posture[data-band='4'] { --pst: var(--posture-4); }
+/* EG / AE / SA (stated positions only) and no score: outline only, no fill, no number. */
+.chip-posture[data-band='none'] .chip-posture-swatch {
+  background: transparent;
+  border: 1px solid var(--muted);
+}
+.chip-posture[data-no-grade='true'] {
+  color: var(--text-2);
+}
+
+/* ============================================================
+   SITE HEADER (design system v2: Main / Home-Mobile artboards; components/CommandHeader.tsx) — global
+   .hdr-* classes for the same reason. Hairlines, no shadows, no blur; 44 × 44 targets; gold only for the
+   logo, the focus ring and the one primary CTA. Desktop from 1200 px, where the bar's content box is a
+   fixed 1152 px; below it, the menu button. Nothing in the bar shrinks below its content (no clipping, no
+   overlap): the nav keeps its width and the right cluster drops optional parts instead — the stamp's
+   "Day N ·" when the stale chip shows or in the Arabic UI (longer nav labels; there the whole stamp yields
+   to the stale chip, whose word always stays); the language toggle lives in More on desktop. Phones: the
+   stale chip shows in the bar; a time that is not today's always keeps its date (own line, "Day N"
+   dropped); below 420 px with stale data the whole stamp yields to the chip (full stamp in the menu).
+   tests/e2e/header-layout.spec.ts checks 1024 / 1280 / 1440 px for overlaps and centre hit-tests.
+   ============================================================ */
+.hdr {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bg);
+  border-block-end: 1px solid var(--line);
+  font-family: var(--font-ui);
+}
+.hdr-bar {
+  position: relative;
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding-inline: 24px;
+  min-block-size: 64px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hdr-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-block-size: var(--target);
+  flex: none;
+  color: var(--text);
+  text-decoration: none;
+}
+.hdr-logo .hdr-mark {
+  flex: none;
+}
+.hdr-logo-text {
+  /* The wordmark SVG (Newsreader 600 outlines): 21 px cap box, width from the viewBox. */
+  display: block;
+  height: 21px;
+  width: auto;
+  flex: none;
+}
+
+/* ---- Primary nav (desktop) ----------------------------------------------------------------- */
+.hdr-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto; /* content width, never shrunk under the right cluster */
+}
+.hdr-nav-link,
+.hdr-more-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-block-size: var(--target);
+  padding-inline: 10px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.hdr-nav-link:hover,
+.hdr-more-button:hover {
+  color: var(--text);
+}
+.hdr-nav-link[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 6px;
+}
+.hdr-more-button svg {
+  inline-size: 14px;
+  block-size: 14px;
+  transition: transform var(--dur-med) var(--ease);
+}
+.hdr-more-button[aria-expanded='true'] {
+  color: var(--text);
+}
+.hdr-more-button[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+/* The More panel spans the header bar (positioned against .hdr-bar), so it never runs off-screen. */
+.hdr-more-panel {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 24px;
+  z-index: 60;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px 24px;
+}
+
+/* ---- Groups (More panel and mobile menu) ------------------------------------------------------ */
+.hdr-group {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.hdr-group-label {
+  margin: 0 0 4px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  color: var(--muted);
+}
+.hdr-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hdr-group-link {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--target);
+  font-size: 15px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+.hdr-group-link:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hdr-group-link[aria-current='page'] {
+  color: var(--text);
+  font-weight: 500;
+}
+.hdr-plan-line {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  padding-block: 4px;
+}
+
+/* ---- Right cluster ------------------------------------------------------------------------------ */
+.hdr-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+.hdr-right > * {
+  flex: none;
+}
+/* Stale data: the chip keeps its clock glyph and the visible word "Stale" (a trust label is always text;
+   "Data" is screen-reader only). The stamp gives way first: it drops "Day N ·" and keeps date and time. */
+.hdr-bar .hdr-stale-chip {
+  padding-inline: 8px;
+}
+/* Stale: the stamp drops "Day N ·" but keeps its date, so an old time never reads as today's. */
+.hdr-right:has([data-kind='stale']) .hdr-stamp-day,
+.hdr-right:has([data-kind='stale']) .hdr-sep {
+  display: none;
+}
+/* Arabic UI: the nav labels are longer: the stamp drops "Day N ·" (date and time stay); with stale data
+   the chip alone carries the state (the reasons are in its title). */
+html[lang='ar'] .hdr-bar .hdr-stamp-day,
+html[lang='ar'] .hdr-bar .hdr-sep,
+html[lang='ar'] .hdr-right:has([data-kind='stale']) .hdr-stamp {
+  display: none;
+}
+.hdr-stamp {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hdr-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--target);
+  block-size: var(--target);
+  flex: none;
+  padding: 0;
+  color: var(--text-2);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.hdr-icon-button:hover {
+  color: var(--text);
+  border-color: var(--line);
+}
+/* Theme toggle: the icon follows [data-theme] in CSS, so it is right before hydration (no flash). */
+.hdr-theme-icon-light {
+  display: none;
+}
+:root[data-theme='light'] .hdr-theme-icon-light {
+  display: block;
+}
+:root[data-theme='light'] .hdr-theme-icon-dark {
+  display: none;
+}
+.hdr-cta {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 16px;
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius);
+}
+.hdr-cta:hover {
+  color: var(--on-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hdr-lang {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--target);
+  padding-inline: 6px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.hdr-lang:hover {
+  color: var(--text);
+}
+
+.hdr-menu-button {
+  display: none;
+}
+@media (min-width: 1200px) {
+  .hdr-menu {
+    display: none;
+  }
+}
+
+/* ---- Mobile menu ---------------------------------------------------------------------------------- */
+.hdr-menu {
+  border-block-start: 1px solid var(--line);
+  background: var(--bg);
+  max-block-size: calc(100dvh - 56px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.hdr-menu-inner {
+  max-inline-size: 1200px;
+  margin-inline: auto;
+  padding: 8px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.hdr-menu-primary {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-block-end: 1px solid var(--line);
+  padding-block-end: 8px;
+}
+.hdr-menu-primary .hdr-group-link {
+  font-size: 17px;
+  color: var(--text);
+}
+.hdr-menu-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px 16px;
+}
+.hdr-menu-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  border-block-start: 1px solid var(--line);
+  padding-block-start: 12px;
+}
+.hdr-tool-label {
+  font-size: 15px;
+  color: var(--text-2);
+}
+.hdr-theme-toggle-labelled {
+  gap: 8px;
+}
+
+@media (max-width: 1199px) {
+  .hdr-bar {
+    min-block-size: 56px;
+    padding-inline: 16px 8px;
+    gap: 8px;
+  }
+  .hdr-logo {
+    gap: 8px;
+  }
+  .hdr-logo .hdr-mark {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+  .hdr-logo-text {
+    height: 19px;
+  }
+  .hdr-nav,
+  .hdr-desktop-only {
+    display: none;
+  }
+  .hdr-right {
+    gap: 8px;
+  }
+  /* Phones: day over time, right-aligned, so the logo, stamp and menu button fit at 360 px. */
+  .hdr-bar .hdr-stamp {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+  }
+  .hdr-sep {
+    display: none;
+  }
+  .hdr-stamp-when {
+    text-align: end;
+  }
+  /* Not today's time: drop "Day N" and put the date on its own line above the time — never the time alone. */
+  .hdr-stamp[data-dated] .hdr-stamp-day {
+    display: none;
+  }
+  .hdr-stamp[data-dated] .hdr-stamp-date {
+    display: block;
+  }
+  .hdr-menu-button {
+    display: inline-flex;
+  }
+  .hdr-menu-button {
+    color: var(--text);
+  }
+}
+/* Narrow phones with stale data: the stamp (date and time together) gives way to the stale chip, whose
+   word always stays; the full stamp is in the menu. */
+@media (max-width: 419px) {
+  .hdr-right:has([data-kind='stale']) .hdr-stamp {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .hdr-bar .hdr-stamp {
+    display: none;
+  }
+  .hdr-logo-text {
+    height: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hdr-more-button svg {
+    transition: none;
+  }
+}
+@media print {
+  .hdr {
+    position: static;
+  }
+  .hdr-nav,
+  .hdr-right,
+  .hdr-menu {
+    display: none;
+  }
 }

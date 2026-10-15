@@ -9,6 +9,7 @@
  *  - Legacy `nai_scores` (Days 1-35) is archived, a different axis, NOT comparable — it is never
  *    used as a fallback for "current" NAI.
  */
+import { postureBandVar, postureScaleVar } from './design-tokens';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NaiCategoryV2, NaiScoreV2, NaiSourceV2 } from '@/types/supabase';
 import { rpcWithFallback, type ReadVia } from '@/lib/supabase/rpc-fallback';
@@ -48,19 +49,24 @@ export function unscorableReason(evidence: LatentEvidence, expressed: number | n
 }
 export const NAI_ARCHIVE_LABEL = 'Archived — previous method (not comparable)';
 
-/** Grey for UNSCORABLE is deliberate: no category is shown rather than a guessed one. */
+/**
+ * Category swatches (design system v2): neutral ink at rising strength from ALIGNED (smallest
+ * government–society gap) to INVERSION — never red/green, never a posture or status colour, and never a
+ * text colour (the label is always written next to the swatch). UNSCORABLE has no fill (dashed outline):
+ * no category is shown rather than a guessed one. Theme-aware CSS values (var(--text) mixes).
+ */
 export const NAI_V2_COLOR: Record<NaiCategoryV2, string> = {
-  ALIGNED: '#4EC98A',
-  STABLE: '#4A8FE8',
-  TENSION: '#E8C547',
-  FRACTURE: '#E8874A',
-  INVERSION: '#E05252',
-  UNSCORABLE: '#6B7280',
+  ALIGNED: 'color-mix(in srgb, var(--text) 18%, transparent)',
+  STABLE: 'color-mix(in srgb, var(--text) 38%, transparent)',
+  TENSION: 'color-mix(in srgb, var(--text) 58%, transparent)',
+  FRACTURE: 'color-mix(in srgb, var(--text) 78%, transparent)',
+  INVERSION: 'var(--text)',
+  UNSCORABLE: 'transparent',
 };
-/** Marker colour when the viewer's tier cannot see the category (distinct from UNSCORABLE grey). */
-export const NAI_V2_LOCKED_COLOR = '#1A2233';
+/** Marker colour when the viewer's tier cannot see the category (distinct from UNSCORABLE). */
+export const NAI_V2_LOCKED_COLOR = 'var(--surface-2)';
 /** Marker colour for a tracked country with no nai_scores_v2 row for the day (distinct from both). */
-export const NAI_V2_NODATA_COLOR = '#2E3A4E';
+export const NAI_V2_NODATA_COLOR = 'var(--line-strong)';
 
 export const NAI_V2_SCALE_TEXT =
   '0 = demands immediate ceasefire · 50 = conditional or ambivalent · 100 = backs continuing or escalating military action (by any party)';
@@ -117,13 +123,13 @@ export const NAI_POSTURE_NOTE =
   'Posture (official) describes what a government says it wants, from its expressed score only: 0–12 Seeks immediate ceasefire, 13–37 Conditional de-escalation, 38–62 Ambivalent, 63–87 Supports continued pressure, 88–100 Supports escalation. The cut-points are conventions, not empirical findings. It is separate from the War Posture category. Egypt, the UAE and Saudi Arabia get no label (stated positions only).';
 export const NAI_POSTURE_LEGEND_TEXT = 'Colour = official posture';
 
-/** Colour-blind-safe diverging scale (blue → grey → orange, no red/green); same as lib/posture.ts. */
+/** Swatch colour (theme-aware, never text) of each label's anchor band; same as lib/posture.ts POSTURE_LABELS. */
 export const NAI_POSTURE_COLOR: Record<PostureLabel, string> = {
-  'Seeks immediate ceasefire': '#2F7FD8',
-  'Conditional de-escalation': '#86B4EA',
-  Ambivalent: '#9CA3AF',
-  'Supports continued pressure': '#F0AE6B',
-  'Supports escalation': '#D9711C',
+  'Seeks immediate ceasefire': postureBandVar(1),
+  'Conditional de-escalation': postureBandVar(1),
+  Ambivalent: postureBandVar(2),
+  'Supports continued pressure': postureBandVar(3),
+  'Supports escalation': postureBandVar(4),
 };
 
 export function postureLabel(e: number | null | undefined): PostureLabel | null {
@@ -133,9 +139,12 @@ export function postureLabel(e: number | null | undefined): PostureLabel | null 
   return NAI_POSTURE_LABELS[i === -1 ? NAI_POSTURE_LABELS.length - 1 : i];
 }
 
-export function postureColor(e: number | null | undefined): string | null {
-  const l = postureLabel(e);
-  return l === null ? null : NAI_POSTURE_COLOR[l];
+/**
+ * Swatch colour for a score: its SCORE band (0–30 / 31–60 / 61–80 / 81–100), never the label's anchor.
+ * EG / AE / SA (stated positions only) get none, even if a score is passed.
+ */
+export function postureColor(e: number | null | undefined, countryCode?: string | null): string | null {
+  return postureLabel(e) === null ? null : postureScaleVar(e, { countryCode });
 }
 
 /**

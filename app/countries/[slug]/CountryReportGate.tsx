@@ -30,6 +30,7 @@ export function CountryReportGate({
   anonHasAccess,
   anonPostureAccess,
   conflictDayBadge,
+  economyBriefDay = null,
 }: {
   report: CountryReportView;
   posture: CountryPosture | null;
@@ -40,6 +41,8 @@ export function CountryReportGate({
   anonHasAccess: boolean;
   anonPostureAccess: { latent: boolean; gap: boolean };
   conflictDayBadge?: ReactNode;
+  /** Egypt page: day of the latest Egypt & Gulf Economy brief. */
+  economyBriefDay?: number | null;
 }) {
   const tier = useViewerTier();
   const [unlocked, setUnlocked] = useState<Unlocked | null>(null);
@@ -75,6 +78,7 @@ export function CountryReportGate({
       requiredTier={requiredTier}
       summaryOnly={!hasAccess}
       conflictDayBadge={conflictDayBadge}
+      economyBriefDay={economyBriefDay}
     />
   );
 }

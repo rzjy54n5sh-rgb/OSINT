@@ -28,8 +28,8 @@ export function PageShareButton({ getCopyText, label = 'SHARE PAGE', className =
       onClick={handleClick}
       className={className}
       style={{
-        fontFamily: 'IBM Plex Mono',
-        fontSize: 11,
+        fontFamily: 'var(--font-mono), monospace',
+        fontSize: 13,
         letterSpacing: '1px',
         padding: '4px 10px',
         border: '1px solid var(--border)',
@@ -65,5 +65,5 @@ export function buildNaiMapShareText(conflictDay: number, countryCode?: string, 
   if (countryCode && score != null && category) {
     return `${countryCode} War Posture: ${score} · ${category} · Day ${conflictDay} — ${BASE_URL}/nai`;
   }
-  return `War Posture Map · Day ${conflictDay} — ${BASE_URL}/nai`;
+  return `War Posture · Day ${conflictDay} — ${BASE_URL}/nai`;
 }

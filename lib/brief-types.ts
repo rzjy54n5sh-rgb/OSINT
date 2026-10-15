@@ -29,6 +29,7 @@ export interface BriefTypeMeta {
   /** Short upper-case label for the home strip. */
   shortLabel: string;
   emoji: string;
+  /** Text colour: a theme token (≥ 4.5:1 on --surface, tests/unit/tokens.check.ts). Never append alpha digits. */
   color: string;
   readTime: string;
   cadence: BriefCadence;
@@ -48,7 +49,7 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     label: 'OVERNIGHT',
     shortLabel: 'OVERNIGHT',
     emoji: '◐',
-    color: '#38bdf8',
+    color: 'var(--accent-blue)',
     readTime: '2 min',
     cadence: 'daily',
     lineup: 'current',
@@ -86,7 +87,7 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     label: 'HORN OF AFRICA & RED SEA',
     shortLabel: 'HORN OF AFRICA',
     emoji: '◍',
-    color: '#14b8a6',
+    color: 'var(--accent-teal)',
     readTime: '12–18 min',
     cadence: 'daily',
     lineup: 'current',
@@ -98,7 +99,7 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     label: 'EGYPT & GULF ECONOMY',
     shortLabel: 'EGYPT & GULF ECONOMY',
     emoji: '◈',
-    color: '#10b981',
+    color: 'var(--accent-green)',
     readTime: '10–15 min',
     cadence: 'daily',
     lineup: 'current',
@@ -112,7 +113,7 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     label: 'RELIGION, IDEOLOGY & MOBILISATION',
     shortLabel: 'RELIGION & IDEOLOGY',
     emoji: '◎',
-    color: '#a855f7',
+    color: 'var(--accent-purple)',
     readTime: '10–15 min',
     cadence: 'weekly',
     lineup: 'current',
@@ -125,8 +126,8 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     title: 'Egypt Country Brief',
     label: 'EGYPT COUNTRY BRIEF',
     shortLabel: 'EGYPT',
-    emoji: '🇪🇬',
-    color: '#10b981',
+    emoji: 'EG',
+    color: 'var(--accent-green)',
     readTime: '15–20 min',
     cadence: 'daily',
     lineup: 'archive',
@@ -137,8 +138,8 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     title: 'UAE Country Brief',
     label: 'UAE COUNTRY BRIEF',
     shortLabel: 'UAE',
-    emoji: '🇦🇪',
-    color: '#3b82f6',
+    emoji: 'AE',
+    color: 'var(--accent-blue)',
     readTime: '12–18 min',
     cadence: 'daily',
     lineup: 'archive',
@@ -150,7 +151,7 @@ export const BRIEF_TYPES: readonly BriefTypeMeta[] = [
     label: 'ECONOMIC IMPACT & MARKET ACCESS',
     shortLabel: 'ECONOMIC IMPACT',
     emoji: '◈',
-    color: '#f59e0b',
+    color: 'var(--text-warning)',
     readTime: '10–15 min',
     cadence: 'daily',
     lineup: 'archive',

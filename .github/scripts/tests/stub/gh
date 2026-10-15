@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Test stub for `gh api`, used by auto-merge.test.sh. Never contacts GitHub.
+#
+# Maps each call to a fixture file in "$STUB_FIXTURES":
+#   key = METHOD + "_" + path with the leading "repos/<owner>/<repo>/" and any query string removed,
+#         "/" replaced by "_"           e.g. GET repos/o/r/pulls/42/files?per_page=100 -> GET_pulls_42_files
+#   "$key.<n>.json" (n = how many times this key was called, 1-based) wins over "$key.json".
+#   "$key.fail" present -> exit 1 (simulates an HTTP error).
+#   GET without a fixture -> exit 1 ("HTTP 404"); other methods without a fixture -> empty output, exit 0.
+# Every call is appended to "$STUB_LOG": "METHOD path" then one "  field k=v" line per -f/-F field.
+set -euo pipefail
+
+[ "${1:-}" = "api" ] || { echo "gh stub: only 'gh api' is supported (got: ${1:-})" >&2; exit 2; }
+shift
+
+method="GET"
+path=""
+fields=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -X|--method) method="$2"; shift 2 ;;
+    --paginate|--silent|-i|--include) shift ;;
+    -H|--header) shift 2 ;;
+    -f|-F|--raw-field|--field) fields+=("$2"); shift 2 ;;
+    --input) shift 2 ;;
+    -*) echo "gh stub: unsupported flag $1" >&2; exit 2 ;;
+    *) if [ -z "$path" ]; then path="$1"; else echo "gh stub: unexpected argument" >&2; exit 2; fi; shift ;;
+  esac
+done
+# gh switches to POST when fields are given without --method; the script always passes --method
+# explicitly for writes, so a field on a GET is a bug worth surfacing.
+if [ "$method" = "GET" ] && [ "${#fields[@]}" -gt 0 ]; then echo "gh stub: fields on a GET" >&2; exit 2; fi
+
+{
+  printf '%s %s\n' "$method" "$path"
+  for f in "${fields[@]+"${fields[@]}"}"; do printf '  field %s\n' "$f"; done
+} >> "$STUB_LOG"
+
+rel="${path#/}"
+rel="${rel%%\?*}"
+rel="$(printf '%s' "$rel" | sed -E 's#^repos/[^/]+/[^/]+/##')"
+key="${method}_${rel//\//_}"
+
+count_file="$STUB_STATE/$(printf '%s' "$key" | sha1sum | cut -c1-16).count"
+n=$(( $(cat "$count_file" 2>/dev/null || echo 0) + 1 ))
+printf '%s' "$n" > "$count_file"
+
+if [ -e "$STUB_FIXTURES/$key.fail" ]; then echo "gh: HTTP 500 (stub forced failure for $key)" >&2; exit 1; fi
+if [ -f "$STUB_FIXTURES/$key.$n.json" ]; then cat "$STUB_FIXTURES/$key.$n.json"; exit 0; fi
+if [ -f "$STUB_FIXTURES/$key.json" ]; then cat "$STUB_FIXTURES/$key.json"; exit 0; fi
+if [ "$method" = "GET" ]; then echo "gh: Not Found (HTTP 404) [stub: no fixture $key]" >&2; exit 1; fi
+exit 0

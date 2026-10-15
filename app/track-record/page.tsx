@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/track-record' },
 };
 
-const mono = { fontFamily: 'IBM Plex Mono', fontSize: 12 } as const;
+const mono = { fontFamily: 'var(--font-mono), monospace', fontSize: 13 } as const;
 const pct = (p: number) => `${Math.round(p * 1000) / 10}%`;
 
 function ChainStatus({ chain }: { chain: Record<string, unknown> | null | 'unknown' }) {
@@ -41,29 +41,31 @@ function ChainStatus({ chain }: { chain: Record<string, unknown> | null | 'unkno
 
 function OpenForecasts({ forecasts }: { forecasts: ForecastRow[] }) {
   if (forecasts.length === 0) return null;
+  // Narrow columns never wrap; long resolution rules (raw URLs) break anywhere, so the question column no
+  // longer squeezes the others to one character per line. Under 640 px each row stacks (globals.css .tr-table).
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+    <div className="tr-table-wrap">
+      <table className="tr-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <thead>
-          <tr style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', textAlign: 'left' }}>
-            <th style={{ padding: '6px 8px 6px 0' }}>QUESTION</th>
-            <th style={{ padding: '6px 8px' }}>FORECASTER</th>
-            <th style={{ padding: '6px 8px' }}>P(YES)</th>
-            <th style={{ padding: '6px 0 6px 8px' }}>REGISTERED</th>
+          <tr style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', textAlign: 'left' }}>
+            <th scope="col" style={{ padding: '6px 8px 6px 0' }}>QUESTION</th>
+            <th scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>FORECASTER</th>
+            <th scope="col" style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>P(YES)</th>
+            <th scope="col" style={{ padding: '6px 0 6px 8px', whiteSpace: 'nowrap' }}>REGISTERED</th>
           </tr>
         </thead>
         <tbody>
           {forecasts.map((f) => (
             <tr key={f.id} style={{ borderTop: '1px solid var(--border)', verticalAlign: 'top' }}>
-              <td style={{ padding: '8px 8px 8px 0', color: 'var(--text-primary)' }}>
+              <td data-label="Question" style={{ padding: '8px 8px 8px 0', color: 'var(--text-primary)', overflowWrap: 'anywhere' }}>
                 {f.question_text}
-                <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                <div style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', marginTop: 2, overflowWrap: 'anywhere' }}>
                   Resolves by {formatDate(f.horizon_date)} · {f.resolution_criteria}
                 </div>
               </td>
-              <td style={{ ...mono, padding: 8 }}>{f.forecaster}</td>
-              <td style={{ ...mono, padding: 8 }}>{pct(f.probability)}</td>
-              <td style={{ ...mono, padding: '8px 0 8px 8px', whiteSpace: 'nowrap' }}>{formatUtc(f.created_at)}</td>
+              <td data-label="Forecaster" style={{ ...mono, padding: 8, whiteSpace: 'nowrap' }}>{f.forecaster}</td>
+              <td data-label="P(yes)" style={{ ...mono, padding: 8, whiteSpace: 'nowrap' }}>{pct(f.probability)}</td>
+              <td data-label="Registered" style={{ ...mono, padding: '8px 0 8px 8px', whiteSpace: 'nowrap' }}>{formatUtc(f.created_at)}</td>
             </tr>
           ))}
         </tbody>
@@ -116,10 +118,10 @@ export default async function TrackRecordPage() {
         {perForecaster.length === 0 ? (
           <EmptyState>No registered question has resolved yet, so there is no score to show. Open forecasts are listed below.</EmptyState>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, marginBottom: 12 }}>
+          <div className="tr-table-wrap">
+            <table className="tr-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, marginBottom: 12 }}>
               <thead>
-                <tr style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', textAlign: 'left' }}>
+                <tr style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', textAlign: 'left' }}>
                   <th style={{ padding: '6px 8px 6px 0' }}>FORECASTER</th>
                   <th style={{ padding: '6px 8px' }}>RESOLVED QUESTIONS</th>
                   <th style={{ padding: '6px 0 6px 8px' }}>BRIER SCORE (LOWER IS BETTER)</th>
@@ -128,9 +130,9 @@ export default async function TrackRecordPage() {
               <tbody>
                 {perForecaster.map((s) => (
                   <tr key={s.forecaster} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ ...mono, padding: '8px 8px 8px 0', color: 'var(--text-primary)' }}>{s.forecaster}</td>
-                    <td style={{ ...mono, padding: 8 }}>{s.questions}</td>
-                    <td style={{ ...mono, padding: '8px 0 8px 8px' }}>{s.brier.toFixed(3)}</td>
+                    <td data-label="Forecaster" style={{ ...mono, padding: '8px 8px 8px 0', color: 'var(--text-primary)' }}>{s.forecaster}</td>
+                    <td data-label="Resolved questions" style={{ ...mono, padding: 8 }}>{s.questions}</td>
+                    <td data-label="Brier score" style={{ ...mono, padding: '8px 0 8px 8px' }}>{s.brier.toFixed(3)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -146,7 +148,7 @@ export default async function TrackRecordPage() {
                 return (
                   <li key={`${s.forecaster}-${s.questionId}`} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
                     <div style={{ color: 'var(--text-primary)' }}>{s.questionText}</div>
-                    <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                    <div style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                       {s.forecaster} said {pct(s.probability)} on {formatUtc(s.forecastAt)} · resolved {s.outcome ? 'YES' : 'NO'} on{' '}
                       {formatDate(s.resolvedAt)} · Brier {s.brier.toFixed(3)}
                       {href && (
@@ -169,7 +171,7 @@ export default async function TrackRecordPage() {
               {unscored.map(({ f, reason }) => (
                 <li key={f.id} style={{ borderTop: '1px solid var(--border)', padding: '10px 0' }}>
                   <div style={{ color: 'var(--text-primary)' }}>{f.question_text}</div>
-                  <div style={{ ...mono, fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                  <div style={{ ...mono, fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                     {f.forecaster} said {pct(f.probability)} on {formatUtc(f.created_at)} · not scored: {reason}
                   </div>
                 </li>

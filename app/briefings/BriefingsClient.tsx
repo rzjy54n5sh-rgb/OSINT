@@ -144,8 +144,10 @@ export default function BriefingsClient({
       <Suspense fallback={null}>
         <DayParamSync currentDay={currentDay} onDay={goToDay} />
       </Suspense>
-      <PageBriefing
-        title="DAILY INTELLIGENCE BRIEFINGS"
+      <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
+        DAILY INTELLIGENCE BRIEFINGS
+      </h1>
+      <PageBriefing className="mb-4"
         description="Structured reports for every conflict day from Day 1. The daily line-up (from October 2026) is the Overnight brief, the General Intelligence Brief, the Horn of Africa & Red Sea brief and the Egypt & Gulf Economy brief, plus a weekly Religion, Ideology & Mobilisation brief and weekly digests that cover the days between full briefs. Earlier Egypt, UAE and business briefs stay readable under Archive (not every type exists for every day). From Day 221 onward each paragraph lists its sources as links, state or party outlets are flagged, and every brief ends with a deduplicated Sources list. Earlier briefs and reconstructed digests predate per-paragraph sourcing and carry no citations."
         note="Reports marked PLATFORM are editorial-grade. Reports marked AUTO are generated from the platform's daily analysis database. Historical reports marked RECONSTRUCTED are regenerated from archived DB data."
       />
@@ -213,7 +215,7 @@ export default function BriefingsClient({
 
         {gridOpen && (
           <div className="mt-3 p-3 border" style={{ borderColor: 'var(--border)', borderRadius: 2 }}>
-            <p className="font-mono mb-2" style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+            <p className="font-mono mb-2" style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
               <span style={{ color: 'var(--accent-gold)' }}>{'\u25A0'}</span> briefs{' '}
               <span style={{ color: 'var(--accent-blue)' }}>{'\u25A0'}</span> weekly digest only{' '}
               <span>{'\u25A1'}</span> nothing published (covered by a digest if one spans it)
@@ -229,10 +231,10 @@ export default function BriefingsClient({
 
       {/* Day header */}
       <div className="mb-6 flex items-baseline gap-4">
-        <h1 className="font-display text-2xl"
+        <h2 className="font-display text-2xl"
             style={{ color: 'var(--text-primary)' }}>
           DAY {day} BRIEFINGS
-        </h1>
+        </h2>
         <span className="font-mono text-xs"
               style={{ color: 'var(--text-muted)' }}>
           {dayLabel(day)}
@@ -401,16 +403,17 @@ function DayChip({
       className="shrink-0 font-mono text-xs border transition-colors"
       style={{
         borderColor: selected ? 'var(--accent-gold)' : kind === 'none' ? 'var(--border)' : accent,
-        color: selected ? 'var(--accent-gold)' : accent,
-        background: selected ? 'rgba(232,197,71,0.08)' : 'transparent',
-        opacity: kind === 'none' && !selected ? 0.55 : 1,
+        borderStyle: kind === 'none' && !selected ? 'dashed' : 'solid',
+        // No opacity dimming (it took day labels under 4.5:1): a day without briefs is muted text, dashed.
+        color: selected ? 'var(--accent-gold)' : kind === 'none' ? 'var(--text-muted)' : accent,
+        background: selected ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'transparent',
         minWidth: compact ? '44px' : '52px',
         padding: compact ? '4px 6px' : '6px 12px',
         borderRadius: '2px',
       }}
     >
       <div>{d}</div>
-      {!compact && <div style={{ fontSize: '11px', opacity: 0.7 }}>{dayLabel(d)}</div>}
+      {!compact && <div style={{ fontSize: '13px' }}>{dayLabel(d)}</div>}
     </button>
   );
 }
@@ -420,12 +423,12 @@ function QualityBadge({ quality }: { quality: string }) {
     full:          { label: 'PLATFORM', color: 'var(--accent-gold)' },
     auto:          { label: 'AUTO', color: 'var(--accent-blue)' },
     reconstructed: { label: 'RECONSTRUCTED', color: 'var(--text-muted)' },
-    community:     { label: 'COMMUNITY', color: '#a855f7' },
+    community:     { label: 'COMMUNITY', color: 'var(--text-secondary)' },
   };
   const q = map[quality] ?? { label: quality.toUpperCase(), color: 'var(--text-muted)' };
   return (
     <span className="font-mono shrink-0"
-          style={{ fontSize: '11px', letterSpacing: '1px', color: q.color,
+          style={{ fontSize: '13px', letterSpacing: '1px', color: q.color,
                    border: `1px solid ${q.color}`, padding: '1px 4px' }}>
       {q.label}
     </span>
@@ -462,7 +465,7 @@ function CoverStats({ stats, type }: { stats: Record<string, unknown>; type: str
     <div className="flex flex-wrap gap-3">
       {entries.map((e, i) => (
         <div key={i}>
-          <div className="font-mono" style={{ fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
+          <div className="font-mono" style={{ fontSize: '13px', color: 'var(--text-muted)', letterSpacing: '1px' }}>
             {e.label}
           </div>
           <div className="font-display text-sm"

@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Bebas_Neue, IBM_Plex_Mono, DM_Sans, Noto_Sans_Arabic } from 'next/font/google';
 import Script from 'next/script';
 import './globals.css';
 import { validateEnv } from '@/lib/env';
-import { BackgroundCanvasLazy } from '@/components/BackgroundCanvasLazy';
 import { CommandHeader } from '@/components/CommandHeader';
+import { fontVariables } from './fonts';
+import { LIGHT_THEME_ENABLED } from '@/lib/design-tokens';
 import { TranslationBanner } from '@/components/TranslationBanner';
 import { I18nProvider } from '@/components/I18nProvider';
 import { SiteFooter } from '@/components/SiteFooter';
+import { ThemeGuard } from '@/components/ThemeGuard';
 import type { Lang } from '@/lib/i18n';
 import {
   INJECTED_NEXT_PUBLIC_GLOBAL,
@@ -42,13 +43,11 @@ validateEnv();
  */
 export const revalidate = 900;
 
-const bebas = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' });
-const ibmPlexMono = IBM_Plex_Mono({ weight: ['300', '400', '500', '600'], subsets: ['latin'], variable: '--font-mono' });
-const dmSans = DM_Sans({ weight: ['300', '400', '500'], style: ['normal', 'italic'], subsets: ['latin'], variable: '--font-dm' });
-const notoArabic = Noto_Sans_Arabic({ weight: ['400', '500', '600'], subsets: ['arabic'], variable: '--font-arabic' });
+/** Fonts: app/fonts.ts (design system v2; two preloads: Plex Sans 400 and Plex Mono 400 — Newsreader is not preloaded). */
 
 export const viewport: Viewport = {
-  themeColor: '#070A0F',
+  // v2 --bg of the default (dark) theme. A saved light choice is applied by the boot script below.
+  themeColor: '#0B0F14',
   width: 'device-width',
   initialScale: 1,
   minimumScale: 1,
@@ -103,7 +102,14 @@ const LANG_BOOT_SCRIPT =
   'try{var d=document.documentElement;' +
   (ARABIC_ENABLED ? "if(/(?:^|; )lang=ar(?:;|$)/.test(document.cookie)){d.lang='ar';d.dir='rtl';}" : '') +
   // Hide an already-dismissed TranslationBanner before paint (no layout shift when it unmounts).
-  "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}";
+  "if(localStorage.getItem('mena-translation-dismissed'))d.setAttribute('data-tb-dismissed','');}catch(e){}" +
+  // Theme (design system v2): dark is the default and the OS colour-scheme setting is not read.
+  // A choice stored by the header's ThemeToggle is applied before first paint (no flash), in its own try,
+  // except on /admin, which is not converted and stays dark. The browser chrome colour follows it.
+  (LIGHT_THEME_ENABLED
+    ? "try{var th=localStorage.getItem('mid-theme');if((th==='light'||th==='dark')&&!/^\\/admin(?:\\/|$)/.test(location.pathname)){document.documentElement.setAttribute('data-theme',th);" +
+      "if(th==='light'){var tc=document.querySelector('meta[name=\"theme-color\"]');if(tc)tc.setAttribute('content','#FFFFFF');}}}catch(e){}"
+    : '');
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Server-rendered default. The visitor's language preference is applied client-side (above);
@@ -144,7 +150,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       dir="ltr"
       translate="yes"
       suppressHydrationWarning
-      className={`${bebas.variable} ${ibmPlexMono.variable} ${dmSans.variable} ${notoArabic.variable}`}
+      className={fontVariables}
     >
       <head>
         {/* First script in <head>: recovers from cached HTML whose build assets are gone. */}
@@ -169,15 +175,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body
-        className={`min-h-screen overflow-x-hidden ${dmSans.className}`}
+        className="min-h-screen overflow-x-hidden"
         suppressHydrationWarning
       >
+        {/* First tab stop: jumps past the banner and the header menus (WCAG 2.4.1). */}
+        <a href="#main-content" className="skip-link">
+          Skip to content
+        </a>
+        {/* Re-applies the stored theme / banner dismissal if a failed root hydration wipes them from <html>. */}
+        <ThemeGuard />
         <TranslationBanner />
-        <BackgroundCanvasLazy />
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
             <CommandHeader />
-            <main className="flex-1">{children}</main>
+            <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+              {children}
+            </main>
             <SiteFooter />
           </div>
         </I18nProvider>

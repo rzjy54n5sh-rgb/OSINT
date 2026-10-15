@@ -54,19 +54,20 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
               {latest.conflict_day !== currentDay ? ` · NO DATA FOR DAY ${currentDay}` : ''}
             </span>
             {latest.change_pct != null && (
-              <span style={{ color: latest.change_pct >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }} translate="no">
+              <span style={{ color: 'var(--text-primary)' }} translate="no">
+                {latest.change_pct !== 0 ? <span aria-hidden="true">{latest.change_pct > 0 ? '▲ ' : '▼ '}</span> : null}
                 {latest.change_pct >= 0 ? '+' : ''}
                 {latest.change_pct}%
               </span>
             )}
           </div>
-          <p className="font-mono text-[11px] mb-2" style={{ color: 'var(--text-muted)' }} translate="no">
+          <p className="font-mono text-[13px] mb-2" style={{ color: 'var(--text-muted)' }} translate="no">
             COLLECTED {fmtUtc(latest.created_at)} · {v.cadence}
             {latest.reconstructed ? ' · RECONSTRUCTED' : ''}
           </p>
           {latest.source && (
             <details className="mb-3">
-              <summary className="font-mono text-[11px] cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
+              <summary className="font-mono text-[13px] cursor-pointer" style={{ color: 'var(--text-secondary)' }}>
                 SOURCE: {latest.source.length > 70 ? `${latest.source.slice(0, 70)}…` : latest.source}
               </summary>
               <p className="font-body text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -83,9 +84,9 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
                   domain={['dataMin', 'dataMax']}
                   allowDecimals={false}
                   padding={{ left: 8, right: 8 }}
-                  tick={{ fill: '#8A9BB5', fontSize: 11 }}
+                  tick={{ fill: 'var(--muted)', fontSize: 12 }}
                 />
-                <YAxis tick={{ fill: '#8A9BB5', fontSize: 11 }} domain={['auto', 'auto']} width={56} />
+                <YAxis tick={{ fill: 'var(--muted)', fontSize: 12 }} domain={['auto', 'auto']} width={56} />
                 <Tooltip
                   contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 2 }}
                   labelFormatter={(d) => `Day ${d}`}
@@ -97,7 +98,7 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
                 <Line
                   type="linear"
                   dataKey="value"
-                  stroke="var(--accent-gold)"
+                  stroke="var(--text-secondary)"
                   strokeWidth={1.5}
                   dot={showDots ? { r: 3 } : false}
                   isAnimationActive={false}
@@ -105,7 +106,7 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
               </LineChart>
             </ResponsiveContainer>
           </div>
-          <p className="font-mono text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+          <p className="font-mono text-[13px] mt-2 leading-relaxed" style={{ color: 'var(--text-muted)' }}>
             Chart: {v.series.length} day{v.series.length === 1 ? '' : 's'} in this unit only (one point per day, latest
             collection of the day).
             {recon > 0 ? ` ${recon} point${recon === 1 ? ' is a' : 's are'} reconstructed daily close${recon === 1 ? '' : 's'} (backfill 2026-10).` : ''}
@@ -121,17 +122,16 @@ export default function MarketsClient({ views, marketDay, currentDay }: MarketsC
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <PageBriefing
-        title="ECONOMIC INTELLIGENCE"
-        description="Conflict-sensitive market and shipping indicators. Each card shows the latest stored value with its unit, the time it was collected and its source, and a trend chart that only joins rows in the same unit."
-        note={`This is not financial advice. Collector indicators (${COLLECTOR_LIST}) are scheduled every 30 minutes via GitHub Actions; scheduled runs can be delayed or skipped, and closed days keep only the newest row per indicator. USD/EGP, the open-market USD/IRR rate, Hormuz and Bab al-Mandeb traffic and the war-risk premium are written once a day by the daily build from the source quoted on each card. Rows marked reconstructed come from the October 2026 daily-close backfill.`}
-      />
       <h1 className="font-display text-3xl mb-2" style={{ color: 'var(--text-primary)' }}>
         ECONOMIC INTELLIGENCE
       </h1>
       <p className="font-mono text-xs mb-8" style={{ color: 'var(--text-muted)' }}>
         KEY INDICATORS — LATEST VALUE AND TREND BY CONFLICT DAY
       </p>
+      <PageBriefing className="-mt-4 mb-8"
+        description="Conflict-sensitive market and shipping indicators. Each card shows the latest stored value with its unit, the time it was collected and its source, and a trend chart that only joins rows in the same unit."
+        note={`This is not financial advice. Collector indicators (${COLLECTOR_LIST}) are scheduled every 30 minutes via GitHub Actions; scheduled runs can be delayed or skipped, and closed days keep only the newest row per indicator. USD/EGP, the open-market USD/IRR rate, Hormuz and Bab al-Mandeb traffic and the war-risk premium are written once a day by the daily build from the source quoted on each card. Rows marked reconstructed come from the October 2026 daily-close backfill.`}
+      />
       {views.length > 0 && <DataAsOf section="MARKETS" latestDay={marketDay} currentDay={currentDay} className="-mt-4 mb-8" />}
       {views.length === 0 && <p className="redacted py-12">NO INTEL AVAILABLE</p>}
       {current.length > 0 && <div className="grid md:grid-cols-2 gap-6">{current.map(card)}</div>}

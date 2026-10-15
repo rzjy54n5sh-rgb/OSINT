@@ -39,6 +39,14 @@ export function formatConflictDayDate(conflictDay: number): string {
   });
 }
 
+const WEEKDAYS_GB = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MONTHS_GB = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** "Tuesday 13 October 2026" (UTC; built by hand so it does not depend on the runtime's ICU data). */
+export function formatConflictDayDateGb(conflictDay: number): string {
+  const d = conflictDayToUtcDate(conflictDay);
+  return `${WEEKDAYS_GB[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS_GB[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 /** Short UTC date for a conflict day, e.g. Day 35 → "Apr 3, 2026". */
 export function formatConflictDayShort(conflictDay: number): string {
   return conflictDayToUtcDate(conflictDay).toLocaleDateString('en-US', {

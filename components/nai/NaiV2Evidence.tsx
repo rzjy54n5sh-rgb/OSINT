@@ -8,7 +8,7 @@ import type { NaiV2View } from '@/lib/nai-v2';
 export function NaiV2Evidence({ row, compact = false }: { row: NaiV2View; compact?: boolean }) {
   const list = compact ? row.sources.slice(0, 3) : row.sources;
   return (
-    <div className="font-mono text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+    <div className="font-mono text-[13px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
       {row.withheld ? (
         <p translate="no">CITED REPORTING · AS OF {row.as_of}</p>
       ) : (
@@ -21,7 +21,7 @@ export function NaiV2Evidence({ row, compact = false }: { row: NaiV2View; compac
         {list.map((s, i) => (
           <li key={`${s.url}-${i}`}>
             <span
-              className="px-1 mr-1 rounded-sm border text-[10px]"
+              className="px-1 mr-1 rounded-sm border text-[13px]"
               style={{ borderColor: 'var(--border)' }}
               title={s.feeds === 'E' ? 'Evidence for the expressed (official) score' : 'Evidence for the latent (societal) band'}
               translate="no"
@@ -51,7 +51,7 @@ export function NaiV2Evidence({ row, compact = false }: { row: NaiV2View; compac
       )}
       {row.hiddenLatentSourceCount > 0 && (
         <p className="mt-1">
-          {row.hiddenLatentSourceCount} latent-evidence source(s) available on Informed tier.
+          {row.hiddenLatentSourceCount} latent-evidence source(s) locked during launch.
         </p>
       )}
     </div>

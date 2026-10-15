@@ -3,10 +3,15 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { cache } from 'react';
-import BriefingReader from './BriefingReader';
-import { DESK_NAME, PRE_PUBLICATION_HUMAN_REVIEW } from '@/lib/desk-identity';
+import { BriefReader } from '@/components/briefing/BriefReader';
+import { DESK_NAME } from '@/lib/desk-identity';
 import { ROUTABLE_BRIEF_TYPES } from '@/lib/site';
 import { briefTitle, briefTypeMeta } from '@/lib/brief-types';
+import { collectBriefSources } from '@/lib/briefing-sources';
+import { fetchCorrectionsFor } from '@/lib/trust-ledgers';
+import { fetchOutletRegistry } from '@/lib/outlet-lookup';
+import { getCorridors } from '@/lib/corridors';
+import { citedMarketCollection, type MarketRow } from '@/lib/brief-figures';
 
 /**
  * ISR per (day, type) path, rendered on first request (no build-time params). A brief is written
@@ -154,29 +159,43 @@ export default async function BriefingReaderPage({ params }: PageProps) {
     publisher: { '@type': 'Organization', name: DESK_NAME },
   };
 
+  // Everything the reader shows beside the brief itself, read in parallel. None of these reads can fail the
+  // brief (production has no incremental cache, so a throw would be a 500 on every uncached page): a failed
+  // corrections read shows a neutral "could not be checked" line; a failed registry read falls back to the
+  // stored party flags; a failed market read shows no market figures.
+  const sections = Array.isArray(data.sections) ? data.sections : [];
+  const sourceList = collectBriefSources(sections).list;
+  const marketCite = citedMarketCollection(sections, sourceList);
+  const supabase = createPublicClient();
+  const [corrections, registry, marketRows] = await Promise.all([
+    fetchCorrectionsFor('daily_briefings', String(data.id)),
+    fetchOutletRegistry(sourceList).catch(() => new Map()),
+    marketCite
+      ? Promise.resolve(
+          supabase
+            .from('market_data')
+            .select('indicator, value, change_pct, unit, source, conflict_day, created_at')
+            .gte('created_at', marketCite.from)
+            .lt('created_at', marketCite.to)
+            .limit(100),
+        ).then(({ data: rows, error: e }) => (e ? [] : ((rows ?? []) as MarketRow[])), () => [] as MarketRow[])
+      : Promise.resolve([] as MarketRow[]),
+  ]);
+
   // GATING (not enforced yet - Omar decides): business briefs are Pro-only on /pricing
   // (tier_features key `business_report`, free=false informed=false pro=true). See PR body.
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(article) }} />
-      <div className="max-w-4xl mx-auto px-4 pt-4">
-        <p
-          data-testid="ai-disclosure-line"
-          style={{ fontFamily: 'IBM Plex Mono', fontSize: 11, lineHeight: 1.6, color: 'var(--text-muted)', margin: 0, letterSpacing: '0.3px' }}
-        >
-          {PRE_PUBLICATION_HUMAN_REVIEW
-            ? 'Drafted with AI from linked public sources and reviewed by an editor before publication. '
-            : 'Drafted by an AI agent from linked public sources and published by the automated daily build. '}
-          <Link prefetch={false} href="/ai-disclosure" style={{ color: 'var(--accent-blue)', textDecoration: 'underline' }}>
-            How we use AI
-          </Link>
-          {' · '}
-          <Link prefetch={false} href="/corrections" style={{ color: 'var(--accent-blue)', textDecoration: 'underline' }}>
-            Corrections
-          </Link>
-        </p>
-      </div>
-      <BriefingReader briefing={data} day={day} type={type} />
+      <BriefReader
+        briefing={data}
+        day={day}
+        type={type}
+        corrections={corrections.status === 'ok' ? corrections.rows : null}
+        registry={registry}
+        corridors={getCorridors(new Date())}
+        marketRows={marketRows}
+      />
     </>
   );
 }

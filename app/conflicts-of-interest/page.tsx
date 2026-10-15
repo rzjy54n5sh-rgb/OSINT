@@ -59,7 +59,7 @@ export default function ConflictsOfInterestPage() {
               <div style={{ color: 'var(--text-primary)' }}>
                 <strong>{e.holder}</strong> — {e.interest}
               </div>
-              <div style={{ fontFamily: 'IBM Plex Mono', fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono), monospace', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
                 Touches: {e.touches.join(', ')} · Handling: {e.handling} · Disclosed {formatDate(e.disclosedOn)}
               </div>
             </li>

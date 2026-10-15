@@ -25,8 +25,8 @@ export const metadata: Metadata = pageMetadata({
 const FOUNDING_SOURCE = 'founding-access';
 
 const eyebrow: React.CSSProperties = {
-  fontFamily: 'IBM Plex Mono, monospace',
-  fontSize: 11,
+  fontFamily: 'var(--font-mono), monospace',
+  fontSize: 13,
   letterSpacing: '2px',
   color: 'var(--accent-gold)',
   textTransform: 'uppercase',
@@ -34,7 +34,7 @@ const eyebrow: React.CSSProperties = {
 };
 
 const heading: React.CSSProperties = {
-  fontFamily: 'Bebas Neue, sans-serif',
+  fontFamily: 'var(--font-display)',
   fontSize: 'clamp(26px, 3.4vw, 34px)',
   letterSpacing: '1.5px',
   color: 'var(--text-primary)',
@@ -57,7 +57,7 @@ export default function PricingPage() {
           <p style={eyebrow}>◆ Access</p>
           <h1
             style={{
-              fontFamily: 'Bebas Neue, sans-serif',
+              fontFamily: 'var(--font-display)',
               fontSize: 'clamp(34px, 5vw, 52px)',
               letterSpacing: '2px',
               lineHeight: 1,

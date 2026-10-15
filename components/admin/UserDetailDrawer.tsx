@@ -737,7 +737,7 @@ export default function UserDetailDrawer({ userId, onClose, token }: UserDetailD
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 14, fontFamily: '"Bebas Neue", monospace', color: '#E5E7EB', letterSpacing: '0.05em' }}>
+                <span style={{ fontSize: 14, fontFamily: 'var(--font-display)', color: '#E5E7EB', letterSpacing: '0.05em' }}>
                   CURRENT SUBSCRIPTION
                 </span>
                 <Pill
@@ -1237,7 +1237,7 @@ export default function UserDetailDrawer({ userId, onClose, token }: UserDetailD
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 22,
-                    fontFamily: '"Bebas Neue", monospace',
+                    fontFamily: 'var(--font-display)',
                     color: tierRingColor(user.tier),
                     letterSpacing: '0.05em',
                     flexShrink: 0,
@@ -1251,7 +1251,7 @@ export default function UserDetailDrawer({ userId, onClose, token }: UserDetailD
                   <div
                     style={{
                       fontSize: 18,
-                      fontFamily: '"Bebas Neue", sans-serif',
+                      fontFamily: 'var(--font-display)',
                       color: '#F3F4F6',
                       letterSpacing: '0.04em',
                       lineHeight: 1.2,

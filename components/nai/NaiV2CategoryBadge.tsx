@@ -33,7 +33,7 @@ export function NaiV2CategoryBadge({
   if (locked || category === null) {
     return (
       <span
-        className={`font-mono text-[11px] uppercase px-1.5 py-0.5 rounded-sm border ${className}`}
+        className={`font-mono text-[13px] uppercase px-1.5 py-0.5 rounded-sm border ${className}`}
         style={{ color: 'var(--text-muted)', borderColor: 'var(--border)' }}
         translate="no"
         data-nai-category="LOCKED"
@@ -42,22 +42,25 @@ export function NaiV2CategoryBadge({
       </span>
     );
   }
-  const color = NAI_V2_COLOR[category];
-  // UNSCORABLE grey (#6B7280) is 3.6:1 on the dark surfaces; the chip TEXT uses a lighter grey (AA).
-  const textColor = category === 'UNSCORABLE' ? '#A3ACB9' : color;
+  // Neutral swatch + the category word in text colour (no red/green; the word carries the meaning).
+  const unscorable = category === 'UNSCORABLE';
   const def = NAI_V2_CATEGORY_DEFS.find((d) => d.category === category)?.text;
   return (
     <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`} data-nai-category={category}>
       <span
-        className="font-mono text-[11px] uppercase px-1.5 py-0.5 rounded-sm"
-        style={{ color: textColor, background: `${color}1A`, border: `1px solid ${color}4D` }}
+        className="inline-flex items-center gap-1.5 font-mono text-[13px] uppercase px-1.5 py-0.5 rounded-sm"
+        style={{ color: unscorable ? 'var(--text-secondary)' : 'var(--text-primary)', border: `1px ${unscorable ? 'dashed' : 'solid'} var(--line-strong)` }}
         title={def}
         translate="no"
       >
+        <span
+          aria-hidden="true"
+          style={{ width: 8, height: 8, flex: 'none', background: NAI_V2_COLOR[category], border: '1px solid var(--line-strong)', borderStyle: unscorable ? 'dashed' : 'solid' }}
+        />
         {category}
       </span>
       {category === 'UNSCORABLE' && showUnscorableText && (
-        <span className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }} data-unscorable-reason={latentEvidence}>
+        <span className="font-mono text-[13px]" style={{ color: 'var(--text-secondary)' }} data-unscorable-reason={latentEvidence}>
           {unscorableReason(latentEvidence, expressed)}
         </span>
       )}

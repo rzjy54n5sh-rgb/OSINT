@@ -28,7 +28,7 @@ export default function StripeSetupDocPage() {
       <h1 className="font-mono text-sm uppercase mb-4" style={{ color: 'var(--text-muted)' }}>
         docs/stripe-setup.md
       </h1>
-      <pre className="font-mono text-xs whitespace-pre-wrap break-words p-4 rounded border overflow-x-auto" style={{ borderColor: 'var(--border)', background: 'rgba(255,255,255,0.02)', color: 'var(--text-secondary)' }}>
+      <pre className="font-mono text-xs whitespace-pre-wrap break-words p-4 rounded border overflow-x-auto" style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--text) 2%, transparent)', color: 'var(--text-secondary)' }}>
         {content}
       </pre>
     </div>
