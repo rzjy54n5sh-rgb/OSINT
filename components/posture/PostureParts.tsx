@@ -20,6 +20,7 @@ import {
   postureLabelDef,
   postureSwatchColor,
   shortDate,
+  stanceText,
   v1FrozenText,
   v2UncodedNote,
   type PostureEvidenceView,
@@ -52,20 +53,7 @@ export function PostureSwatch({
   return <span aria-hidden="true" style={{ ...base, background: fill ?? POSTURE_NODATA_COLOR }} />;
 }
 
-export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>): string {
-  switch (row.stance) {
-    case 'position':
-      return postureLabelDef(row.label)?.text ?? 'Position on record';
-    case 'deliberate_silence':
-      return 'Deliberate silence';
-    case 'nulled':
-      return 'Position withdrawn (correction)';
-    case 'withheld':
-      return POSTURE_WITHHELD_TITLE;
-    default:
-      return row.method === 'war-posture-v1' ? 'No position coded this day' : POSTURE_UNCODED_TEXT;
-  }
-}
+export { stanceText };
 
 /**
  * Which authority a line scores, on a dual-actor country only (Yemen): "Government (PLC)" or

@@ -951,6 +951,22 @@ export function conflictName(conflicts: readonly ConflictDef[], code: string | n
   return conflicts.find((c) => c.conflict_code === code)?.short_name ?? code;
 }
 
+/** Plain-text stance of a row ("Supports continued pressure", "Stated positions only", ...). Shared by the board UI and the embeds. */
+export function stanceText(row: Pick<PostureView, 'stance' | 'label' | 'method'>): string {
+  switch (row.stance) {
+    case 'position':
+      return postureLabelDef(row.label)?.text ?? 'Position on record';
+    case 'deliberate_silence':
+      return 'Deliberate silence';
+    case 'nulled':
+      return 'Position withdrawn (correction)';
+    case 'withheld':
+      return POSTURE_WITHHELD_TITLE;
+    default:
+      return row.method === 'war-posture-v1' ? 'No position coded this day' : POSTURE_UNCODED_TEXT;
+  }
+}
+
 /** "captured 6 Oct · confidence decaying" (v2) / "source dated 7 Oct · current" (v1). */
 export function ageLine(r: Pick<PostureView, 'method' | 'evidence' | 'evidence_date' | 'freshness'>): string | null {
   const parts: string[] = [];

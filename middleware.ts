@@ -5,17 +5,24 @@
  * 1. Refresh Supabase session on every request (@supabase/ssr).
  * 2. Protect /admin/* — redirect unauthenticated or non-admin users.
  * Admin Server Components still verify independently.
+ * 3. /embed/* (iframe widgets for media/partners): anonymous and frameable. No session refresh (no
+ *    Supabase auth call, no Set-Cookie on a response the edge cache shares) and the embed header set
+ *    from lib/security-headers.ts instead of X-Frame-Options DENY. Only these paths may be framed.
  */
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { updateSession } from '@/utils/supabase/middleware';
-import { applySecurityHeaders } from '@/lib/security-headers';
+import { applyEmbedSecurityHeaders, applySecurityHeaders, isEmbedPath } from '@/lib/security-headers';
 import { resolveSupabaseServiceRoleKey } from '@/lib/env/service-key';
 
 export async function middleware(request: NextRequest) {
-  const { supabaseResponse, authUser } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
+  if (isEmbedPath(pathname)) {
+    return applyEmbedSecurityHeaders(NextResponse.next());
+  }
+
+  const { supabaseResponse, authUser } = await updateSession(request);
 
   if (!pathname.startsWith('/admin')) {
     return supabaseResponse;

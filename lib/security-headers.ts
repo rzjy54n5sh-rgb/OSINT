@@ -26,7 +26,19 @@
  *   thumbnails (img.youtube.com, *.ytimg.com, *.staticflickr.com,
  *   t2.gstatic.com favicons) are covered by img-src https:.
  * - Stripe hosts kept for checkout/portal flows.
+ * - Cloudflare Web Analytics (lib/analytics.ts): static.cloudflareinsights.com (script) and
+ *   cloudflareinsights.com (beacon endpoint) are allowed ONLY while NEXT_PUBLIC_CF_BEACON_TOKEN is set,
+ *   evaluated per response (Worker env is populated on the first request, after module load).
+ *
+ * Embeds (/embed/*, media/partner iframes): the ONLY paths that may be framed by other sites. They get
+ * EMBED_SECURITY_HEADERS instead (no X-Frame-Options, `frame-ancestors *`, and a no-script, no-network
+ * CSP: the widgets are static HTML with inline CSS). middleware.ts picks the set by path via isEmbedPath();
+ * the /embed snippet page itself (no trailing segment) keeps the site headers and cannot be framed.
+ * Route-level headers cannot do this on OpenNext: middleware headers win over route headers
+ * (mergeHeadersPriority defaults to "middleware").
  */
+
+import { cfBeaconToken, CF_BEACON_CONNECT_ORIGIN, CF_BEACON_SCRIPT_ORIGIN } from '@/lib/analytics';
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -65,9 +77,23 @@ const CSP_DIRECTIVES: Record<string, string[]> = {
   'frame-ancestors': ["'none'"],
 };
 
-export const CONTENT_SECURITY_POLICY = Object.entries(CSP_DIRECTIVES)
-  .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-  .join('; ');
+const serialize = (d: Record<string, string[]>) =>
+  Object.entries(d)
+    .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
+    .join('; ');
+
+/** Site CSP; `beacon: true` adds the Cloudflare Web Analytics hosts (script + report endpoint). */
+export function contentSecurityPolicy({ beacon = false }: { beacon?: boolean } = {}): string {
+  if (!beacon) return serialize(CSP_DIRECTIVES);
+  return serialize({
+    ...CSP_DIRECTIVES,
+    'script-src': [...CSP_DIRECTIVES['script-src'], CF_BEACON_SCRIPT_ORIGIN],
+    'connect-src': [...CSP_DIRECTIVES['connect-src'], CF_BEACON_CONNECT_ORIGIN],
+  });
+}
+
+/** Site CSP without the analytics beacon (the beacon variant is built per response, see applySecurityHeaders). */
+export const CONTENT_SECURITY_POLICY = contentSecurityPolicy();
 
 /** Headers that also apply to static assets (mirrored in public/_headers). */
 export const STATIC_SECURITY_HEADERS: Readonly<Record<string, string>> = {
@@ -86,6 +112,52 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
 /** Sets (overwrites, never appends) the security headers on a response. */
 export function applySecurityHeaders<T extends { headers: Headers }>(res: T): T {
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+    res.headers.set(key, value);
+  }
+  if (cfBeaconToken()) res.headers.set('Content-Security-Policy', contentSecurityPolicy({ beacon: true }));
+  return res;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// Embeds: /embed/<widget> may be framed by any site; nothing else may.
+// ---------------------------------------------------------------------------------------------------
+export const EMBED_PATH_PREFIX = '/embed/';
+
+/**
+ * The widget route handlers (the route.ts files under app/embed). Exact match only: any other /embed/<x> (a typo, a 404,
+ * a future page) keeps the site headers and cannot be framed. Add a path here when adding a widget.
+ */
+export const EMBED_WIDGET_PATHS: readonly string[] = ['/embed/chokepoints', '/embed/posture', '/embed/brief/latest'];
+
+/** true for the widget paths only (not /embed itself, /embed/<unknown>, /embedded, or /x/embed/...). */
+export function isEmbedPath(pathname: string): boolean {
+  return EMBED_WIDGET_PATHS.includes(pathname);
+}
+
+/**
+ * Embed CSP: framing by any http(s) page; the document itself may load nothing but its inline <style>
+ * (no scripts, no fonts, no fetches, no forms), so a partner page embedding it gains no code from us.
+ */
+export const EMBED_CONTENT_SECURITY_POLICY = serialize({
+  'default-src': ["'none'"],
+  'style-src': ["'unsafe-inline'"],
+  'img-src': ["'self'", 'data:'],
+  'script-src': ["'none'"],
+  'base-uri': ["'none'"],
+  'form-action': ["'none'"],
+  'frame-ancestors': ['*'],
+});
+
+export const EMBED_SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  'Content-Security-Policy': EMBED_CONTENT_SECURITY_POLICY,
+  ...STATIC_SECURITY_HEADERS,
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+};
+
+/** Embed header set; also removes any X-Frame-Options set earlier on the same response. */
+export function applyEmbedSecurityHeaders<T extends { headers: Headers }>(res: T): T {
+  res.headers.delete('X-Frame-Options');
+  for (const [key, value] of Object.entries(EMBED_SECURITY_HEADERS)) {
     res.headers.set(key, value);
   }
   return res;
