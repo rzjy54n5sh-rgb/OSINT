@@ -180,11 +180,15 @@ human_only() {
     wrangler.*|*/wrangler.*|open-next.config.*|*/open-next.config.*|next.config.*|middleware.ts) return 0 ;;
     utils/supabase/*|supabase/config.toml) return 0 ;;
     .env*|*/.env*) return 0 ;;
+    # deploy.yml copies tsconfig.json from the commit into the deploy dir, where wrangler's esbuild
+    # reads it (compilerOptions, paths) while bundling on the CLOUDFLARE_API_TOKEN runner. Trusted
+    # input to the deploy, so human-only like wrangler.*/package-lock.json.
+    tsconfig.json|*/tsconfig.json|tsconfig.*.json|*/tsconfig.*.json) return 0 ;;
     CLAUDE.md|*/CLAUDE.md|CURSOR.md|*/CURSOR.md|.claude/*|.cursor/*|.claudeignore) return 0 ;;
     workers/*) return 0 ;;
-    # Executed by deploy.yml on the runner that holds CLOUDFLARE_API_TOKEN (build:cf runs
-    # write-supabase-client-env.mjs; the post-deploy step runs check-deployed-assets.mjs). A change
-    # here runs with deploy privileges, so it is as sensitive as the build-config files above.
+    # Executed by deploy.yml (build:cf runs write-supabase-client-env.mjs in the `build` job; the
+    # `verify` job runs check-deployed-assets.mjs). Since the 2026-10-13 split neither job holds
+    # a Cloudflare secret; kept human-only as defence in depth.
     scripts/write-supabase-client-env.mjs|scripts/check-deployed-assets.mjs) return 0 ;;
     # The chokepoint gate PR CI runs against the PR's own tree: a PR must not both weaken the gate
     # and be validated by the weakened gate in the same run.
