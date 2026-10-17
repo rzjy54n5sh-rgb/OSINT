@@ -41,7 +41,16 @@ const fn = <T extends (...a: never[]) => unknown>(m: Mod, name: string): T => {
 };
 
 const ROOT = path.resolve(__dirname, '../..');
+/**
+ * Frozen Issue #1 (as_of 2026-10-08, week 28 Sep–4 Oct): every value and date below is asserted against it,
+ * so the checks hold whatever the wall clock says and whatever the weekly data/chokepoints/latest.json
+ * holds (it moved to Issue #2 on 15 Oct and broke the old "Day 228" assertions). Same fixture as
+ * corridors.check.ts / the card gate tests.
+ */
+const ISSUE1 = JSON.parse(readFileSync(path.join(ROOT, 'scripts/card/test/fixtures/chokepoints-issue1.json'), 'utf8'));
+/** The live weekly file: only judged at its OWN as_of (never against a fixed or wall clock). */
 const LATEST = JSON.parse(readFileSync(path.join(ROOT, 'data/chokepoints/latest.json'), 'utf8'));
+const hoursAfter = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3600_000).toISOString();
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
 // --- chokepoints -------------------------------------------------------------------------------------
@@ -131,19 +140,19 @@ async function bvHtml(v: BView): Promise<string> {
 
 async function main() {
   // ---------------------------------------------------------------------------- chokepoints
-  await check('chokepoints: the committed file renders its real values (copied, never recomputed) at Day 228', async () => {
-    const v = await cp(LATEST, '2026-10-13T12:00:00Z');
+  await check('chokepoints: Issue #1 renders its real values (copied, never recomputed) at Day 228', async () => {
+    const v = await cp(ISSUE1, '2026-10-13T12:00:00Z');
     assert.equal(v.state, 'ok', `errors: ${v.errors.join('; ')}`);
     assert.deepEqual(v.lanes.map((l) => l.id), ['suez', 'bam_redsea', 'hormuz']);
     for (const l of v.lanes) {
-      const f = LATEST.lanes.find((x: { lane: string }) => x.lane === l.id);
+      const f = ISSUE1.lanes.find((x: { lane: string }) => x.lane === l.id);
       assert.equal(l.status, f.status);
       assert.equal(l.indexPct, f.index_pct_of_2023);
       assert.equal(l.transits, f.transits_week);
       assert.equal(l.weekStart, f.week_start);
       assert.equal(l.weekEnd, f.week_end);
     }
-    assert.equal(v.sourceCredit, LATEST.source_credit);
+    assert.equal(v.sourceCredit, ISSUE1.source_credit);
     assert.match(String(v.sourceCredit), /IMF PortWatch \(UN Global Platform\), AIS-based/);
     assert.equal(v.staleNote, null);
     const html = await cpHtml(v);
@@ -154,8 +163,8 @@ async function main() {
   });
 
   await check('chokepoints: as_of 8 days old is still current; 9 days old is greyed "Not updated since 8 Oct 2026" (gates.mjs MAX_AGE_DAYS)', async () => {
-    assert.equal((await cp(LATEST, '2026-10-16T23:00:00Z')).state, 'ok');
-    const v = await cp(LATEST, '2026-10-17T00:30:00Z');
+    assert.equal((await cp(ISSUE1, '2026-10-16T23:00:00Z')).state, 'ok');
+    const v = await cp(ISSUE1, '2026-10-17T00:30:00Z');
     assert.equal(v.state, 'stale');
     assert.equal(v.staleNote, 'Not updated since 8 Oct 2026');
     assert.equal(v.lanes.length, 3, 'a stale block still shows its (dated) values, greyed');
@@ -165,7 +174,7 @@ async function main() {
   });
 
   await check('chokepoints: a data week ending > 13 days ago is stale even when as_of is fresh (gates.mjs MAX_WEEK_END_AGE_DAYS)', async () => {
-    const f = clone(LATEST);
+    const f = clone(ISSUE1);
     for (const l of f.lanes) l.as_of = '2026-10-18T09:00:00Z';
     f.as_of = '2026-10-18T09:00:00Z';
     const v = await cp(f, '2026-10-18T10:00:00Z'); // week_end 2026-10-04 -> 14 days
@@ -174,7 +183,7 @@ async function main() {
   });
 
   await check('chokepoints: a file failing any other gate shows NO numbers (index that does not follow from the counts, missing file)', async () => {
-    const f = clone(LATEST);
+    const f = clone(ISSUE1);
     f.lanes[0].index_pct_of_2023 = 75.0; // 302 / 515.4 = 58.6%, so 75.0 is inconsistent (and its band too)
     const v = await cp(f, '2026-10-13T12:00:00Z');
     assert.equal(v.state, 'invalid');
@@ -186,6 +195,18 @@ async function main() {
     assert.equal((await cp(null, '2026-10-13T12:00:00Z')).state, 'invalid');
     // errors from the other card blocks (scenarios, brief) never leak into the chokepoint verdict
     assert.ok(v.errors.every((e) => e.startsWith('chokepoints')), v.errors.join('; '));
+  });
+
+  await check('chokepoints: the live data/chokepoints/latest.json, judged at its own as_of, renders its values (no clock dependency)', async () => {
+    assert.equal(typeof LATEST.as_of, 'string', 'latest.json carries an as_of');
+    const v = await cp(LATEST, hoursAfter(LATEST.as_of, 1));
+    assert.equal(v.state, 'ok', `errors: ${v.errors.join('; ')}`);
+    for (const l of v.lanes) {
+      const f = LATEST.lanes.find((x: { lane: string }) => x.lane === l.id);
+      assert.equal(l.indexPct, f.index_pct_of_2023);
+      assert.equal(l.transits, f.transits_week);
+    }
+    assert.equal(v.staleNote, null);
   });
 
   // ---------------------------------------------------------------------------- posture
@@ -333,12 +354,16 @@ async function main() {
   });
 
   // ---------------------------------------------------------------------------- shared shell
-  await check('embed shell: attribution footer links the full page with rel noopener, light/dark via prefers-color-scheme, no scripts', async () => {
-    const html = await cpHtml(await cp(LATEST, '2026-10-13T12:00:00Z'));
+  await check('embed shell: attribution footer links the full page with rel noopener, v2 light tokens (no literal in source), no scripts', async () => {
+    const html = await cpHtml(await cp(ISSUE1, '2026-10-13T12:00:00Z'));
     assert.match(html, /^<!doctype html>/i);
     assert.match(html, /MENA Intel Desk/);
     assert.match(html, /<footer[\s\S]*<a [^>]*href="https:\/\/[^"]+"[^>]*target="_blank"[^>]*rel="noopener[^"]*"/);
-    assert.match(html, /prefers-color-scheme:\s*dark/);
+    // Light (System artboard: "light for reading, print and embeds"); values are the v2 light tokens.
+    const { SURFACE_COLORS, STATUS_COLORS } = await load('../../lib/design-tokens') as unknown as typeof import('../../lib/design-tokens');
+    assert.match(html, /color-scheme:light/);
+    assert.ok(html.includes(`--bg:${SURFACE_COLORS.light.bg}`) && html.includes(`--fg:${SURFACE_COLORS.light.text}`), 'surface tokens');
+    assert.ok(html.includes(`--elevated:${STATUS_COLORS.light.ELEVATED[0]}`), 'lane status tokens');
     assert.doesNotMatch(html, /<script/i);
     assert.doesNotMatch(html, /cloudflareinsights|plausible/i, 'no analytics inside partner embeds');
   });
