@@ -49,6 +49,37 @@ export const STATUS_COLORS: Record<Theme, Record<LaneStatusCode, readonly [strin
   },
 };
 
+/**
+ * Surface and ink tokens (the v2 `--bg`, `--surface`, `--line`, `--text`, `--text-2`, `--muted`, `--accent`,
+ * `--link` custom properties) for places that cannot read app/globals.css — the standalone /embed/* HTML
+ * served into third-party iframes (lib/embed/html.ts builds its CSS variables from these). tokens.check.ts
+ * keeps every value equal to globals.css.
+ */
+export const SURFACE_TOKENS = ['bg', 'surface', 'line', 'text', 'text-2', 'muted', 'accent', 'link'] as const;
+export type SurfaceToken = (typeof SURFACE_TOKENS)[number];
+export const SURFACE_COLORS: Record<Theme, Record<SurfaceToken, string>> = {
+  dark: {
+    bg: '#0B0F14',
+    surface: '#131A23',
+    line: '#243041',
+    text: '#E8EDF2',
+    'text-2': '#B6C2CF',
+    muted: '#8593A3',
+    accent: '#E8C547',
+    link: '#6CB4FF',
+  },
+  light: {
+    bg: '#FFFFFF',
+    surface: '#F5F6F8',
+    line: '#D9DEE5',
+    text: '#0E1116',
+    'text-2': '#3D4651',
+    muted: '#5E6875',
+    accent: '#8A6A00',
+    link: '#0B5CAD',
+  },
+};
+
 /** War Posture scale: four bands on the 0–100 E scale (0 = immediate ceasefire, 100 = escalation). */
 export const POSTURE_BANDS = [
   { band: 1, min: 0, max: 30 },

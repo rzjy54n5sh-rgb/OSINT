@@ -1,13 +1,14 @@
 /**
  * Shared shell for the /embed/* widgets (iframes for media and partners). Each widget is a route handler
  * returning a tiny standalone HTML document: no site chrome, no scripts, no web fonts, no cookies, no
- * analytics, light/dark from the reader's prefers-color-scheme, and an attribution footer linking the
+ * analytics, the v2 light theme (System artboard: "light for reading, print and embeds"), and an attribution footer linking the
  * full page on the site. Framing headers are set by middleware.ts (lib/security-headers.ts isEmbedPath),
  * not here: on OpenNext, middleware headers win over route headers.
  *
  * Pure string building (server- and test-safe). Every interpolated value goes through esc().
  */
 import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { STATUS_COLORS, SURFACE_COLORS } from '@/lib/design-tokens';
 
 /**
  * Same TTL as the root layout cap (app/layout.tsx `revalidate = 900`): Workers Cache keeps a widget for
@@ -51,11 +52,20 @@ export function extLink(href: string, text: string, cls = ''): string {
   return `<a href="${esc(href)}" target="_blank" rel="noopener"${cls ? ` class="${esc(cls)}"` : ''}>${esc(text)}</a>`;
 }
 
+/**
+ * The widget runs inside a third-party page without app/globals.css, so it carries its own CSS variables.
+ * Their values come from lib/design-tokens.ts (the TS mirror tokens.check.ts keeps equal to globals.css),
+ * never from a colour literal here (light-theme.check.ts). Embeds are light (System artboard).
+ */
+const INK = SURFACE_COLORS.light;
+const LANE = STATUS_COLORS.light;
+const VARS =
+  `:root{color-scheme:light;--bg:${INK.bg};--fg:${INK.text};--muted:${INK.muted};--line:${INK.line};` +
+  `--accent:${INK.accent};--chip:${INK.surface};--normal:${LANE.NORMAL[0]};--elevated:${LANE.ELEVATED[0]};` +
+  `--disrupted:${LANE.DISRUPTED[0]};--closed:${LANE.CLOSED[0]}}`;
+
 const CSS = `
-:root{color-scheme:light dark;--bg:#ffffff;--fg:#14181f;--muted:#5b6472;--line:#d9dee6;--accent:#a8781e;--chip:#eef1f5;
---normal:#2f7fd8;--elevated:#c77a1a;--disrupted:#b5541c;--closed:#7a2e12}
-@media (prefers-color-scheme:dark){:root{--bg:#0b0f15;--fg:#e8ecf2;--muted:#8a96a8;--line:#253041;--accent:#d4a84b;--chip:#151c27;
---normal:#6aa8f0;--elevated:#f0ae6b;--disrupted:#e8894a;--closed:#f06b4a}}
+${VARS}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--fg)}
 body{font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;padding:14px 16px 10px}

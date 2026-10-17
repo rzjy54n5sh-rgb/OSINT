@@ -78,7 +78,7 @@ const pre = {
   fontFamily: 'IBM Plex Mono, ui-monospace, monospace',
   fontSize: 12,
   lineHeight: 1.55,
-  background: 'var(--bg-secondary, rgba(255,255,255,0.03))',
+  background: 'var(--surface)',
   border: '1px solid var(--border)',
   padding: '12px 14px',
   overflowX: 'auto' as const,
@@ -97,7 +97,7 @@ export default function EmbedPage() {
           EMBED OUR DATA
         </h1>
         <p style={{ fontFamily: 'DM Sans', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
-          Copy a snippet into your page. Each widget is a small, script-free page that follows your reader’s light or dark setting, sets no
+          Copy a snippet into your page. Each widget is a small, script-free page that uses the light reading theme, sets no
           cookies, runs no analytics and is cached for at most 15 minutes. Its footer links back to the full page on this site.
         </p>
       </header>

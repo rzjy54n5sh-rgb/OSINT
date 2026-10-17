@@ -15,6 +15,8 @@ import {
   POSTURE_SCALE,
   SCENARIO_IDENTITY,
   STATUS_COLORS,
+  SURFACE_COLORS,
+  SURFACE_TOKENS,
   isPostureNoGrade,
   postureBand,
   postureScaleColor,
@@ -136,6 +138,13 @@ for (const theme of ['dark', 'light'] as const) {
   ok(`${theme}: base tokens equal the System artboard`, () => {
     const got = ['--bg', '--surface', '--line', '--text', '--text-2', '--muted', '--accent', '--link'].map((t) => resolve(decl, t).toUpperCase());
     assert.deepEqual(got, [sp.bg, sp.surface, sp.line, sp.text, sp.text2, sp.muted, sp.accent, sp.link]);
+  });
+  ok(`${theme}: surface tokens (TS mirror for the standalone embeds) equal CSS and the spec`, () => {
+    for (const t of SURFACE_TOKENS) assert.equal(SURFACE_COLORS[theme][t], resolve(decl, `--${t}`).toUpperCase(), `--${t}`);
+    assert.deepEqual(
+      SURFACE_TOKENS.map((t) => SURFACE_COLORS[theme][t]),
+      [sp.bg, sp.surface, sp.line, sp.text, sp.text2, sp.muted, sp.accent, sp.link],
+    );
   });
   ok(`${theme}: War Posture scale (CSS and TS) equals the spec`, () => {
     assert.deepEqual([1, 2, 3, 4].map((b) => resolve(decl, `--posture-${b}`).toUpperCase()), [...sp.posture]);
