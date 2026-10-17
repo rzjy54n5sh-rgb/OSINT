@@ -53,8 +53,10 @@ export function ScenarioRow({
             Day {row.day} ({formatConflictDayShort(row.day!)}) · method {row.method ?? '—'}
             {row.horizon ? ` · horizon ${row.horizon}` : ''}
           </p>
-          {currentDay != null && row.day !== currentDay && (
-            <DataAsOf section="SCENARIOS" latestDay={row.day} currentDay={currentDay} className="mb-3" />
+          {/* Always mounted (hidden while current): the client re-check after mount can still flag a page
+              cached before the 14:00 UTC deadline or before midnight, so it never contradicts the client sections. */}
+          {currentDay != null && (
+            <DataAsOf section="SCENARIOS" latestDay={row.day} currentDay={currentDay} className="mb-3" hideWhenCurrent />
           )}
           <ul
             className="flex gap-2 overflow-x-auto snap-x pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible"

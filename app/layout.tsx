@@ -19,6 +19,7 @@ import {
   NEXT_PUBLIC_SUPABASE_ANON_KEY as GEN_SUPABASE_ANON_KEY,
 } from '@/lib/supabase/env.client.generated';
 import { STALE_BUILD_RECOVERY_SCRIPT } from '@/lib/stale-build-recovery';
+import { RenderClockProvider } from '@/components/ui/RenderClock';
 import { CF_BEACON_SRC, cfBeaconConfig, cfBeaconToken } from '@/lib/analytics';
 import {
   ARABIC_ENABLED,
@@ -192,6 +193,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Re-applies the stored theme / banner dismissal if a failed root hydration wipes them from <html>. */}
         <ThemeGuard />
         <TranslationBanner />
+        {/* Server render time for time-dependent copy (DataAsOf): hydration-safe first paint. */}
+        <RenderClockProvider renderedAt={Date.now()}>
         <I18nProvider lang={lang}>
           <div className="relative flex min-h-screen flex-col" style={{ zIndex: 1 }}>
             <CommandHeader />
@@ -201,6 +204,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteFooter />
           </div>
         </I18nProvider>
+        </RenderClockProvider>
         {/* Register service worker */}
         <Script id="sw-register" strategy="afterInteractive">{`
           if ('serviceWorker' in navigator) {

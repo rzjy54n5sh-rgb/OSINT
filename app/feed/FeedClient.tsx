@@ -87,6 +87,7 @@ export default function FeedClient({ initialArticles, initialConflictDay }: Feed
         <DataAsOf
           section="FEED"
           latestDay={articles[0]?.conflict_day ?? null}
+          latestAt={articles[0]?.published_at ?? null}
           currentDay={maxConflictDay ?? undefined}
           className="mb-6"
         />

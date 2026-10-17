@@ -8,24 +8,30 @@
  *   - latest = N−1 at/after the deadline (build failed/late) → "stale", the Stale chip (status-elevated);
  *   - latest = N−2 or older at any time                      → "stale";
  *   - latest = N                                             → "current".
+ * Per-section schedules: scenarios (~10:00, deadline 14:00), social (~04:00, deadline 07:00); the feed has no
+ * daily publish and is judged by the age of its newest article (12 h), never "publishes around".
+ * A currentDay from a render cached before midnight is never judged earlier than the clock's day.
+ * Hydration: the first paint judges at the server render time (RenderClock), not the client clock.
  * Every rendered state is emoji-free. Fixed clocks only: no assertion reads the wall clock.
  *
  *   npx --yes tsx@4.23.13 tests/unit/data-as-of-schedule.check.ts
  */
 import assert from 'node:assert/strict';
 import * as React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import {
   BRIEF_PUBLISH_DEADLINE_UTC,
   currentConflictDay,
   freshnessLabel,
   SCENARIO_SCHEDULE,
+  SOCIAL_SCHEDULE,
   sectionFreshness,
 } from '../../lib/conflict-calendar';
 
 // tsconfig has jsx: "preserve", so tsx compiles JSX with the classic runtime: expose React first.
 (globalThis as { React?: typeof React }).React = React;
 const { DataAsOf } = require('../../components/ui/DataAsOf') as typeof import('../../components/ui/DataAsOf');
+const { RenderClockProvider, initialJudgeTime } = require('../../components/ui/RenderClock') as typeof import('../../components/ui/RenderClock');
 
 let n = 0;
 const ok = (label: string, fn: () => void) => {
@@ -114,12 +120,12 @@ ok('scenarios follow their own schedule (scenario-daily ~10:00 UTC), never "arou
 });
 
 ok('markets, posture and other sections use the daily-build deadline', () => {
-  for (const section of ['MARKETS', 'WAR POSTURE', 'BRIEFINGS', 'SOCIAL']) {
+  for (const section of ['MARKETS', 'WAR POSTURE', 'BRIEFINGS', 'GENERAL BRIEFING', 'COUNTRY']) {
     const p = render({ section, latestDay: N - 1, currentDay: N, now: at('01:00') });
     const s = render({ section, latestDay: N - 1, currentDay: N, now: at('04:30') });
     rendered.push(p, s);
     assert.equal(freshness(p), 'pending', `${section} 01:00`);
-    assert.match(text(p), /publishes around 02:00 UTC/);
+    assert.match(text(p), /publish(es)? around 02:00 UTC/);
     assert.equal(freshness(s), 'stale', `${section} 04:30`);
   }
 });
@@ -150,6 +156,112 @@ ok('empty and ahead states render (status chips, no emoji)', () => {
   assert.match(empty, /data-status="UNKNOWN"/);
   assert.equal(freshness(ahead), 'ahead');
   assert.match(ahead, /data-status="CLOSED"/);
+});
+
+ok('social follows its own schedule (first rows 03:04–05:24 UTC): around 04:00, stale from 07:00', () => {
+  const soc = (hhmm: string) => {
+    const html = render({ section: 'SOCIAL', latestDay: N - 1, currentDay: N, now: at(hhmm) });
+    rendered.push(html);
+    return html;
+  };
+  assert.equal(SOCIAL_SCHEDULE.deadlineUtc, '07:00');
+  for (const hhmm of ['00:30', '03:59', '04:01', '06:59']) {
+    const html = soc(hhmm);
+    assert.equal(freshness(html), 'pending', `social ${hhmm}`);
+    assert.match(text(html), /Day 232 social data publishes around 04:00 UTC\. Showing Day 231/);
+    assert.doesNotMatch(text(html), /02:00/);
+  }
+  for (const hhmm of ['07:00', '07:01', '12:00']) assert.equal(freshness(soc(hhmm)), 'stale', `social ${hhmm}`);
+});
+
+ok('feed: no daily publish; judged by the newest article age (12 h), never "publishes around"', () => {
+  const feed = (latestAt: string | null, now: Date, latestDay: number | null = N - 1) => {
+    const html = render({ section: 'FEED', latestDay, currentDay: N, latestAt, now });
+    rendered.push(html);
+    return html;
+  };
+  // 00:30 on Day 232, newest article 23:00 on Day 231 (1.5 h old): current, although its day is yesterday.
+  const fresh = feed('2026-10-16T23:00:00Z', at('00:30'));
+  assert.equal(freshness(fresh), 'current');
+  assert.match(text(fresh), /newest item Oct 16, 2026 23:00 UTC \(Day 231\) · current/);
+  // 11 h 59 min old: current; 12 h 01 min old: stale, with the age stated.
+  assert.equal(freshness(feed('2026-10-16T23:00:00Z', at('10:59'))), 'current');
+  const old = feed('2026-10-16T23:00:00Z', at('11:01'));
+  assert.equal(freshness(old), 'stale');
+  assert.match(text(old), /Stale/);
+  assert.match(text(old), /newest item 12 h old \(Oct 16, 2026 23:00 UTC\)/);
+  // Never the daily-publish copy, at any hour or age.
+  for (const h of ['00:30', '01:00', '03:59', '05:00', '13:00', '23:59'])
+    for (const latestAt of ['2026-10-16T23:00:00Z', '2026-10-15T08:00:00Z']) {
+      const t = text(feed(latestAt, at(h)));
+      assert.doesNotMatch(t, /publish/i, `feed ${latestAt} @ ${h}: ${t}`);
+    }
+  // No timestamp: day comparison only, with no publish window (yesterday at 00:30 is stale, not pending).
+  assert.equal(freshness(feed(null, at('00:30'))), 'stale');
+  assert.equal(freshness(feed(null, at('00:30'), N)), 'current');
+});
+
+ok('grammar: plural nouns take "publish" ("Day 232 briefs publish around …"), singular "publishes"', () => {
+  const plural = render({ section: 'BRIEFINGS', latestDay: N - 1, currentDay: N, now: at('00:30') });
+  const single = render({ section: 'GENERAL BRIEFING', latestDay: N - 1, currentDay: N, now: at('00:30') });
+  rendered.push(plural, single);
+  assert.match(text(plural), /Day 232 briefs publish around 02:00 UTC\./);
+  assert.doesNotMatch(text(plural), /briefs publishes/);
+  assert.match(text(single), /Day 232 brief publishes around 02:00 UTC\./);
+  assert.equal(
+    freshnessLabel(sectionFreshness(N - 1, N, { now: at('00:30') }), 'briefs', true),
+    'Day 232 briefs publish around 02:00 UTC. Showing Day 231 (Oct 16, 2026).'
+  );
+});
+
+ok('a render cached before midnight is judged against the clock day: never "current" for yesterday on Day 232', () => {
+  // Cached HTML said "today is Day 231" and the section has Day 231: on Day 232 that is not current.
+  const late = brief(N - 1, at('05:00'), N - 1);
+  assert.equal(freshness(late), 'stale');
+  assert.match(late, /data-current-day="232"/);
+  assert.match(text(late), /no data for Day 232/);
+  assert.doesNotMatch(text(late), /· current/);
+  // Inside the overnight window it is the calm note for Day 232.
+  assert.equal(freshness(brief(N - 1, at('00:30'), N - 1)), 'pending');
+  assert.equal(sectionFreshness(N - 1, N - 1, { now: at('05:00') }).currentDay, N);
+  // A caller day ahead of the clock is kept (that is the "ahead" check's job, not this one's).
+  assert.equal(sectionFreshness(N + 1, N + 1, { now: at('05:00') }).status, 'current');
+});
+
+ok('hydration: first paint judges at the server render time (03:59), not the client clock (04:01)', () => {
+  const realNow = Date.now;
+  Date.now = () => at('04:01').getTime(); // the "client" clock; the first paint must not read it
+  try {
+    const Provider = RenderClockProvider as unknown as React.FC<{ renderedAt: number; children?: React.ReactNode }>;
+    const tree = React.createElement(
+      Provider,
+      { renderedAt: at('03:59').getTime() },
+      React.createElement(DataAsOf, { section: 'GENERAL BRIEFING', latestDay: N - 1, currentDay: N })
+    );
+    const html = renderToString(tree);
+    assert.equal(freshness(html), 'pending', 'server verdict at 03:59 on first paint');
+    assert.match(html, /data-judged-at="2026-10-17T03:59:00.000Z"/);
+  } finally {
+    Date.now = realNow;
+  }
+  // The hydrating client takes the same branch (useSyncExternalStore server snapshot); a plain client
+  // mount (navigation) and the post-mount re-check use the real clock; a pinned clock always wins.
+  const c = () => at('04:01').getTime();
+  assert.equal(initialJudgeTime(at('03:59').getTime(), undefined, true, c), at('03:59').getTime());
+  assert.equal(initialJudgeTime(at('03:59').getTime(), undefined, false, c), at('04:01').getTime());
+  assert.equal(initialJudgeTime(null, undefined, true, c), at('04:01').getTime());
+  assert.equal(initialJudgeTime(at('03:59').getTime(), at('00:30').getTime(), true, c), at('00:30').getTime());
+  // ... and at 04:01 the same section is Stale (what the re-check after mount renders).
+  assert.equal(freshness(brief(N - 1, at('04:01'))), 'stale');
+});
+
+ok('hideWhenCurrent renders nothing while current, the note otherwise', () => {
+  assert.equal(render({ section: 'SCENARIOS', latestDay: N, currentDay: N, now: at('05:00'), hideWhenCurrent: true }), '');
+  const p = render({ section: 'SCENARIOS', latestDay: N - 1, currentDay: N, now: at('05:00'), hideWhenCurrent: true });
+  const s2 = render({ section: 'SCENARIOS', latestDay: N - 1, currentDay: N, now: at('14:01'), hideWhenCurrent: true });
+  rendered.push(p, s2);
+  assert.equal(freshness(p), 'pending');
+  assert.equal(freshness(s2), 'stale');
 });
 
 ok(`deadline constant is ${BRIEF_PUBLISH_DEADLINE_UTC} UTC`, () => assert.equal(BRIEF_PUBLISH_DEADLINE_UTC, '04:00'));

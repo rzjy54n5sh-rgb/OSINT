@@ -40,8 +40,8 @@ export async function NaiBiggestMoveBanner() {
         its day-to-day differences are not shown as moves.
         {/* Same schedule-aware note as every DataAsOf: overnight (before the publish deadline) a calm
             "publishes around" note; only after it, or 2+ days behind, the "Stale" warning. */}
-        {fresh.status !== 'current' && board.latestDay != null && (
-          <DataAsOf section="WAR POSTURE" latestDay={board.latestDay} currentDay={currentDay} className="mt-1" />
+        {board.latestDay != null && (
+          <DataAsOf section="WAR POSTURE" latestDay={board.latestDay} currentDay={currentDay} className="mt-1" hideWhenCurrent />
         )}
       </div>
     );

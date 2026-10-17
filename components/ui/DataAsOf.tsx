@@ -1,6 +1,10 @@
+'use client';
+
 import type { CSSProperties } from 'react';
+import { useJudgeTime } from './RenderClock';
 import {
   formatConflictDayShort,
+  formatUtcDateTime,
   freshnessLabel,
   publishScheduleFor,
   sectionFreshness,
@@ -13,29 +17,34 @@ interface DataAsOfProps {
   section: string;
   /** Latest conflict_day in the section's OWN table (null = no rows). */
   latestDay: number | null | undefined;
-  /** Calendar day (DAY LOCK). Defaults to `now`'s calendar day. */
+  /** Calendar day (DAY LOCK). Defaults to `now`'s calendar day; never judged earlier than `now`'s day. */
   currentDay?: number;
   className?: string;
-  /** Instant to judge freshness at. Defaults to now; tests pass a fixed clock. */
+  /** Instant to judge freshness at. Pins the clock (tests). Default: server render time on first paint, then the real clock. */
   now?: Date;
   /** What the pending note says is coming ("brief", "market data" …). Defaults by section. */
   noun?: string;
+  /** `noun` is plural ("briefs publish"). Defaults by section. */
+  plural?: boolean;
   /** Publishing schedule. Defaults by section (publishScheduleFor). */
   schedule?: PublishSchedule;
+  /** Continuous sections (FEED): ISO timestamp of the newest item; freshness is its age, not a schedule. */
+  latestAt?: string | null;
+  /** Render nothing while current (callers that only want the degraded notes). */
+  hideWhenCurrent?: boolean;
 }
 
-/** What each section waits for, in the pending note ("Day 232 brief publishes around …"). */
-const NOUNS: Record<string, string> = {
-  'GENERAL BRIEFING': 'brief',
-  BRIEFINGS: 'briefs',
-  COUNTRY: 'report',
-  MARKETS: 'market data',
-  SCENARIOS: 'scenario update',
-  'WAR POSTURE': 'War Posture update',
-  FEED: 'feed',
-  SOCIAL: 'social data',
+/** What each section waits for, in the pending note ("Day 232 brief publishes around …"). FEED has none. */
+const NOUNS: Record<string, { noun: string; plural: boolean }> = {
+  'GENERAL BRIEFING': { noun: 'brief', plural: false },
+  BRIEFINGS: { noun: 'briefs', plural: true },
+  COUNTRY: { noun: 'report', plural: false },
+  MARKETS: { noun: 'market data', plural: false },
+  SCENARIOS: { noun: 'scenario update', plural: false },
+  'WAR POSTURE': { noun: 'War Posture update', plural: false },
+  SOCIAL: { noun: 'social data', plural: false },
 };
-const nounFor = (section: string) => NOUNS[section.trim().toUpperCase()] ?? 'update';
+const nounFor = (section: string) => NOUNS[section.trim().toUpperCase()] ?? { noun: 'update', plural: false };
 
 /** Degraded states → v2 lane-status colour + word (StatusChip pattern; glyph is inline SVG, never emoji). */
 const CHIP: Record<Exclude<FreshnessStatus, 'current' | 'pending'>, { status: 'ELEVATED' | 'CLOSED' | 'UNKNOWN'; word: string }> = {
@@ -67,20 +76,41 @@ const BASE: CSSProperties = {
 };
 
 /**
- * Freshness label for a data section. No hooks — safe in Server and Client Components.
+ * Freshness label for a data section (client component: safe inside Server and Client Components).
  *
  * Every section that shows "latest" data renders this so the as-of day is always visible:
- *  - current: muted "as of Day N · current".
- *  - pending: yesterday's data before the publish deadline (the normal overnight window between the
- *    00:00 UTC day rollover and the daily build). A calm, muted note: "Day N brief publishes around
- *    02:00 UTC. Showing Day N−1 (date)." It never says "published".
- *  - stale:   past the deadline, or 2+ days behind → "Stale" chip (status-elevated) and the
- *    degraded-state label "Latest available: Day N (date) — no data for Day <today>", so old data
- *    can never be read as today's intelligence.
- * Design system v2 tokens only; no emoji.
+ *  - current: muted "as of Day N · current" (FEED: "newest item <time> · current").
+ *  - pending: yesterday's data before the section's publish deadline (the normal window between the
+ *    00:00 UTC day rollover and the writer). A calm, muted note: "Day N brief publishes around
+ *    02:00 UTC. Showing Day N−1 (date)." It never says "published". FEED never has one.
+ *  - stale:   past the deadline, 2+ days behind, or (FEED) newest item older than 12 h → "Stale" chip
+ *    (status-elevated) and "Latest available: Day N (date) — …", so old data can never be read as
+ *    today's intelligence.
+ * Clock: the server render time on first paint (RenderClock: no hydration mismatch at a deadline),
+ * then the real clock after mount, re-checked every minute. Design system v2 tokens only; no emoji.
  */
-export function DataAsOf({ section, latestDay, currentDay, className = '', now, noun, schedule }: DataAsOfProps) {
-  const f = sectionFreshness(latestDay, currentDay, { now, schedule: schedule ?? publishScheduleFor(section) });
+export function DataAsOf(props: DataAsOfProps) {
+  const judgedAt = useJudgeTime(props.now?.getTime());
+  return <DataAsOfView {...props} now={new Date(judgedAt)} />;
+}
+
+/** Pure view at a given instant (no hooks; tests render it directly). */
+export function DataAsOfView({
+  section,
+  latestDay,
+  currentDay,
+  className = '',
+  now,
+  noun,
+  plural,
+  schedule,
+  latestAt,
+  hideWhenCurrent,
+}: DataAsOfProps) {
+  const sched = schedule ?? publishScheduleFor(section);
+  const f = sectionFreshness(latestDay, currentDay, { now, schedule: sched, latestAt });
+  if (hideWhenCurrent && f.status === 'current') return null;
+  const words = nounFor(section);
   const attrs = {
     role: 'status' as const,
     'data-testid': 'data-as-of',
@@ -88,6 +118,7 @@ export function DataAsOf({ section, latestDay, currentDay, className = '', now, 
     'data-freshness': f.status,
     'data-latest-day': f.latestDay ?? '',
     'data-current-day': f.currentDay,
+    'data-judged-at': now ? now.toISOString() : undefined,
     className,
   };
 
@@ -96,9 +127,16 @@ export function DataAsOf({ section, latestDay, currentDay, className = '', now, 
       <div {...attrs} style={{ ...BASE, color: 'var(--text-muted)' }}>
         <span translate="no" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Glyph status="CURRENT" />
-          <span>
-            {section} · as of Day <span className="num">{f.latestDay}</span> ({formatConflictDayShort(f.latestDay!)}) · current
-          </span>
+          {f.latestAt ? (
+            <span>
+              {section} · newest item {formatUtcDateTime(f.latestAt)}
+              {f.latestDay != null ? <> (Day <span className="num">{f.latestDay}</span>)</> : null} · current
+            </span>
+          ) : (
+            <span>
+              {section} · as of Day <span className="num">{f.latestDay}</span> ({formatConflictDayShort(f.latestDay!)}) · current
+            </span>
+          )}
         </span>
       </div>
     );
@@ -108,7 +146,8 @@ export function DataAsOf({ section, latestDay, currentDay, className = '', now, 
     return (
       <div {...attrs} style={{ ...BASE, color: 'var(--text-muted)' }}>
         <span translate="no">
-          <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{section}</span> · {freshnessLabel(f, noun ?? nounFor(section))}
+          <span style={{ color: 'var(--text-2)', fontWeight: 600 }}>{section}</span> ·{' '}
+          {freshnessLabel(f, noun ?? words.noun, plural ?? (noun == null ? words.plural : false))}
         </span>
       </div>
     );

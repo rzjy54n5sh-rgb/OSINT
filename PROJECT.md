@@ -122,13 +122,19 @@ TypeScript interfaces live in **`types/supabase.ts`**. Table names and shapes us
   `scenario_probabilities`, social over `social_trends`. No section borrows another table's day.
 - **Degraded state:** every such section renders `components/ui/DataAsOf.tsx`. When current it shows
   `as of Day N · current`. **Overnight window (schedule-aware, `sectionFreshness()`):** the day rolls over at
-  00:00 UTC but the daily build writes ~01:56–02:10 UTC, so when the latest day is exactly yesterday and the
-  UTC time is before the publish deadline (`BRIEF_PUBLISH_DEADLINE_UTC = '04:00'`; scenarios, written by
-  scenario-daily ~10:00–13:20 UTC, use `SCENARIO_PUBLISH_DEADLINE_UTC = '14:00'`) it shows a muted
-  `pending` note: `Day N brief publishes around 02:00 UTC. Showing Day N−1 (date).` — never "published".
-  After the deadline, or 2+ days behind, it shows the `Stale` chip (status-elevated) and
-  `Latest available: Day N (date) — no data for Day <today>`. A failed build therefore turns stale at the
-  deadline. Frozen sections therefore always show their as-of day. Test: `tests/unit/data-as-of-schedule.check.ts`.
+  00:00 UTC but each table is written later, so when the latest day is exactly yesterday and the UTC time is
+  before that section's publish deadline it shows a muted `pending` note:
+  `Day N brief publishes around 02:00 UTC. Showing Day N−1 (date).` — never "published". Schedules (from
+  observed write times): daily build ~01:56–02:10 → `BRIEF_PUBLISH_DEADLINE_UTC = '04:00'`; scenarios
+  (scenario-daily, ~10:00–13:20) → around 10:00, deadline 14:00; social (first rows 03:04–05:24) → around
+  04:00, deadline 07:00. The **feed has no daily publish**: it is judged by the newest article's age (12 h,
+  the header's `ARTICLE_STALE_HOURS`) and never says "publishes around". After the deadline, 2+ days behind,
+  or (feed) too old it shows the `Stale` chip (status-elevated) and `Latest available: Day N (date) — …`.
+  A failed writer therefore turns stale at the deadline. The day judged is never earlier than the clock's
+  day (a render cached before midnight cannot read "current" on the next day). **Clock:** first paint uses
+  the server render time (`RenderClockProvider` in the root layout → `useJudgeTime()`, also behind
+  `useConflictDay()`), so cached HTML hydrated across a deadline or midnight never mismatches (#418); after
+  mount the real clock re-checks every minute. Test: `tests/unit/data-as-of-schedule.check.ts`.
 - **Exception — `country_reports`:** UNIQUE on `country_code` alone, i.e. one current snapshot per
   country, not a time series. Its single `conflict_day` is the snapshot stamp, not staleness.
 - **Resolved contradiction (2026-10-05):** this section previously said "Source of truth: Latest
