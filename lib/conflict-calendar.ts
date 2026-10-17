@@ -57,45 +57,207 @@ export function formatConflictDayShort(conflictDay: number): string {
   });
 }
 
-export type FreshnessStatus = 'current' | 'stale' | 'empty' | 'ahead';
+export type FreshnessStatus = 'current' | 'pending' | 'stale' | 'empty' | 'ahead';
+
+/**
+ * Publishing schedule. Two kinds:
+ *  - daily (UTC "HH:MM"): the conflict day rolls over at 00:00 UTC, but the day's data is written later,
+ *    so for a few hours every night the newest data is legitimately yesterday's. Inside that window the
+ *    section is "pending" (a calm note); only after the deadline, or when the gap is 2+ days, is it
+ *    "stale" (the warning). If the writer fails, the deadline flips it to stale.
+ *  - continuous: no daily publish (the feed ingests articles all day). Judged by the age of the newest
+ *    item, like the header's stale badge; never "publishes around".
+ */
+export type PublishSchedule =
+  | {
+      kind: 'daily';
+      /** When the day's data normally lands; shown to readers as "publishes around …". */
+      typicalUtc: string;
+      /** After this time a missing day is a real gap (stale). */
+      deadlineUtc: string;
+    }
+  | {
+      kind: 'continuous';
+      /** Stale when the newest item is older than this. */
+      maxAgeHours: number;
+    };
+export type DailySchedule = Extract<PublishSchedule, { kind: 'daily' }>;
+
+/**
+ * Daily build: cron 01:45 UTC, edition cut-off 01:30 UTC. Observed writes (Days 228–231): general brief
+ * 01:56–02:01 UTC, War Posture 02:02–02:10 UTC, first market row 00:02–02:08 UTC.
+ */
+export const BRIEF_PUBLISH_TYPICAL_UTC = '02:00';
+/** 2 h buffer over the normal ~02:10 UTC publish time. */
+export const BRIEF_PUBLISH_DEADLINE_UTC = '04:00';
+export const DAILY_BUILD_SCHEDULE: DailySchedule = {
+  kind: 'daily',
+  typicalUtc: BRIEF_PUBLISH_TYPICAL_UTC,
+  deadlineUtc: BRIEF_PUBLISH_DEADLINE_UTC,
+};
+
+/**
+ * Scenario odds are NOT written by the 02:00 build: scenario-daily (market-anchored-v1) published
+ * Days 226–231 between 09:56 and 13:17 UTC (scenario_runs.recorded_at). Telling readers "around
+ * 02:00 UTC" would be false, so scenarios carry their own schedule (deadline covers the latest
+ * observed run with a buffer).
+ */
+export const SCENARIO_PUBLISH_TYPICAL_UTC = '10:00';
+export const SCENARIO_PUBLISH_DEADLINE_UTC = '14:00';
+export const SCENARIO_SCHEDULE: DailySchedule = {
+  kind: 'daily',
+  typicalUtc: SCENARIO_PUBLISH_TYPICAL_UTC,
+  deadlineUtc: SCENARIO_PUBLISH_DEADLINE_UTC,
+};
+
+/**
+ * Social trends (collect-social): the first social_trends row of Days 221–231 landed between 03:04 and
+ * 05:24 UTC (never in the 02:00 hour), so social says "around 04:00" with a 07:00 deadline.
+ */
+export const SOCIAL_PUBLISH_TYPICAL_UTC = '04:00';
+export const SOCIAL_PUBLISH_DEADLINE_UTC = '07:00';
+export const SOCIAL_SCHEDULE: DailySchedule = {
+  kind: 'daily',
+  typicalUtc: SOCIAL_PUBLISH_TYPICAL_UTC,
+  deadlineUtc: SOCIAL_PUBLISH_DEADLINE_UTC,
+};
+
+/**
+ * Articles are stale when the newest published_at is older than this many hours (the header's stale
+ * badge uses the same value: lib/data-freshness.ts re-exports it). 12 h, not 6 h: the scheduled GitHub
+ * Actions "hourly" feeds cron only fires every ~4–7 h in practice, so 6 h flags normal gaps.
+ */
+export const ARTICLE_STALE_HOURS = 12;
+export const FEED_SCHEDULE: PublishSchedule = { kind: 'continuous', maxAgeHours: ARTICLE_STALE_HOURS };
+
+/** Schedule for a DataAsOf section name. */
+export function publishScheduleFor(section: string): PublishSchedule {
+  switch (section.trim().toUpperCase()) {
+    case 'SCENARIOS':
+      return SCENARIO_SCHEDULE;
+    case 'SOCIAL':
+      return SOCIAL_SCHEDULE;
+    case 'FEED':
+      return FEED_SCHEDULE;
+    default:
+      return DAILY_BUILD_SCHEDULE;
+  }
+}
+
+/** Minutes after 00:00 for "HH:MM" (throws on a malformed constant). */
+export function utcClockMinutes(hhmm: string): number {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!m) throw new Error(`bad UTC clock time: ${hhmm}`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
 
 export interface SectionFreshness {
   status: FreshnessStatus;
   /** Latest conflict_day present in the section's own table (null = no rows). */
   latestDay: number | null;
-  /** Calendar day (DAY LOCK). */
+  /** Calendar day judged against (DAY LOCK): the later of the caller's day and `now`'s day. */
   currentDay: number;
   /** currentDay − latestDay (null when empty). */
   lagDays: number | null;
+  /** The schedule the verdict was taken against. */
+  schedule: PublishSchedule;
+  /** Continuous sections: newest item timestamp and its age in hours (null when unknown). */
+  latestAt?: string | null;
+  ageHours?: number | null;
+}
+
+export interface FreshnessOptions {
+  /** The instant to judge at (tests pass a fixed clock). Defaults to now. */
+  now?: Date;
+  /** Defaults to the daily build (BRIEF_PUBLISH_DEADLINE_UTC). */
+  schedule?: PublishSchedule;
+  /** Continuous sections: ISO timestamp of the newest item (e.g. articles.published_at). */
+  latestAt?: string | null;
 }
 
 /**
  * Compare a section's own latest day with the calendar day.
- * - current: the section has data for today
- * - stale:   newest data is older than today → must be labelled "Latest available"
+ * - current: the section has data for today (continuous: newest item within maxAgeHours)
+ * - pending: (daily only) newest data is yesterday's, the day judged is `now`'s calendar day, and it is
+ *            before the publish deadline → expected schedule, a neutral note ("publishes around …")
+ * - stale:   newest data is older than that (past the deadline, 2+ days behind, or too old)
  * - empty:   the section has no rows at all
  * - ahead:   data stamped later than the calendar (clock/pipeline error) → flagged, never silently shown
+ *
+ * The day judged is max(currentDay, currentConflictDay(now)): a currentDay from a render cached before
+ * midnight can never make yesterday's data read "current" on the new day.
  */
 export function sectionFreshness(
   latestDay: number | null | undefined,
-  currentDay: number = currentConflictDay()
+  currentDay?: number,
+  opts: FreshnessOptions = {}
 ): SectionFreshness {
-  if (latestDay == null || !Number.isFinite(latestDay) || latestDay < 1) {
-    return { status: 'empty', latestDay: null, currentDay, lagDays: null };
+  const now = opts.now ?? new Date();
+  const schedule = opts.schedule ?? DAILY_BUILD_SCHEDULE;
+  const clockDay = currentConflictDay(now);
+  const today = currentDay != null && Number.isFinite(currentDay) ? Math.max(currentDay, clockDay) : clockDay;
+
+  if (schedule.kind === 'continuous') {
+    const t = opts.latestAt ? Date.parse(opts.latestAt) : NaN;
+    if (Number.isFinite(t)) {
+      const ageHours = (now.getTime() - t) / 36e5;
+      const day = latestDay != null && Number.isFinite(latestDay) && latestDay >= 1 ? latestDay : null;
+      const base = { latestDay: day, currentDay: today, lagDays: day == null ? null : today - day, schedule, latestAt: opts.latestAt, ageHours };
+      // 5 min of clock skew tolerated; a newest item further in the future is a pipeline clock error.
+      if (ageHours < -5 / 60) return { status: 'ahead', ...base };
+      return { status: ageHours > schedule.maxAgeHours ? 'stale' : 'current', ...base };
+    }
+    // No usable timestamp: judge by day only, with no publish window (there is no daily publish).
   }
-  const lagDays = currentDay - latestDay;
-  const status: FreshnessStatus = lagDays === 0 ? 'current' : lagDays > 0 ? 'stale' : 'ahead';
-  return { status, latestDay, currentDay, lagDays };
+
+  if (latestDay == null || !Number.isFinite(latestDay) || latestDay < 1) {
+    return { status: 'empty', latestDay: null, currentDay: today, lagDays: null, schedule };
+  }
+  const lagDays = today - latestDay;
+  let status: FreshnessStatus;
+  if (lagDays === 0) status = 'current';
+  else if (lagDays < 0) status = 'ahead';
+  else if (
+    schedule.kind === 'daily' &&
+    lagDays === 1 &&
+    today === clockDay &&
+    now.getUTCHours() * 60 + now.getUTCMinutes() < utcClockMinutes(schedule.deadlineUtc)
+  )
+    status = 'pending';
+  else status = 'stale';
+  return { status, latestDay, currentDay: today, lagDays, schedule };
 }
 
-/** Human label for a section's freshness. Exact wording for the degraded state is a product requirement. */
-export function freshnessLabel(f: SectionFreshness): string {
+/** "Oct 16, 2026 21:05 UTC" for an ISO timestamp. */
+export function formatUtcDateTime(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `${date} ${d.toISOString().slice(11, 16)} UTC`;
+}
+
+/**
+ * Human label for a section's freshness. Exact wording for the degraded state is a product requirement.
+ * `noun` names what is expected in the pending note ("brief", "market data" …); `plural` picks the verb
+ * ("briefs publish", "brief publishes"). The pending note says "publish(es) around", never "published":
+ * it describes the schedule, not an event that happened. Continuous sections never get a pending note.
+ */
+export function freshnessLabel(f: SectionFreshness, noun = 'update', plural = false): string {
   switch (f.status) {
     case 'current':
       return `DAY ${f.currentDay} (${formatConflictDayShort(f.currentDay)}) — CURRENT`;
+    case 'pending': {
+      const at = f.schedule.kind === 'daily' ? f.schedule.typicalUtc : '';
+      return `Day ${f.currentDay} ${noun} ${plural ? 'publish' : 'publishes'} around ${at} UTC. Showing Day ${f.latestDay} (${formatConflictDayShort(f.latestDay!)}).`;
+    }
     case 'stale':
+      if (f.ageHours != null && f.latestAt) {
+        const where = f.latestDay != null ? `Latest available: Day ${f.latestDay} (${formatConflictDayShort(f.latestDay)}) — ` : '';
+        return `${where}newest item ${Math.floor(f.ageHours)} h old (${formatUtcDateTime(f.latestAt)})`;
+      }
       return `Latest available: Day ${f.latestDay} (${formatConflictDayShort(f.latestDay!)}) — no data for Day ${f.currentDay}`;
     case 'ahead':
+      if (f.ageHours != null && f.latestAt)
+        return `Newest item is stamped ${formatUtcDateTime(f.latestAt)}, ahead of the clock — verify pipeline clock`;
       return `Data stamped Day ${f.latestDay} is ahead of calendar Day ${f.currentDay} — verify pipeline clock`;
     case 'empty':
     default:

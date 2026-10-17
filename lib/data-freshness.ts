@@ -9,16 +9,12 @@
  *   - scenario_probabilities.conflict_day
  */
 import { createClient } from '@/lib/supabase/client';
-import { currentConflictDay } from '@/lib/conflict-calendar';
+import { ARTICLE_STALE_HOURS, currentConflictDay } from '@/lib/conflict-calendar';
 
 /** Briefs / scenarios are stale when they lag the calendar conflict day by more than this many days. */
 export const BRIEF_STALE_DAYS = 1;
-/**
- * Articles are stale when the newest published_at is older than this many hours.
- * 12h, not 6h: the scheduled GitHub Actions "hourly" feeds cron only fires every ~4-7h in practice,
- * so a 6h threshold flags normal gaps as stale.
- */
-export const ARTICLE_STALE_HOURS = 12;
+/** Articles stale threshold (12 h): defined once in lib/conflict-calendar.ts, shared with the feed's DataAsOf. */
+export { ARTICLE_STALE_HOURS };
 
 export interface DataFreshness {
   /** false until the first successful read. */
