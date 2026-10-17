@@ -8,7 +8,7 @@
  *      so a new Chokepoint Weekly never breaks this check.
  *   3. Reduced motion: HeroScene's decision, the poster, and the WebGL drift step.
  *   4. No WebGL: the poster renders (never a blank box); software renderers stay rejected.
- *   5. Honesty / map rules: no text, never mirrored, lanes over open sea, top fade off the text rows.
+ *   5. Honesty / map rules: no text, never mirrored, lanes over open sea; mounted in the home figure slot.
  *
  *   npx --yes tsx tests/unit/hero-relief.check.ts
  *
@@ -430,12 +430,14 @@ check('HeroScene first render: the gradient box (aria-hidden, fixed size) is alw
 });
 
 // ---- 5. Honesty and map rules ----------------------------------------------------------------------
-check('no text in the relief, never mirrored, top fade keeps the first 72 px clear', () => {
+check('no text in the relief, never mirrored; in its own figure slot, so no fade mask over text rows', () => {
   const html = renderToStaticMarkup(h(ReliefLayer, { gl: true, reducedMotion: false, lanes: NEUTRAL_STYLES }));
   assert.ok(!/<text|<tspan|<title/.test(html), 'text inside the relief');
   assert.match(html, /aria-hidden="true"/);
   assert.match(html, /direction:ltr/);
-  assert.match(html, /mask-image:linear-gradient\(to bottom, transparent 0, transparent 72px, var\(--bg\) 128px\)/);
+  // The relief moved from behind the ticker / headline into a figure beside the headline (home v2): no text
+  // sits over it any more, so the old top-fade mask is gone and nothing dims the lanes.
+  assert.ok(!/mask-image/.test(html), 'relief still masked');
   for (const f of ['ReliefPoster.tsx', 'ReliefLayer.tsx', 'relief-gl.ts']) {
     const src = readFileSync(join(ROOT, 'components/home/relief', f), 'utf8');
     assert.ok(!/scaleX\(\s*-1|scale\(\s*-1|rtl:|\[dir=['"]?rtl/.test(src), `${f} mirrors`);

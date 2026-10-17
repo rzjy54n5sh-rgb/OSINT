@@ -1,8 +1,11 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { formatConflictDayShort } from '@/lib/conflict-calendar';
+import { formatShortDay } from '@/lib/corridors';
+import { unmeasuredHeadline } from '@/lib/scenario-registry';
 import type { ScenarioRowItem, ScenarioRowView } from '@/lib/scenario-row';
-import { ScenarioChip } from '@/components/ui/ScenarioChip';
+import s from './home.module.css';
 
 /** Theme-aware identity colour (design system v2); E and dynamic scenarios have none. */
 function scenarioVar(code: string): string {
@@ -10,12 +13,41 @@ function scenarioVar(code: string): string {
 }
 
 /**
- * Home first screen (UX audit §6, "Have the odds moved?"): the registry scenarios in one row with
- * the numbers /scenarios publishes for its latest day (lib/scenario-row.ts reuses the /scenarios
- * mappers; tests/unit/scenario-row.check.ts asserts equality). B is a range, an unmeasured
- * scenario says so in words. No hooks, no fetch: safe in server and client components.
- * Phones: the row scrolls sideways inside itself; from `lg` it is one grid row with a column per scenario
- * (A-E plus any scenario born later), so a new scenario never wraps onto a second line.
+ * Short form of the /scenarios unmeasured headline (lib/scenario-registry unmeasuredHeadline, shared with
+ * /scenarios): "No reading yet", "No market linked", "No market meets the quality floor" or "No qualifying
+ * market". The full reason stays on /scenarios.
+ */
+function unmeasuredShort(reason: string | null): string {
+  const tail = unmeasuredHeadline(reason).replace(/^Unmeasured\s*[—–-]\s*/, '');
+  return tail.charAt(0).toUpperCase() + tail.slice(1);
+}
+
+/** "Unmeasured · E: no market meets the quality floor · F, G: no reading yet" (codes grouped by reason). */
+function unmeasuredNote(items: ScenarioRowItem[]): string | null {
+  const by = new Map<string, string[]>();
+  for (const it of items) if (it.kind === 'unmeasured') by.set(unmeasuredShort(it.reason), [...(by.get(unmeasuredShort(it.reason)) ?? []), it.code]);
+  if (!by.size) return null;
+  return `Unmeasured · ${[...by].map(([why, codes]) => `${codes.join(', ')}: ${why.toLowerCase()}`).join(' · ')}`;
+}
+
+/** Phone grid columns for n scenarios: all in one row up to five, then two balanced rows, then rows of four. */
+export function gridColumns(n: number): number {
+  if (n <= 5) return Math.max(1, n);
+  if (n <= 8) return Math.ceil(n / 2);
+  return 4;
+}
+
+/** "31 Oct" from the run's horizon (an ISO date); the full value stays in <time dateTime>. */
+function horizonLabel(h: string | null): string | null {
+  if (!h) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(h) ? formatShortDay(h) : h;
+}
+
+/**
+ * Home "Odds" card (Main artboard: a list with one bar per scenario; Home-Mobile: five columns). The
+ * registry scenarios with the numbers /scenarios publishes for its latest day (lib/scenario-row.ts reuses
+ * the /scenarios mappers; tests/unit/scenario-row.check.ts asserts equality). B is a hatched range, never a
+ * point; an unmeasured scenario has no bar and says so in words. No hooks, no fetch: server-safe.
  */
 export function ScenarioRow({
   row,
@@ -23,130 +55,133 @@ export function ScenarioRow({
   headingId = 'scenario-row-h',
 }: {
   row: ScenarioRowView;
-  /** Calendar day (DAY LOCK); when given and the row is older, a stale label is shown. */
+  /** Calendar day (DAY LOCK); when given and the row is older, the freshness line is shown. */
   currentDay?: number;
   headingId?: string;
 }) {
   const hasData = row.day != null && row.items.length > 0;
+  const horizon = horizonLabel(row.horizon);
   return (
-    <section
-      aria-labelledby={headingId}
-      className="mb-6 px-4 py-3"
-      style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}
-      data-testid="home-scenario-row"
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-2">
-        <h2
-          id={headingId}
-          className="text-[13px] font-semibold uppercase"
-          style={{ fontFamily: 'var(--font-ui)', color: 'var(--accent-gold)', letterSpacing: '0.06em' }}
-        >
-          Scenario odds{row.horizon ? ` to ${row.horizon}` : ''}
+    <section id="scenarios" aria-labelledby={headingId} className={`${s.card} ${s.odds}`} data-testid="home-scenario-row">
+      <div className={s.cardHead}>
+        <h2 id={headingId} className={s.h2}>
+          Scenario odds
+          {horizon ? (
+            <>
+              {' '}
+              by <time dateTime={row.horizon ?? undefined}>{horizon}</time>
+            </>
+          ) : null}
         </h2>
-        <Link prefetch={false} href="/scenarios" className="text-[13px]" style={{ color: 'var(--link)' }}>
-          Full method &amp; markets →
-        </Link>
+        {hasData ? (
+          <span className={`${s.meta} ${s.num}`} translate="no">
+            Market prices, not the desk&apos;s forecast · Day {row.day} ({formatConflictDayShort(row.day!)}) · method {row.method ?? '—'}
+          </span>
+        ) : null}
       </div>
 
       {hasData ? (
         <>
-          <p className="num mb-3" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }} translate="no">
-            Day {row.day} ({formatConflictDayShort(row.day!)}) · method {row.method ?? '—'}
-            {row.horizon ? ` · horizon ${row.horizon}` : ''}
-          </p>
           {/* Always mounted (hidden while current): the client re-check after mount can still flag a page
               cached before the 14:00 UTC deadline or before midnight, so it never contradicts the client sections. */}
-          {currentDay != null && (
-            <DataAsOf section="SCENARIOS" latestDay={row.day} currentDay={currentDay} className="mb-3" hideWhenCurrent />
-          )}
-          <ul
-            className="flex gap-2 overflow-x-auto snap-x pb-1 lg:grid lg:grid-flow-col lg:auto-cols-fr lg:overflow-visible"
-            aria-label={`Scenario probabilities, Day ${row.day}`}
-            tabIndex={0}
-          >
+          {currentDay != null && <DataAsOf section="SCENARIOS" latestDay={row.day} currentDay={currentDay} hideWhenCurrent />}
+          <ul className={s.oddsList} aria-label={`Scenario probabilities, Day ${row.day}`} data-testid="home-odds-list">
             {row.items.map((item) => (
-              <ScenarioRowCard key={item.code} item={item} />
+              <OddsItem key={item.code} item={item} />
             ))}
           </ul>
-          <p className="mt-2 leading-relaxed" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-            Market prices for each market&apos;s own close: a crowd estimate, not this desk&apos;s forecast. B is a range because
-            A, C and D can happen in the same window.
-          </p>
+          {/* Phones (Home-Mobile): five columns. Real text per cell ("B 72–81% range", "E unmeasured"), so the
+              figures stay in the accessibility tree; only one of list / grid is displayed at a time. */}
+          <ul
+            className={`${s.oddsGrid} ${s.num}`}
+            aria-label={`Scenario probabilities, Day ${row.day}`}
+            data-testid="home-odds-grid"
+            // Any number of scenarios: one row up to five, then balanced rows (7 → 4 + 3), never a sideways scroll.
+            style={{ '--odds-cols': gridColumns(row.items.length) } as CSSProperties}
+          >
+            {row.items.map((item) => (
+              <li
+                key={item.code}
+                data-kind={item.kind}
+                data-code={item.code}
+                style={{ borderTopColor: item.kind === 'unmeasured' ? 'var(--muted)' : scenarioVar(item.code) }}
+              >
+                <span className={s.text2}>{item.code}</span>
+                {item.kind === 'unmeasured' ? (
+                  <span className={s.oddsGridVal}>
+                    <span aria-hidden="true">—</span>
+                    <span className="chip-sr-only"> unmeasured, {unmeasuredShort(item.reason).toLowerCase()}</span>
+                  </span>
+                ) : (
+                  <span className={item.kind === 'range' ? s.oddsGridRange : s.oddsGridVal}>
+                    <span className="chip-sr-only"> </span>
+                    {item.text}
+                    {item.kind === 'range' ? <span className="chip-sr-only"> range</span> : null}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {/* Phones: the cells show "—" for an unmeasured scenario; this line says why (the cells carry it for screen readers). */}
+          {unmeasuredNote(row.items) ? (
+            <p className={s.oddsGridNote} aria-hidden="true">
+              {unmeasuredNote(row.items)}
+            </p>
+          ) : null}
         </>
       ) : (
-        <p className="font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
-          {row.error ? 'Scenario data is not available just now.' : 'Scenario data is not available yet.'}{' '}
-          <Link prefetch={false} href="/scenarios" style={{ color: 'var(--accent-gold)' }}>
-            Open /scenarios →
-          </Link>
-        </p>
+        <p className={s.empty}>{row.error ? 'Scenario data is not available just now.' : 'Scenario data is not available yet.'}</p>
       )}
+      <Link prefetch={false} href="/scenarios" className={s.cta}>
+        Full method &amp; markets →
+      </Link>
     </section>
   );
 }
 
-function ScenarioRowCard({ item }: { item: ScenarioRowItem }) {
-  const measured = item.kind !== 'unmeasured';
+function OddsItem({ item }: { item: ScenarioRowItem }) {
   const color = scenarioVar(item.code);
+  const note =
+    item.kind === 'range'
+      ? 'A range, not a point: A, C and D can co-occur'
+      : item.kind === 'unmeasured'
+        ? `Unmeasured: ${unmeasuredShort(item.reason)}`
+        : item.deltaText;
   return (
-    <li
-      className="snap-start shrink-0 w-[44%] min-w-[150px] sm:w-[30%] lg:w-auto lg:min-w-0 px-3 py-2"
-      style={{
-        border: item.independent ? '1px dashed var(--border)' : '1px solid var(--border)',
-        borderTop: `2px ${item.independent ? 'dashed' : 'solid'} ${measured ? color : 'var(--border)'}`,
-      }}
-      data-testid={`home-scenario-${item.code}`}
-      data-kind={item.kind}
-    >
-      <h3 className="text-sm leading-snug" style={{ color: 'var(--text-primary)' }}>
-        <ScenarioChip code={item.code} label={item.name} kind={item.kind} />
-      </h3>
-      <p
-        className={measured ? 'num text-2xl mt-1' : 'num text-sm mt-2'}
-        style={{ color: measured ? color : 'var(--text-secondary)', lineHeight: 1.1 }}
-        translate="no"
-      >
-        {item.text}
-        {item.kind === 'range' && ' '}
-        {item.kind === 'range' && (
-          <span className="ml-1 align-middle" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-            range
-          </span>
-        )}
-      </p>
-      <MiniBar item={item} color={color} />
-      <p className="mt-1 leading-snug" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-muted)' }}>
-        {item.kind === 'range'
-          ? 'A range: A, C and D can co-occur'
-          : item.kind === 'unmeasured'
-            ? unmeasuredShort(item.reason)
-            : item.deltaText}
-      </p>
-      {item.independent && (
-        <p className="mt-1" style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-secondary)' }}>
-          Independent · not part of the 100
-        </p>
-      )}
+    <li className={s.oddsItem} data-testid={`home-scenario-${item.code}`} data-kind={item.kind}>
+      <div className={s.oddsHead}>
+        <span className={s.oddsLabel}>
+          <span className={`${s.num} ${s.oddsCode}`} style={{ color: item.kind === 'unmeasured' ? 'var(--text-2)' : color }} translate="no">
+            {item.code}
+          </span>{' '}
+          {item.name}
+        </span>
+        <span className={`${s.num} ${s.oddsVal}`} translate="no">
+          {item.kind === 'unmeasured' ? (
+            // The note below says "Unmeasured: <reason>"; the dash is only its visual stand-in.
+            <span aria-hidden="true">—</span>
+          ) : (
+            item.text
+          )}
+          {item.kind === 'range' ? <span className="chip-sr-only"> (range)</span> : null}
+        </span>
+      </div>
+      <OddsBar item={item} color={color} />
+      {note ? <span className={`${s.num} ${s.oddsNote}`}>{note}</span> : null}
+      {item.independent ? <span className={s.oddsNote}>Independent · not part of the 100</span> : null}
     </li>
   );
 }
 
-/** Short form of the /scenarios unmeasured headline (unmeasuredHeadline); the full reason stays on /scenarios. */
-function unmeasuredShort(reason: string | null): string {
-  if (reason && /^Born on Day \d+, after the latest published day/.test(reason)) return 'No reading yet';
-  if (reason && /no market is linked/i.test(reason)) return 'No market linked';
-  return reason && /quality floor/i.test(reason) ? 'No market meets the quality floor' : 'No qualifying market';
-}
-
-/** Decorative 0–100 track (the number above carries the value). */
-function MiniBar({ item, color }: { item: ScenarioRowItem; color: string }) {
-  if (item.kind === 'unmeasured') return <div aria-hidden className="mt-2 h-1 w-full" style={{ background: 'var(--track)' }} />;
+/** Decorative 0–100 track (the number above carries the value). B hatched from low to high; unmeasured: dashed, empty. */
+function OddsBar({ item, color }: { item: ScenarioRowItem; color: string }) {
+  if (item.kind === 'unmeasured') return <div aria-hidden="true" className={s.oddsTrack} data-unmeasured="true" />;
   const lo = item.kind === 'range' ? Math.max(0, Math.min(100, item.low ?? 0)) : 0;
   const hi = item.kind === 'range' ? Math.max(lo, Math.min(100, item.high ?? 0)) : Math.max(0, Math.min(100, item.p ?? 0));
   return (
-    <div aria-hidden className="mt-2 h-1 w-full relative" style={{ background: 'var(--track)' }}>
+    <div aria-hidden="true" className={s.oddsTrack}>
       <div
-        className="absolute top-0 h-full"
+        className={s.oddsFill}
         style={{
           insetInlineStart: `${lo}%`,
           width: `${Math.max(hi - lo, 0.8)}%`,
