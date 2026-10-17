@@ -57,7 +57,57 @@ export function formatConflictDayShort(conflictDay: number): string {
   });
 }
 
-export type FreshnessStatus = 'current' | 'stale' | 'empty' | 'ahead';
+export type FreshnessStatus = 'current' | 'pending' | 'stale' | 'empty' | 'ahead';
+
+/**
+ * Publishing schedule (UTC "HH:MM"). The conflict day rolls over at 00:00 UTC, but each day's data is
+ * written later by the daily build, so for a few hours every night the newest data is legitimately
+ * yesterday's. Inside that window the section is "pending" (a calm note); only after the deadline, or
+ * when the gap is 2+ days, is it "stale" (the warning). If the build fails, the deadline flips it to stale.
+ */
+export interface PublishSchedule {
+  /** When the day's data normally lands; shown to readers as "publishes around …". */
+  typicalUtc: string;
+  /** After this time a missing day is a real gap (stale). */
+  deadlineUtc: string;
+}
+
+/**
+ * Daily build: cron 01:45 UTC, edition cut-off 01:30 UTC. Observed writes (Days 228–231): general brief
+ * 01:56–02:01 UTC, War Posture 02:02–02:10 UTC, first market row 00:02–02:08 UTC.
+ */
+export const BRIEF_PUBLISH_TYPICAL_UTC = '02:00';
+/** 2 h buffer over the normal ~02:10 UTC publish time. */
+export const BRIEF_PUBLISH_DEADLINE_UTC = '04:00';
+export const DAILY_BUILD_SCHEDULE: PublishSchedule = {
+  typicalUtc: BRIEF_PUBLISH_TYPICAL_UTC,
+  deadlineUtc: BRIEF_PUBLISH_DEADLINE_UTC,
+};
+
+/**
+ * Scenario odds are NOT written by the 02:00 build: scenario-daily (market-anchored-v1) published
+ * Days 226–231 between 09:56 and 13:17 UTC (scenario_runs.recorded_at). Telling readers "around
+ * 02:00 UTC" would be false, so scenarios carry their own schedule (deadline covers the latest
+ * observed run with a buffer).
+ */
+export const SCENARIO_PUBLISH_TYPICAL_UTC = '10:00';
+export const SCENARIO_PUBLISH_DEADLINE_UTC = '14:00';
+export const SCENARIO_SCHEDULE: PublishSchedule = {
+  typicalUtc: SCENARIO_PUBLISH_TYPICAL_UTC,
+  deadlineUtc: SCENARIO_PUBLISH_DEADLINE_UTC,
+};
+
+/** Schedule for a DataAsOf section name ("SCENARIOS" → scenario run; everything else → daily build). */
+export function publishScheduleFor(section: string): PublishSchedule {
+  return section.trim().toUpperCase() === 'SCENARIOS' ? SCENARIO_SCHEDULE : DAILY_BUILD_SCHEDULE;
+}
+
+/** Minutes after 00:00 for "HH:MM" (throws on a malformed constant). */
+export function utcClockMinutes(hhmm: string): number {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
+  if (!m) throw new Error(`bad UTC clock time: ${hhmm}`);
+  return Number(m[1]) * 60 + Number(m[2]);
+}
 
 export interface SectionFreshness {
   status: FreshnessStatus;
@@ -67,32 +117,63 @@ export interface SectionFreshness {
   currentDay: number;
   /** currentDay − latestDay (null when empty). */
   lagDays: number | null;
+  /** The schedule the verdict was taken against. */
+  schedule: PublishSchedule;
+}
+
+export interface FreshnessOptions {
+  /** The instant to judge at (tests pass a fixed clock). Defaults to now. */
+  now?: Date;
+  /** Defaults to the daily build (BRIEF_PUBLISH_DEADLINE_UTC). */
+  schedule?: PublishSchedule;
 }
 
 /**
  * Compare a section's own latest day with the calendar day.
  * - current: the section has data for today
- * - stale:   newest data is older than today → must be labelled "Latest available"
+ * - pending: newest data is yesterday's, today IS `now`'s calendar day, and it is before the
+ *            publish deadline → expected schedule, a neutral note ("publishes around …")
+ * - stale:   newest data is older than that (past the deadline, or 2+ days behind) → "Latest available"
  * - empty:   the section has no rows at all
  * - ahead:   data stamped later than the calendar (clock/pipeline error) → flagged, never silently shown
  */
 export function sectionFreshness(
   latestDay: number | null | undefined,
-  currentDay: number = currentConflictDay()
+  currentDay?: number,
+  opts: FreshnessOptions = {}
 ): SectionFreshness {
+  const now = opts.now ?? new Date();
+  const schedule = opts.schedule ?? DAILY_BUILD_SCHEDULE;
+  const today = currentDay ?? currentConflictDay(now);
   if (latestDay == null || !Number.isFinite(latestDay) || latestDay < 1) {
-    return { status: 'empty', latestDay: null, currentDay, lagDays: null };
+    return { status: 'empty', latestDay: null, currentDay: today, lagDays: null, schedule };
   }
-  const lagDays = currentDay - latestDay;
-  const status: FreshnessStatus = lagDays === 0 ? 'current' : lagDays > 0 ? 'stale' : 'ahead';
-  return { status, latestDay, currentDay, lagDays };
+  const lagDays = today - latestDay;
+  let status: FreshnessStatus;
+  if (lagDays === 0) status = 'current';
+  else if (lagDays < 0) status = 'ahead';
+  else if (
+    lagDays === 1 &&
+    // A currentDay from an older render (e.g. cached before midnight) must not reopen the window.
+    currentConflictDay(now) === today &&
+    now.getUTCHours() * 60 + now.getUTCMinutes() < utcClockMinutes(schedule.deadlineUtc)
+  )
+    status = 'pending';
+  else status = 'stale';
+  return { status, latestDay, currentDay: today, lagDays, schedule };
 }
 
-/** Human label for a section's freshness. Exact wording for the degraded state is a product requirement. */
-export function freshnessLabel(f: SectionFreshness): string {
+/**
+ * Human label for a section's freshness. Exact wording for the degraded state is a product requirement.
+ * `noun` names what is expected in the pending note ("brief", "market data" …). The pending note says
+ * "publishes around", never "published": it describes the schedule, not an event that happened.
+ */
+export function freshnessLabel(f: SectionFreshness, noun = 'update'): string {
   switch (f.status) {
     case 'current':
       return `DAY ${f.currentDay} (${formatConflictDayShort(f.currentDay)}) — CURRENT`;
+    case 'pending':
+      return `Day ${f.currentDay} ${noun} publishes around ${f.schedule.typicalUtc} UTC. Showing Day ${f.latestDay} (${formatConflictDayShort(f.latestDay!)}).`;
     case 'stale':
       return `Latest available: Day ${f.latestDay} (${formatConflictDayShort(f.latestDay!)}) — no data for Day ${f.currentDay}`;
     case 'ahead':

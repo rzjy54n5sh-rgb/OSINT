@@ -120,9 +120,15 @@ TypeScript interfaces live in **`types/supabase.ts`**. Table names and shapes us
   (`getLatestDayFor(table)` in `utils/supabase/server.ts`, or `maxConflictDay(rows)` client-side) —
   briefings over `daily_briefings`, markets over `market_data`, NAI over `nai_scores`, scenarios over
   `scenario_probabilities`, social over `social_trends`. No section borrows another table's day.
-- **Degraded state:** every such section renders `components/ui/DataAsOf.tsx`. When its own latest day ≠
-  the calendar day it shows `Latest available: Day N (date) — no data for Day <today>`; when current it
-  shows `AS OF DAY N · CURRENT`. Frozen sections (NAI, scenarios) therefore always show their as-of day.
+- **Degraded state:** every such section renders `components/ui/DataAsOf.tsx`. When current it shows
+  `as of Day N · current`. **Overnight window (schedule-aware, `sectionFreshness()`):** the day rolls over at
+  00:00 UTC but the daily build writes ~01:56–02:10 UTC, so when the latest day is exactly yesterday and the
+  UTC time is before the publish deadline (`BRIEF_PUBLISH_DEADLINE_UTC = '04:00'`; scenarios, written by
+  scenario-daily ~10:00–13:20 UTC, use `SCENARIO_PUBLISH_DEADLINE_UTC = '14:00'`) it shows a muted
+  `pending` note: `Day N brief publishes around 02:00 UTC. Showing Day N−1 (date).` — never "published".
+  After the deadline, or 2+ days behind, it shows the `Stale` chip (status-elevated) and
+  `Latest available: Day N (date) — no data for Day <today>`. A failed build therefore turns stale at the
+  deadline. Frozen sections therefore always show their as-of day. Test: `tests/unit/data-as-of-schedule.check.ts`.
 - **Exception — `country_reports`:** UNIQUE on `country_code` alone, i.e. one current snapshot per
   country, not a time series. Its single `conflict_day` is the snapshot stamp, not staleness.
 - **Resolved contradiction (2026-10-05):** this section previously said "Source of truth: Latest

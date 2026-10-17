@@ -1,5 +1,6 @@
 import { createPublicClient, getConflictDay } from '@/utils/supabase/server';
-import { formatConflictDayShort, sectionFreshness } from '@/lib/conflict-calendar';
+import { publishScheduleFor, sectionFreshness } from '@/lib/conflict-calendar';
+import { DataAsOf } from '@/components/ui/DataAsOf';
 import { TRACKED_COUNTRY_NAMES } from '@/lib/country-names';
 import { PostureSwatch } from '@/components/ui/PostureSwatch';
 import { conflictName, getPostureBoard, isV1Fallback, postureLabelDef, postureLineLabel, postureMoves } from '@/lib/posture';
@@ -31,16 +32,16 @@ export async function NaiBiggestMoveBanner() {
   const countries = new Set(positions.map((r) => r.country_code)).size;
 
   if (board.schema === 'v1') {
-    const fresh = sectionFreshness(board.latestDay ?? currentDay, currentDay);
+    const fresh = sectionFreshness(board.latestDay ?? currentDay, currentDay, { schedule: publishScheduleFor('WAR POSTURE') });
     return (
       <div className={box} style={{ color: 'var(--text-muted)' }} data-testid="nai-biggest-move" data-freshness={fresh.status} data-schema="v1">
         ◆ WAR POSTURE — DAY {board.latestDay}: {countries} governments with a sourced position on record.{' '}
         Moves are flagged only when they rest on newly captured evidence; the current series re-checks its sources daily, so
         its day-to-day differences are not shown as moves.
+        {/* Same schedule-aware note as every DataAsOf: overnight (before the publish deadline) a calm
+            "publishes around" note; only after it, or 2+ days behind, the "Stale" warning. */}
         {fresh.status !== 'current' && board.latestDay != null && (
-          <div className="mt-1 uppercase" style={{ color: 'var(--status-unknown)' }} translate="no">
-            Latest available: Day {board.latestDay} ({formatConflictDayShort(board.latestDay)}) — no data for Day {currentDay}
-          </div>
+          <DataAsOf section="WAR POSTURE" latestDay={board.latestDay} currentDay={currentDay} className="mt-1" />
         )}
       </div>
     );
