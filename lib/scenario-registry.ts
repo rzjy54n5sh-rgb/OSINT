@@ -382,6 +382,42 @@ export function unmeasuredFlag(run: ScenarioRun | null, code: string): string | 
   return f ? f.slice(`${code} NULL:`.length).trim() : null;
 }
 
+/**
+ * Why `s` has no number on `day`, from stored facts only (never a guess):
+ *  1. the run's "<code> NULL:" flag (E-style: a market exists but fails the floor);
+ *  2. the published row's null_reason;
+ *  3. no published row at all: born after `day` → says so; otherwise, when the run read no market of that
+ *     class (a scenario born from a candidate, e.g. F/G, which scenario_daily.py does not measure) → says so.
+ * Returns null only when none of these facts is available.
+ */
+export function unmeasuredReason(
+  view: Pick<ScenarioRegistryView, 'history' | 'run'>,
+  s: Pick<RegistryScenario, 'code' | 'born_day'>,
+  day: number | null,
+): string | null {
+  const flag = unmeasuredFlag(view.run, s.code);
+  if (flag) return flag;
+  const point = day == null ? undefined : view.history.find((x) => x.code === s.code && x.conflict_day === day);
+  if (point) return point.null_reason;
+  if (day == null) return null;
+  if (s.born_day != null && s.born_day > day) {
+    return `Born on Day ${s.born_day}, after the latest published day (Day ${day}); no reading yet.`;
+  }
+  const run = view.run;
+  if (run && run.conflict_day === day && !run.inputs.some((i) => i.scenario_class === s.code)) {
+    return `No market is linked to this scenario: the Day ${day} ${run.method_version} run read no market for ${s.code}, so it has no number. Shown as unmeasured, never estimated.`;
+  }
+  return null;
+}
+
+/** Headline for an unmeasured card, chosen from its reason (shared by /scenarios and the home row). */
+export function unmeasuredHeadline(reason: string | null): string {
+  if (reason && /^Born on Day \d+, after the latest published day/.test(reason)) return 'Unmeasured — no reading yet';
+  if (reason && /no market is linked/i.test(reason)) return 'Unmeasured — no market linked';
+  if (reason && /quality floor/i.test(reason)) return 'Unmeasured — no market meets the quality floor';
+  return 'Unmeasured — no qualifying market';
+}
+
 // ---------------------------------------------------------------------------------------------
 // Honest display: B as a range, and a fixed 30-day reading (strategy 2026-10-08)
 // ---------------------------------------------------------------------------------------------

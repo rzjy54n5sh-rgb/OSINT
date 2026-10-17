@@ -14,7 +14,8 @@ function scenarioVar(code: string): string {
  * the numbers /scenarios publishes for its latest day (lib/scenario-row.ts reuses the /scenarios
  * mappers; tests/unit/scenario-row.check.ts asserts equality). B is a range, an unmeasured
  * scenario says so in words. No hooks, no fetch: safe in server and client components.
- * Phones: the row scrolls sideways inside itself; from `lg` it is a five-column grid.
+ * Phones: the row scrolls sideways inside itself; from `lg` it is one grid row with a column per scenario
+ * (A-E plus any scenario born later), so a new scenario never wraps onto a second line.
  */
 export function ScenarioRow({
   row,
@@ -59,7 +60,7 @@ export function ScenarioRow({
             <DataAsOf section="SCENARIOS" latestDay={row.day} currentDay={currentDay} className="mb-3" hideWhenCurrent />
           )}
           <ul
-            className="flex gap-2 overflow-x-auto snap-x pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible"
+            className="flex gap-2 overflow-x-auto snap-x pb-1 lg:grid lg:grid-flow-col lg:auto-cols-fr lg:overflow-visible"
             aria-label={`Scenario probabilities, Day ${row.day}`}
             tabIndex={0}
           >
@@ -130,8 +131,10 @@ function ScenarioRowCard({ item }: { item: ScenarioRowItem }) {
   );
 }
 
-/** Short form of the /scenarios unmeasured headline; the run's full flag text stays on /scenarios. */
+/** Short form of the /scenarios unmeasured headline (unmeasuredHeadline); the full reason stays on /scenarios. */
 function unmeasuredShort(reason: string | null): string {
+  if (reason && /^Born on Day \d+, after the latest published day/.test(reason)) return 'No reading yet';
+  if (reason && /no market is linked/i.test(reason)) return 'No market linked';
   return reason && /quality floor/i.test(reason) ? 'No market meets the quality floor' : 'No qualifying market';
 }
 

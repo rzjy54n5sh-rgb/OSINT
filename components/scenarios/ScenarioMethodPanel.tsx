@@ -109,7 +109,8 @@ export function ScenarioMethodPanel({
             </li>
             <li>
               Independent scenarios are measured on their own; with no qualifying market they are published as unmeasured, not
-              zero.
+              zero. A scenario born from a detected candidate has no linked market until one is approved, so it has no reading
+              and is shown as unmeasured.
             </li>
             {core && (
               <li>
