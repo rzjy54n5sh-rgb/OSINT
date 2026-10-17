@@ -33,6 +33,20 @@ require.extensions['.css'] = (m: NodeJS.Module) => {
   m.exports = classes;
 };
 const { ScenarioRow } = require('../../components/home/ScenarioRow') as typeof import('../../components/home/ScenarioRow');
+const { ScenariosClient } = require('../../components/scenarios/ScenariosClient') as typeof import('../../components/scenarios/ScenariosClient');
+
+/** A reason may name days ("Day 232") and the method version, and nothing else numeric: no probability, ever. */
+function assertNoInventedNumber(reason: string, label: string) {
+  const stripped = reason.replace(/\bDay \d+\b/g, '').replace(/market-anchored-v\d+/g, '');
+  assert.ok(!/\d/.test(stripped), `${label}: reason carries a number other than a day: ${reason}`);
+  assert.ok(!/%|percent|per cent|probab|likel|chance|odds/i.test(stripped), `${label}: reason reads like an estimate: ${reason}`);
+}
+/** Text content of one /scenarios card, from the rendered page. */
+function card(html: string, code: string): string {
+  const i = html.indexOf(`data-testid="scenario-card-${code}"`);
+  assert.ok(i >= 0, `card ${code} rendered`);
+  return html.slice(i, html.indexOf('</article>', i));
+}
 
 let n = 0;
 const ok = (label: string, fn: () => void) => {
@@ -132,7 +146,7 @@ ok('F and G carry an honest reason: the run read no market for them (not blank, 
     assert.ok(it.reason, `${code} reason must not be empty`);
     assert.match(it.reason!, /no market/i);
     assert.match(it.reason!, new RegExp(`Day 232`));
-    assert.ok(!/\d+%/.test(it.reason!), 'no probability in the reason');
+    assertNoInventedNumber(it.reason!, code);
   }
 });
 
@@ -146,6 +160,43 @@ ok('a scenario born after the latest published day says so', () => {
   assert.equal(f.kind, 'unmeasured');
   assert.match(f.reason ?? '', /born on Day 232/i);
   assert.match(f.reason ?? '', /Day 231/);
+  assertNoInventedNumber(f.reason ?? '', 'F born after');
+  const h = (registry as unknown as { unmeasuredHeadline: (r: string | null) => string }).unmeasuredHeadline;
+  assert.equal(h(f.reason), 'Unmeasured — no reading yet');
+  const html = renderToStaticMarkup(createElement(ScenarioRow, { row: r, currentDay: 232 }));
+  const fStart = html.indexOf('data-testid="home-scenario-F"');
+  assert.ok(html.slice(fStart, html.indexOf('</li>', fStart)).includes('No reading yet'), 'home F card: No reading yet');
+});
+
+ok('the number guard itself rejects an estimate smuggled into a reason', () => {
+  assert.throws(() => assertNoInventedNumber('No market is linked; about 12 percent on Day 232', 'mutant'));
+  assert.throws(() => assertNoInventedNumber('Roughly a one-in-five chance', 'mutant'));
+  assert.doesNotThrow(() => assertNoInventedNumber(after.items.find((i) => i.code === 'G')!.reason!, 'G'));
+});
+
+ok('/scenarios cards F and G (Day 232): unmeasured, "no market linked" headline, the reason, no number', () => {
+  const v = view([...base, ...born]);
+  const html = renderToStaticMarkup(createElement(ScenariosClient, { hasDetailAccess: true, registry: v, currentDay: 232 }));
+  for (const code of ['F', 'G']) {
+    const c = card(html, code);
+    assert.ok(c.includes('data-measurement="unmeasured"'), `${code} unmeasured`);
+    assert.ok(c.includes('Unmeasured — no market linked'), `${code} headline`);
+    assert.ok(c.includes('No market is linked to this scenario: the Day 232 market-anchored-v1 run read no market for'), `${code} reason line`);
+    assert.ok(!/\d+(\.\d+)?%/.test(c), `${code}: no percentage on the card`);
+  }
+  // A-E cards are the same as on a board without F/G.
+  const html0 = renderToStaticMarkup(createElement(ScenariosClient, { hasDetailAccess: true, registry: view(base), currentDay: 232 }));
+  for (const code of ['A', 'B', 'C', 'D', 'E']) assert.equal(card(html, code), card(html0, code), `${code} card unchanged`);
+});
+
+ok('/scenarios cards F and G (latest published day 231, born 232): "no reading yet"', () => {
+  const v = view([...base, ...born], 231);
+  const html = renderToStaticMarkup(createElement(ScenariosClient, { hasDetailAccess: true, registry: v, currentDay: 232 }));
+  for (const code of ['F', 'G']) {
+    const c = card(html, code);
+    assert.ok(c.includes('Unmeasured — no reading yet'), `${code} headline`);
+    assert.ok(c.includes('Born on Day 232, after the latest published day (Day 231); no reading yet.'), `${code} reason line`);
+  }
 });
 
 ok('headline helpers: no market linked vs quality floor vs no qualifying market', () => {

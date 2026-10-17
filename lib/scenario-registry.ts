@@ -412,6 +412,7 @@ export function unmeasuredReason(
 
 /** Headline for an unmeasured card, chosen from its reason (shared by /scenarios and the home row). */
 export function unmeasuredHeadline(reason: string | null): string {
+  if (reason && /^Born on Day \d+, after the latest published day/.test(reason)) return 'Unmeasured — no reading yet';
   if (reason && /no market is linked/i.test(reason)) return 'Unmeasured — no market linked';
   if (reason && /quality floor/i.test(reason)) return 'Unmeasured — no market meets the quality floor';
   return 'Unmeasured — no qualifying market';

@@ -133,6 +133,7 @@ function ScenarioRowCard({ item }: { item: ScenarioRowItem }) {
 
 /** Short form of the /scenarios unmeasured headline (unmeasuredHeadline); the full reason stays on /scenarios. */
 function unmeasuredShort(reason: string | null): string {
+  if (reason && /^Born on Day \d+, after the latest published day/.test(reason)) return 'No reading yet';
   if (reason && /no market is linked/i.test(reason)) return 'No market linked';
   return reason && /quality floor/i.test(reason) ? 'No market meets the quality floor' : 'No qualifying market';
 }
