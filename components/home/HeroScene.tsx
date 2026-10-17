@@ -31,11 +31,14 @@ function hasFastWebGL(): boolean {
 }
 
 /**
- * Home hero backdrop: the one 3D touch (System artboard), a tilted relief of the Gulf → Hormuz →
- * Arabian Sea → Bab al-Mandeb → Red Sea → Suez corridor with each lane in its status colour.
+ * Home relief figure: the one 3D touch (System artboard), a tilted relief of the Gulf → Hormuz →
+ * Arabian Sea → Bab al-Mandeb → Red Sea → Suez corridor with each lane in its status colour, in the
+ * figure slot beside the headline (Main artboard; HomeDashboard). Phones get none (Home-Mobile): the
+ * figure is display:none below 768 px, so the observer never fires and nothing is fetched.
  *
- * Layers, all absolutely positioned inside a fixed-height box (never shifts layout, CLS 0):
- *  1. CSS gradient (`.hero-scene`, server-rendered): everyone, from first paint.
+ * Layers, all absolutely positioned inside the figure's fixed-aspect box (never shifts layout, CLS 0):
+ *  1. The empty box (`.hero-scene`, server-rendered, inside the figure with its lane labels). Save-Data
+ *     stops here: data-relief-skip hides the figure's content (no download, no empty frame shown).
  *  2. Static SVG relief: added after load + on screen + idle, for everyone except Save-Data.
  *  3. Raw-WebGL relief over it, only when lib/hero-3d.ts allows (no reduced motion, no Save-Data,
  *     ≥ 768 px, ≥ 4 cores, ≥ 4 GB or unknown, hardware WebGL — software renderers are rejected).
@@ -48,12 +51,18 @@ function hasFastWebGL(): boolean {
 export function HeroScene({ lanes }: { lanes?: Record<ReliefLaneId, ReliefLaneStyle> }) {
   const ref = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<{ gl: boolean; reducedMotion: boolean } | null>(null);
+  // Save-Data: nothing is downloaded; the figure hides its caption and labels (home.module.css) rather than
+  // show an empty box. Set after hydration only, so the first render is unchanged.
+  const [skipped, setSkipped] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     // Cheap checks first: a Save-Data visitor downloads nothing beyond the page.
-    if (heroReliefMode(readHero3DEnv(window as unknown as Hero3DWindowLike)) === 'none') return;
+    if (heroReliefMode(readHero3DEnv(window as unknown as Hero3DWindowLike)) === 'none') {
+      setSkipped(true);
+      return;
+    }
 
     let cancelled = false;
     let idleId: number | undefined;
@@ -99,6 +108,7 @@ export function HeroScene({ lanes }: { lanes?: Record<ReliefLaneId, ReliefLaneSt
       aria-hidden="true"
       data-hero-3d={mode?.gl ? 'on' : 'off'}
       data-relief-motion={mode ? (mode.reducedMotion ? 'reduced' : 'full') : undefined}
+      data-relief-skip={skipped ? 'save-data' : undefined}
     >
       {mode && <ReliefLayer gl={mode.gl} reducedMotion={mode.reducedMotion} lanes={lanes} />}
     </div>

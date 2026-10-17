@@ -190,6 +190,7 @@
 }
 .laneName {
   margin: 0;
+  font-family: var(--cor-sans);
   font-size: 18px;
   font-weight: 600;
   line-height: 1.3;
@@ -281,6 +282,64 @@
   .strip[data-compact='true'] .stripFoot {
     font-size: 13px;
   }
+}
+/* Home v2: the page prints the heading above the relief (headless); on phones the cards become the
+   Home-Mobile lane list: name and index, chip and "N transits · week change", then a thin gauge. */
+.strip[data-headless='true'] { padding: 0; }
+.mUnit { display: none; }
+@media (max-width: 767px) {
+  .strip[data-compact='true'] .stripGrid { gap: 0; border-top: 1px solid var(--cor-line); }
+  .strip[data-compact='true'] .stripCard {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'who idx'
+      'chip facts'
+      'gauge gauge';
+    align-items: center;
+    gap: 6px 8px;
+    padding: 10px 0;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--cor-line);
+    border-radius: 0;
+  }
+  .strip[data-compact='true'] .laneHead,
+  .strip[data-compact='true'] .idxRow { display: contents; }
+  .strip[data-compact='true'] .laneWho { grid-area: who; }
+  .strip[data-compact='true'] .laneHead > :last-child { grid-area: chip; justify-self: start; }
+  .strip[data-compact='true'] .idxBig {
+    grid-area: idx;
+    justify-self: end;
+    font-size: 20px;
+  }
+  .strip[data-compact='true'] .idxText { display: none; }
+  .strip[data-compact='true'] .gauge { grid-area: gauge; }
+  .strip[data-compact='true'] .gaugeTrack { height: 4px; }
+  .strip[data-compact='true'] .gaugeTick { top: -2px; bottom: -2px; }
+  .strip[data-compact='true'] .facts {
+    grid-area: facts;
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    font-size: 13px;
+    color: var(--cor-text-2);
+  }
+  .strip[data-compact='true'] .facts dt {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .strip[data-compact='true'] .facts dd { font-size: 13px; white-space: nowrap; }
+  .strip[data-compact='true'] .facts > div + div::before { content: '·'; margin-inline-end: 6px; }
+  .strip[data-compact='true'] .facts > div { flex-direction: row; }
+  .strip[data-compact='true'] .mUnit { display: inline; }
+  .strip[data-compact='true'] .stripCard > p { grid-column: 1 / -1; }
+  .strip[data-compact='true'] .laneName { font-size: 15px; }
+  .strip[data-compact='true'] .stripFoot { font-size: 13px; line-height: 1.45; }
 }
 .staleNote {
   margin: 0;

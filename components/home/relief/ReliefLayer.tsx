@@ -4,13 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { HEIGHTFIELD_URL, NEUTRAL_STYLES, type ReliefLaneId, type ReliefLaneStyle } from './model';
 import { ReliefPoster } from './ReliefPoster';
 
-/**
- * Keeps the relief off the text rows at the top of the hero (the ticker row and, on phones, the
- * CorridorStrip header): fully transparent for the first 72 px, opaque from 128 px. A mask only reads
- * alpha, so any opaque colour works; a token (opaque in both themes) keeps the no-literal rule.
- */
-export const RELIEF_TOP_FADE = 'linear-gradient(to bottom, transparent 0, transparent 72px, var(--bg) 128px)';
-
 type Lanes = Record<ReliefLaneId, ReliefLaneStyle>;
 type GlModule = typeof import('./relief-gl');
 export type ReliefController = ReturnType<GlModule['startRelief']>;
@@ -44,8 +37,10 @@ export async function startReliefGl(d: {
 }
 
 /**
- * The corridor relief inside the home hero (mounted by HeroScene after first paint and idle, so
- * nothing here is on the LCP path). Always renders the static poster; when `gl` is true it also
+ * The corridor relief in the home figure beside the headline (mounted by HeroScene after first paint
+ * and idle, so
+ * nothing here is on the LCP path). It no longer sits behind text, so it is drawn at full strength with
+ * no fade mask. Always renders the static poster; when `gl` is true it also
  * loads the raw-WebGL renderer and the committed heightfield (same origin, /relief/) and fades the
  * canvas in over the poster. Any failure (fetch, decode, context loss) leaves the poster showing.
  *
@@ -127,9 +122,6 @@ export function ReliefLayer({
         position: 'absolute',
         inset: 0,
         direction: 'ltr',
-        opacity: 0.6,
-        WebkitMaskImage: RELIEF_TOP_FADE,
-        maskImage: RELIEF_TOP_FADE,
       }}
     >
       <ReliefPoster styles={lanes} visible={shown && glState !== 'on'} fade={!reducedMotion} />

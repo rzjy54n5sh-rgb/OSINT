@@ -1,0 +1,541 @@
+/*
+ * Home page v2 (artboards Main.dc.html 1440 and Home-Mobile.dc.html 390; System.dc.html tokens).
+ * Tokens only (app/globals.css): no colour literals, both themes. Phone layout below 768 px.
+ * Content max 1200 px, side gutter 24 (16 on phones), section gap 48, card padding 24 (16 on phones),
+ * radius 2, hairlines, no shadows, no left-border accents.
+ */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  color: var(--text);
+}
+.page a { text-underline-offset: 3px; }
+
+/* ---- shared type ---- */
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  /* 44 px at 1440 (artboard); scales down to 36 px so that, beside the figure (1024–1279), the text column
+     stays shorter than the fixed-aspect figure whichever font is showing: the figure sets the row height and
+     the web-font swap cannot push the page down (CLS). */
+  font-size: clamp(36px, calc(1.6vw + 21px), 44px);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--fs-h2);
+  line-height: 1.15;
+}
+.h3 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.dek {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  max-width: 46ch;
+}
+.meta {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.text2 {
+  margin: 0;
+  font-size: var(--fs-2);
+  color: var(--text-2);
+}
+.muted { color: var(--muted); }
+.num { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.empty {
+  margin: 0;
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+.cta {
+  color: var(--link);
+  font-size: 15px;
+  font-weight: 500;
+  align-self: flex-start;
+}
+.cta:hover,
+.text2Link:hover { color: var(--link-hover); }
+.text2Link { color: var(--text-2); }
+.deskOnly { visibility: inherit; }
+.phoneOnly { display: none; }
+.nowrap { white-space: nowrap; }
+
+/* ---- corridors hero ---- */
+.corr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  align-items: stretch;
+}
+.heroText {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  justify-content: center;
+}
+.heroText a { color: var(--link); }
+.figure {
+  flex: 1.35 1 560px;
+  min-width: 0;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* Save-Data (HeroScene sets data-relief-skip, nothing is fetched): keep the space (no layout shift) but show
+   no empty frame, caption or floating labels; the lane cards carry every fact. */
+.figure:has([data-relief-skip]) { visibility: hidden; }
+/* Fixed aspect from the first paint: the lazy relief fills it, nothing shifts (CLS 0). */
+.figureBox {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Labels appear with the relief they name (lazy, after load and idle), never over an empty box. */
+.figureBox:not(:has([data-relief])) .reliefLabels { visibility: hidden; }
+.reliefLabels [data-relief-label] {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 1;
+}
+.reliefLabels [data-relief-dot] {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-chip);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.reliefLabels [data-relief-text] {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+  font-size: var(--fs-meta);
+  font-weight: 600;
+  line-height: 1.25;
+  padding: 2px 6px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+}
+.reliefLabels [data-relief-name] { color: var(--text); }
+.reliefLabels [data-side='right'] [data-relief-text] { left: 10px; transform: translateY(-50%); }
+.reliefLabels [data-side='above'] [data-relief-text] { bottom: 10px; transform: translateX(-50%); }
+.reliefLabels [data-side='above-right'] [data-relief-text] { left: 8px; bottom: 8px; }
+
+/* ---- row: since yesterday | odds ---- */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+.card {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.since { flex: 999 1 560px; }
+.sinceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.sinceList > li {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.sinceN {
+  font-size: var(--fs-meta);
+  color: var(--muted);
+  padding-top: 3px;
+}
+.sinceBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sinceText {
+  margin: 0;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+}
+/* 24 px targets (WCAG 2.5.8): the source links and the full-item link sit close together. */
+.sinceMore,
+.sinceSrc a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+}
+.sinceMore {
+  align-self: flex-start;
+  font-size: var(--fs-meta);
+  color: var(--link);
+}
+.sinceMore:hover { color: var(--link-hover); }
+.sinceSrc {
+  margin: 0;
+  font-size: var(--fs-meta);
+  color: var(--muted);
+}
+.sinceSrc a { color: var(--text-2); text-decoration: underline; }
+
+.odds { flex: 1 1 380px; }
+.oddsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.oddsItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.oddsHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.oddsLabel { font-size: 15px; line-height: 1.35; }
+.oddsCode { font-weight: 600; }
+.oddsVal {
+  font-size: var(--fs-card);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.oddsTrack {
+  position: relative;
+  height: 6px;
+  background: var(--track);
+  border-radius: 1px;
+}
+.oddsTrack[data-unmeasured='true'] { background: transparent; outline: 1px dashed var(--muted); }
+.oddsFill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+}
+.oddsNote { font-size: var(--fs-meta); color: var(--muted); }
+.oddsGrid,
+.oddsGridNote { display: none; }
+
+/* ---- top finding ---- */
+.tf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5) var(--space-7);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-6);
+}
+.tfSide {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.tfMain {
+  flex: 3 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.corrected { margin: 0; font-size: var(--fs-meta); color: var(--muted); }
+.tfHead {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+.tfRest {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  max-width: 70ch;
+}
+.tfLinks {
+  display: flex;
+  gap: var(--space-2) 20px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  font-size: 15px;
+}
+
+/* ---- War Posture ---- */
+.wp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  align-items: stretch;
+}
+.wpMain {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.wpList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.wpRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.6fr) minmax(0, 0.7fr);
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+.wpWho,
+.wpStance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--fs-2);
+}
+.wpName { font-size: var(--fs-body); font-weight: 600; }
+.wpTrack {
+  position: relative;
+  height: 6px;
+  background: var(--track);
+}
+.wpTrack > div { position: absolute; inset: 0 auto 0 0; }
+.wpScore {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: var(--fs-card);
+}
+.wpScore .meta { font-size: var(--fs-meta); }
+.stated {
+  flex: 1 1 340px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.quote {
+  margin: 0;
+  padding: var(--space-3) 0 0;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.quote p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-card);
+  line-height: 1.4;
+}
+.quote a { color: var(--text-2); text-decoration: underline; }
+.statedNone {
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-2);
+  color: var(--muted);
+}
+
+/* ---- markets ---- */
+.mk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.mkGrid {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: var(--space-4);
+}
+.mkTile {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mkVal {
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* ---- trust strip ---- */
+.trust {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 20px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--space-4) var(--space-6);
+}
+.trustItem {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-1) 0;
+  color: var(--text);
+  text-decoration: none;
+  min-height: var(--target);
+}
+.trustItem:hover .trustLabel { text-decoration: underline; }
+.trustIcon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--text-2);
+  display: inline-flex;
+}
+.trustText { display: flex; flex-direction: column; }
+.trustLabel { font-weight: 600; font-size: 15px; }
+.newsletter {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ---- phones (Home-Mobile artboard) ---- */
+@media (max-width: 767px) {
+  .page { padding: var(--space-4) var(--space-4) var(--space-7); gap: 20px; }
+  .deskOnly { display: none; }
+  .phoneOnly { display: inline; }
+  .eyebrow { font-size: 12px; }
+  .h1 {
+    font-size: 25px;
+    line-height: 1.12;
+    letter-spacing: -0.005em;
+  }
+  .hero { gap: 10px; }
+  .heroText { gap: 10px; }
+  .corr { gap: 10px; }
+  /* No relief on phones (Home-Mobile): the box is not rendered, so nothing is fetched. */
+  .figure { display: none; }
+  .row { gap: 20px; }
+  .card {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    gap: var(--space-2);
+  }
+  .since .h2 { font-size: 22px; }
+  .sinceList > li { padding: 0 0 var(--space-2); border-top: 0; }
+  .sinceN { display: none; }
+  .sinceBody { gap: 2px; }
+  .sinceText { font-size: 15px; line-height: 1.4; }
+  .odds { border-top: 1px solid var(--line); padding-top: var(--space-3); }
+  .odds .h2 {
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .oddsList { display: none; }
+  .oddsGridNote { display: block; margin: 0; font-size: var(--fs-meta); color: var(--muted); }
+  .oddsGrid {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(var(--odds-cols, 5), minmax(0, 1fr));
+    gap: 10px 6px;
+    font-size: var(--fs-meta);
+  }
+  .oddsGrid > li {
+    display: flex;
+    flex-direction: column;
+    border-top: 3px solid var(--muted);
+    padding-top: var(--space-1);
+    min-width: 0;
+  }
+  .oddsGrid > li[data-kind='range'] { border-top-style: dotted; }
+  .oddsGrid > li[data-kind='unmeasured'] {
+    border-top-width: 1px;
+    border-top-style: dashed;
+    padding-top: 6px;
+  }
+  .oddsGridVal { font-size: var(--fs-body); }
+  .oddsGridRange { font-size: var(--fs-meta); overflow-wrap: anywhere; }
+  .tf { padding-top: 20px; gap: var(--space-3); }
+  .tfHead { font-size: 20px; }
+  .wpRow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--space-3); }
+  .stated { padding: var(--space-4); }
+  .mkGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .h2 { font-size: 22px; }
+}

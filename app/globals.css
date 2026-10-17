@@ -208,35 +208,16 @@ body {
    for a 1 % texture. The rule below stays so existing stacking (page above any backdrop) is unchanged. */
 body > * { position: relative; z-index: 1; }
 
-/* ── HOME HERO BACKDROP ──
-   Static layer for everyone (and the fallback when the WebGL field is skipped: reduced motion,
-   Save-Data, < 4 GB device memory, no hardware WebGL). components/home/HeroScene.tsx.
-   Absolutely positioned with a fixed height: never shifts layout. */
+/* ── HOME RELIEF FIGURE ──
+   The corridor relief's slot beside the home headline (Main artboard): components/home/HeroScene.tsx
+   fills its positioned parent (home.module.css .figureBox, fixed aspect, so it never shifts layout). The
+   static gradient shows for everyone, and is all a Save-Data visitor gets. */
 .hero-scene {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 440px;
-  z-index: -1;
+  inset: 0;
   pointer-events: none;
   overflow: hidden;
-  background:
-    radial-gradient(60% 70% at 18% 0%, color-mix(in srgb, var(--status-normal) 10%, transparent), transparent 70%),
-    radial-gradient(45% 60% at 85% 10%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
-  mask-image: linear-gradient(to bottom, #000 55%, transparent);
 }
-@media (max-width: 639px) {
-  .hero-scene { height: 320px; }
-}
-.hero-scene__canvas {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 1.2s ease;
-}
-.hero-scene__canvas[data-ready] { opacity: 0.75; }
 
 /* ── TYPOGRAPHY (v2: Newsreader for display and reading, Plex Sans for the interface, Plex Mono with
    tabular figures for numbers only) ── */

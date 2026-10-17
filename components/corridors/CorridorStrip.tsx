@@ -8,7 +8,9 @@ import s from './corridors.module.css';
  * Suez open this week?"). Server- and client-safe: no hooks, no fetch. Pass `view` to reuse a
  * view computed by the page; otherwise it is computed from the committed files at render time.
  * `compact` (home first screen): tighter spacing, no gauge scale labels, and the per-lane week
- * label only when it differs from the strip's week.
+ * label only when it differs from the strip's week. `headless` (home v2): the page prints the heading,
+ * week and stale note above the relief, so the strip renders only the lane cards and the source line,
+ * labelled by the page's heading (`headingId` then names that external heading).
  */
 export function CorridorStrip({
   view,
@@ -16,27 +18,40 @@ export function CorridorStrip({
   showPageLink = true,
   headingId = 'corridor-strip-h',
   compact = false,
+  headless = false,
 }: {
   view?: CorridorsView;
   now?: Date;
   showPageLink?: boolean;
   headingId?: string;
   compact?: boolean;
+  headless?: boolean;
 }) {
   const v = view ?? getCorridors(now ?? new Date());
   const stale = v.state !== 'current';
+  // Headless: a plain block inside the page's own labelled section (no second region with the same name).
+  const Wrap = headless ? 'div' : 'section';
+  // Lane names sit one level under the strip heading: h3 under the strip's h2, h2 under the page's h1.
+  const LaneH = headless ? 'h2' : 'h3';
   return (
-    <section aria-labelledby={headingId} className={`${s.root} ${s.strip}`} data-compact={compact ? 'true' : undefined}>
-      <div className={s.stripHead}>
-        <h2 id={headingId} className={s.stripTitle}>
-          Corridors this week
-        </h2>
-        <p className={`${s.meta} ${s.num}`}>
-          {v.weekLabel ? `Week ${v.weekLabel}` : 'No current week'}
-          {v.asOfLabel ? ` · data as of ${v.asOfLabel}` : ''}
-        </p>
-      </div>
-      {v.staleMessage ? (
+    <Wrap
+      aria-labelledby={headless ? undefined : headingId}
+      className={`${s.root} ${s.strip}`}
+      data-compact={compact ? 'true' : undefined}
+      data-headless={headless ? 'true' : undefined}
+    >
+      {headless ? null : (
+        <div className={s.stripHead}>
+          <h2 id={headingId} className={s.stripTitle}>
+            Corridors this week
+          </h2>
+          <p className={`${s.meta} ${s.num}`}>
+            {v.weekLabel ? `Week ${v.weekLabel}` : 'No current week'}
+            {v.asOfLabel ? ` · data as of ${v.asOfLabel}` : ''}
+          </p>
+        </div>
+      )}
+      {v.staleMessage && !headless ? (
         <StaleNote>
           {v.staleMessage}.{' '}
           {v.state === 'stale'
@@ -48,8 +63,8 @@ export function CorridorStrip({
         {v.lanes.map((l) => (
           <li key={l.id} className={s.stripCard} data-stale={stale ? 'true' : 'false'}>
             <div className={s.laneHead}>
-              <div>
-                <h3 className={s.laneName}>{l.name}</h3>
+              <div className={s.laneWho}>
+                <LaneH className={s.laneName}>{l.name}</LaneH>
                 <span className={s.laneSub}>{l.sub}</span>
               </div>
               <StatusChip status={l.status} />
@@ -58,7 +73,7 @@ export function CorridorStrip({
               <span className={`${s.num} ${s.idxBig} ${stale ? s.greyed : ''}`}>
                 {l.index === null ? '—' : fmtPct(l.index)}
               </span>
-              <span className={s.text2} style={{ fontSize: 14 }}>
+              <span className={`${s.text2} ${s.idxText}`} style={{ fontSize: 14 }}>
                 {l.index === null ? 'no current figure' : 'of an average 2023 week'}
               </span>
             </div>
@@ -66,7 +81,9 @@ export function CorridorStrip({
             <dl className={s.facts}>
               <div>
                 <dt>Transits, week</dt>
-                <dd className={`${s.num} ${stale ? s.greyed : ''}`}>{l.transits === null ? '—' : fmtInt(l.transits)}</dd>
+                <dd className={`${s.num} ${stale ? s.greyed : ''}`}>{l.transits === null ? '—' : fmtInt(l.transits)}
+                  {l.transits === null ? null : <span className={s.mUnit}> transits</span>}
+                </dd>
               </div>
               <div>
                 <dt>vs previous week{l.prev !== null ? ` (${fmtInt(l.prev)})` : ''}</dt>
@@ -88,7 +105,7 @@ export function CorridorStrip({
           </Link>
         ) : null}
       </p>
-    </section>
+    </Wrap>
   );
 }
 
