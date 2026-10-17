@@ -47,7 +47,6 @@ const ALLOW: Record<string, { re: RegExp; why: string }[]> = {
   // The source of truth for the hex values that charts and maps need in TypeScript; tokens.check.ts asserts
   // each equals its CSS custom property. Components use the var() forms.
   'lib/design-tokens.ts': [{ re: /^#[0-9A-F]{6}$/, why: 'TS mirror of the v2 tokens (tokens.check.ts keeps it equal to globals.css)' }],
-  'lib/home-feed.ts': [{ re: /^[\u{1F1E6}-\u{1F1FF}]{2}$/u, why: 'classifier: matches flag emoji inside collected posts (input text), never rendered' }],
   'app/global-error.tsx': [
     { re: /#0B0F14|#E8EDF2|#8593A3|#E8C547|#243041/, why: 'renders without globals.css (replaces the root layout): inline dark tokens' },
   ],
