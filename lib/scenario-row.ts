@@ -3,7 +3,7 @@
  *
  * Every value comes from the functions the /scenarios cards call (lib/scenario-registry.ts:
  * probabilityOn, residualRangeOn, scenarioDisplay, deltaWithinMethod, formatScenarioDelta,
- * unmeasuredFlag) on the registry's latest published day, so the home row can never show a number
+ * unmeasuredReason) on the registry's latest published day, so the home row can never show a number
  * /scenarios does not. B is its Fréchet range (never the single low-end number); a scenario with no
  * published value, or one the lifecycle view marks unmeasured, reads "Unmeasured".
  * Pure, no I/O. Unit tests: tests/unit/scenario-row.check.ts.
@@ -16,7 +16,7 @@ import {
   residualRangeOn,
   scenarioColor,
   scenarioDisplay,
-  unmeasuredFlag,
+  unmeasuredReason,
   type ScenarioRegistryView,
 } from '@/lib/scenario-registry';
 import { formatRange } from '@/lib/scenario-range';
@@ -35,7 +35,7 @@ export interface ScenarioRowItem {
   high: number | null;
   /** Same text as the /scenarios card's delta line; null for B and unmeasured. */
   deltaText: string | null;
-  /** Why it is unmeasured (run flag or null_reason), when known. */
+  /** Why it is unmeasured (run flag, null_reason, or "no market linked" for a born scenario), when known. */
   reason: string | null;
   /** Not part of the core set (E): measured separately, can overlap. */
   independent: boolean;
@@ -62,7 +62,6 @@ export function buildScenarioRow(view: ScenarioRegistryView): ScenarioRowView {
     const range = residual ? residualRangeOn(view, day) : null;
     // The /scenarios card's rule (ScenariosClient ScenarioCard), applied unchanged.
     const unmeasured = p === null || s.measurement_state === 'unmeasured' || (residual && range === null);
-    const point = view.history.find((x) => x.code === s.code && x.conflict_day === day);
     const base = { code: s.code, name: s.name_en, independent: s.group_code !== 'core', color: scenarioColor(s.code, i) };
     if (unmeasured) {
       return {
@@ -73,7 +72,7 @@ export function buildScenarioRow(view: ScenarioRegistryView): ScenarioRowView {
         low: null,
         high: null,
         deltaText: null,
-        reason: unmeasuredFlag(view.run, s.code) ?? point?.null_reason ?? null,
+        reason: unmeasuredReason(view, s, day),
       };
     }
     const d = scenarioDisplay(view, s.code, day);

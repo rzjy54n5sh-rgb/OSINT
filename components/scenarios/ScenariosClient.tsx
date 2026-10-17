@@ -25,7 +25,8 @@ import {
   scenarioDisplay,
   seriesByMethod,
   thirtyDayReadings,
-  unmeasuredFlag,
+  unmeasuredHeadline,
+  unmeasuredReason,
   type RegistryScenario,
   type ScenarioRegistryView,
   type ThirtyDayReading,
@@ -42,12 +43,6 @@ type ScenariosClientProps = {
   /** Server-rendered conflict day strip (placed after page <h1>). */
   conflictDayBadge?: ReactNode;
 };
-
-function unmeasuredHeadline(reason: string | null): string {
-  return reason && /quality floor/i.test(reason)
-    ? 'Unmeasured — no market meets the quality floor'
-    : 'Unmeasured — no qualifying market';
-}
 
 function ScenarioCard({
   s,
@@ -67,8 +62,7 @@ function ScenarioCard({
   const residual = isResidual(s.code);
   const range = residual ? residualRangeOn(registry, day) : null;
   const unmeasured = p === null || s.measurement_state === 'unmeasured' || (residual && range === null);
-  const point = registry.history.find((x) => x.code === s.code && x.conflict_day === day);
-  const reason = unmeasured ? (unmeasuredFlag(registry.run, s.code) ?? point?.null_reason ?? null) : null;
+  const reason = unmeasured ? unmeasuredReason(registry, s, day) : null;
   const delta = residual ? null : deltaWithinMethod(registry.history, s.code, day);
   const r30 = readings[s.code] ?? null;
   const range30 = residual ? residualRange30(registry.scenarios, readings) : null;
@@ -232,7 +226,7 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
           </p>
         )}
         <PageBriefing className="mt-3"
-          description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios (E) are measured on their own."
+          description="The scenarios, their names and definitions come from the scenario registry, and each name says what its market actually measures. A, C and D are each read from public prediction-market prices (the markets are listed below with links). They can happen in the same window, so B, none of them, is shown as a range rather than a single number. Each market price is for the market's own closing date; a fixed 30-day reading converts it to a common horizon. Independent scenarios are measured on their own; one with no linked market is shown as unmeasured."
           note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
         />
       </div>
