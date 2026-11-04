@@ -8,8 +8,9 @@ export async function updateConfigAction(key: string, value: string): Promise<{ 
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id) return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true) return { ok: false, error: 'Forbidden' };
   if (adminUser.role !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
 
   const { data: oldRow } = await admin.from('platform_config').select('value, is_sensitive').eq('key', key).maybeSingle();

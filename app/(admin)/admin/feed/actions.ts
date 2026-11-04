@@ -8,8 +8,9 @@ export async function flagArticleForReviewAction(articleId: string): Promise<{ o
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id) return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true) return { ok: false, error: 'Forbidden' };
   const role = adminUser.role as string;
   if (role !== 'SUPER_ADMIN' && role !== 'INTEL_ANALYST') return { ok: false, error: 'Forbidden' };
 
