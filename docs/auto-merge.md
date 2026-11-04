@@ -60,6 +60,8 @@ Claude adds the `auto-merge` label only after its independent verifier has retur
 
 `next/font/google` downloads the font CSS and files during `next build`. On 2026-11-04 Google served a response next/font could not parse (`TypeError: Cannot read properties of null (reading '1')` at `@next/font/dist/google/loader.js:122`), which failed PR CI on a JSON-only PR. The build steps in `pr-ci.yml` and `deploy.yml` now retry up to twice (30 s apart), **only** when the build log shows that next/font Google error; any other build failure fails at once.
 
+Since `fix/self-host-fonts` the fonts are self-hosted from `app/fonts/` with `next/font/local` (`app/fonts.ts`), so `next build` no longer contacts Google Fonts and this retry can no longer trigger. Removing it from the two workflows is a `.github/**` change (human-only), left for a separate PR.
+
 ## Stopping it
 
 - **Everything:** set the repository variable `AUTO_MERGE_DISABLED` to `true` in GitHub: Settings → Secrets and variables → Actions → **Variables** tab → New repository variable. `true`, `1`, `yes` or `on` (any case) turn it off. Delete the variable, or set it to `false`, to turn it back on.
