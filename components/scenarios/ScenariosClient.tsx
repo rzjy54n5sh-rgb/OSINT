@@ -42,6 +42,8 @@ type ScenariosClientProps = {
   currentDay: number;
   /** Server-rendered conflict day strip (placed after page <h1>). */
   conflictDayBadge?: ReactNode;
+  /** Server-rendered operator notice (platform_alerts.scenario_notice), above the probability panel. */
+  notice?: ReactNode;
 };
 
 function ScenarioCard({
@@ -163,7 +165,7 @@ function RangeBar({ low, high, color }: { low: number; high: number; color: stri
   );
 }
 
-export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflictDayBadge }: ScenariosClientProps) {
+export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflictDayBadge, notice }: ScenariosClientProps) {
   const visible = registry.scenarios.filter((s) => s.status !== 'retired');
   const retired = registry.scenarios.filter((s) => s.status === 'retired');
   const core = visible.filter((s) => s.group_code === 'core');
@@ -230,6 +232,8 @@ export function ScenariosClient({ hasDetailAccess, registry, currentDay, conflic
           note="Market prices are a crowd estimate, not this desk's opinion or a forecast. A scenario with no market that passes the quality floor is shown as unmeasured, never guessed. Days 1–35 were desk estimates under a retired method whose inputs and horizons were not stored: retired method, cannot be scored. They are shown only as a separate, archived series."
         />
       </div>
+
+      {notice}
 
       {registry.error && (
         <div className="font-mono text-xs py-4 border px-4 mb-6" style={{ color: 'var(--accent-red)', borderColor: 'var(--accent-red)' }} role="alert">

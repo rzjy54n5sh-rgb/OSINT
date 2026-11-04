@@ -1,0 +1,45 @@
+/* Operator scenario notice: same surface as the brief reader's correction notice (brief.module.css). */
+.notice {
+  border: 1px solid var(--line-strong);
+  border-inline-start-width: 3px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text);
+}
+.head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: var(--fs-meta); }
+.label { font-weight: 600; letter-spacing: 0.04em; color: var(--text-2); font-size: var(--fs-meta); flex: none; }
+.title { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: var(--fs-card); line-height: 1.3; overflow-wrap: anywhere; }
+.text { margin: 0; font-size: 15px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+.ar { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
+.ar .text { font-size: 16px; line-height: 1.7; }
+.num { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+/* Home card: the text wraps to at most two lines, then clips; the label and link never shrink (fits 360 px). */
+.line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--fs-2);
+  color: var(--text-2);
+}
+.lineText {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.lineLink { flex: none; color: var(--link); }
+.lineLink:hover { color: var(--link-hover); }

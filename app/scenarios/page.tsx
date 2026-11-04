@@ -7,6 +7,8 @@ import { ScenariosTierGate } from '@/components/scenarios/ScenariosTierGate';
 import { ConflictDayBadge } from '@/components/ui/ConflictDayBadge';
 import { DataAsOf } from '@/components/ui/DataAsOf';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
+import { getScenarioNotice } from '@/lib/scenario-notice';
+import { ScenarioNoticePanel } from '@/components/scenarios/ScenarioNotice';
 
 /**
  * ISR: the registry publishes once a day. Rendered for an anonymous visitor; the tier-dependent
@@ -24,11 +26,13 @@ export const metadata: Metadata = pageMetadata({
 export default async function ScenariosPage() {
   const supabase = createPublicClient();
 
-  const [{ data: tierRows }, registry] = await Promise.all([
+  const [{ data: tierRows }, registry, notice] = await Promise.all([
     supabase.from('tier_features').select('feature_key, free_access, informed_access, pro_access'),
     // Names, definitions, status and measurement state from the registry; probabilities from
     // scenario_daily (published rows, each stamped with its method); inputs/flags from scenario_runs.
     getScenarioRegistryView(supabase),
+    // Operator notice (platform_alerts.scenario_notice): null on any failure or timeout, never throws.
+    getScenarioNotice(supabase, new Date()),
   ]);
   if (registry.error) {
     // Details stay in the server log; the client only gets a neutral flag (no raw DB error text).
@@ -45,6 +49,7 @@ export default async function ScenariosPage() {
       tierFlags={flags}
       registry={registry}
       currentDay={currentDay}
+      notice={<ScenarioNoticePanel notice={notice} />}
       conflictDayBadge={
         <>
           <ConflictDayBadge />
