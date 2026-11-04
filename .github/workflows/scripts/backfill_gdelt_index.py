@@ -67,6 +67,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+import zlib
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sources_registry import (  # noqa: E402
@@ -676,7 +677,7 @@ def process_day(day: int, opts: Options, fetch=None, registry: dict | None = Non
                     out["other_day"] += 1
                     continue
                 out["cands"].append(rec)
-        except (zipfile.BadZipFile, OSError) as e:
+        except (zipfile.BadZipFile, OSError, zlib.error, EOFError) as e:  # truncated/corrupt deflate too
             out["status"] = "error"
             out["error"] = f"{url}: {e}"
             out["cands"] = []
@@ -789,7 +790,7 @@ def main(argv=None, clock=None) -> int:
     clock = clock or utc_now
 
     if a.live:
-        today = clock().date()
+        today = clock().astimezone(datetime.timezone.utc).date()  # DAY LOCK is UTC whatever the clock's offset
         live_day = (today - CONFLICT_START).days  # DAY - 1 (DAY LOCK), never derived from the DB
         if a.start_day is None and a.end_day is None:
             a.start_day = a.end_day = live_day
@@ -797,8 +798,8 @@ def main(argv=None, clock=None) -> int:
             print(f"error: --live processes only conflict day DAY-1 = {live_day} (must be >= {LIVE_MIN_DAY}); "
                   f"got {a.start_day}..{a.end_day}{' with --plan' if a.plan is not None else ''}")
             return 2
-        if a.lookahead_hours is not None and a.lookahead_hours > LIVE_MAX_LOOKAHEAD_HOURS:
-            print(f"error: --live allows --lookahead-hours <= {LIVE_MAX_LOOKAHEAD_HOURS}; got {a.lookahead_hours}")
+        if a.lookahead_hours is not None and not 1 <= a.lookahead_hours <= LIVE_MAX_LOOKAHEAD_HOURS:
+            print(f"error: --live allows --lookahead-hours 1..{LIVE_MAX_LOOKAHEAD_HOURS}; got {a.lookahead_hours}")
             return 2
     elif a.start_day is None or a.end_day is None:
         print("error: --start-day and --end-day are required (or use --live)")
@@ -879,6 +880,12 @@ def main(argv=None, clock=None) -> int:
             if missing_live:
                 print(f"  ! Day {day}: {len(missing_live)} GKG slot(s) missing (404) in the day or its lookahead, "
                       "day NOT written (live: a partial day is a failure)")
+            if a.live:
+                # Live never revisits a day (next run moves to the new DAY-1). If GDELT really has a hole
+                # (~1.4% of days sampled), recover with the manual backfill, which tolerates 404s and
+                # writes is_retrospective=true:
+                print(f"  ! Recover Day {day}: run workflow backfill-gdelt-index.yml with start=end={day}, i.e. "
+                      f"python backfill_gdelt_index.py --start-day {day} --end-day {day} --write")
             continue
         if a.write and res.rows:
             w, f = upsert_rows(res.rows, base, key)

@@ -783,6 +783,50 @@ class LiveMode(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(len([u for u in fetch.calls if ".translation." not in u]), 96 + 24)
 
+    def test_live_lookahead_below_one_hour_is_refused(self):
+        # 0 or negative silently drops the lookahead, so rows published on D but first seen after
+        # midnight would be lost; live needs >= 1.
+        self.assert_refused(["--live", "--lookahead-hours", "0"], self.NOW)
+        self.assert_refused(["--live", "--lookahead-hours", "-3"], self.NOW)
+
+    def test_live_day_uses_utc_even_with_an_offset_clock(self):
+        # 2026-11-03T22:30-04:00 is 02:30Z on 4 Nov -> DAY 250, live day 249
+        tz = datetime.timezone(datetime.timedelta(hours=-4))
+        code, _, fetch, _, out = self.run_live(["--live"], lambda: datetime.datetime(2026, 11, 3, 22, 30, tzinfo=tz))
+        self.assertEqual(code, 0, out)
+        self.assertIn("DAY 249 ", out)
+        # 2026-11-04T03:30+04:00 is 23:30Z on 3 Nov -> DAY 249, live day 248
+        tz = datetime.timezone(datetime.timedelta(hours=4))
+        code, _, _, _, out = self.run_live(["--live"], lambda: datetime.datetime(2026, 11, 4, 3, 30, tzinfo=tz))
+        self.assertIn("DAY 248 ", out)
+
+    def test_live_corrupt_zip_is_a_failed_day_with_a_fail_heartbeat(self):
+        base = self.live_fetch()
+        target = "20261103120000.gkg.csv.zip"
+
+        def fetch(url):
+            blob = base(url)
+            if url.endswith("/" + target):
+                inner = target[:-len(".zip")]
+                good = as_zip(["x\t" * 30] * 50, inner)
+                # first byte of the deflate stream (after the 30-byte local header + name): block type 3
+                # (reserved) -> zlib.error "invalid block type", not BadZipFile
+                i = 30 + len(inner)
+                blob = good[:i] + b"\xff" + good[i + 1:]
+            return blob
+        fetch.calls = base.calls
+        code, posted, _, beats, out = self.run_live(["--live", "--write"], lambda: self.NOW, fetch=fetch)
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual(posted, [])
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "fail")])
+
+    def test_live_failure_prints_the_recovery_command(self):
+        code, _, _, _, out = self.run_live(["--live", "--write"], lambda: self.NOW,
+                                           fetch=self.live_fetch(drop={"20261103121500.gkg.csv.zip"}))
+        self.assertNotEqual(code, 0)
+        self.assertIn("--start-day 249 --end-day 249", out)
+        self.assertIn("backfill-gdelt-index.yml", out)
+
     def test_non_live_still_needs_a_day_range(self):
         with mock.patch.object(bf, "utc_today", return_value=TODAY), \
                 mock.patch("sys.stdout", new_callable=io.StringIO), mock.patch("sys.stderr", new_callable=io.StringIO):

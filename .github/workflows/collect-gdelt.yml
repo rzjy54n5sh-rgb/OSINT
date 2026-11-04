@@ -7,6 +7,9 @@
 # - No AI / model API, stdlib only. Data: The GDELT Project (https://www.gdeltproject.org/), credited on /feed.
 # - Exits non-zero, writing nothing, when any 15-minute GKG slot of the day or its lookahead is missing,
 #   and when GKG files were read but nothing was written (Silent-collectors gotcha).
+# - A failed day is never retried by a later live run (live only does DAY-1). Recover it with the manual
+#   workflow backfill-gdelt-index.yml, start = end = that day (tolerates real GDELT 404 holes; rows are
+#   is_retrospective=true). The failure log prints the exact command.
 name: Collect GDELT (daily)
 
 on:
