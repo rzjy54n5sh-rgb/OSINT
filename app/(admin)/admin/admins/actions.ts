@@ -11,8 +11,9 @@ export async function addAdminAction(email: string, role: AdminRole): Promise<{ 
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id || (adminUser.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true || (adminUser.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
   if (!ALLOWED_ROLES.includes(role)) return { ok: false, error: 'Cannot assign SUPER_ADMIN via UI' };
 
   const { data: platformUser } = await admin.from('users').select('id').eq('email', email.trim()).maybeSingle();
@@ -45,8 +46,9 @@ export async function deactivateAdminAction(adminUserId: string): Promise<{ ok: 
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: me } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!me || (me.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
+  const { data: me } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!me || me.is_active !== true || (me.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
   if (me.id === adminUserId) return { ok: false, error: 'Cannot deactivate yourself' };
 
   const { data: target } = await admin.from('admin_users').select('email, display_name').eq('id', adminUserId).maybeSingle();
@@ -72,8 +74,9 @@ export async function changeAdminRoleAction(adminUserId: string, newRole: AdminR
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: me } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!me || (me.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
+  const { data: me } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!me || me.is_active !== true || (me.role as string) !== 'SUPER_ADMIN') return { ok: false, error: 'Forbidden' };
   if (me.id === adminUserId) return { ok: false, error: 'Cannot change your own role' };
   if (!ALLOWED_ROLES.includes(newRole)) return { ok: false, error: 'Cannot assign SUPER_ADMIN via UI' };
 

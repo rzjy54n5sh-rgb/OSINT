@@ -8,8 +8,9 @@ export async function revokeApiKeyAction(keyId: string): Promise<{ ok: boolean; 
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id) return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true) return { ok: false, error: 'Forbidden' };
   const role = adminUser.role as string;
   if (role !== 'SUPER_ADMIN' && role !== 'USER_MANAGER') return { ok: false, error: 'Forbidden' };
 
