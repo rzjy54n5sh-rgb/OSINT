@@ -5,6 +5,8 @@ import { formatConflictDayShort } from '@/lib/conflict-calendar';
 import { formatShortDay } from '@/lib/corridors';
 import { unmeasuredHeadline } from '@/lib/scenario-registry';
 import type { ScenarioRowItem, ScenarioRowView } from '@/lib/scenario-row';
+import type { ScenarioNotice } from '@/lib/scenario-notice';
+import { ScenarioNoticeLine } from '@/components/scenarios/ScenarioNotice';
 import s from './home.module.css';
 
 /** Theme-aware identity colour (design system v2); E and dynamic scenarios have none. */
@@ -53,11 +55,14 @@ export function ScenarioRow({
   row,
   currentDay,
   headingId = 'scenario-row-h',
+  notice = null,
 }: {
   row: ScenarioRowView;
   /** Calendar day (DAY LOCK); when given and the row is older, the freshness line is shown. */
   currentDay?: number;
   headingId?: string;
+  /** Operator notice (platform_alerts.scenario_notice): one line linking to /scenarios; null renders nothing. */
+  notice?: ScenarioNotice | null;
 }) {
   const hasData = row.day != null && row.items.length > 0;
   const horizon = horizonLabel(row.horizon);
@@ -79,6 +84,7 @@ export function ScenarioRow({
           </span>
         ) : null}
       </div>
+      <ScenarioNoticeLine notice={notice} />
 
       {hasData ? (
         <>

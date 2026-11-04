@@ -7,6 +7,7 @@ import { getCorridors } from '@/lib/corridors';
 import { reliefLaneStyles } from '@/components/home/relief/model';
 import { getScenarioRegistryView } from '@/lib/scenario-registry';
 import { buildScenarioRow } from '@/lib/scenario-row';
+import { getScenarioNotice } from '@/lib/scenario-notice';
 import { getPostureBoard, type PostureBoard } from '@/lib/posture';
 import { postureSourceLabels } from '@/lib/posture-outlets';
 import type { SourceLabels } from '@/lib/posture-board';
@@ -89,7 +90,7 @@ export default async function Page() {
   const conflictDay = await getConflictDay();
 
   // Parallel server-side fetches — data baked into HTML, no loading states
-  const [briefingRes, overnightRes, marketRes, recentTypesRes, registry, posture, trust] = await Promise.all([
+  const [briefingRes, overnightRes, marketRes, recentTypesRes, registry, posture, trust, scenarioNotice] = await Promise.all([
     // Latest general briefing by daily_briefings' OWN max day (not the nai_scores day, not
     // "exactly today"). Its day is passed through and labelled against the calendar day.
     supabase
@@ -120,6 +121,8 @@ export default async function Page() {
     getScenarioRegistryView(supabase),
     readPosture(supabase),
     readTrust(),
+    // Operator notice (platform_alerts.scenario_notice): own 3 s timeout, null on any failure, never throws.
+    getScenarioNotice(supabase, new Date()),
   ]);
   if (registry.error) console.error('[home] scenario registry read failed:', registry.error);
   const scenarioRow = buildScenarioRow(registry);
@@ -174,7 +177,7 @@ export default async function Page() {
       serverData={serverData}
       corridors={<CorridorStrip view={corridorsView} headingId="home-corridor-strip-h" compact headless />}
       reliefLanes={reliefLaneStyles(corridorsView)}
-      scenarioRow={<ScenarioRow row={scenarioRow} currentDay={conflictDay} />}
+      scenarioRow={<ScenarioRow row={scenarioRow} currentDay={conflictDay} notice={scenarioNotice} />}
     />
   );
 }
