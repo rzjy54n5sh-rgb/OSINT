@@ -36,6 +36,12 @@ const text = (v: unknown): string | null => {
 };
 
 /** Pure: the notice to show for this row at `now`, or null. An unreadable expires_at fails closed. */
+/** What a field renders as (null for blank), CRLF folded to LF: the admin "did the English change" test. */
+export function noticeComparableText(v: unknown): string | null {
+  const t = text(typeof v === 'string' ? v.replace(/\r\n/g, '\n') : v);
+  return t;
+}
+
 export function scenarioNoticeFromRow(row: unknown, now: Date): ScenarioNotice | null {
   if (!row || typeof row !== 'object') return null;
   const r = row as Record<string, unknown>;

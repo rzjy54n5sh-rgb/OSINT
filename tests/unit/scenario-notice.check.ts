@@ -285,7 +285,8 @@ ok('home line CSS: 2-line clamp (no single-line nowrap/ellipsis); label and link
 type Call = { table: string; op: string; values?: unknown; cols?: string; eq: [string, unknown][] };
 let adminCalls: Call[] = [];
 let adminRole = 'SUPER_ADMIN';
-let adminActive = true;
+let storedAlert: Record<string, unknown> = { title: 'Old title', message: 'Old message', message_ar: 'نص قديم' };
+let adminActive: boolean | null | undefined = true;
 let currentUser: { id: string; email: string } | null = { id: 'u-1', email: 'ops@example.test' };
 const adminClient = {
   from(table: string) {
@@ -311,10 +312,16 @@ const adminClient = {
         call.eq.push([col, val]);
         return call.op === 'update' ? Promise.resolve({ error: null }) : b;
       },
-      single: () => Promise.resolve({ data: table === 'admin_users' ? { id: 'adm-1', role: adminRole, email: 'ops@example.test', is_active: adminActive } : null, error: null }),
+      // Projects only the selected columns (dropping is_active from the select must fail closed in the test too).
+      single: () => {
+        if (table !== 'admin_users') return Promise.resolve({ data: null, error: null });
+        const stored: Record<string, unknown> = { id: 'adm-1', role: adminRole, email: 'ops@example.test', is_active: adminActive };
+        const cols = (call.cols ?? '').split(',').map((c) => c.trim());
+        return Promise.resolve({ data: Object.fromEntries(cols.filter((c) => c in stored).map((c) => [c, stored[c]])), error: null });
+      },
       // Returns only the columns the action selected (so the audit before_state is what was really read).
       maybeSingle: () => {
-        const stored: Record<string, unknown> = { title: 'Old title', message: 'Old message', message_ar: 'نص قديم' };
+        const stored: Record<string, unknown> = { ...storedAlert };
         const cols = (call.cols ?? '').split(',').map((c) => c.trim());
         return Promise.resolve({ data: Object.fromEntries(cols.filter((c) => c in stored).map((c) => [c, stored[c]])), error: null });
       },
@@ -334,10 +341,11 @@ stub('../../utils/supabase/server', { getUser: async () => currentUser });
 stub('../../utils/supabase/admin', { createAdminClient: () => adminClient });
 stub('next/cache', { revalidatePath: () => {} });
 const { editAlertAction, toggleAlertAction } = require('../../app/(admin)/admin/alerts/actions') as typeof import('../../app/(admin)/admin/alerts/actions');
-const reset = (role = 'SUPER_ADMIN', user: typeof currentUser = { id: 'u-1', email: 'ops@example.test' }, active = true) => {
+const reset = (role = 'SUPER_ADMIN', user: typeof currentUser = { id: 'u-1', email: 'ops@example.test' }, active: boolean | null | undefined = true) => {
   adminCalls = [];
   adminRole = role;
   adminActive = active;
+  storedAlert = { title: 'Old title', message: 'Old message', message_ar: 'نص قديم' };
   currentUser = user;
 };
 
@@ -395,6 +403,36 @@ ok('a save that does not change the English keeps the Arabic (no message_ar in t
   assert.deepEqual(await editAlertAction(SCENARIO_NOTICE_KEY, 'Old title', 'Changed message'), { ok: true });
   const w = adminCalls.find((c) => c.table === 'platform_alerts' && c.op === 'update')?.values as Record<string, unknown>;
   assert.ok('message_ar' in w && w.message_ar === null, 'a changed message clears it');
+});
+
+ok('is_active null or missing is Forbidden too (fail closed)', async () => {
+  for (const active of [null, undefined]) {
+    reset();
+    adminActive = active; // set directly: passing undefined to reset() would take its default (true)
+    assert.deepEqual(await editAlertAction(SCENARIO_NOTICE_KEY, 'X', 'Y'), { ok: false, error: 'Forbidden' });
+    assert.deepEqual(await toggleAlertAction(SCENARIO_NOTICE_KEY, true), { ok: false, error: 'Forbidden' });
+    assert.equal(adminCalls.filter((c) => c.op === 'update' || c.op === 'insert').length, 0);
+  }
+});
+
+ok('a title-only change clears the Arabic; NULL vs "" / CRLF vs LF / trailing space are not changes', async () => {
+  reset();
+  await editAlertAction(SCENARIO_NOTICE_KEY, 'New title', 'Old message');
+  const v = adminCalls.find((c) => c.table === 'platform_alerts' && c.op === 'update')?.values as Record<string, unknown>;
+  assert.ok('message_ar' in v && v.message_ar === null, 'title-only change clears');
+  const cases: [Record<string, unknown>, string, string][] = [
+    [{ title: null, message: 'Old message' }, '', 'Old message'],
+    [{ title: 'Old title', message: null }, 'Old title', ''],
+    [{ title: 'Old title', message: 'a\r\nb' }, 'Old title', 'a\nb'],
+    [{ title: 'Old title', message: 'Old message' }, 'Old title ', 'Old message\n'],
+  ];
+  for (const [stored, t, m] of cases) {
+    reset();
+    storedAlert = { ...stored, message_ar: 'نص قديم' };
+    await editAlertAction(SCENARIO_NOTICE_KEY, t, m);
+    const w = adminCalls.find((c) => c.table === 'platform_alerts' && c.op === 'update')?.values as Record<string, unknown>;
+    assert.ok(!('message_ar' in w), `unchanged as rendered must keep the Arabic: ${JSON.stringify(stored)} vs ${JSON.stringify([t, m])}`);
+  }
 });
 
 // --- wiring (static) --------------------------------------------------------------------------

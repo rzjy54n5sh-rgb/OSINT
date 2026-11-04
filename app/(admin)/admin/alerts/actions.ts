@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getUser } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
-import { SCENARIO_NOTICE_KEY } from '@/lib/scenario-notice';
+import { SCENARIO_NOTICE_KEY, noticeComparableText } from '@/lib/scenario-notice';
 
 export async function toggleAlertAction(key: string, isActive: boolean): Promise<{ ok: boolean; error?: string }> {
   const user = await getUser();
@@ -50,7 +50,11 @@ export async function editAlertAction(key: string, title: string | null, message
   if (message !== undefined) updates.message = message;
   // The scenario notice shows message_ar under the English text: when the English actually changes, the old
   // translation is cleared in the same update (a save with unchanged English keeps it; the audit row keeps it).
-  if (key === SCENARIO_NOTICE_KEY && (title !== (before?.title ?? null) || message !== (before?.message ?? null))) {
+  // Compared as rendered (null = '', trimmed, bidi controls stripped, CRLF = LF); a field not sent is not compared.
+  // Known limit: read-then-write is not atomic; a concurrent Arabic write between the two can survive.
+  const changed = (sent: string | null | undefined, stored: unknown) =>
+    sent !== undefined && noticeComparableText(sent) !== noticeComparableText(stored);
+  if (key === SCENARIO_NOTICE_KEY && (changed(title, before?.title) || changed(message, before?.message))) {
     updates.message_ar = null;
   }
   const { error } = await admin.from('platform_alerts').update(updates).eq('key', key);
