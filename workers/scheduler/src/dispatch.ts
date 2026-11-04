@@ -21,8 +21,11 @@ export const CRON_SCENARIO = '20 5 * * *';
 export function workflowsFor(cron: string, scheduledTime: number): string[] {
   if (cron === CRON_SCENARIO) return ['scenario-daily.yml'];
   if (cron === CRON_HALF_HOURLY) {
-    const minute = new Date(scheduledTime).getUTCMinutes();
-    return minute < 30 ? ['collect-markets.yml', 'collect-articles.yml'] : ['collect-markets.yml'];
+    const t = new Date(scheduledTime);
+    if (t.getUTCMinutes() < 30) return ['collect-markets.yml', 'collect-articles.yml'];
+    // 01:30 UTC, once a day: GDELT has published Day-1 plus its 1 h lookahead by then.
+    if (t.getUTCHours() === 1) return ['collect-markets.yml', 'collect-gdelt.yml'];
+    return ['collect-markets.yml'];
   }
   return [];
 }

@@ -2,14 +2,18 @@
 # - Same code as the one-off backfill (backfill_gdelt_index.py --live). Writes to: articles (Supabase)
 #   only. Never deletes or updates rows (Prefer: resolution=ignore-duplicates on the URL-derived id).
 # - Caps per day: <= 500 English + <= 100 non-English rows. is_retrospective is computed at write time:
-#   false only before 06:00 UTC the next day (operator provenance rule), so a late run is "reconstructed".
+#   false only if flag time + 10 min is before 06:00 UTC the next day (operator provenance rule), so a
+#   late run is "reconstructed".
 # - No AI / model API, stdlib only. Data: The GDELT Project (https://www.gdeltproject.org/), credited on /feed.
-# - Exits non-zero when GKG files were read but nothing was written (Silent-collectors gotcha).
+# - Exits non-zero, writing nothing, when any 15-minute GKG slot of the day or its lookahead is missing,
+#   and when GKG files were read but nothing was written (Silent-collectors gotcha).
 name: Collect GDELT (daily)
 
 on:
   schedule:
-    - cron: '10 1 * * *'   # 01:10 UTC: Day-1 plus 1 h of lookahead are published by then
+    # Fallback only: the scheduler Worker (workers/scheduler) dispatches this at 01:30 UTC
+    # (Day-1 plus 1 h of lookahead are published by then); GitHub's schedule drifts by hours.
+    - cron: '35 1 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,7 +28,30 @@ defaults:
     shell: bash
 
 jobs:
+  # Fallback gate (WS4): this workflow is dispatched on time by the Cloudflare scheduler Worker
+  # (workers/scheduler). The GitHub schedule above stays as a fallback; a late scheduled run is
+  # skipped when a dispatched run already covered today (UTC).
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/workflows/scripts
+      - id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/workflows/scripts/schedule_gate.sh collect-gdelt.yml utc-day
+
   collect:
+    needs: gate
+    # Fail open like the gate script: only an explicit run=false skips (a failed gate job does not).
+    if: ${{ !cancelled() && needs.gate.outputs.run != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

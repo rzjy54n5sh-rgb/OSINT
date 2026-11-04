@@ -41,9 +41,12 @@ Usage:
 
 Live mode (--live): processes exactly conflict day DAY-1, DAY = (UTC today - 2026-02-28) + 1 from the
 clock (DAY LOCK, never the DB), refusing a day <= 220 (the backfill's range). Lookahead defaults to
-1 h. is_retrospective is computed at write time: False only when written before 06:00:00 UTC on the
-day after the processed day (operator provenance rule), True at 06:00:00 and later. Non-live rows
-are always is_retrospective = true, as before.
+1 h (at most 6). is_retrospective is computed at write time, conservatively: False only when the
+flag time + 10 min (LIVE_WRITE_MARGIN) is still before 06:00:00 UTC on the day after the processed
+day (operator provenance rule), True otherwise. A missing (404) 15-minute slot in the day or its
+lookahead fails a live run: nothing is written, heartbeat "fail", exit 1. Non-live (backfill)
+behaviour is unchanged: a missing slot means GDELT never had it, and rows are always
+is_retrospective = true.
 """
 
 import argparse
@@ -151,6 +154,12 @@ def utc_now() -> datetime.datetime:
 
 LIVE_MIN_DAY = 221  # Days 1-220 belong to the one-off backfill
 LIVE_CUTOFF = datetime.time(6, 0)  # after 06:00 UTC the next day a write is "reconstructed"
+LIVE_MAX_LOOKAHEAD_HOURS = 6
+# The flag is computed once, BEFORE the insert, and the insert is several POSTs (<= 600 rows in
+# <= 500-row batches, one per key signature: up to 3 batches), each with a 60 s timeout, 2 attempts
+# and a 5 s back-off (~130 s worst case per batch, ~6.5 min for 3). So a row is flagged live
+# (False) only if flag time + 10 min is still before the cutoff; otherwise it is "reconstructed".
+LIVE_WRITE_MARGIN = datetime.timedelta(minutes=10)
 
 
 def is_reconstructed(day: int, written_at: datetime.datetime) -> bool:
@@ -784,9 +793,12 @@ def main(argv=None, clock=None) -> int:
         live_day = (today - CONFLICT_START).days  # DAY - 1 (DAY LOCK), never derived from the DB
         if a.start_day is None and a.end_day is None:
             a.start_day = a.end_day = live_day
-        if a.plan or not (a.start_day == a.end_day == live_day) or live_day < LIVE_MIN_DAY:
+        if a.plan is not None or not (a.start_day == a.end_day == live_day) or live_day < LIVE_MIN_DAY:
             print(f"error: --live processes only conflict day DAY-1 = {live_day} (must be >= {LIVE_MIN_DAY}); "
-                  f"got {a.start_day}..{a.end_day}{' with --plan' if a.plan else ''}")
+                  f"got {a.start_day}..{a.end_day}{' with --plan' if a.plan is not None else ''}")
+            return 2
+        if a.lookahead_hours is not None and a.lookahead_hours > LIVE_MAX_LOOKAHEAD_HOURS:
+            print(f"error: --live allows --lookahead-hours <= {LIVE_MAX_LOOKAHEAD_HOURS}; got {a.lookahead_hours}")
             return 2
     elif a.start_day is None or a.end_day is None:
         print("error: --start-day and --end-day are required (or use --live)")
@@ -838,12 +850,12 @@ def main(argv=None, clock=None) -> int:
 
     t0 = time.time()
     files_read = written = failed_batches = 0
-    incomplete_days, kept_total, payload_total = [], 0, 0
+    incomplete_days, kept_total, payload_total, missing_total = [], 0, 0, 0
     for day in range(a.start_day, a.end_day + 1):
         res = process_day(day, opts, registry=registry)
         _print_day(res.stats)
         if a.live:  # provenance at write time (downloads are done; the insert follows immediately)
-            flag = is_reconstructed(day, clock())
+            flag = is_reconstructed(day, clock() + LIVE_WRITE_MARGIN)  # conservative, see LIVE_WRITE_MARGIN
             for r in res.rows:
                 r["is_retrospective"] = flag
             print(f"  live Day {day}: is_retrospective={flag} | rows en {res.stats['kept_en']} | "
@@ -855,11 +867,18 @@ def main(argv=None, clock=None) -> int:
         files_read += res.stats["files_read"]
         kept_total += len(res.rows)
         payload_total += res.stats["payload_bytes"]
-        if res.stats["files_failed"]:
+        # Live: a 404 slot is a file GDELT has not published (yet) or skipped; the day would be partial.
+        missing_live = res.stats["files_missing"] if a.live else []
+        missing_total += len(missing_live)
+        if res.stats["files_failed"] or missing_live:
             # A partial file set would select a different (and then permanent) row set: skip the
             # day and let a re-run, which is idempotent, do it properly.
             incomplete_days.append(day)
-            print(f"  ! Day {day}: {len(res.stats['files_failed'])} file(s) failed to download, day NOT written")
+            if res.stats["files_failed"]:
+                print(f"  ! Day {day}: {len(res.stats['files_failed'])} file(s) failed to download, day NOT written")
+            if missing_live:
+                print(f"  ! Day {day}: {len(missing_live)} GKG slot(s) missing (404) in the day or its lookahead, "
+                      "day NOT written (live: a partial day is a failure)")
             continue
         if a.write and res.rows:
             w, f = upsert_rows(res.rows, base, key)
@@ -881,7 +900,8 @@ def main(argv=None, clock=None) -> int:
         rc = 1
     if a.live and a.write:
         heartbeat.beat("collect-gdelt", "ok" if rc == 0 else "fail",
-                       f"Day {a.start_day}: kept {kept_total}, written {written}, files {files_read}")
+                       f"Day {a.start_day}: kept {kept_total}, written {written}, files {files_read}, "
+                       f"missing {missing_total}")
     return rc
 
 
