@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getUser } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { SCENARIO_NOTICE_KEY } from '@/lib/scenario-notice';
 
 export async function toggleAlertAction(key: string, isActive: boolean): Promise<{ ok: boolean; error?: string }> {
   const user = await getUser();
@@ -41,10 +42,12 @@ export async function editAlertAction(key: string, title: string | null, message
   const role = adminUser.role as string;
   if (role !== 'SUPER_ADMIN' && role !== 'INTEL_ANALYST') return { ok: false, error: 'Forbidden' };
 
-  const { data: before } = await admin.from('platform_alerts').select('title, message').eq('key', key).maybeSingle();
+  const { data: before } = await admin.from('platform_alerts').select('title, message, message_ar').eq('key', key).maybeSingle();
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: adminUser.id };
   if (title !== undefined) updates.title = title;
   if (message !== undefined) updates.message = message;
+  // The scenario notice shows message_ar under the English text: an English edit clears the old translation.
+  if (key === SCENARIO_NOTICE_KEY) updates.message_ar = null;
   const { error } = await admin.from('platform_alerts').update(updates).eq('key', key);
   if (error) return { ok: false, error: error.message };
 

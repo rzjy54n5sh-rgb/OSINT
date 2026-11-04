@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatNoticePosted, type ScenarioNotice } from '@/lib/scenario-notice';
+import { formatNoticeUpdated, type ScenarioNotice } from '@/lib/scenario-notice';
 import s from './notice.module.css';
 
 /**
@@ -9,14 +9,14 @@ import s from './notice.module.css';
  */
 export function ScenarioNoticePanel({ notice, headingId = 'scenario-notice-h' }: { notice: ScenarioNotice | null; headingId?: string }) {
   if (!notice) return null;
-  const posted = formatNoticePosted(notice.activatedAt);
+  const updated = formatNoticeUpdated(notice.updatedAt);
   return (
     <section id="scenario-notice" aria-labelledby={headingId} className={s.notice} data-testid="scenario-notice">
       <div className={s.head}>
         <span className={s.label}>NOTICE</span>
-        {posted && notice.activatedAt ? (
-          <time dateTime={notice.activatedAt} className={`${s.num} ${s.muted}`}>
-            {posted}
+        {updated && notice.updatedAt ? (
+          <time dateTime={notice.updatedAt} className={`${s.num} ${s.muted}`}>
+            {updated}
           </time>
         ) : null}
       </div>
@@ -33,7 +33,7 @@ export function ScenarioNoticePanel({ notice, headingId = 'scenario-notice-h' }:
   );
 }
 
-/** Home scenario card: one line (title, else the message's first line), clipped visually, linking to /scenarios. */
+/** Home scenario card: title (else the message's first line), clamped to two lines, linking to /scenarios. */
 export function ScenarioNoticeLine({ notice }: { notice: ScenarioNotice | null }) {
   if (!notice) return null;
   const summary = notice.title ?? (notice.message ?? '').split('\n')[0].trim();
