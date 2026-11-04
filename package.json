@@ -26,7 +26,7 @@
     "@supabase/supabase-js": "^2.49.0",
     "framer-motion": "^11.15.0",
     "maplibre-gl": "^6.13.0",
-    "next": "15.5.27",
+    "next": "15.5.29",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^2.15.0",
@@ -35,7 +35,7 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "1.17.1",
+    "@opennextjs/cloudflare": "1.20.14",
     "@playwright/test": "^1.58.2",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.15.0",
@@ -44,17 +44,17 @@
     "@types/three": "^0.169.0",
     "dotenv": "^17.3.1",
     "eslint": "^9.39.4",
-    "eslint-config-next": "15.5.27",
+    "eslint-config-next": "15.5.29",
     "pg": "^8.20.0",
     "postcss": "^8.5.4",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.0",
-    "wrangler": "4.76.0"
+    "wrangler": "4.151.3"
   },
   "overrides": {
     "glob": "^13.0.6",
     "rimraf": "^5.0.10",
-    "wrangler": "4.76.0",
+    "wrangler": "4.151.3",
     "postcss": "$postcss"
   }
 }
