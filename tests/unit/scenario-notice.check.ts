@@ -13,7 +13,7 @@
  * here even on a UTC CI runner. The process exits non-zero unless every check ran to the end (a
  * never-settling promise empties the event loop and would otherwise exit 0 before the summary).
  */
-process.env.TZ = 'Asia/Dubai';
+process.env.TZ = 'Asia/Kolkata'; // UTC+5:30: half-hour offset, so local minutes AND hours differ from UTC
 process.exitCode = 1;
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -89,7 +89,8 @@ const line = (n: ScenarioNotice | null) => renderToStaticMarkup(createElement(Sc
 
 // --- active row --------------------------------------------------------------------------------
 ok('TZ is pinned to a non-UTC zone for this run (local getters differ from UTC getters)', () => {
-  assert.equal(new Date('2026-11-04T05:10:33Z').getHours(), 9, 'Asia/Dubai is UTC+4');
+  assert.equal(new Date('2026-11-04T05:10:33Z').getHours(), 10, 'Asia/Kolkata is UTC+5:30');
+  assert.equal(new Date('2026-11-04T05:10:33Z').getMinutes(), 40, 'minutes differ from UTC too');
 });
 
 ok('active row: reads platform_alerts key=scenario_notice and renders title, message and updated stamp', async () => {
@@ -284,6 +285,7 @@ ok('home line CSS: 2-line clamp (no single-line nowrap/ellipsis); label and link
 type Call = { table: string; op: string; values?: unknown; cols?: string; eq: [string, unknown][] };
 let adminCalls: Call[] = [];
 let adminRole = 'SUPER_ADMIN';
+let adminActive = true;
 let currentUser: { id: string; email: string } | null = { id: 'u-1', email: 'ops@example.test' };
 const adminClient = {
   from(table: string) {
@@ -309,7 +311,7 @@ const adminClient = {
         call.eq.push([col, val]);
         return call.op === 'update' ? Promise.resolve({ error: null }) : b;
       },
-      single: () => Promise.resolve({ data: table === 'admin_users' ? { id: 'adm-1', role: adminRole, email: 'ops@example.test' } : null, error: null }),
+      single: () => Promise.resolve({ data: table === 'admin_users' ? { id: 'adm-1', role: adminRole, email: 'ops@example.test', is_active: adminActive } : null, error: null }),
       // Returns only the columns the action selected (so the audit before_state is what was really read).
       maybeSingle: () => {
         const stored: Record<string, unknown> = { title: 'Old title', message: 'Old message', message_ar: 'نص قديم' };
@@ -331,10 +333,11 @@ const stub = (spec: string, exports: Record<string, unknown>) => {
 stub('../../utils/supabase/server', { getUser: async () => currentUser });
 stub('../../utils/supabase/admin', { createAdminClient: () => adminClient });
 stub('next/cache', { revalidatePath: () => {} });
-const { editAlertAction } = require('../../app/(admin)/admin/alerts/actions') as typeof import('../../app/(admin)/admin/alerts/actions');
-const reset = (role = 'SUPER_ADMIN', user: typeof currentUser = { id: 'u-1', email: 'ops@example.test' }) => {
+const { editAlertAction, toggleAlertAction } = require('../../app/(admin)/admin/alerts/actions') as typeof import('../../app/(admin)/admin/alerts/actions');
+const reset = (role = 'SUPER_ADMIN', user: typeof currentUser = { id: 'u-1', email: 'ops@example.test' }, active = true) => {
   adminCalls = [];
   adminRole = role;
+  adminActive = active;
   currentUser = user;
 };
 
@@ -373,6 +376,27 @@ ok('admin edit auth unchanged: no user → Unauthorized, wrong role → Forbidde
   assert.equal(adminCalls.filter((c) => c.op === 'update' || c.op === 'insert').length, 0);
 });
 
+ok('inactive admin (admin_users.is_active = false) is Forbidden for edit AND toggle; no write, no audit', async () => {
+  reset('INTEL_ANALYST', { id: 'u-1', email: 'ops@example.test' }, false);
+  assert.deepEqual(await editAlertAction(SCENARIO_NOTICE_KEY, 'Defaced', 'Defaced'), { ok: false, error: 'Forbidden' });
+  assert.equal(adminCalls.filter((c) => c.op === 'update' || c.op === 'insert').length, 0);
+  reset('SUPER_ADMIN', { id: 'u-1', email: 'ops@example.test' }, false);
+  assert.deepEqual(await toggleAlertAction(SCENARIO_NOTICE_KEY, false), { ok: false, error: 'Forbidden' });
+  assert.equal(adminCalls.filter((c) => c.op === 'update' || c.op === 'insert').length, 0);
+});
+
+ok('a save that does not change the English keeps the Arabic (no message_ar in the update)', async () => {
+  reset();
+  assert.deepEqual(await editAlertAction(SCENARIO_NOTICE_KEY, 'Old title', 'Old message'), { ok: true });
+  const v = adminCalls.find((c) => c.table === 'platform_alerts' && c.op === 'update')?.values as Record<string, unknown>;
+  assert.ok(v);
+  assert.ok(!('message_ar' in v), 'unchanged English must not clear message_ar');
+  reset();
+  assert.deepEqual(await editAlertAction(SCENARIO_NOTICE_KEY, 'Old title', 'Changed message'), { ok: true });
+  const w = adminCalls.find((c) => c.table === 'platform_alerts' && c.op === 'update')?.values as Record<string, unknown>;
+  assert.ok('message_ar' in w && w.message_ar === null, 'a changed message clears it');
+});
+
 // --- wiring (static) --------------------------------------------------------------------------
 ok('wiring: /scenarios and home read the notice through the public client; no cookies', () => {
   const root = join(__dirname, '../..');
@@ -386,7 +410,11 @@ ok('wiring: /scenarios and home read the notice through the public client; no co
   assert.doesNotMatch(lib, /dangerouslySetInnerHTML/);
   const comp = readFileSync(join(root, 'components/scenarios/ScenarioNotice.tsx'), 'utf8');
   assert.doesNotMatch(comp, /dangerouslySetInnerHTML/);
-  assert.doesNotMatch(comp, /^'use client'/m, 'server-safe component');
+  assert.doesNotMatch(comp, /^\s*['"]use client['"]/m, 'server-safe component');
+  assert.doesNotMatch(lib, /^\s*['"]use client['"]/m, 'server-safe lib');
+  for (const [name, src] of [['lib', lib], ['component', comp]] as const) {
+    assert.doesNotMatch(src, /next\/headers|cookies\(\)/, `${name} must not read cookies (ISR)`);
+  }
 });
 
 process.on('exit', () => {

@@ -9,8 +9,9 @@ export async function toggleAlertAction(key: string, isActive: boolean): Promise
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id) return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true) return { ok: false, error: 'Forbidden' };
   const role = adminUser.role as string;
   if (role !== 'SUPER_ADMIN' && role !== 'INTEL_ANALYST') return { ok: false, error: 'Forbidden' };
 
@@ -37,8 +38,9 @@ export async function editAlertAction(key: string, title: string | null, message
   const user = await getUser();
   if (!user) return { ok: false, error: 'Unauthorized' };
   const admin = createAdminClient();
-  const { data: adminUser } = await admin.from('admin_users').select('id, role, email').eq('user_id', user.id).single();
-  if (!adminUser?.id) return { ok: false, error: 'Forbidden' };
+  const { data: adminUser } = await admin.from('admin_users').select('id, role, email, is_active').eq('user_id', user.id).single();
+  // CLAUDE.md rule 5: every admin action verifies an ACTIVE admin itself (the middleware gate is path-based).
+  if (!adminUser?.id || adminUser.is_active !== true) return { ok: false, error: 'Forbidden' };
   const role = adminUser.role as string;
   if (role !== 'SUPER_ADMIN' && role !== 'INTEL_ANALYST') return { ok: false, error: 'Forbidden' };
 
@@ -46,8 +48,11 @@ export async function editAlertAction(key: string, title: string | null, message
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: adminUser.id };
   if (title !== undefined) updates.title = title;
   if (message !== undefined) updates.message = message;
-  // The scenario notice shows message_ar under the English text: an English edit clears the old translation.
-  if (key === SCENARIO_NOTICE_KEY) updates.message_ar = null;
+  // The scenario notice shows message_ar under the English text: when the English actually changes, the old
+  // translation is cleared in the same update (a save with unchanged English keeps it; the audit row keeps it).
+  if (key === SCENARIO_NOTICE_KEY && (title !== (before?.title ?? null) || message !== (before?.message ?? null))) {
+    updates.message_ar = null;
+  }
   const { error } = await admin.from('platform_alerts').update(updates).eq('key', key);
   if (error) return { ok: false, error: error.message };
 
