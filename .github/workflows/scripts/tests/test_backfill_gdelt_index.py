@@ -581,6 +581,132 @@ class HornOfAfrica(unittest.TestCase):
             self.assertEqual(bf.main(["--start-day", "16", "--end-day", "16", "--horn-share", "1.5"]), 2)
 
 
+def utc(*a):
+    return datetime.datetime(*a, tzinfo=datetime.timezone.utc)
+
+
+class LiveMode(unittest.TestCase):
+    """--live: the daily collector (collect-gdelt.yml). Processes conflict day DAY-1 only, where DAY is
+    the DAY LOCK day of the injected clock; is_retrospective is computed at write time (operator
+    rule: written after 06:00 UTC the next day = reconstructed). The 06:00:00 edge is EXCLUSIVE
+    for live: a write at exactly 06:00:00 UTC is reconstructed (True)."""
+
+    NOW = utc(2026, 11, 4, 1, 15)  # DAY 250, so the live day is 249 (2026-11-03)
+
+    def live_fetch(self):
+        # the 2026-03-15 00:00 fixture files, re-dated to the first slot after Day 249 (2026-11-04 00:00)
+        def shift(lines):
+            return [l.replace("20260314", "20261103").replace("20260315", "20261104") for l in lines]
+        return make_fetch(files={
+            "20261104000000.gkg.csv.zip": ("20261104000000.gkg.csv", shift(EN_0000)),
+            "20261104000000.translation.gkg.csv.zip": ("20261104000000.translation.gkg.csv", shift(TR_0000)),
+        })
+
+    def run_live(self, argv, clock, fetch=None):
+        fetch = fetch or self.live_fetch()
+        posted, beats = [], []
+
+        def fake_upsert(rows, url, key):
+            posted.append([dict(r) for r in rows])
+            return len(rows), 0
+
+        env = {"SUPABASE_URL": "https://supabase.test", "SUPABASE_SERVICE_KEY": "k"}
+        with mock.patch.object(bf, "utc_today", side_effect=AssertionError("live must use the clock")), \
+                mock.patch.object(bf, "http_fetch", fetch), \
+                mock.patch.object(bf, "upsert_rows", fake_upsert), \
+                mock.patch.object(bf.heartbeat, "beat", lambda *a, **k: beats.append(a)), \
+                mock.patch.dict(os.environ, env), \
+                mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = bf.main(argv, clock=clock)
+        return code, posted, fetch, beats, out.getvalue()
+
+    def test_live_picks_day_minus_one_with_one_hour_lookahead(self):
+        code, posted, fetch, beats, out = self.run_live(["--live"], lambda: self.NOW)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(posted, [])  # dry run: nothing written, no heartbeat
+        self.assertEqual(beats, [])
+        en = sorted(u.rsplit("/", 1)[1][:14] for u in fetch.calls if ".translation." not in u)
+        self.assertEqual(len(en), 96 + 4)
+        self.assertEqual((en[0], en[-1]), ("20261103000000", "20261104004500"))
+        self.assertIn("DAY 249 ", out)
+
+    def test_live_rows_belong_to_day_minus_one(self):
+        code, posted, *_ = self.run_live(["--live", "--write"], lambda: self.NOW)
+        self.assertEqual(code, 0)
+        rows = [r for batch in posted for r in batch]
+        self.assertTrue(rows)
+        self.assertEqual({r["conflict_day"] for r in rows}, {249})
+        self.assertTrue(all(r["published_at"].startswith("2026-11-03") for r in rows))
+
+    def flags_written_at(self, *times):
+        it = iter(times)
+        last = [None]
+
+        def clock():  # first call picks the day; later calls (write time) get the next value(s)
+            last[0] = next(it, last[0])
+            return last[0]
+        code, posted, *_ = self.run_live(["--live", "--write"], clock)
+        self.assertEqual(code, 0)
+        return {r["is_retrospective"] for batch in posted for r in batch}
+
+    def test_retrospective_flag_around_the_0600_boundary(self):
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 1, 15)), {False})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 59, 59, 999999)), {False})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 6, 0, 0)), {True})   # edge: reconstructed
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 6, 0, 1)), {True})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 23, 0)), {True})
+
+    def test_flag_uses_the_write_time_not_the_start_time(self):
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 55), utc(2026, 11, 4, 6, 1)), {True})
+
+    def test_is_reconstructed_pure(self):
+        self.assertFalse(bf.is_reconstructed(249, utc(2026, 11, 4, 5, 59, 59)))
+        self.assertTrue(bf.is_reconstructed(249, utc(2026, 11, 4, 6, 0)))
+        self.assertFalse(bf.is_reconstructed(249, utc(2026, 11, 3, 23, 59)))
+
+    def test_live_write_records_a_heartbeat(self):
+        code, _, _, beats, _ = self.run_live(["--live", "--write"], lambda: self.NOW)
+        self.assertEqual(code, 0)
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "ok")])
+
+    def test_non_live_still_always_retrospective(self):
+        # Day 16 written at 01:00 UTC on Day 17's date would be "live" by the clock: backfill stays True
+        posted = []
+        env = {"SUPABASE_URL": "https://supabase.test", "SUPABASE_SERVICE_KEY": "k"}
+        with mock.patch.object(bf, "utc_today", return_value=datetime.date(2026, 3, 16)), \
+                mock.patch.object(bf, "http_fetch", make_fetch()), \
+                mock.patch.object(bf, "upsert_rows", lambda rows, u, k: (posted.extend(rows), (len(rows), 0))[1]), \
+                mock.patch.dict(os.environ, env), mock.patch("sys.stdout", new_callable=io.StringIO):
+            code = bf.main(["--start-day", "16", "--end-day", "16", "--write"],
+                           clock=lambda: utc(2026, 3, 16, 1, 0))
+        self.assertEqual(code, 0)
+        self.assertTrue(posted)
+        self.assertEqual({r["is_retrospective"] for r in posted}, {True})
+
+    def assert_refused(self, argv, now):
+        f = make_fetch(files={})
+        code, posted, fetch, beats, out = self.run_live(argv, lambda: now, fetch=f)
+        self.assertEqual(code, 2, out)
+        self.assertEqual(fetch.calls, [])  # refused before any network call
+        self.assertEqual(posted, [])       # ... and before any DB call
+        self.assertEqual(beats, [])
+
+    def test_live_refuses_day_220_or_earlier(self):
+        self.assert_refused(["--live", "--write"], utc(2026, 10, 6, 1, 15))   # DAY 221 -> live day 220
+        self.assert_refused(["--live", "--write"], utc(2026, 3, 1, 1, 15))    # live day 1
+        self.assert_refused(["--live", "--write"], utc(2026, 2, 20, 1, 15))   # before the conflict
+
+    def test_live_refuses_a_future_or_other_day(self):
+        self.assert_refused(["--live", "--write", "--start-day", "250", "--end-day", "250"], self.NOW)  # today
+        self.assert_refused(["--live", "--write", "--start-day", "251", "--end-day", "251"], self.NOW)  # future
+        self.assert_refused(["--live", "--write", "--start-day", "248", "--end-day", "248"], self.NOW)  # not DAY-1
+
+    def test_non_live_still_needs_a_day_range(self):
+        with mock.patch.object(bf, "utc_today", return_value=TODAY), \
+                mock.patch("sys.stdout", new_callable=io.StringIO), mock.patch("sys.stderr", new_callable=io.StringIO):
+            self.assertNotEqual(bf.main([]), 0)
+
+
 class ShardPlan(unittest.TestCase):
     def test_plan_covers_range_once(self):
         plan = bf.shard_plan(1, 220, 8)

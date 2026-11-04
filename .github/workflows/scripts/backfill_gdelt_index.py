@@ -37,6 +37,13 @@ Usage:
   python backfill_gdelt_index.py --start-day 30 --end-day 30            # dry run (default)
   python backfill_gdelt_index.py --start-day 1 --end-day 10 --write     # needs SUPABASE_URL / SUPABASE_SERVICE_KEY
   python backfill_gdelt_index.py --start-day 1 --end-day 220 --plan 10  # print the Actions matrix
+  python backfill_gdelt_index.py --live [--write]                       # daily job (collect-gdelt.yml)
+
+Live mode (--live): processes exactly conflict day DAY-1, DAY = (UTC today - 2026-02-28) + 1 from the
+clock (DAY LOCK, never the DB), refusing a day <= 220 (the backfill's range). Lookahead defaults to
+1 h. is_retrospective is computed at write time: False only when written before 06:00:00 UTC on the
+day after the processed day (operator provenance rule), True at 06:00:00 and later. Non-live rows
+are always is_retrospective = true, as before.
 """
 
 import argparse
@@ -63,6 +70,7 @@ from sources_registry import (  # noqa: E402
     ALL_SOURCES, CONFLICT_KEYWORDS, HORN_AMBIGUOUS_KEYWORDS, HORN_KEYWORDS, NITTER_INSTANCES,
     keyword_regex, strip_horn_exclusions,
 )
+import heartbeat  # noqa: E402  job_heartbeats row after a live write (non-fatal)
 
 CONFLICT_START = datetime.date(2026, 2, 28)
 GDELT_BASE = "https://data.gdeltproject.org/gdeltv2"
@@ -135,6 +143,21 @@ _LANG_RE = re.compile(r"srclc:([a-z]{2,3})")
 
 def utc_today() -> datetime.date:
     return datetime.datetime.now(datetime.timezone.utc).date()
+
+
+def utc_now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+LIVE_MIN_DAY = 221  # Days 1-220 belong to the one-off backfill
+LIVE_CUTOFF = datetime.time(6, 0)  # after 06:00 UTC the next day a write is "reconstructed"
+
+
+def is_reconstructed(day: int, written_at: datetime.datetime) -> bool:
+    """Operator provenance rule: True unless written strictly before 06:00:00 UTC on day+1's date."""
+    cutoff = datetime.datetime.combine(day_date(day) + datetime.timedelta(days=1), LIVE_CUTOFF,
+                                       tzinfo=datetime.timezone.utc)
+    return written_at.astimezone(datetime.timezone.utc) >= cutoff
 
 
 def url_to_id(url: str) -> str:
@@ -729,16 +752,18 @@ def _print_day(stats: dict):
             pass
 
 
-def main(argv=None) -> int:
+def main(argv=None, clock=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("--start-day", type=int, required=True)
-    ap.add_argument("--end-day", type=int, required=True)
+    ap.add_argument("--start-day", type=int, help="required unless --live")
+    ap.add_argument("--end-day", type=int, help="required unless --live")
+    ap.add_argument("--live", action="store_true",
+                    help="daily job: process conflict day DAY-1 only, is_retrospective computed at write time")
     ap.add_argument("--write", action="store_true", help="insert into Supabase (default: dry run)")
     ap.add_argument("--no-translation", action="store_true", help="skip the machine-translated feed")
     ap.add_argument("--en-cap", type=int, default=EN_CAP)
     ap.add_argument("--nonen-cap", type=int, default=NONEN_CAP)
     ap.add_argument("--workers", type=int, default=4, help="parallel downloads (be polite to GDELT)")
-    ap.add_argument("--lookahead-hours", type=int, default=6)
+    ap.add_argument("--lookahead-hours", type=int, default=None, help="default 6, or 1 with --live")
     ap.add_argument("--registry-unfiltered", action="store_true",
                     help="keep every registry-outlet row, even off-topic ones (not recommended)")
     ap.add_argument("--strict-registry-priority", action="store_true",
@@ -752,8 +777,24 @@ def main(argv=None) -> int:
     ap.add_argument("--plan", type=int, metavar="DAYS_PER_SHARD",
                     help="print a GitHub Actions matrix for the range and exit")
     a = ap.parse_args(argv)
+    clock = clock or utc_now
 
-    today = utc_today()
+    if a.live:
+        today = clock().date()
+        live_day = (today - CONFLICT_START).days  # DAY - 1 (DAY LOCK), never derived from the DB
+        if a.start_day is None and a.end_day is None:
+            a.start_day = a.end_day = live_day
+        if a.plan or not (a.start_day == a.end_day == live_day) or live_day < LIVE_MIN_DAY:
+            print(f"error: --live processes only conflict day DAY-1 = {live_day} (must be >= {LIVE_MIN_DAY}); "
+                  f"got {a.start_day}..{a.end_day}{' with --plan' if a.plan else ''}")
+            return 2
+    elif a.start_day is None or a.end_day is None:
+        print("error: --start-day and --end-day are required (or use --live)")
+        return 2
+    else:
+        today = utc_today()
+    if a.lookahead_hours is None:
+        a.lookahead_hours = 1 if a.live else 6
     last_closed = (today - CONFLICT_START).days  # yesterday's conflict day: today's is incomplete
     if not (1 <= a.start_day <= a.end_day <= last_closed):
         print(f"error: need 1 <= start_day <= end_day <= {last_closed} (last complete UTC day); "
@@ -780,7 +821,7 @@ def main(argv=None) -> int:
                    registry_unfiltered=a.registry_unfiltered,
                    strict_registry=a.strict_registry_priority, horn_share=a.horn_share, today=today)
     registry = build_registry()
-    mode = "WRITE" if a.write else "DRY RUN (nothing is written)"
+    mode = ("LIVE " if a.live else "") + ("WRITE" if a.write else "DRY RUN (nothing is written)")
     print(f"[backfill_gdelt_index] Days {a.start_day}-{a.end_day} | {mode} | translation="
           f"{opts.translation} | caps {opts.en_cap}+{opts.nonen_cap}/day | workers={opts.workers} | "
           f"registry domains={len(registry)}")
@@ -801,6 +842,12 @@ def main(argv=None) -> int:
     for day in range(a.start_day, a.end_day + 1):
         res = process_day(day, opts, registry=registry)
         _print_day(res.stats)
+        if a.live:  # provenance at write time (downloads are done; the insert follows immediately)
+            flag = is_reconstructed(day, clock())
+            for r in res.rows:
+                r["is_retrospective"] = flag
+            print(f"  live Day {day}: is_retrospective={flag} | rows en {res.stats['kept_en']} | "
+                  f"non-en {res.stats['kept_non_en']} | distinct outlets {len({r['source_name'] for r in res.rows})}")
         if a.dump_jsonl:
             with open(a.dump_jsonl, "a", encoding="utf-8") as fh:
                 for r in res.rows:
@@ -823,15 +870,19 @@ def main(argv=None) -> int:
     print(f"\n[backfill_gdelt_index] files read {files_read} | rows kept {kept_total} | "
           f"payload {payload_total / 1e6:.2f} MB JSON | written {written} | failed batches {failed_batches} | "
           f"incomplete days {incomplete_days or 'none'} | {time.time() - t0:.0f}s")
+    rc = 0
     if files_read == 0:
         print("[backfill_gdelt_index] x no GKG file could be read")
-        return 1
-    if incomplete_days or failed_batches:
-        return 1
-    if a.write and written == 0:
+        rc = 1
+    elif incomplete_days or failed_batches:
+        rc = 1
+    elif a.write and written == 0:
         print("[backfill_gdelt_index] x files were parsed but nothing was written")
-        return 1
-    return 0
+        rc = 1
+    if a.live and a.write:
+        heartbeat.beat("collect-gdelt", "ok" if rc == 0 else "fail",
+                       f"Day {a.start_day}: kept {kept_total}, written {written}, files {files_read}")
+    return rc
 
 
 if __name__ == "__main__":

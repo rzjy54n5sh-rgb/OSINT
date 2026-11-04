@@ -1,0 +1,43 @@
+# Daily GDELT news-link collector: yesterday's conflict day (DAY-1, DAY LOCK) from GDELT 2.0 GKG files.
+# - Same code as the one-off backfill (backfill_gdelt_index.py --live). Writes to: articles (Supabase)
+#   only. Never deletes or updates rows (Prefer: resolution=ignore-duplicates on the URL-derived id).
+# - Caps per day: <= 500 English + <= 100 non-English rows. is_retrospective is computed at write time:
+#   false only before 06:00 UTC the next day (operator provenance rule), so a late run is "reconstructed".
+# - No AI / model API, stdlib only. Data: The GDELT Project (https://www.gdeltproject.org/), credited on /feed.
+# - Exits non-zero when GKG files were read but nothing was written (Silent-collectors gotcha).
+name: Collect GDELT (daily)
+
+on:
+  schedule:
+    - cron: '10 1 * * *'   # 01:10 UTC: Day-1 plus 1 h of lookahead are published by then
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collect-gdelt
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+      - name: Collect yesterday's GDELT rows (stdlib only, no pip install)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python .github/workflows/scripts/backfill_gdelt_index.py --live --write --workers 4
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::${{ github.workflow }} FAILED — check logs at ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
