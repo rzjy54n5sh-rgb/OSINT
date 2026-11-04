@@ -19,8 +19,8 @@
 - **Retired:** five Anthropic-API workflows (`daily-analysis`, `daily_pipeline`, `disinfo-analysis`, `social-analysis`, `strategic-analysis`) live in `.github/workflows-retired/` — never move them back. Its `README.md` has the run history: ~$100 burned, 247 of ~320 runs failed, `daily_analysis.py` scheduled twice daily with no short-circuit.
 
 ## Stack
-- **Frontend:** Next.js 15.5.27 + React 19.2.4 + TypeScript + Tailwind CSS
-- **Hosting:** Cloudflare Workers via @opennextjs/cloudflare 1.17.1 + wrangler 4.76.0 (pinned via overrides). Public pages are ISR (`export const revalidate`) and served from **Workers Cache** (`wrangler.jsonc` → `cache.enabled`); they must never read cookies — use `createPublicClient()` and resolve anything per-visitor after hydration via `/api/viewer/*` (see PR perf/caching-next155)
+- **Frontend:** Next.js 15.5.29 + React 19.2.4 + TypeScript + Tailwind CSS
+- **Hosting:** Cloudflare Workers via @opennextjs/cloudflare 1.20.14 + wrangler 4.151.3 (pinned via overrides; PR #64, 2026-11-04). Public pages are ISR (`export const revalidate`) and served from **Workers Cache** (`wrangler.jsonc` → `cache.enabled`); they must never read cookies — use `createPublicClient()` and resolve anything per-visitor after hydration via `/api/viewer/*` (see PR perf/caching-next155)
 - **DB:** Supabase PostgreSQL (PostgREST via direct HTTP)
 - **Payments:** Stripe | **Email:** Resend | **Analytics:** Plausible
 - **Collectors (no AI, GitHub Actions, free — public repo):** Collect Feeds (hourly), Collect Market Data (every 30 min), Collect Social Trends (every 12 h), Collect Disinfo Claims (daily 06:00 UTC), Deploy (on push to `main`). Manual-only / disabled: Production E2E, Run DB Migration.
@@ -123,6 +123,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - **Al Jazeera labelling:** party_source = true only where it reports on Qatar, Egypt or the UAE (DECISION-002 conflict of interest); otherwise Tier 2, not party. The National, WAM, SPA, TASS, Xinhua, IRNA, Tasnim, PressTV, Al-Ahram = party/state
 - **Supabase MCP destructive-statement confirmation may never reach the operator** (cancelled 3× on 2026-10-06). Do not loop on it. Ask the operator; with his explicit approval, apply through the Mac's direct DB connection (`~/mid_backfill/conn.py`, credentials read at runtime, never printed), in ONE transaction with per-statement row-count checks and a read-back
 - **No incremental cache in OpenNext here** (`open-next.config.ts` is `defineCloudflareConfig()`): every Worker render is a fresh render (`x-nextjs-cache: MISS`); only the edge/Workers Cache honouring `s-maxage` keeps Supabase off the hot path. Metadata routes (`app/sitemap.ts`, `app/robots.ts`) are served `max-age=0, must-revalidate` and are never edge-cached — anything that queries Supabase must be a route handler with `export const revalidate` (see `app/sitemap.xml/route.ts`, `app/rss.xml/route.ts`). Link previews: build route metadata with `pageMetadata()` (`lib/site.ts`) — Next merges `openGraph` shallowly, so a page that sets only `title` shows the ROOT og:title
+- **OpenNext refuses to build an "unsupported" Next major:** @opennextjs/aws 3.9.x counted a major as supported for exactly 2 years, so from 2026-10-21 every Deploy failed with "Next.js version 15.5.27 is not supported by the Next.js team" and the live site stayed on the 2026-10-17 build for 18 days, unnoticed. Fixed by @opennextjs/cloudflare 1.20.14 (aws 4.1.x: supported while major+2 is unreleased). Never "fix" it with `--dangerouslyUseUnsupportedNextVersion`. After every merge, check the Deploy run went green, not just PR CI (PR CI runs `next build`, not `opennextjs-cloudflare build`)
 - **Never run `docs/8_supabase_cron_cleanup.sql`.** Its `cleanup-old-articles` job deleted 24,757 articles between June and September 2026 while collection was off; free tier has no backups, so the Mar–Aug article history is unrecoverable. Retention policy: never delete rows — when the DB passes ~350 MB, strip `summary`/`tags` on OLD rows only
 
 ## Structural Neutrality Rules (Architectural — Non-Negotiable)
@@ -162,7 +163,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - **Security hardened 2026-10-06:** public ALL on user_events/user_notes closed; users can update only 5 profile columns; unapproved scenarios / inactive alerts no longer public; anon-insert tables length-bounded; SECURITY DEFINER functions locked down
 - **0 subscribers** (users: 2 at last count — verify live)
 - **articles history Mar–Aug is lost** — the 90-day cleanup job deleted 24,757 rows Jun–Sep 2026 while collection was off; no backups on the free tier. Collection is running again; do not describe the pre-recovery history as complete
-- Stack: Next.js 15.5.27 (DO NOT upgrade to 16 — opennextjs-cloudflare prefetch-hints bug); wrangler pinned to 4.76.0 via overrides in package.json
+- Stack: Next.js 15.5.29 (DO NOT upgrade to 16 — opennextjs-cloudflare prefetch-hints bug); wrangler pinned to 4.151.3 via overrides in package.json
 - Current conflict day: calculated fresh each time — do NOT hardcode
 
 ## Rulings 2026-10-06 (dynamic model — operator rulings, do not re-open)
