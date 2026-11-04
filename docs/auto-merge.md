@@ -24,13 +24,13 @@ Every decision (merge, skip, blocked, error) and the reason for it is written to
 | PR is open, not a draft, targets `main` | skip |
 | Branch is in this repository (no forks) | skip |
 | Author is `rzjy54n5sh-rgb` | skip |
-| Label **`auto-merge`** is on the PR | skip |
+| Label **`auto-merge`** is on the PR, **or** the branch is `data/chokepoints-issue-<n>` and the PR changes only `data/chokepoints/latest.json` and/or `data/chokepoints/history.json` (Chokepoint Weekly data, added 2026-11-04) | skip |
 | PR head is still the commit CI tested (no newer push) | skip (the newer push gets its own CI run) |
 | GitHub reports it mergeable: no conflict, not blocked by a protection rule (waits up to 60 s for GitHub to compute this) | skip |
 | At most 100 files and 3,000 changed lines | blocked, with a comment |
 | At most 20 files deleted | blocked, with a comment |
 | No human-only path (list below), including a file renamed away from one | blocked, with a comment |
-| No other check on the head commit has failed. "Workers Builds: menaosint" is ignored: it is a separate Cloudflare project that fails on every PR. Checks still running are not waited for | blocked, with a comment |
+| No other check on the head commit has failed. Only the newest run of each check (same app and name) counts, so a failure that a re-run has since turned green no longer blocks (GitHub's `filter=latest` keeps one run per check *suite*, and every workflow re-run is a new suite). "Workers Builds: menaosint" is ignored: it is a separate Cloudflare project that fails on every PR. Checks still running are not waited for | blocked, with a comment |
 
 "Skip" is silent. "Blocked" posts one PR comment naming the rule and saying a human merge is needed. The comment is not repeated when it is already on the PR. The merge call passes the tested commit (`sha`), so GitHub refuses it if the branch moved in the meantime.
 
@@ -53,6 +53,12 @@ Database migrations under `supabase/migrations/` **are** allowed: merging a migr
 ## Who adds the label
 
 Claude adds the `auto-merge` label only after its independent verifier has returned **SHIP** for that PR. Without the label nothing is merged automatically. Omar can add or remove the label on any PR.
+
+**Exception: Chokepoint Weekly data PRs need no label** (Omar, 2026-11-04). The scheduled Chokepoint Weekly task opens `data/chokepoints-issue-<n>` PRs that change only the two chokepoint JSON files. PR CI runs the chokepoint gate on them (`scripts/card/lib/gates.mjs`, `allowStale = false`, a human-only path, so a data PR cannot weaken it), plus `tests/unit/corridors.check.ts`, which checks `history.json` against `latest.json`. Every other rule above still applies. A branch with that name that changes any other file is skipped (no label → no merge). To hold one back, convert it to a draft or set the kill switch.
+
+## Build retry on Google Fonts errors
+
+`next/font/google` downloads the font CSS and files during `next build`. On 2026-11-04 Google served a response next/font could not parse (`TypeError: Cannot read properties of null (reading '1')` at `@next/font/dist/google/loader.js:122`), which failed PR CI on a JSON-only PR. The build steps in `pr-ci.yml` and `deploy.yml` now retry up to twice (30 s apart), **only** when the build log shows that next/font Google error; any other build failure fails at once.
 
 ## Stopping it
 

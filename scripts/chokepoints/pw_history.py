@@ -29,6 +29,7 @@ import datetime as dt
 import json
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -49,6 +50,28 @@ SOURCE_CREDIT = "Transits: IMF PortWatch (UN Global Platform), AIS-based"
 LICENCE = "USE-PROVISIONAL (licence_check.md row 4). Do not resell the raw series."
 PAGE = 2000
 TIMEOUT_S = 60
+RETRIES = 40
+RETRY_SLEEP_S = 2
+
+
+def get_json(url: str, portid: str) -> dict:
+    """GET one ArcGIS query page. The service intermittently answers HTTP 200 with an error body
+    ({"error":{"code":400,"message":"Cannot perform query. Invalid query parameters."}}) for a query
+    that succeeds when repeated (observed 2026-10-28 and on ~half of calls 2026-10-31): retry."""
+    last = None
+    for attempt in range(1, RETRIES + 1):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "mena-intel-desk-pw-history/1"})
+            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+                body = json.load(r)
+            if "error" not in body:
+                return body
+            last = f"ArcGIS error body {body['error']}"
+        except (OSError, ValueError) as e:  # URLError/HTTPError/timeouts are OSError; bad JSON is ValueError
+            last = f"{type(e).__name__}: {e}"
+        print(f"pw_history: {portid} attempt {attempt}/{RETRIES} failed ({last}); retrying", file=sys.stderr)
+        time.sleep(RETRY_SLEEP_S)
+    raise RuntimeError(f"ArcGIS query for {portid} failed {RETRIES} times; last: {last}")
 
 
 def fetch_daily(portid: str, since: dt.date) -> dict[str, int]:
@@ -65,11 +88,7 @@ def fetch_daily(portid: str, since: dt.date) -> dict[str, int]:
             "f": "json",
         }
         url = QUERY_URL + "?" + urllib.parse.urlencode(params)
-        req = urllib.request.Request(url, headers={"User-Agent": "mena-intel-desk-pw-history/1"})
-        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
-            body = json.load(r)
-        if "error" in body:
-            raise RuntimeError(f"ArcGIS error for {portid}: {body['error']}")
+        body = get_json(url, portid)
         feats = body.get("features") or []
         for f in feats:
             a = f.get("attributes") or {}
