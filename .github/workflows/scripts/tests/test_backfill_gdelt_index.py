@@ -581,6 +581,258 @@ class HornOfAfrica(unittest.TestCase):
             self.assertEqual(bf.main(["--start-day", "16", "--end-day", "16", "--horn-share", "1.5"]), 2)
 
 
+def utc(*a):
+    return datetime.datetime(*a, tzinfo=datetime.timezone.utc)
+
+
+def make_full_fetch(files, drop=()):
+    """Fake GDELT with EVERY 15-minute slot published (live mode treats a missing slot as a failure):
+    the given fixture zips where named, an empty GKG file elsewhere; names in `drop` answer 404."""
+    base = make_fetch(files=files)
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        name = url.rsplit("/", 1)[1]
+        if name in drop:
+            return None
+        blob = base(url)
+        return blob if blob is not None else as_zip([], name[:-len(".zip")])
+
+    fetch.calls = calls
+    return fetch
+
+
+class LiveMode(unittest.TestCase):
+    """--live: the daily collector (collect-gdelt.yml). Processes conflict day DAY-1 only, where DAY is
+    the DAY LOCK day of the injected clock; is_retrospective is computed at write time (operator
+    rule: written after 06:00 UTC the next day = reconstructed). The 06:00:00 edge is EXCLUSIVE
+    for live: a write at exactly 06:00:00 UTC is reconstructed (True)."""
+
+    NOW = utc(2026, 11, 4, 1, 15)  # DAY 250, so the live day is 249 (2026-11-03)
+
+    def live_fetch(self, drop=()):
+        # the 2026-03-15 00:00 fixture files, re-dated to the first slot after Day 249 (2026-11-04 00:00);
+        # every other slot of the day and its lookahead is published (empty), except the names in `drop`
+        def shift(lines):
+            return [l.replace("20260314", "20261103").replace("20260315", "20261104") for l in lines]
+        return make_full_fetch({
+            "20261104000000.gkg.csv.zip": ("20261104000000.gkg.csv", shift(EN_0000)),
+            "20261104000000.translation.gkg.csv.zip": ("20261104000000.translation.gkg.csv", shift(TR_0000)),
+        }, drop=drop)
+
+    def run_live(self, argv, clock, fetch=None, upsert_result=None):
+        fetch = fetch or self.live_fetch()
+        upsert_result = upsert_result or (lambda n: (n, 0))
+        posted, beats = [], []
+
+        def fake_upsert(rows, url, key):
+            posted.append([dict(r) for r in rows])
+            return upsert_result(len(rows))
+
+        env = {"SUPABASE_URL": "https://supabase.test", "SUPABASE_SERVICE_KEY": "k"}
+        with mock.patch.object(bf, "utc_today", side_effect=AssertionError("live must use the clock")), \
+                mock.patch.object(bf, "http_fetch", fetch), \
+                mock.patch.object(bf, "upsert_rows", fake_upsert), \
+                mock.patch.object(bf.heartbeat, "beat", lambda *a, **k: beats.append(a)), \
+                mock.patch.dict(os.environ, env), \
+                mock.patch("sys.stdout", new_callable=io.StringIO) as out:
+            code = bf.main(argv, clock=clock)
+        return code, posted, fetch, beats, out.getvalue()
+
+    def test_live_picks_day_minus_one_with_one_hour_lookahead(self):
+        code, posted, fetch, beats, out = self.run_live(["--live"], lambda: self.NOW)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(posted, [])  # dry run: nothing written, no heartbeat
+        self.assertEqual(beats, [])
+        en = sorted(u.rsplit("/", 1)[1][:14] for u in fetch.calls if ".translation." not in u)
+        self.assertEqual(len(en), 96 + 4)
+        self.assertEqual((en[0], en[-1]), ("20261103000000", "20261104004500"))
+        self.assertIn("DAY 249 ", out)
+
+    def test_live_rows_belong_to_day_minus_one(self):
+        code, posted, *_ = self.run_live(["--live", "--write"], lambda: self.NOW)
+        self.assertEqual(code, 0)
+        rows = [r for batch in posted for r in batch]
+        self.assertTrue(rows)
+        self.assertEqual({r["conflict_day"] for r in rows}, {249})
+        self.assertTrue(all(r["published_at"].startswith("2026-11-03") for r in rows))
+
+    def flags_written_at(self, *times):
+        it = iter(times)
+        last = [None]
+
+        def clock():  # first call picks the day; later calls (write time) get the next value(s)
+            last[0] = next(it, last[0])
+            return last[0]
+        code, posted, *_ = self.run_live(["--live", "--write"], clock)
+        self.assertEqual(code, 0)
+        return {r["is_retrospective"] for batch in posted for r in batch}
+
+    def test_retrospective_flag_around_the_0600_boundary(self):
+        # Conservative: False only if flag time + 10 min (the multi-POST insert window) is before 06:00:00.
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 1, 15)), {False})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 49, 59)), {False})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 49, 59, 999999)), {False})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 50, 0)), {True})   # edge: reconstructed
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 55)), {True})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 5, 59, 59)), {True})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 6, 0, 0)), {True})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 23, 0)), {True})
+
+    def test_flag_uses_the_write_time_not_the_start_time(self):
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 1, 15), utc(2026, 11, 4, 5, 51)), {True})
+        self.assertEqual(self.flags_written_at(utc(2026, 11, 4, 1, 15), utc(2026, 11, 4, 5, 49)), {False})
+
+    def test_is_reconstructed_pure(self):
+        self.assertFalse(bf.is_reconstructed(249, utc(2026, 11, 4, 5, 59, 59)))
+        self.assertTrue(bf.is_reconstructed(249, utc(2026, 11, 4, 6, 0)))
+        self.assertFalse(bf.is_reconstructed(249, utc(2026, 11, 3, 23, 59)))
+
+    def test_live_write_records_a_heartbeat(self):
+        code, _, _, beats, _ = self.run_live(["--live", "--write"], lambda: self.NOW)
+        self.assertEqual(code, 0)
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "ok")])
+
+    def assert_partial_day_fails(self, missing_name):
+        code, posted, fetch, beats, out = self.run_live(["--live", "--write"], lambda: self.NOW,
+                                                        fetch=self.live_fetch(drop={missing_name}))
+        self.assertTrue(any(u.endswith("/" + missing_name) for u in fetch.calls))
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual(posted, [], out)                    # a partial day is never written
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "fail")])
+        self.assertIn("missing 1", beats[0][2])               # the heartbeat names the missing count
+        self.assertIn("NOT written", out)
+
+    def test_live_missing_slot_inside_the_day_fails(self):
+        self.assert_partial_day_fails("20261103121500.gkg.csv.zip")
+
+    def test_live_missing_translation_slot_fails(self):
+        self.assert_partial_day_fails("20261103000000.translation.gkg.csv.zip")
+
+    def test_live_missing_slot_in_the_lookahead_fails(self):
+        self.assert_partial_day_fails("20261104004500.gkg.csv.zip")
+
+    def test_live_complete_day_has_no_missing_slot(self):
+        code, posted, fetch, beats, out = self.run_live(["--live", "--write"], lambda: self.NOW)
+        self.assertEqual(code, 0, out)
+        self.assertNotIn("missing slots", out)
+        self.assertIn("missing 0", beats[0][2])
+
+    def test_failed_live_write_sends_a_fail_heartbeat(self):
+        # kills the mutation "heartbeat always ok": a live run that exits non-zero must beat "fail"
+        code, posted, _, beats, out = self.run_live(["--live", "--write"], lambda: self.NOW,
+                                                    upsert_result=lambda n: (0, 1))
+        self.assertTrue(posted)
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "fail")])
+
+    def test_non_live_missing_slot_is_still_not_a_failure(self):
+        # backfill semantics unchanged: a 404 slot means "GDELT never had it" (make_fetch 404s most slots)
+        posted = []
+        env = {"SUPABASE_URL": "https://supabase.test", "SUPABASE_SERVICE_KEY": "k"}
+        with mock.patch.object(bf, "utc_today", return_value=TODAY), \
+                mock.patch.object(bf, "http_fetch", make_fetch()), \
+                mock.patch.object(bf, "upsert_rows", lambda rows, u, k: (posted.extend(rows), (len(rows), 0))[1]), \
+                mock.patch.object(bf.heartbeat, "beat", side_effect=AssertionError("no heartbeat outside live")), \
+                mock.patch.dict(os.environ, env), mock.patch("sys.stdout", new_callable=io.StringIO):
+            code = bf.main(["--start-day", "16", "--end-day", "16", "--write"])
+        self.assertEqual(code, 0)
+        self.assertTrue(posted)
+
+    def test_non_live_still_always_retrospective(self):
+        # Day 16 written at 01:00 UTC on Day 17's date would be "live" by the clock: backfill stays True
+        posted = []
+        env = {"SUPABASE_URL": "https://supabase.test", "SUPABASE_SERVICE_KEY": "k"}
+        with mock.patch.object(bf, "utc_today", return_value=datetime.date(2026, 3, 16)), \
+                mock.patch.object(bf, "http_fetch", make_fetch()), \
+                mock.patch.object(bf, "upsert_rows", lambda rows, u, k: (posted.extend(rows), (len(rows), 0))[1]), \
+                mock.patch.dict(os.environ, env), mock.patch("sys.stdout", new_callable=io.StringIO):
+            code = bf.main(["--start-day", "16", "--end-day", "16", "--write"],
+                           clock=lambda: utc(2026, 3, 16, 1, 0))
+        self.assertEqual(code, 0)
+        self.assertTrue(posted)
+        self.assertEqual({r["is_retrospective"] for r in posted}, {True})
+
+    def assert_refused(self, argv, now):
+        f = make_fetch(files={})
+        code, posted, fetch, beats, out = self.run_live(argv, lambda: now, fetch=f)
+        self.assertEqual(code, 2, out)
+        self.assertEqual(fetch.calls, [])  # refused before any network call
+        self.assertEqual(posted, [])       # ... and before any DB call
+        self.assertEqual(beats, [])
+
+    def test_live_refuses_day_220_or_earlier(self):
+        self.assert_refused(["--live", "--write"], utc(2026, 10, 6, 1, 15))   # DAY 221 -> live day 220
+        self.assert_refused(["--live", "--write"], utc(2026, 3, 1, 1, 15))    # live day 1
+        self.assert_refused(["--live", "--write"], utc(2026, 2, 20, 1, 15))   # before the conflict
+
+    def test_live_refuses_a_future_or_other_day(self):
+        self.assert_refused(["--live", "--write", "--start-day", "250", "--end-day", "250"], self.NOW)  # today
+        self.assert_refused(["--live", "--write", "--start-day", "251", "--end-day", "251"], self.NOW)  # future
+        self.assert_refused(["--live", "--write", "--start-day", "248", "--end-day", "248"], self.NOW)  # not DAY-1
+
+    def test_live_refuses_any_plan_even_zero(self):
+        self.assert_refused(["--live", "--plan", "0"], self.NOW)
+        self.assert_refused(["--live", "--plan", "3"], self.NOW)
+
+    def test_live_lookahead_is_capped_at_six_hours(self):
+        self.assert_refused(["--live", "--lookahead-hours", "7"], self.NOW)
+        self.assert_refused(["--live", "--write", "--lookahead-hours", "48"], self.NOW)
+        code, _, fetch, _, out = self.run_live(["--live", "--lookahead-hours", "6"], lambda: self.NOW)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len([u for u in fetch.calls if ".translation." not in u]), 96 + 24)
+
+    def test_live_lookahead_below_one_hour_is_refused(self):
+        # 0 or negative silently drops the lookahead, so rows published on D but first seen after
+        # midnight would be lost; live needs >= 1.
+        self.assert_refused(["--live", "--lookahead-hours", "0"], self.NOW)
+        self.assert_refused(["--live", "--lookahead-hours", "-3"], self.NOW)
+
+    def test_live_day_uses_utc_even_with_an_offset_clock(self):
+        # 2026-11-03T22:30-04:00 is 02:30Z on 4 Nov -> DAY 250, live day 249
+        tz = datetime.timezone(datetime.timedelta(hours=-4))
+        code, _, fetch, _, out = self.run_live(["--live"], lambda: datetime.datetime(2026, 11, 3, 22, 30, tzinfo=tz))
+        self.assertEqual(code, 0, out)
+        self.assertIn("DAY 249 ", out)
+        # 2026-11-04T03:30+04:00 is 23:30Z on 3 Nov -> DAY 249, live day 248
+        tz = datetime.timezone(datetime.timedelta(hours=4))
+        code, _, _, _, out = self.run_live(["--live"], lambda: datetime.datetime(2026, 11, 4, 3, 30, tzinfo=tz))
+        self.assertIn("DAY 248 ", out)
+
+    def test_live_corrupt_zip_is_a_failed_day_with_a_fail_heartbeat(self):
+        base = self.live_fetch()
+        target = "20261103120000.gkg.csv.zip"
+
+        def fetch(url):
+            blob = base(url)
+            if url.endswith("/" + target):
+                inner = target[:-len(".zip")]
+                good = as_zip(["x\t" * 30] * 50, inner)
+                # first byte of the deflate stream (after the 30-byte local header + name): block type 3
+                # (reserved) -> zlib.error "invalid block type", not BadZipFile
+                i = 30 + len(inner)
+                blob = good[:i] + b"\xff" + good[i + 1:]
+            return blob
+        fetch.calls = base.calls
+        code, posted, _, beats, out = self.run_live(["--live", "--write"], lambda: self.NOW, fetch=fetch)
+        self.assertNotEqual(code, 0, out)
+        self.assertEqual(posted, [])
+        self.assertEqual([b[:2] for b in beats], [("collect-gdelt", "fail")])
+
+    def test_live_failure_prints_the_recovery_command(self):
+        code, _, _, _, out = self.run_live(["--live", "--write"], lambda: self.NOW,
+                                           fetch=self.live_fetch(drop={"20261103121500.gkg.csv.zip"}))
+        self.assertNotEqual(code, 0)
+        self.assertIn("--start-day 249 --end-day 249", out)
+        self.assertIn("backfill-gdelt-index.yml", out)
+
+    def test_non_live_still_needs_a_day_range(self):
+        with mock.patch.object(bf, "utc_today", return_value=TODAY), \
+                mock.patch("sys.stdout", new_callable=io.StringIO), mock.patch("sys.stderr", new_callable=io.StringIO):
+            self.assertNotEqual(bf.main([]), 0)
+
+
 class ShardPlan(unittest.TestCase):
     def test_plan_covers_range_once(self):
         plan = bf.shard_plan(1, 220, 8)
