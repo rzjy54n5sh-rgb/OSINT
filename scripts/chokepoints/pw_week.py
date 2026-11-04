@@ -7,10 +7,26 @@ week-on-week change, traffic index vs the fixed 2023 baseline (weekly_spec.md 3.
 Citation required wherever numbers are used: "Sources: UN Global Platform; IMF PortWatch (portwatch.imf.org)."
 Licence status: USE-PROVISIONAL (see licence_check.md row 4).
 """
-import json, sys, urllib.request, datetime as dt
+import json, sys, time, urllib.request, datetime as dt
 
 BASE = "https://services9.arcgis.com/weJ1QsnbMYJlCHdG/arcgis/rest/services/Daily_Chokepoints_Data/FeatureServer/0/query"
 LANES = {"chokepoint1": ("Suez Canal", 515.4), "chokepoint4": ("Bab el-Mandeb Strait", 522.1), "chokepoint6": ("Strait of Hormuz", 669.4)}
+
+def get_json(url, pid, retries=40, pause=2):
+    """The ArcGIS service intermittently answers HTTP 200 with an error body for a query that works when
+    repeated (2026-10-28, 2026-10-31). Retry; never change the arithmetic."""
+    last = None
+    for attempt in range(1, retries + 1):
+        try:
+            d = json.load(urllib.request.urlopen(url, timeout=60))
+            if "features" in d:
+                return d
+            last = d.get("error", d)
+        except (OSError, ValueError) as e:
+            last = f"{type(e).__name__}: {e}"
+        print(f"{pid}: attempt {attempt}/{retries} failed ({last}); retrying", file=sys.stderr)
+        time.sleep(pause)
+    raise RuntimeError(f"PortWatch query for {pid} failed {retries} times; last: {last}")
 
 def fetch(pid, since):
     rows, off = [], 0
@@ -18,7 +34,7 @@ def fetch(pid, since):
         q = (f"?where=portid%3D%27{pid}%27%20AND%20date%20%3E%3D%20timestamp%20%27{since}%27"
              f"&outFields=date,n_total,n_container&orderByFields=date%20ASC&returnGeometry=false"
              f"&resultOffset={off}&resultRecordCount=1000&f=json")
-        d = json.load(urllib.request.urlopen(BASE + q, timeout=60))
+        d = get_json(BASE + q, pid)
         rows += [f["attributes"] for f in d["features"]]
         if not d.get("exceededTransferLimit"):
             return {dt.date.fromisoformat(r["date"]): r for r in rows}

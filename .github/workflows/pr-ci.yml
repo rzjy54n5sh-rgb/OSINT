@@ -92,4 +92,17 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: x
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: x
           NEXT_PUBLIC_SITE_URL: https://mena-intel-desk.mores-cohorts9x.workers.dev
-        run: npm run build
+        run: |
+          # next/font downloads the Google Fonts CSS and files at build time. Google occasionally serves a
+          # response next/font cannot parse (2026-11-04 PR #60: "Cannot read properties of null (reading '1')"
+          # at @next/font/dist/google/loader.js:122), which fails the whole build. Retry up to twice, and only
+          # when the log shows that next/font Google error; every other build failure fails at once.
+          for attempt in 1 2 3; do
+            if npm run build 2>&1 | tee "$RUNNER_TEMP/build.log"; then exit 0; fi
+            grep -qE 'next/font/google|@next/font/dist/google|Failed to fetch .* from Google Fonts' "$RUNNER_TEMP/build.log" || exit 1
+            [ "$attempt" -lt 3 ] || break
+            echo "::warning::next/font could not load Google Fonts (attempt $attempt of 3); retrying in 30 s"
+            sleep 30
+          done
+          echo "::error::next/font failed to load Google Fonts on 3 attempts"
+          exit 1

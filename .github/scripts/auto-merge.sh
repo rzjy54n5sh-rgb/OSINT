@@ -114,6 +114,14 @@ note "PR #$pr_number"
 pr_json="$(api "repos/$REPO/pulls/$pr_number")"
 pf() { jq -r "$1" <<<"$pr_json"; }
 
+# Chokepoint Weekly data PRs (Omar, 2026-11-04: "automate it") are eligible without the label, but only
+# from a data/chokepoints-issue-<n> branch; section 3 then requires that they change nothing except
+# CHOKEPOINT_DATA_FILES. Every other rule (author, size, failed checks, human-only paths) still applies,
+# and PR CI has already run the chokepoint gate (scripts/card/lib/gates.mjs, human-only) on the data.
+readonly CHOKEPOINT_DATA_FILES='["data/chokepoints/latest.json","data/chokepoints/history.json"]'
+is_chokepoint_data_branch() { [[ "$(pf '.head.ref // ""')" =~ ^data/chokepoints-issue-[0-9]+$ ]]; }
+has_label() { [ "$(jq -r --arg l "$LABEL" 'any(.labels[]?; .name == $l)' <<<"$pr_json")" = "true" ]; }
+
 # Prints the first reason the PR is not eligible, or nothing when it is.
 ineligible() {
   [ "$(pf '.state // ""')" = "open" ] || { echo "PR is $(pf '.state // "unknown"'), not open"; return; }
@@ -122,14 +130,16 @@ ineligible() {
   [ "$(pf '.base.repo.full_name // ""')" = "$REPO" ] || { echo "base repository is not $REPO"; return; }
   [ "$(pf '.head.repo.full_name // ""')" = "$REPO" ] || { echo "head branch is not in $REPO (fork or deleted repository)"; return; }
   [ "$(pf '.user.login // ""')" = "$ALLOWED_AUTHOR" ] || { echo "author is not $ALLOWED_AUTHOR"; return; }
-  [ "$(jq -r --arg l "$LABEL" 'any(.labels[]?; .name == $l)' <<<"$pr_json")" = "true" ] || { echo "label '$LABEL' not present"; return; }
+  [ "$(jq -r --arg l "$LABEL" 'any(.labels[]?; .name == $l)' <<<"$pr_json")" = "true" ] || is_chokepoint_data_branch \
+    || { echo "label '$LABEL' not present"; return; }
   [ "$(pf '.head.sha // ""')" = "$HEAD_SHA" ] || { echo "PR head moved to $(pf '.head.sha // ""' | cut -c1-12); the newer commit gets its own CI run"; return; }
   return 0
 }
 
 why="$(ineligible)"
 [ -z "$why" ] || skip "$why"
-note "ok: open, not draft, base $BASE_BRANCH, same-repo head, author $ALLOWED_AUTHOR, label $LABEL, head = CI commit"
+if has_label; then via="label $LABEL"; else via="chokepoint data branch $(safe "$(pf '.head.ref')") (no label)"; fi
+note "ok: open, not draft, base $BASE_BRANCH, same-repo head, author $ALLOWED_AUTHOR, $via, head = CI commit"
 
 # GitHub computes mergeability asynchronously: poll until it is known (default 12 x 5 s).
 tries=0
@@ -219,12 +229,24 @@ if [ "${#hits[@]}" -gt 0 ]; then
   block human-only-path "touches human-only path(s): ${shown%, }"
 fi
 note "ok: $changed_files files, $lines lines, $deleted deleted, no human-only path"
+if ! has_label; then
+  extra="$(jq -r --argjson allowed "$CHOKEPOINT_DATA_FILES" \
+    '[.[] | (.filename, (.previous_filename // empty))] | map(select(. as $f | $allowed | index($f) | not)) | length' <<<"$files_json")"
+  [ "$extra" = "0" ] || skip "no label, and the chokepoint data branch changes $extra file(s) outside $(jq -r 'join(", ")' <<<"$CHOKEPOINT_DATA_FILES")"
+  note "ok: no label needed, only chokepoint data files changed"
+fi
 
 # ---- 4. Other checks on the head commit (do not wait; only completed failures count) --------------
 failed_checks="$(api --paginate "repos/$REPO/commits/$HEAD_SHA/check-runs?filter=latest&per_page=100" \
   | jq -s -r --argjson ignore "$IGNORED_CHECKS_JSON" '
-      [.[].check_runs[]?] | .[]
-      | select(.status == "completed")
+      [.[].check_runs[]?]
+      # filter=latest dedupes only within one check suite, and every re-run of a workflow is a new suite,
+      # so a superseded failure stays listed next to its green re-run (PR #60, 2026-11-04). Keep only the
+      # newest COMPLETED run of each (app, name): a re-run still in progress does not hide an older failure.
+      | map(select(.status == "completed"))
+      | group_by([(.app.slug // ""), .name])
+      | map(max_by([(.completed_at // ""), (.id // 0)]))
+      | .[]
       | select(.conclusion as $c | ["failure", "timed_out", "action_required", "startup_failure"] | index($c))
       | select(.name as $n | $ignore | index($n) | not)
       | .name')"

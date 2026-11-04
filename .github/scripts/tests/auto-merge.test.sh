@@ -227,6 +227,69 @@ jq '.check_runs += [{name: "e2e", status: "completed", conclusion: "failure"}]' 
 run_case
 expect BLOCKED 0 "$COMMENT_CALL" "auto-merge:blocked rule=failed-check" -- "$MERGE_CALL"
 
+# A re-run of the same check is a new check suite; GitHub's filter=latest keeps both. Only the newest
+# run of each (app, name) counts (PR #60, 2026-11-04: a stale "ci" failure blocked a green re-run).
+new_case superseded_failure_ignored
+jq '.check_runs = [
+  {id: 1, name: "ci", status: "completed", conclusion: "failure", completed_at: "2026-11-04T03:43:54Z", app: {slug: "github-actions"}},
+  {id: 2, name: "ci", status: "completed", conclusion: "success", completed_at: "2026-11-04T03:50:31Z", app: {slug: "github-actions"}},
+  {id: 3, name: "Workers Builds: menaosint", status: "completed", conclusion: "failure", completed_at: "2026-10-31T06:29:57Z", app: {slug: "cloudflare-workers-and-pages"}}
+]' "$FIX/GET_commits_${SHA}_check-runs.json" > "$FIX/c.tmp" && mv "$FIX/c.tmp" "$FIX/GET_commits_${SHA}_check-runs.json"
+run_case
+expect MERGE 0 "$MERGE_CALL" -- "auto-merge:blocked"
+
+new_case newer_failure_still_blocks
+jq '.check_runs = [
+  {id: 1, name: "e2e", status: "completed", conclusion: "success", completed_at: "2026-11-04T03:43:54Z", app: {slug: "github-actions"}},
+  {id: 2, name: "e2e", status: "completed", conclusion: "failure", completed_at: "2026-11-04T03:50:31Z", app: {slug: "github-actions"}}
+]' "$FIX/GET_commits_${SHA}_check-runs.json" > "$FIX/c.tmp" && mv "$FIX/c.tmp" "$FIX/GET_commits_${SHA}_check-runs.json"
+run_case
+expect BLOCKED 0 "$COMMENT_CALL" "auto-merge:blocked rule=failed-check" -- "$MERGE_CALL"
+
+new_case rerun_in_progress_does_not_hide_failure
+jq '.check_runs = [
+  {id: 1, name: "e2e", status: "completed", conclusion: "failure", completed_at: "2026-11-04T03:43:54Z", app: {slug: "github-actions"}},
+  {id: 2, name: "e2e", status: "in_progress", conclusion: null, completed_at: null, app: {slug: "github-actions"}}
+]' "$FIX/GET_commits_${SHA}_check-runs.json" > "$FIX/c.tmp" && mv "$FIX/c.tmp" "$FIX/GET_commits_${SHA}_check-runs.json"
+run_case
+expect BLOCKED 0 "$COMMENT_CALL" "auto-merge:blocked rule=failed-check" -- "$MERGE_CALL"
+
+new_case same_name_other_app_failure_blocks
+jq '.check_runs = [
+  {id: 1, name: "ci", status: "completed", conclusion: "failure", completed_at: "2026-11-04T03:43:54Z", app: {slug: "some-other-app"}},
+  {id: 2, name: "ci", status: "completed", conclusion: "success", completed_at: "2026-11-04T03:50:31Z", app: {slug: "github-actions"}}
+]' "$FIX/GET_commits_${SHA}_check-runs.json" > "$FIX/c.tmp" && mv "$FIX/c.tmp" "$FIX/GET_commits_${SHA}_check-runs.json"
+run_case
+expect BLOCKED 0 "$COMMENT_CALL" "auto-merge:blocked rule=failed-check" -- "$MERGE_CALL"
+
+# Chokepoint Weekly data PRs merge without the label (Omar, 2026-11-04: "automate it"), but only from a
+# data/chokepoints-issue-<n> branch that changes nothing except the two chokepoint JSON files.
+CP_FILES='[{filename: "data/chokepoints/latest.json", status: "modified", additions: 25, deletions: 25},
+           {filename: "data/chokepoints/history.json", status: "modified", additions: 22, deletions: 22}]'
+new_case chokepoint_data_pr_merges_without_label
+patch_pull '.labels = [] | .head.ref = "data/chokepoints-issue-5"'; ENV_HEAD_BRANCH="data/chokepoints-issue-5"
+set_files "$(jq -n "$CP_FILES")"
+run_case
+expect MERGE 0 "$MERGE_CALL"
+
+new_case chokepoint_branch_with_other_file_skips
+patch_pull '.labels = [] | .head.ref = "data/chokepoints-issue-5"'; ENV_HEAD_BRANCH="data/chokepoints-issue-5"
+set_files "$(jq -n "$CP_FILES + [{filename: \"scripts/chokepoints/pw_week.py\", status: \"modified\", additions: 3, deletions: 1}]")"
+run_case
+expect SKIP 0 -- "$MERGE_CALL" "$COMMENT_CALL"
+
+new_case chokepoint_files_on_other_branch_skip_without_label
+patch_pull '.labels = [] | .head.ref = "data/chokepoints-issue-5x"'; ENV_HEAD_BRANCH="data/chokepoints-issue-5x"
+set_files "$(jq -n "$CP_FILES")"
+run_case
+expect SKIP 0 -- "$MERGE_CALL"
+
+new_case chokepoint_branch_wrong_author_skips
+patch_pull '.labels = [] | .head.ref = "data/chokepoints-issue-5" | .user.login = "someone-else"'; ENV_HEAD_BRANCH="data/chokepoints-issue-5"
+set_files "$(jq -n "$CP_FILES")"
+run_case
+expect SKIP 0 -- "$MERGE_CALL"
+
 new_case kill_switch_skips_without_api_calls; ENV_DISABLED="true"; run_case
 expect SKIP 0 -- "GET " "$MERGE_CALL"
 
