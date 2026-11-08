@@ -1,6 +1,6 @@
 {
   "schema": "chokepoints-history/v1",
-  "retrieved_at": "2026-10-31T06:26:30Z",
+  "retrieved_at": "2026-11-08T06:19:14Z",
   "written_by": "scripts/chokepoints/pw_history.py",
   "method": "Weekly transits = PortWatch n_total summed Mon-Sun. Index = transits / frozen 2023 baseline week (mean daily n_total 1 Jan - 31 Oct 2023 x 7) x 100. A week missing any day has transits null; nothing is interpolated.",
   "source_name": "IMF PortWatch",
@@ -15,13 +15,6 @@
       "portwatch_portid": "chokepoint1",
       "baseline_week": 515.4,
       "weeks": [
-        {
-          "week_start": "2026-08-03",
-          "week_end": "2026-08-09",
-          "transits": 287,
-          "index_pct_of_2023": 55.7,
-          "days": 7
-        },
         {
           "week_start": "2026-08-10",
           "week_end": "2026-08-16",
@@ -98,6 +91,13 @@
           "transits": 289,
           "index_pct_of_2023": 56.1,
           "days": 7
+        },
+        {
+          "week_start": "2026-10-26",
+          "week_end": "2026-11-01",
+          "transits": 301,
+          "index_pct_of_2023": 58.4,
+          "days": 7
         }
       ]
     },
@@ -106,13 +106,6 @@
       "portwatch_portid": "chokepoint4",
       "baseline_week": 522.1,
       "weeks": [
-        {
-          "week_start": "2026-08-03",
-          "week_end": "2026-08-09",
-          "transits": 178,
-          "index_pct_of_2023": 34.1,
-          "days": 7
-        },
         {
           "week_start": "2026-08-10",
           "week_end": "2026-08-16",
@@ -189,6 +182,13 @@
           "transits": 202,
           "index_pct_of_2023": 38.7,
           "days": 7
+        },
+        {
+          "week_start": "2026-10-26",
+          "week_end": "2026-11-01",
+          "transits": 191,
+          "index_pct_of_2023": 36.6,
+          "days": 7
         }
       ]
     },
@@ -197,13 +197,6 @@
       "portwatch_portid": "chokepoint6",
       "baseline_week": 669.4,
       "weeks": [
-        {
-          "week_start": "2026-08-03",
-          "week_end": "2026-08-09",
-          "transits": 39,
-          "index_pct_of_2023": 5.8,
-          "days": 7
-        },
         {
           "week_start": "2026-08-10",
           "week_end": "2026-08-16",
@@ -279,6 +272,13 @@
           "week_end": "2026-10-25",
           "transits": 23,
           "index_pct_of_2023": 3.4,
+          "days": 7
+        },
+        {
+          "week_start": "2026-10-26",
+          "week_end": "2026-11-01",
+          "transits": 31,
+          "index_pct_of_2023": 4.6,
           "days": 7
         }
       ]
