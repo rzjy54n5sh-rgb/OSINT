@@ -69,7 +69,11 @@ def _key(u):
 def same_target(requested, snapshot):
     """True if the snapshot is of the cited page, not a redirect to a homepage, login or consent wall."""
     m = SNAP_RE.match(snapshot.replace("https://web.archive.org", "", 1))
-    return bool(m) and _key(requested) == _key(m.group(2))
+    if not m or _key(requested) != _key(m.group(2)):
+        return False
+    q = lambda u: sorted(urllib.parse.parse_qsl(urllib.parse.urlsplit(u).query, keep_blank_values=True))  # noqa: E731
+    # An article identified by its query (?p=123, index.php?id=9) must keep that query in the snapshot.
+    return not urllib.parse.urlsplit(requested).query or q(requested) == q(m.group(2))
 
 
 def to_ascii(url):
@@ -164,6 +168,9 @@ def main(argv=None):
     ap.add_argument("--spacing", type=float, default=10.0, help="seconds between save requests")
     a = ap.parse_args(argv)
     day = a.day if a.day is not None else conflict_day()
+    if day < 1:
+        print(f"::error::--day must be >= 1 (got {day})")
+        return 2
 
     db = None
     if not a.no_db:
