@@ -183,6 +183,16 @@ class V2EndedLink(unittest.TestCase):
                     reason="D: Polymarket us-iran-ceasefire has no contract at 2026-12-31")
         self.assertNotEqual(sd.compute(self.R0() + [miss], self.H, 268)["verdict"], "KEEP_FROZEN")
 
+    def test_ambiguous_ended_link_does_not_freeze(self):
+        amb = [sd.make_reading(cls="D", bid=Decimal("0.40"), ask=Decimal("0.41"), liq=Decimal(50000),
+                               vol=Decimal(50000), question=f"US x Iran ceasefire {i}", invert=True,
+                               extra_fail="ambiguous: 2 contracts match horizon", ended=sd.D_OCCURRED)
+               for i in (1, 2)]
+        r = sd.compute(self.R0() + amb, self.H, 268)
+        self.assertNotEqual(r["verdict"], "KEEP_FROZEN")
+        self.assertTrue(all(not x["used"] for x in r["inputs"] if x["question"].startswith("US x Iran")))
+        self.assertEqual(sd.compute(self.R0() + amb, self.H, 249)["verdict"], "KEEP_FROZEN")
+
     def test_registry_marks_only_the_us_iran_ceasefire_link_ended(self):
         ended = [e["event"] for e in sd.REGISTRY if e.get("ended")]
         self.assertEqual(ended, ["us-iran-ceasefire-continues-throughptptpt"])

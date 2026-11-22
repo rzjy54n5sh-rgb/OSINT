@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.source_archives (
   CONSTRAINT source_archives_status_chk   CHECK (status IN ('saved', 'failed', 'skipped')),
   CONSTRAINT source_archives_url_chk      CHECK (url ~ '^https?://'),
   CONSTRAINT source_archives_snapshot_chk CHECK (
-       (status = 'saved'  AND snapshot_url ~ '^https://web\.archive\.org/web/[0-9]{14}/')
+       (status = 'saved'  AND snapshot_url IS NOT NULL AND snapshot_url ~ '^https://web\.archive\.org/web/[0-9]{14}/')
     OR (status <> 'saved' AND snapshot_url IS NULL)),
   CONSTRAINT source_archives_day_chk      CHECK (conflict_day >= 1)
 );

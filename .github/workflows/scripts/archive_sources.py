@@ -58,9 +58,28 @@ def snapshot_from(headers):
     return None
 
 
+def _key(u):
+    """host (no www.) + unquoted path without trailing slash: what must match between cited URL and snapshot."""
+    sp = urllib.parse.urlsplit(u)
+    host = (sp.hostname or "").lower()
+    host = host[4:] if host.startswith("www.") else host
+    return host, urllib.parse.unquote(sp.path).rstrip("/")
+
+
+def same_target(requested, snapshot):
+    """True if the snapshot is of the cited page, not a redirect to a homepage, login or consent wall."""
+    m = SNAP_RE.match(snapshot.replace("https://web.archive.org", "", 1))
+    return bool(m) and _key(requested) == _key(m.group(2))
+
+
+def to_ascii(url):
+    """Percent-encode a URL that carries raw non-ASCII (e.g. an Arabic path); leaves %-escapes as they are."""
+    return urllib.parse.quote(url, safe=":/?#[]@!$&'()*+,;=%~")
+
+
 def save(url, timeout=120):
     """-> (status, snapshot_url, http_status, detail). Never raises."""
-    req = urllib.request.Request(SAVE + url, headers={"User-Agent": UA})
+    req = urllib.request.Request(SAVE + to_ascii(url), headers={"User-Agent": UA})
     try:
         with _opener.open(req, timeout=timeout) as r:
             code, headers = r.status, r.headers
@@ -69,8 +88,10 @@ def save(url, timeout=120):
     except Exception as e:  # network error, timeout
         return "failed", None, None, f"{type(e).__name__}: {e}"[:500]
     snap = snapshot_from(headers or {})
-    if snap:
+    if snap and same_target(to_ascii(url), snap):
         return "saved", snap, code, None
+    if snap:
+        return "failed", None, code, f"HTTP {code}; Wayback captured a different page: {snap}"[:500]
     return "failed", None, code, f"HTTP {code}; no snapshot location returned"
 
 
@@ -101,12 +122,15 @@ def _ok_url(u):
 def brief_urls(db, day):
     """URLs cited in day's briefs whose source object has no archive_url -> {url: cited_in}."""
     out = {}
+    L = lambda x: x if isinstance(x, list) else []  # noqa: E731  tolerate odd shapes, never crash
+    D = lambda x: x if isinstance(x, dict) else {}  # noqa: E731
     for b in db.get(f"daily_briefings?conflict_day=eq.{day}&select=report_type,sections"):
-        for s in b.get("sections") or []:
-            for ss in s.get("subsections") or []:
-                for p in ss.get("paragraphs") or []:
-                    for src in p.get("sources") or []:
-                        u = (src or {}).get("url")
+        for s in L(b.get("sections")):
+            for ss in L(D(s).get("subsections")):
+                for p in L(D(ss).get("paragraphs")):
+                    for src in L(D(p).get("sources")):
+                        src = D(src)
+                        u = src.get("url")
                         if _ok_url(u) and not (src.get("archive_url") or "").strip():
                             out.setdefault(u, f"daily_briefings:{day}:{b['report_type']}")
     return out
@@ -120,8 +144,14 @@ def evidence_urls(db, since_days=3):
 
 def recently_saved(db, days=7):
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    rows = db.get(f"source_archives?status=eq.saved&requested_at=gte.{since}&select=url&limit=10000")
-    return {r["url"] for r in rows}
+    out, off = set(), 0
+    while True:   # PostgREST caps a response at 1000 rows: page through
+        rows = db.get(f"source_archives?status=eq.saved&requested_at=gte.{since}&select=url"
+                      f"&order=requested_at.desc&limit=1000&offset={off}")
+        out |= {r["url"] for r in rows}
+        if len(rows) < 1000:
+            return out
+        off += 1000
 
 
 def main(argv=None):
@@ -133,7 +163,7 @@ def main(argv=None):
     ap.add_argument("--limit", type=int, default=150)
     ap.add_argument("--spacing", type=float, default=10.0, help="seconds between save requests")
     a = ap.parse_args(argv)
-    day = a.day or conflict_day()
+    day = a.day if a.day is not None else conflict_day()
 
     db = None
     if not a.no_db:
@@ -144,7 +174,8 @@ def main(argv=None):
         db = DB(url, key)
 
     if a.urls_file:
-        targets = {l.strip(): "manual" for l in open(a.urls_file) if _ok_url(l.strip())}
+        with open(a.urls_file, encoding="utf-8", errors="replace") as f:
+            targets = {l.strip(): "manual" for l in f if _ok_url(l.strip())}
     else:
         targets = brief_urls(db, day)
         for u, c in evidence_urls(db).items():

@@ -86,8 +86,8 @@ D_OCCURRED = dict(day=249, ruling="A-01 (operator, 2026-11-22)",
                   reason="link ended: scenario D occurred on Day 249 (Polymarket US x Iran ceasefire contracts "
                          "resolved No 2026-11-03; ruling A-01); D is measured as D-prime from Day 250")
 D_PRIME_NOTE = ("D-prime (market-anchored-v2, ruling A-01): an Israel-Iran strike, a US invasion, an Israeli "
-                "ground operation in Iran or loss of Iranian control of Kharg by H. Further limited US strikes on "
-                "Iran are unmeasured: no open market prices them.")
+                "ground operation in Iran, loss of Iranian control of Kharg or a new state belligerent striking "
+                "Iran by H. Further limited US strikes on Iran are unmeasured: no open market prices them.")
 
 # ---------------------------------------------------------------------------------------------------
 # Proxy registry (scenario_method.md §1.5 / §3). Order = order of the published input table.
@@ -548,7 +548,7 @@ def compute(readings, horizon, conflict_day):
         if p["horizon_ok"] and p.get("closed") and not p.get("ended"):
             msg = f"{p['cls']}: '{p['question']}' ({p['venue']}) is closed at H — resolved or halted; operator review"
             (frozen if p["cls"] in CORE else caveats).append(msg)
-        if p.get("extra_fail", "") and p["extra_fail"].startswith("ambiguous"):
+        if p.get("extra_fail", "") and p["extra_fail"].startswith("ambiguous") and not p.get("ended"):
             msg = f"{p['cls']}: {p['venue']} {p['slug']}: {p['extra_fail']}"
             if msg not in frozen + caveats:
                 (frozen if p["cls"] in CORE else caveats).append(msg)

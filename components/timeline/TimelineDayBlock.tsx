@@ -123,7 +123,7 @@ export function TimelineDayBlock({ conflictDay, dateLabel, scenario, articles: p
               // Market-anchored days: A, C, D can co-occur, so B (none of them) is a range. Legacy desk
               // days are shown as published, marked as a retired method that cannot be scored.
               const b =
-                method === 'market-anchored-v1'
+                method === 'market-anchored-v1' || method === 'market-anchored-v2'
                   ? (() => {
                       const r = residualRange({ A: a, C: c, D: d });
                       return r ? `${formatRange(r)} (range)` : '—';
