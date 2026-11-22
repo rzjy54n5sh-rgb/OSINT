@@ -32,6 +32,16 @@ UA = "mena-intel-desk archive_sources (+https://github.com/rzjy54n5sh-rgb/OSINT)
 SNAP_RE = re.compile(r"^(?:https?://web\.archive\.org)?/web/(\d{14})/(.+)$")
 SKIP_HOSTS = ("web.archive.org", "archive.ph", "archive.today", "archive.is")
 JOB = "archive-sources"
+# Wayback rate-limits anonymous saves by refusing connections for a few minutes (measured 2026-11-22 on a
+# GitHub runner: ~2 saves, then ~2.5 min of "Connection refused"). A refusal is not a failure of the URL:
+# wait it out and retry the same URL; after REFUSAL_RETRIES in a row, stop and leave the rest for the next run.
+REFUSAL_WAIT_S = 150
+REFUSAL_RETRIES = 4
+
+
+def _refused(code, detail):
+    d = detail or ""
+    return code == 429 or "Errno 111" in d or "Connection refused" in d or "handshake operation timed out" in d
 
 
 def conflict_day(today=None):
@@ -164,8 +174,9 @@ def main(argv=None):
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--no-db", action="store_true")
     ap.add_argument("--urls-file")
-    ap.add_argument("--limit", type=int, default=150)
-    ap.add_argument("--spacing", type=float, default=10.0, help="seconds between save requests")
+    ap.add_argument("--limit", type=int, default=90)
+    ap.add_argument("--spacing", type=float, default=30.0, help="seconds between save requests")
+    ap.add_argument("--refusal-wait", type=float, default=REFUSAL_WAIT_S, help="seconds to wait on a rate-limit refusal")
     a = ap.parse_args(argv)
     day = a.day if a.day is not None else conflict_day()
     if day < 1:
@@ -197,24 +208,30 @@ def main(argv=None):
         return 0
 
     saved = failed = 0
+    stopped = False
     for i, (u, cited) in enumerate(queue):
         if i:
             time.sleep(a.spacing)
         status, snap, code, detail = save(u)
-        if code == 429:
-            print(f"[{JOB}] 429 from Wayback; waiting 90 s and retrying once")
-            time.sleep(90)
+        tries = 0
+        while status != "saved" and _refused(code, detail) and tries < REFUSAL_RETRIES:
+            tries += 1
+            print(f"[{JOB}] Wayback rate limit ({code or detail[:40]}); waiting {a.refusal_wait:.0f} s, retry {tries}")
+            time.sleep(a.refusal_wait)
             status, snap, code, detail = save(u)
-            if code == 429:
-                print(f"[{JOB}] still rate-limited; stopping. Remaining URLs are picked up by the next run.")
-                break
+        if status != "saved" and _refused(code, detail):
+            print(f"[{JOB}] still rate-limited after {tries} waits; stopping. "
+                  f"{len(queue) - i} URLs are left for the next run.")
+            stopped = True
+            break
         saved += status == "saved"
         failed += status != "saved"
         print(f"  {status:6} {code} {u} -> {snap or detail}")
         if db:
             db.insert({"url": u, "snapshot_url": snap, "status": status, "http_status": code, "detail": detail,
                        "cited_in": cited, "conflict_day": day})
-    msg = f"{saved} saved, {failed} failed of {len(queue)} requested (Day {day})"
+    msg = (f"{saved} saved, {failed} failed of {len(queue)} requested (Day {day})"
+           + ("; stopped early on Wayback's rate limit" if stopped else ""))
     print(f"[{JOB}] {msg}")
     heartbeat.beat(JOB, "ok" if (saved or not queue) else "fail", msg)
     return 1 if queue and saved == 0 else 0
