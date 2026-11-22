@@ -1,11 +1,11 @@
-# Daily scenario probabilities (method market-anchored-v1) into the scenario registry.
+# Daily scenario probabilities (method market-anchored-v2) into the scenario registry.
 # Deterministic: public Polymarket Gamma + Kalshi v2 endpoints -> fixed rule -> scenario_runs /
 # scenario_daily -> rpc scenario_publish_run -> rpc scenario_lifecycle_tick. NO model / AI API.
 # Never writes scenario_probabilities (derived by the registry's sync trigger).
 # Runs at 05:20 UTC, before the 06:51 Cairo Claude daily-build task.
-name: Scenario Daily (market-anchored-v1)
+name: Scenario Daily (market-anchored-v2)
 # The run title marks dry runs, so schedule_gate.sh never counts a dry run as today's real run.
-run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'Scenario Daily (dry run)' || 'Scenario Daily (market-anchored-v1)' }}
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'Scenario Daily (dry run)' || 'Scenario Daily (market-anchored-v2)' }}
 
 on:
   schedule:

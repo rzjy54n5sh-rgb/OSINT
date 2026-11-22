@@ -68,7 +68,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - `country_reports`: country_code, country_name (NOT NULL), nai_score, nai_category, content_json, conflict_day, updated_at
   - Unique on country_code ALONE (one snapshot per country, not a time series) → PATCH by country_code=eq.{cc} — verify live
 - `daily_briefings`: **where reports live** (read by `app/page.tsx`, `app/briefings/page.tsx`, `app/briefings/[day]/[type]/page.tsx`). Columns used in code: conflict_day, report_type (general, general_weekly, eschatology, business, per-country types, …; registered in `report_types`), country_code, title, lead, sections, cover_stats, source_ids, source, quality, generated_at. Full column list + constraints: verify live
-- `detected_scenarios`: candidate scenarios needing admin approval (migration 006) — conflict_day, label, title, description_en/_ar, new_actor, new_instrument, trigger_sources, source_count, initial_probability, acting/affected_party_framing, status (candidate|approved|rejected|superseded), detected_by, …; UNIQUE (conflict_day, label). Never auto-approve
+- `detected_scenarios`: candidate scenarios needing admin approval (migration 006) — conflict_day, label, title, description_en/_ar, new_actor, new_instrument, trigger_sources, source_count, initial_probability, acting/affected_party_framing, status (candidate|approved|rejected|superseded), detected_by, …; UNIQUE (conflict_day, label). Promotion is automatic when every evidence test passes (operator standing order 2026-10-17, via `scenario_promote_candidate`); the DB re-checks the evidence and refuses otherwise
 - `scenario_probabilities`: conflict_day, scenario_a..scenario_e, updated_at
   - ONE ROW PER DAY. Not one row per scenario code. Frozen at Day 35 in the legacy table (live). Under the 2026-10-06 dynamic-model ruling it is DERIVED from the scenario registry and never written directly — see "Rulings 2026-10-06"
 - `disinfo_claims` (NOT disinformation_tracker — that table does NOT exist): claim_text, verdict, source_url, debunk_url, spread_estimate, published_at, created_at
@@ -100,7 +100,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 5. **CVE-2025-29927:** Every admin Server Component must independently verify auth (4-line block: getUser → redirect if not found → check admin_users → redirect if not active)
 6. **docx rules:** NEVER ShadingType.SOLID (use CLEAR). NEVER PageNumber constructor. NEVER • in Paragraph indent (use '* '). sentBar() MUST return [labelParagraph, tableElement] array.
 7. **country_name is NOT NULL** — any NEW country_reports row needs a real display name supplied by a human; automation never writes it (Hard Bans)
-8. **scenario_probabilities:** ONE ROW per conflict_day. A+B+C+D must sum to 100. E is independent sub-branch. Derived from the registry, never written directly; probabilities are produced only via `market-anchored-v1` (see "Rulings 2026-10-06")
+8. **scenario_probabilities:** ONE ROW per conflict_day. A+B+C+D must sum to 100. E is independent sub-branch. Derived from the registry, never written directly; probabilities are produced only by the market-anchored method (`market-anchored-v1` to Day 249, `market-anchored-v2` from Day 250: ruling A-01, 2026-11-22, the US-Iran ceasefire link is ended because the D event occurred; see `scenario_daily.py`)
 9. **docx only** for reports — never PDF/ReportLab
 10. **country_reports upsert:** PATCH by country_code=eq.{cc} — INSERT with Prefer:resolution=merge-duplicates silently fails
 11. **No metered AI API in automation.** The old "claude-sonnet-4-6 adaptive thinking pipeline" rule is void: the pipeline workflows are retired and agent analysis runs as the Claude scheduled task
@@ -167,7 +167,7 @@ Source of truth = `supabase/migrations/` + live DB. `nai_scores`, `country_repor
 - Current conflict day: calculated fresh each time — do NOT hardcode
 
 ## Rulings 2026-10-06 (dynamic model — operator rulings, do not re-open)
-- **Scenario probabilities only via `market-anchored-v1`:** markets → method → sourced inputs, with the inputs stored with each run. No hand-set or model-guessed probabilities. `scenario_probabilities` is derived from the registry and never written directly.
+- **Scenario probabilities only via the market-anchored method (`market-anchored-v1`, then `-v2` from Day 250 by ruling A-01 2026-11-22):** markets → method → sourced inputs, with the inputs stored with each run. No hand-set or model-guessed probabilities. `scenario_probabilities` is derived from the registry and never written directly.
 - **Retirement:** a scenario retires after 14 consecutive days below 10% on the PUBLISHED whole-number probability (not `probability_raw`). A missing day breaks the streak. Only the operator retires a core (A–D) scenario. E stays "unmeasured" while it has no market.
 - **Ceasefire-breaking strike:** counts as Escalation (D).
 - **Backfill depth:** daily General brief + weekly country, eschatology and business briefs. Weekly retrospective digests live under `report_type = 'general_weekly'` (stored on the period's last day; `period_start_day`/`period_end_day` carry the span), never under `general`.

@@ -141,6 +141,53 @@ class Day221Parity(unittest.TestCase):
             self.assertTrue(inputs_valid(row["inputs"], row["probability"] is not None), row["scenario_id"])
 
 
+class V2EndedLink(unittest.TestCase):
+    """market-anchored-v2 (ruling A-01): the US-Iran ceasefire link is ended from Day 250."""
+    H = dt.date(2026, 12, 31)
+
+    def ended_reading(self):
+        return sd.make_reading(cls="D", bid=None, ask=Decimal("0.001"), liq=Decimal(0), vol=Decimal(0),
+                               question="US x Iran ceasefire continues through December 31?", closed=True,
+                               invert=True, last_trade=Decimal("0.005"), ended=sd.D_OCCURRED)
+
+    def R0(self):
+        rs = base_set()
+        rs[2] = R("D", 0.30, 0.32, question="D proxy")
+        return rs
+
+    def test_method_for_day(self):
+        self.assertEqual(sd.method_for(249), "market-anchored-v1")
+        self.assertEqual(sd.method_for(250), "market-anchored-v2")
+
+    def test_ended_closed_link_does_not_freeze_after_occurrence(self):
+        r = sd.compute(self.R0() + [self.ended_reading()], self.H, 268)
+        self.assertNotEqual(r["verdict"], "KEEP_FROZEN")
+        self.assertEqual(r["method_version"], "market-anchored-v2")
+        row = next(x for x in r["inputs"] if x["question"].startswith("US x Iran"))
+        self.assertFalse(row["used"])
+        self.assertIn("link ended", row["excluded_reason"])
+        self.assertEqual(r["scenario_d"], 31)   # D-prime from the remaining D proxy (mid 0.31)
+        self.assertEqual(sum(r[f"scenario_{k}"] for k in "abcd"), 100)
+
+    def test_ended_link_still_freezes_on_or_before_occurrence_day(self):
+        r = sd.compute(self.R0() + [self.ended_reading()], self.H, 249)
+        self.assertEqual(r["verdict"], "KEEP_FROZEN")
+        self.assertEqual(r["method_version"], "market-anchored-v1")
+
+    def test_closed_core_market_without_ruling_still_freezes_under_v2(self):
+        rs = self.R0() + [R("D", 0.40, 0.41, question="resolved, no ruling", closed=True)]
+        self.assertEqual(sd.compute(rs, self.H, 268)["verdict"], "KEEP_FROZEN")
+
+    def test_missing_snapshot_for_ended_link_is_a_caveat_not_a_freeze(self):
+        miss = dict(missing="no_open_contract", cls="D", venue="Polymarket", ended=sd.D_OCCURRED,
+                    reason="D: Polymarket us-iran-ceasefire has no contract at 2026-12-31")
+        self.assertNotEqual(sd.compute(self.R0() + [miss], self.H, 268)["verdict"], "KEEP_FROZEN")
+
+    def test_registry_marks_only_the_us_iran_ceasefire_link_ended(self):
+        ended = [e["event"] for e in sd.REGISTRY if e.get("ended")]
+        self.assertEqual(ended, ["us-iran-ceasefire-continues-throughptptpt"])
+
+
 class Rounding(unittest.TestCase):
     def H(self, a, b, c, d):
         ints, _ = sd.hamilton({"A": Decimal(a), "B": Decimal(b), "C": Decimal(c), "D": Decimal(d)})

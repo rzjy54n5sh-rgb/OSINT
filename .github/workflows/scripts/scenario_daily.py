@@ -48,7 +48,13 @@ import uuid
 import heartbeat  # job_heartbeats row at the end of a run (non-fatal)
 from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal as D
 
-METHOD_VERSION = "market-anchored-v1"
+METHOD_VERSION = "market-anchored-v2"
+METHOD_V1 = "market-anchored-v1"
+V2_FROM_DAY = 250          # first conflict day computed under v2 (ruling A-01); earlier days stay v1
+
+
+def method_for(conflict_day):
+    return METHOD_VERSION if conflict_day >= V2_FROM_DAY else METHOD_V1
 CONFLICT_START = dt.date(2026, 2, 28)
 FLOOR_LIQ = D(10000)
 FLOOR_VOL = D(10000)
@@ -68,6 +74,22 @@ USER_AGENT = "mena-intel-desk scenario_daily (+https://github.com/rzjy54n5sh-rgb
 SCRIPT_REL = ".github/workflows/scripts/scenario_daily.py"
 
 # ---------------------------------------------------------------------------------------------------
+# market-anchored-v2 (operator ruling A-01, 2026-11-22): the scenario D event occurred. Polymarket resolved
+# "US x Iran ceasefire continues through November 30?" and "... December 31?" No on 2026-11-03 (Day 249 by
+# the market's calendar). From Day 250, D is measured as D-prime: an Israel-Iran strike (either direction),
+# a US invasion of Iran, an Israeli ground operation in Iran or loss of Iranian control of Kharg, by H.
+# Further limited US strikes on Iran are NOT measured: no open market prices them. The US-Iran ceasefire
+# link is ended: it is still fetched and shown for the audit trail but never used and never freezes the run.
+# A closed core market WITHOUT such a ruling still freezes the run (KEEP_FROZEN), as in v1.
+# ---------------------------------------------------------------------------------------------------
+D_OCCURRED = dict(day=249, ruling="A-01 (operator, 2026-11-22)",
+                  reason="link ended: scenario D occurred on Day 249 (Polymarket US x Iran ceasefire contracts "
+                         "resolved No 2026-11-03; ruling A-01); D is measured as D-prime from Day 250")
+D_PRIME_NOTE = ("D-prime (market-anchored-v2, ruling A-01): an Israel-Iran strike, a US invasion, an Israeli "
+                "ground operation in Iran or loss of Iranian control of Kharg by H. Further limited US strikes on "
+                "Iran are unmeasured: no open market prices them.")
+
+# ---------------------------------------------------------------------------------------------------
 # Proxy registry (scenario_method.md §1.5 / §3). Order = order of the published input table.
 # event: Polymarket event slug or Kalshi event ticker; a dict keys a per-horizon event (ISO date -> id)
 # for venues that list one event per month. The market inside the event is chosen by horizon (H).
@@ -83,7 +105,7 @@ REGISTRY = [
         "2026-12-31": "strait-of-hormuz-traffic-returns-to-normal-by-december-31"}),
     dict(cls="A", venue="Kalshi", event="KXHORMUZNORM-26MAR17", same_event="HORMUZ_NORMAL"),
     dict(cls="D", venue="Polymarket", event="us-iran-ceasefire-continues-throughptptpt", invert=True,
-         note="P(US strike on Iran) = 1 - P(ceasefire holds)"),
+         note="P(US strike on Iran) = 1 - P(ceasefire holds)", ended=D_OCCURRED),
     dict(cls="D", venue="Polymarket", event="israel-x-iran-ceasefire-continues-throughptptpt-20260716224448963",
          invert=True, note="P(Israel/Iran strike) = 1 - P(ceasefire holds)"),
     dict(cls="D", venue="Polymarket", event="kharg-island-no-longer-under-iranian-control-by-march-31"),
@@ -254,7 +276,7 @@ def fetch_evidence(out_dir, now=None):
 def make_reading(cls, bid, ask, liq, vol, venue="Polymarket", question="synthetic", slug="synthetic",
                  resolution_date="2026-11-01T03:59:00Z", invert=False, same_event=None, note=None,
                  horizon_ok=True, closed=False, read_at="2026-10-06T00:00:00Z", last_trade=None,
-                 liq_label=None, url=None, api_url=None, extra_fail=None):
+                 liq_label=None, url=None, api_url=None, extra_fail=None, ended=None):
     if note is None and same_event:
         note = f"same-event:{same_event}"
     return dict(cls=cls, venue=venue, question=question, slug=slug,
@@ -262,7 +284,7 @@ def make_reading(cls, bid, ask, liq, vol, venue="Polymarket", question="syntheti
                 resolution_date=resolution_date, bid=bid, ask=ask, liq=liq, vol=vol,
                 liq_label=liq_label or ("open_interest_usd" if venue == "Kalshi" else "liquidity_usd"),
                 invert=invert, same_event=same_event, note=note or "", horizon_ok=horizon_ok,
-                closed=closed, read_at=read_at, last_trade=last_trade, extra_fail=extra_fail)
+                closed=closed, read_at=read_at, last_trade=last_trade, extra_fail=extra_fail, ended=ended)
 
 
 def _dec(x):
@@ -297,7 +319,8 @@ def _pm_reading(entry, event, m, read_at):
         resolution_date=m["endDate"], bid=_dec(m.get("bestBid")), ask=_dec(m.get("bestAsk")),
         liq=D(str(m.get("liquidity") or 0)), vol=D(str(m.get("volume") or 0)), liq_label="liquidity_usd",
         invert=entry.get("invert", False), same_event=entry.get("same_event"), note=entry.get("note"),
-        closed=bool(m.get("closed")), read_at=read_at, last_trade=_dec(m.get("lastTradePrice")))
+        closed=bool(m.get("closed")), read_at=read_at, last_trade=_dec(m.get("lastTradePrice")),
+        ended=entry.get("ended"))
 
 
 def _kalshi_reading(entry, event, m, read_at):
@@ -308,7 +331,7 @@ def _kalshi_reading(entry, event, m, read_at):
         liq=D(str(m.get("open_interest_fp") or 0)), vol=D(str(m.get("volume_fp") or 0)),
         liq_label="open_interest_usd", invert=entry.get("invert", False), same_event=entry.get("same_event"),
         note=entry.get("note"), closed=m.get("status") not in ("active", "open"), read_at=read_at,
-        last_trade=_dec(m.get("last_price_dollars")))
+        last_trade=_dec(m.get("last_price_dollars")), ended=entry.get("ended"))
 
 
 def load_readings(evidence_dir, horizon, read_at_override=None):
@@ -320,13 +343,13 @@ def load_readings(evidence_dir, horizon, read_at_override=None):
         venue, cls = entry["venue"], entry["cls"]
         event = event_for(entry, horizon)
         if event is None:
-            out.append(dict(missing="unconfigured", cls=cls, venue=venue,
+            out.append(dict(missing="unconfigured", cls=cls, venue=venue, ended=entry.get("ended"),
                             reason=f"{cls}: registry has no {venue} event configured for horizon {horizon}"))
             continue
         rel = evidence_rel(venue, event)
         path = os.path.join(evidence_dir, rel)
         if not os.path.exists(path):
-            out.append(dict(missing="absent", cls=cls, venue=venue, reason=f"{cls}: no snapshot for {venue} {event}"))
+            out.append(dict(missing="absent", cls=cls, venue=venue, ended=entry.get("ended"), reason=f"{cls}: no snapshot for {venue} {event}"))
             continue
         read_at = (read_at_override or {}).get(venue) or manifest["files"].get(rel, {}).get("read_at")
         if not read_at:
@@ -345,7 +368,7 @@ def load_readings(evidence_dir, horizon, read_at_override=None):
             q_ok = lambda m: True  # noqa: E731
             mk = _kalshi_reading
         if not markets:
-            out.append(dict(missing="empty", cls=cls, venue=venue, reason=f"{cls}: {venue} {event} returned no markets"))
+            out.append(dict(missing="empty", cls=cls, venue=venue, ended=entry.get("ended"), reason=f"{cls}: {venue} {event} returned no markets"))
             continue
         at_h, display = _select(markets, horizon, end_of, live, q_ok)
         if at_h:
@@ -362,7 +385,7 @@ def load_readings(evidence_dir, horizon, read_at_override=None):
             r["note"] = f"{r['note']}; {auto}" if r["note"] else auto
             out.append(r)
         else:
-            out.append(dict(missing="no_open_contract", cls=cls, venue=venue,
+            out.append(dict(missing="no_open_contract", cls=cls, venue=venue, ended=entry.get("ended"),
                             reason=f"{cls}: {venue} {event} has no contract at {horizon} and no open later contract"))
     return out
 
@@ -412,6 +435,8 @@ def _evaluate(p):
     p["spread"] = (p["ask"] - p["bid"]) if has_quote else None
     p["prob"] = (1 - p["mid"]) if (p["invert"] and p["mid"] is not None) else p["mid"]
     fails = []
+    if p.get("ended"):
+        fails.append(p["ended"]["reason"])
     if not p["horizon_ok"]:
         fails.append("horizon")
     if p.get("closed"):
@@ -449,6 +474,9 @@ def _input_row(p):
 
 def compute(readings, horizon, conflict_day):
     """Pure method: readings -> numbers, verdict, full input table. Decimal arithmetic throughout."""
+    # An ended link applies only from the day after the ruled occurrence day (v1 days are unchanged).
+    readings = [dict(r, ended=None) if r.get("ended") and conflict_day <= r["ended"]["day"] else r
+                for r in readings]
     missing = [r for r in readings if r.get("missing")]
     P = [_evaluate(r) for r in readings if not r.get("missing")]
     frozen, caveats, info = [], [], []
@@ -517,7 +545,7 @@ def compute(readings, horizon, conflict_day):
                       f"applied for audit only (job spec: {OVERFLOW_VERDICT}; method 1.7/1.9 alone would publish with a flag)")
 
     for p in P:
-        if p["horizon_ok"] and p.get("closed"):
+        if p["horizon_ok"] and p.get("closed") and not p.get("ended"):
             msg = f"{p['cls']}: '{p['question']}' ({p['venue']}) is closed at H — resolved or halted; operator review"
             (frozen if p["cls"] in CORE else caveats).append(msg)
         if p.get("extra_fail", "") and p["extra_fail"].startswith("ambiguous"):
@@ -528,7 +556,7 @@ def compute(readings, horizon, conflict_day):
         if m["missing"] == "unconfigured":
             caveats.append(m["reason"])
         else:
-            (frozen if m["cls"] in CORE else caveats).append(m["reason"])
+            (frozen if (m["cls"] in CORE and not m.get("ended")) else caveats).append(m["reason"])
 
     ints, raw = hamilton({"A": Av, "B": Bv, "C": Cv, "D": Dv})
     E_int = int((e * 100).to_integral_value(rounding=ROUND_HALF_UP)) if e is not None else None
@@ -546,7 +574,12 @@ def compute(readings, horizon, conflict_day):
         info.append(f"E NULL: {e_reason}")
     else:
         e_reason = None
-    info.append("J1 ratified by operator 2026-10-06: a ceasefire-breaking US/Israeli strike counts toward D")
+    if conflict_day >= V2_FROM_DAY:
+        info.append(D_PRIME_NOTE)
+    else:
+        info.append("J1 ratified by operator 2026-10-06: a ceasefire-breaking US/Israeli strike counts toward D")
+    if any(p.get("ended") for p in P):
+        info.append("D occurred Day 249 (ruling A-01); the US-Iran ceasefire link is ended and shown for audit only")
     venues = {cls: sorted({x["venue"] for x in src}) for cls, src in (("A", a_src), ("C", c_src), ("D", d_src)) if src}
     if venues and len({v for vs in venues.values() for v in vs}) == 1:
         only = next(iter(venues.values()))[0]
@@ -557,7 +590,7 @@ def compute(readings, horizon, conflict_day):
     raw_float = {k: float(v) for k, v in raw.items()}
     result = {
         "conflict_day": conflict_day, "scenario_a": ints["A"], "scenario_b": ints["B"], "scenario_c": ints["C"],
-        "scenario_d": ints["D"], "scenario_e": E_int, "method_version": METHOD_VERSION,
+        "scenario_d": ints["D"], "scenario_e": E_int, "method_version": method_for(conflict_day),
         "horizon_end": horizon.isoformat(), "inputs": rows, "verdict": verdict,
         "flags": frozen + caveats + info, "raw_percent": raw_float,
         "computed": {"A": ints["A"], "B": ints["B"], "C": ints["C"], "D": ints["D"], "E": E_int,
