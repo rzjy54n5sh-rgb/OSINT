@@ -1,0 +1,53 @@
+# Archive every URL the desk cited today on the Wayback Machine and record the snapshot it returned.
+# The Claude daily build (01:45 UTC) cannot reach web.archive.org/save from its cloud sandbox, so this
+# job runs after it on GitHub's runners. Appends to public.source_archives only (migration
+# 20261122090100); never edits a brief or an evidence row. Stdlib Python, no model API, free tier.
+name: Archive cited sources (Wayback)
+
+on:
+  schedule:
+    - cron: '40 4 * * *'      # after the daily build has written today's briefs
+  workflow_dispatch:
+    inputs:
+      day:
+        description: 'Conflict day to archive (blank = today, DAY LOCK UTC)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'List what would be saved; write nothing'
+        type: boolean
+        default: false
+
+concurrency:
+  group: archive-sources
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/workflows/scripts
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.11'
+      - name: Save cited URLs to the Wayback Machine
+        working-directory: .github/workflows/scripts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DAY: ${{ inputs.day }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ -n "$DAY" ]; then ARGS="$ARGS --day $DAY"; fi
+          if [ "$DRY" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          python archive_sources.py $ARGS

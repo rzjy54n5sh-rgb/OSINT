@@ -19,7 +19,7 @@ import { constantHorizonProbability, daysBetween, formatRange, residualRange, ty
 
 type Sb = Pick<SupabaseClient, 'from'>;
 
-export const CURRENT_SCENARIO_METHOD = 'market-anchored-v1';
+export const CURRENT_SCENARIO_METHOD = 'market-anchored-v2';
 export const LEGACY_SCENARIO_METHOD = 'legacy-desk-v0';
 /** Short public marker for the Days 1-35 series wherever it is shown. */
 export const LEGACY_SERIES_MARKER = 'retired method, cannot be scored';
